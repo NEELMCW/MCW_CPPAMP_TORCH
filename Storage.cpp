@@ -1,6 +1,7 @@
 #include "THC.h"
 #include "THFile.h"
 #include "luaT.h"
+#include "amp.h"
 
 /* everything is as the generic Storage.c, except few things (see below) */
 
@@ -12,7 +13,7 @@
 
 #define THFile_readRealRaw(file, data, size)                            \
   {                                                                     \
-    float *fdata = THAlloc(sizeof(float)*size);                         \
+    float *fdata = (float *)THAlloc(sizeof(float)*size);                         \
     THFile_readFloatRaw(file, fdata, size);                             \
     THCampCheck(cudaMemcpy(data, fdata, size * sizeof(float), cudaMemcpyHostToDevice)); \
     THFree(fdata);                                                      \
@@ -20,7 +21,7 @@
 
 #define THFile_writeRealRaw(file, data, size)                           \
   {                                                                     \
-    float *fdata = THAlloc(sizeof(float)*size);                         \
+    float *fdata = (float *)THAlloc(sizeof(float)*size);                         \
     THCampCheck(cudaMemcpy(fdata, data, size * sizeof(float), cudaMemcpyDeviceToHost)); \
     THFile_writeFloatRaw(file, fdata, size);                            \
     THFree(fdata);                                                      \
@@ -39,29 +40,12 @@
 #define CUDA_IMPLEMENT_STORAGE_COPY(TYPEC)                              \
   static int clamptorch_##TYPEC##Storage_copy(lua_State *L)                \
   {                                                                     \
-    TH##TYPEC##Storage *storage = luaT_checkudata(L, 1, "torch." #TYPEC "Storage"); \
-    void *src;                                                          \
-    if( (src = luaT_toudata(L, 2, "torch." #TYPEC "Storage")) )         \
+    TH##TYPEC##Storage *storage = (TH##TYPEC##Storage *)luaT_checkudata(L, 1, "torch." #TYPEC "Storage"); \
+    TH##TYPEC##Storage *src;                                                          \
+    if( (src = (TH##TYPEC##Storage *)luaT_toudata(L, 2, "torch." #TYPEC "Storage")) )         \
       TH##TYPEC##Storage_copy(storage, src);                            \
-    else if( (src = luaT_toudata(L, 2, "torch.ByteStorage")) )          \
-      TH##TYPEC##Storage_copyByte(storage, src);                        \
-    else if( (src = luaT_toudata(L, 2, "torch.CharStorage")) )          \
-      TH##TYPEC##Storage_copyChar(storage, src);                        \
-    else if( (src = luaT_toudata(L, 2, "torch.ShortStorage")) )         \
-      TH##TYPEC##Storage_copyShort(storage, src);                       \
-    else if( (src = luaT_toudata(L, 2, "torch.IntStorage")) )           \
-      TH##TYPEC##Storage_copyInt(storage, src);                         \
-    else if( (src = luaT_toudata(L, 2, "torch.LongStorage")) )          \
-      TH##TYPEC##Storage_copyLong(storage, src);                        \
-    else if( (src = luaT_toudata(L, 2, "torch.FloatStorage")) )         \
-      TH##TYPEC##Storage_copyFloat(storage, src);                       \
-    else if( (src = luaT_toudata(L, 2, "torch.DoubleStorage")) )        \
-      TH##TYPEC##Storage_copyDouble(storage, src);                      \
-    else if( (src = luaT_toudata(L, 2, "torch.CampStorage")) )          \
-      TH##TYPEC##Storage_copyCamp(storage, src);                        \
     else                                                                \
       luaL_typerror(L, 2, "torch.*Storage");                            \
-                                                                        \
     lua_settop(L, 1);                                                   \
     return 1;                                                           \
 }
@@ -84,7 +68,7 @@ void clamptorch_CampStorage_init(lua_State* L)
   {
     int i;
 
-    const void* tnames[8] = {"torch.ByteStorage",
+    const char* tnames[8] = {"torch.ByteStorage",
                              "torch.CharStorage",
                              "torch.ShortStorage",
                              "torch.IntStorage",
