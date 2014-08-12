@@ -1,7 +1,9 @@
 #include "THC.h"
+#include "amp.h"
+extern "C"
+{
 #include "THFile.h"
 #include "luaT.h"
-//#include "amp.h"
 
 /* everything is as the generic Storage.c, except few things (see below) */
 
@@ -58,7 +60,7 @@ CUDA_IMPLEMENT_STORAGE_COPY(Long)
 CUDA_IMPLEMENT_STORAGE_COPY(Float)
 CUDA_IMPLEMENT_STORAGE_COPY(Double)
 CUDA_IMPLEMENT_STORAGE_COPY(Camp)
-
+}
 extern "C"
 {
 void clamptorch_CampStorage_init(lua_State* L)
