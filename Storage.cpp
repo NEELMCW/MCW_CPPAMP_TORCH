@@ -1,5 +1,5 @@
 #include "THC.h"
-#include "amp.h"
+//#include "amp.h"
 extern "C"
 {
 
