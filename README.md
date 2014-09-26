@@ -13,14 +13,18 @@ C++ AMP couterpart of CUDA torch implementation
 
 * Summary of set up:
 To build this package:
+
 1. Clone the repo
+
 2. run the command - luarocks make rocks/*.spec
 
 * Dependencies
+
 Torch7 package
 
 * How to run tests
-run the command - th -lclamptorch -e "clamptorch.test()"
+
+Run the command - th -lclamptorch -e "clamptorch.test()"
 
 * Deployment instructions
 
