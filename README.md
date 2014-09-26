@@ -5,7 +5,7 @@ This README would normally document whatever steps are necessary to get your app
 ### What is this repository for? ###
 
 * Quick summary
-C++ AMP couterpart of CUDA torch implementation
+C++ AMP counterpart of CUDA torch implementation
 * Version 0.1
 * [Learn Markdown](https://bitbucket.org/tutorials/markdowndemo)
 
