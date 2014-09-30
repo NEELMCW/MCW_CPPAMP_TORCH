@@ -18,14 +18,14 @@ extern "C"
   {                                                                     \
     float *fdata = (float *)THAlloc(sizeof(float)*size);                \
     THFile_readFloatRaw(file, fdata, size);                             \
-    THCampCheck(cudaMemcpy(data, fdata, size * sizeof(float), cudaMemcpyHostToDevice)); \
+   /* THCampCheck(cudaMemcpy(data, fdata, size * sizeof(float), cudaMemcpyHostToDevice));*/ \
     THFree(fdata);                                                      \
   }
 
 #define THFile_writeRealRaw(file, data, size)                           \
   {                                                                     \
     float *fdata = (float *)THAlloc(sizeof(float)*size);                \
-    THCampCheck(cudaMemcpy(fdata, data, size * sizeof(float), cudaMemcpyDeviceToHost)); \
+    /*THCampCheck(cudaMemcpy(fdata, data, size * sizeof(float), cudaMemcpyDeviceToHost));*/ \
     THFile_writeFloatRaw(file, fdata, size);                            \
     THFree(fdata);                                                      \
   }
