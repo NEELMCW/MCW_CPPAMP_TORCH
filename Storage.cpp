@@ -1,7 +1,5 @@
 #include "THC.h"
-//#include "amp.h"
-extern "C"
-{
+#include "amp.h"
 
 #include "THFile.h"
 #include "luaT.h"
@@ -10,7 +8,8 @@ extern "C"
 
 #define real float
 #define Real Camp
-#define TH_GENERIC_FILE "generic/Storage.c"
+#define TH_GENERIC_FILE "generic/Storage.cpp"
+
 
 #define torch_Storage_(NAME) TH_CONCAT_4(torch_,Real,Storage_,NAME)
 
@@ -30,7 +29,7 @@ extern "C"
 
 #define torch_Storage TH_CONCAT_STRING_3(torch.,Real,Storage)
 
-#include "generic/Storage.c"
+#include "generic/Storage.cpp"
 
 #undef real
 #undef Real
@@ -59,10 +58,7 @@ CUDA_IMPLEMENT_STORAGE_COPY(Long)
 CUDA_IMPLEMENT_STORAGE_COPY(Float)
 CUDA_IMPLEMENT_STORAGE_COPY(Double)
 CUDA_IMPLEMENT_STORAGE_COPY(Camp)
-}
 
-extern "C"
-{
 void clamptorch_CampStorage_init(lua_State* L)
 {
     /* the standard stuff */
@@ -98,5 +94,4 @@ void clamptorch_CampStorage_init(lua_State* L)
               lua_pop(L, 1);
         }
     }
-}
 }
