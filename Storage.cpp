@@ -6,7 +6,7 @@
 
 /* everything is as the generic Storage.c, except few things (see below) */
 
-#define real float
+#define real float 
 #define Real Camp
 #define TH_GENERIC_FILE "generic/Storage.cpp"
 
