@@ -529,28 +529,35 @@ static int torch_Tensor_(nElement)(lua_State *L)
 
 static int torch_Tensor_(copy)(lua_State *L)
 {
-  THTensor *tensor = luaT_checkudata(L, 1, torch_Tensor);
-  void *src;
-  if( (src = luaT_toudata(L, 2, torch_Tensor)) )
-    THTensor_(copy)(tensor, src);
-  else if( (src = luaT_toudata(L, 2, "torch.ByteTensor")) )
-    THTensor_(copyByte)(tensor, src);
-  else if( (src = luaT_toudata(L, 2, "torch.CharTensor")) )
-    THTensor_(copyChar)(tensor, src);
-  else if( (src = luaT_toudata(L, 2, "torch.ShortTensor")) )
-    THTensor_(copyShort)(tensor, src);
-  else if( (src = luaT_toudata(L, 2, "torch.IntTensor")) )
-    THTensor_(copyInt)(tensor, src);
-  else if( (src = luaT_toudata(L, 2, "torch.LongTensor")) )
-    THTensor_(copyLong)(tensor, src);
-  else if( (src = luaT_toudata(L, 2, "torch.FloatTensor")) )
-    THTensor_(copyFloat)(tensor, src);
-  else if( (src = luaT_toudata(L, 2, "torch.DoubleTensor")) )
-    THTensor_(copyDouble)(tensor, src);
-  else
-    luaL_typerror(L, 2, "torch.*Tensor");
-  lua_settop(L, 1);
-  return 1;
+    THTensor *tensor = (THTensor *)luaT_checkudata(L, 1, torch_Tensor);
+    THTensor *src1;
+    THByteTensor *src2;
+    THCharTensor *src3;
+    THShortTensor *src4;
+    THIntTensor   *src5;
+    THLongTensor  *src6;
+    THFloatTensor *src7;
+    THDoubleTensor *src8;
+    if( (src1 = (THTensor *)luaT_toudata(L, 2, torch_Tensor)) )
+        THTensor_(copy)(tensor, src1);
+    else if( (src2 = (THByteTensor *)luaT_toudata(L, 2, "torch.ByteTensor")) )
+        THTensor_(copyByte)(tensor, src2);
+    else if( (src3 = (THCharTensor *)luaT_toudata(L, 2, "torch.CharTensor")) )
+        THTensor_(copyChar)(tensor, src3);
+    else if( (src4 = (THShortTensor *)luaT_toudata(L, 2, "torch.ShortTensor")) )
+        THTensor_(copyShort)(tensor, src4);
+    else if( (src5 = (THIntTensor *)luaT_toudata(L, 2, "torch.IntTensor")) )
+        THTensor_(copyInt)(tensor, src5);
+    else if( (src6 = (THLongTensor *)luaT_toudata(L, 2, "torch.LongTensor")) )
+        THTensor_(copyLong)(tensor, src6);
+    else if( (src7 = (THFloatTensor *)luaT_toudata(L, 2, "torch.FloatTensor")) )
+        THTensor_(copyFloat)(tensor, src7);
+    else if( (src8 = (THDoubleTensor *)luaT_toudata(L, 2, "torch.DoubleTensor")) )
+        THTensor_(copyDouble)(tensor, src8);
+    else
+        luaL_typerror(L, 2, "torch.*Tensor");
+    lua_settop(L, 1);
+    return 1;
 }
 
 static int torch_Tensor_(__newindex__)(lua_State *L)
