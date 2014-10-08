@@ -130,7 +130,7 @@ function Module:double()
 end
 
 function Module:cuda()
-   return self:type('torch.CudaTensor')
+   return self:type('torch.CampTensor')
 end
 
 function Module:reset()
