@@ -2,7 +2,7 @@
 #define TH_GENERIC_FILE "generic/THVector.c"
 #else
 
-static TH_INLINE void THVector_(fill)(real *x, const real c, const long n) {
+static void THVector_(fill)(real *x, const real c, const long n) {
   long i = 0;
 
   for(; i < n-4; i += 4)
@@ -17,7 +17,7 @@ static TH_INLINE void THVector_(fill)(real *x, const real c, const long n) {
     x[i] = c;
 }
 
-static TH_INLINE void THVector_(add)(real *y, const real *x, const real c, const long n)
+static void THVector_(add)(real *y, const real *x, const real c, const long n)
 {
   long i = 0;
 
@@ -33,7 +33,7 @@ static TH_INLINE void THVector_(add)(real *y, const real *x, const real c, const
     y[i] += c * x[i];
 }
 
-static TH_INLINE void THVector_(diff)(real *z, const real *x, const real *y, const long n)
+static void THVector_(diff)(real *z, const real *x, const real *y, const long n)
 {
   long i = 0;
 
@@ -49,7 +49,7 @@ static TH_INLINE void THVector_(diff)(real *z, const real *x, const real *y, con
     z[i] = x[i] - y[i];
 }
 
-static TH_INLINE void THVector_(scale)(real *y, const real c, const long n)
+static  void THVector_(scale)(real *y, const real c, const long n)
 {
   long i = 0;
 
@@ -65,7 +65,7 @@ static TH_INLINE void THVector_(scale)(real *y, const real c, const long n)
     y[i] *= c;
 }
 
-static TH_INLINE void THVector_(mul)(real *y, const real *x, const long n)
+static void THVector_(mul)(real *y, const real *x, const long n)
 {
   long i = 0;
 
