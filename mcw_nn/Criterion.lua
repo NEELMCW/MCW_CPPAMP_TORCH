@@ -47,7 +47,7 @@ function Criterion:double()
 end
 
 function Criterion:cuda()
-   return self:type('torch.CudaTensor')
+   return self:type('torch.CampTensor')
 end
 
 function Criterion:__call__(input, target)
