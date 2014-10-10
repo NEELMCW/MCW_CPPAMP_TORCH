@@ -17,12 +17,22 @@
   {                                                                     \
     float *fdata = (float *)THAlloc(sizeof(float)*size);                \
     THFile_readFloatRaw(file, fdata, size);                             \
+    /*THCampCheck(cudaMemcpy(data, fdata, size * sizeof(float), cudaMemcpyHostToDevice));*/ \
+    Concurrency::array_view<float> arrSrcData(size,fdata);                 \
+    Concurrency::array_view<float> arrDesData(size,data);                 \
+    Concurrency::copy(arrSrcData,arrDesData);                          \
+    arrDesData.synchronize();                                          \
     THFree(fdata);                                                      \
   }
 
 #define THFile_writeRealRaw(file, data, size)                           \
   {                                                                     \
     float *fdata = (float *)THAlloc(sizeof(float)*size);                \
+    /*THCampCheck(cudaMemcpy(fdata, data, size * sizeof(float), cudaMemcpyDeviceToHost));*/ \
+    Concurrency::array_view<float> arrSrcData(size,data);                 \
+    Concurrency::array_view<float> arrDesData(size,fdata);                 \
+    Concurrency::copy(arrSrcData,arrDesData);                          \
+    arrDesData.synchronize();                                          \
     THFile_writeFloatRaw(file, fdata, size);                            \
     THFree(fdata);                                                      \
   }
