@@ -12,16 +12,14 @@
 
 #define THFile_readRealRaw(file, data, size)                            \
   {                                                                     \
-    float *fdata = THAlloc(sizeof(float)*size);                         \
+    float *fdata = (float *)THAlloc(sizeof(float)*size);                         \
     THFile_readFloatRaw(file, fdata, size);                             \
-    THCudaCheck(cudaMemcpy(data, fdata, size * sizeof(float), cudaMemcpyHostToDevice)); \
     THFree(fdata);                                                      \
   }
 
 #define THFile_writeRealRaw(file, data, size)                           \
   {                                                                     \
-    float *fdata = THAlloc(sizeof(float)*size);                         \
-    THCudaCheck(cudaMemcpy(fdata, data, size * sizeof(float), cudaMemcpyDeviceToHost)); \
+    float *fdata = (float *)THAlloc(sizeof(float)*size);                         \
     THFile_writeFloatRaw(file, fdata, size);                            \
     THFree(fdata);                                                      \
   }
@@ -39,26 +37,26 @@
 #define CUDA_IMPLEMENT_STORAGE_COPY(TYPEC)                              \
   static int cutorch_##TYPEC##Storage_copy(lua_State *L)                \
   {                                                                     \
-    TH##TYPEC##Storage *storage = luaT_checkudata(L, 1, "torch." #TYPEC "Storage"); \
+    TH##TYPEC##Storage *storage = (TH##TYPEC##Storage *)luaT_checkudata(L, 1, "torch." #TYPEC "Storage"); \
     void *src;                                                          \
     if( (src = luaT_toudata(L, 2, "torch." #TYPEC "Storage")) )         \
-      TH##TYPEC##Storage_copy(storage, src);                            \
+      TH##TYPEC##Storage_copy(storage, (TH##TYPEC##Storage *)src);                            \
     else if( (src = luaT_toudata(L, 2, "torch.ByteStorage")) )          \
-      TH##TYPEC##Storage_copyByte(storage, src);                        \
+      TH##TYPEC##Storage_copyByte(storage, (THByteStorage *)src);                        \
     else if( (src = luaT_toudata(L, 2, "torch.CharStorage")) )          \
-      TH##TYPEC##Storage_copyChar(storage, src);                        \
+      TH##TYPEC##Storage_copyChar(storage, (THCharStorage *)src);                        \
     else if( (src = luaT_toudata(L, 2, "torch.ShortStorage")) )         \
-      TH##TYPEC##Storage_copyShort(storage, src);                       \
+      TH##TYPEC##Storage_copyShort(storage, (THShortStorage *)src);                       \
     else if( (src = luaT_toudata(L, 2, "torch.IntStorage")) )           \
-      TH##TYPEC##Storage_copyInt(storage, src);                         \
+      TH##TYPEC##Storage_copyInt(storage, (THIntStorage *)src);                         \
     else if( (src = luaT_toudata(L, 2, "torch.LongStorage")) )          \
-      TH##TYPEC##Storage_copyLong(storage, src);                        \
+      TH##TYPEC##Storage_copyLong(storage, (THLongStorage *)src);                        \
     else if( (src = luaT_toudata(L, 2, "torch.FloatStorage")) )         \
-      TH##TYPEC##Storage_copyFloat(storage, src);                       \
+      TH##TYPEC##Storage_copyFloat(storage, (THFloatStorage *)src);                       \
     else if( (src = luaT_toudata(L, 2, "torch.DoubleStorage")) )        \
-      TH##TYPEC##Storage_copyDouble(storage, src);                      \
+      TH##TYPEC##Storage_copyDouble(storage, (THDoubleStorage*)src);                      \
     else if( (src = luaT_toudata(L, 2, "torch.CudaStorage")) )          \
-      TH##TYPEC##Storage_copyCuda(storage, src);                        \
+      TH##TYPEC##Storage_copyCuda(storage, (THCudaStorage *)src);                        \
     else                                                                \
       luaL_typerror(L, 2, "torch.*Storage");                            \
                                                                         \
@@ -84,7 +82,7 @@ void cutorch_CudaStorage_init(lua_State* L)
   {
     int i;
 
-    const void* tnames[8] = {"torch.ByteStorage",
+    const char* tnames[8] = {"torch.ByteStorage",
                              "torch.CharStorage",
                              "torch.ShortStorage",
                              "torch.IntStorage",
