@@ -4,51 +4,70 @@
  *    this function finds the min along the innermost dimension
  *    Nd input, (N-1)d output, (N-1)d argmin
  */
-void min_output(float *input, float *output, float *indices,
-                           long nrows, long ncols)
+void min_output(float *input, float *output, float *indices, unsigned int inpSz, unsigned int outSz, unsigned int indSz, 
+                           long nrows, long ncols, unsigned int numBlocks)
 {
   // output offset:
-/*  long o = threadIdx.x + blockDim.x * blockIdx.x;
-  if (o >= nrows) return;
+    Concurrency::array_view<float,1> avInp(inpSz, input);
+    Concurrency::array_view<float,1> avOut(outSz, output);
+    Concurrency::array_view<float,1> avInD(indSz, indices);
+    Concurrency::extent<1> grdExt(numBlocks*256);
+    Concurrency::tiled_extent<256> t_ext(grdExt);
 
-  // input offset:
-  long i = o * ncols;
-
-  // move pointers
-  input = input + i;
-
-  // compute min:
-  float min = input[0];
-  long argmin = 0;
-  long ii;
-  for (ii=1; ii<ncols; ii++) {
-      float val = input[ii];
-      if (val < min) {
-          min = val;
-          argmin = ii;
-      }
-  }
-
-  // store
-  output[o] = min;
-  indices[o] = argmin+1;*/
+    Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<256> tidx) restrict(amp) 
+    {
+        long o = tidx.global[0];
+        if (o >= nrows) return;
+        // input offset:
+        long i = o * ncols;
+        // move pointers
+        //input = input + i;
+        // compute min:
+        float min = avInp[i];
+        long argmin = 0;
+        long ii;
+        for (ii=1; ii<ncols; ii++) 
+        {
+            float val = avInp[ii + i];
+            if (val < min) 
+            {
+                min = val;
+                argmin = ii;
+            }
+        }
+        // store
+        avOut[o] = min;
+        avInD[o] =(float) argmin+1;
+    });
+    avOut.synchronize();
+    avInD.synchronize();
 }
 
-void min_gradInput(float *input, float *output, float *indices,
-                              long nrows, long ncols)
+void min_gradInput(float *input, float *output, float *indices, unsigned int inputSz, unsigned int outSz, unsigned int indSz,
+                              long nrows, long ncols, unsigned int numBlocks)
 {
-/*  // output offset:
-  long o = threadIdx.x + blockDim.x * blockIdx.x;
-  if (o >= nrows) return;
+    // output offset:
+    Concurrency::array_view<float,1> avInp(inputSz, input);
+    Concurrency::array_view<float,1> avOut(outSz, output);
+    Concurrency::array_view<float,1> avInD(indSz, indices);
+    Concurrency::extent<1> grdExt(numBlocks*256);
+    Concurrency::tiled_extent<256> t_ext(grdExt);
 
-  // input offset:
-  long i = o * ncols;
+    Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<256> tidx) restrict(amp) 
+    {
+        long o = tidx.global[0];
+        if (o >= nrows) return;
 
-  // bprop min gradient:
-  long idx = indices[o]-1;
-  input[i+idx] = output[o];
-*/
+        // input offset:
+        long i = o * ncols;
+
+        // bprop min gradient:
+        long idx = (long)avInD[o]-1;
+        avInp[i+idx] = avOut[o];
+    });
+    avInp.synchronize();
 }
+
 
 static int cunn_Min_updateOutput(lua_State *L)
 {
@@ -83,7 +102,7 @@ static int cunn_Min_updateOutput(lua_State *L)
   long nblocks = ceil((float)nrows / nthreads);
 
   // kernel:
- // min_output <<<blocks, threads>>> (input_data, output_data, indices_data, nrows, ncols);
+    min_output(input_data, output_data, indices_data, THCudaTensor_nElement(input), THCudaTensor_nElement(output), THCudaTensor_nElement(indices), nrows, ncols, nblocks);
 
   // final cut:
   THCudaTensor_free(input); 
@@ -115,7 +134,7 @@ static int cunn_Min_updateGradInput(lua_State *L)
   long nblocks = ceil((float)nrows / nthreads);
   
   // kernel:
-  //min_gradInput <<<blocks, threads>>> (gradInput_data, gradOutput_data, indices_data, nrows, ncols);
+    min_gradInput(gradInput_data, gradOutput_data, indices_data, THCudaTensor_nElement(gradInput), THCudaTensor_nElement(gradOutput), THCudaTensor_nElement(indices), nrows, ncols, nblocks);
 
 
   return 1;

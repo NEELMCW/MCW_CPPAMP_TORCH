@@ -4,50 +4,68 @@
  *    this function finds the max along the innermost dimension
  *    Nd input, (N-1)d output, (N-1)d argmax
  */
-void max_output(float *input, float *output, float *indices,
-                           long nrows, long ncols)
+void max_output(float *input, float *output, float *indices, unsigned int inpSz, unsigned int outSz, unsigned int indSz, long nrows, long ncols, unsigned int numBlocks)
 {
-/*  // output offset:
-  long o = threadIdx.x + blockDim.x * blockIdx.x;
-  if (o >= nrows) return;
+  // output offset:
+    Concurrency::array_view<float,1> avInp(inpSz, input);
+    Concurrency::array_view<float,1> avOut(outSz, output);
+    Concurrency::array_view<float,1> avInD(indSz, indices);
+    Concurrency::extent<1> grdExt(numBlocks*256);
+    Concurrency::tiled_extent<256> t_ext(grdExt);
 
-  // input offset:
-  long i = o * ncols;
-
-  // move pointers
-  input = input + i;
-
-  // compute max:
-  float max = input[0];
-  long argmax = 0;
-  long ii;
-  for (ii=1; ii<ncols; ii++) {
-      float val = input[ii];
-      if (val > max) {
-          max = val;
-          argmax = ii;
-      }
-  }
-
-  // store
-  output[o] = max;
-  indices[o] = argmax+1;*/
+    Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<256> tidx) restrict(amp) 
+    {
+        long o = tidx.global[0];
+        if (o >= nrows) return;
+        // input offset:
+        long i = o * ncols;
+        // move pointers
+        //input = input + i;
+        // compute max:
+        float max = avInp[i];
+        long argmax = 0;
+        long ii;
+        for (ii=1; ii<ncols; ii++) 
+        {
+            float val = avInp[i+ii];
+            if (val > max) 
+            {
+                max = val;
+                argmax = ii;
+            }
+        }
+        // store
+        avOut[o] = max;
+        avInD[o] =(float) argmax+1;
+    });
+    avOut.synchronize();
+    avInD.synchronize();
 }
 
-void max_gradInput(float *input, float *output, float *indices,
-                              long nrows, long ncols)
+
+void max_gradInput(float *input, float *output, float *indices, unsigned int inputSz, unsigned int outSz, unsigned int indSz,
+                              long nrows, long ncols, unsigned int numBlocks)
 {
-/*  // output offset:
-  long o = threadIdx.x + blockDim.x * blockIdx.x;
-  if (o >= nrows) return;
+    // output offset:
+    Concurrency::array_view<float,1> avInp(inputSz, input);
+    Concurrency::array_view<float,1> avOut(outSz, output);
+    Concurrency::array_view<float,1> avInD(indSz, indices);
+    Concurrency::extent<1> grdExt(numBlocks*256);
+    Concurrency::tiled_extent<256> t_ext(grdExt);
 
-  // input offset:
-  long i = o * ncols;
+    Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<256> tidx) restrict(amp) 
+    {
+        long o = tidx.global[0];
+        if (o >= nrows) return;
 
-  // bprop max gradient:
-  long idx = indices[o]-1;
-  input[i+idx] = output[o];
-*/
+        // input offset:
+        long i = o * ncols;
+
+        // bprop max gradient:
+        long idx = (long)avInD[o]-1;
+        avInp[i+idx] = avOut[o];
+    });
+    avInp.synchronize();
 }
 
 static int cunn_Max_updateOutput(lua_State *L)
@@ -80,12 +98,10 @@ static int cunn_Max_updateOutput(lua_State *L)
 
   // cuda blocks & threads:
   long nthreads = 256;
-  /*long nblocks = ceil((float)nrows / nthreads);
-  dim3 blocks(nblocks);
-  dim3 threads(nthreads);*/
+  long nblocks = ceil((float)nrows / nthreads);
 
   // kernel:
- // max_output <<<blocks, threads>>> (input_data, output_data, indices_data, nrows, ncols);
+    max_output(input_data, output_data, indices_data, THCudaTensor_nElement(input), THCudaTensor_nElement(output), THCudaTensor_nElement(indices), nrows, ncols, nblocks);
 
  
   // final cut:
@@ -118,7 +134,7 @@ static int cunn_Max_updateGradInput(lua_State *L)
   long nblocks = ceil((float)nrows / nthreads);
   
   // kernel:
- // max_gradInput <<<blocks, threads>>> (gradInput_data, gradOutput_data, indices_data, nrows, ncols);
+    max_gradInput(gradInput_data, gradOutput_data, indices_data, THCudaTensor_nElement(gradInput), THCudaTensor_nElement(gradOutput), THCudaTensor_nElement(indices), nrows, ncols, nblocks);
 
 
   return 1;
