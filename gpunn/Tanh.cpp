@@ -1,6 +1,6 @@
 struct tanhupdateOutput_functor
 {
-  __host__ __device__ float operator()(const float& input) const
+  float operator()(const float& input) const
   {
     return tanh(input);
   }
@@ -16,9 +16,9 @@ static int cunn_Tanh_updateOutput(lua_State *L)
 
   THCudaTensor_resizeAs(output, input);
 
-  thrust::device_ptr<float> output_data(THCudaTensor_data(output));
+ /* thrust::device_ptr<float> output_data(THCudaTensor_data(output));
   thrust::device_ptr<float> input_data(THCudaTensor_data(input));
-  thrust::transform(input_data, input_data+size, output_data, tanhupdateOutput_functor());
+  thrust::transform(input_data, input_data+size, output_data, tanhupdateOutput_functor());*/
 
   THCudaTensor_free(input);
   return 1;
@@ -26,7 +26,7 @@ static int cunn_Tanh_updateOutput(lua_State *L)
 
 struct tanhupdateGradInput_functor
 {
-  __host__ __device__ float operator()(const float& output, const float& gradOutput) const
+  float operator()(const float& output, const float& gradOutput) const
   {
     return gradOutput * (1-output*output);
   }
@@ -43,10 +43,10 @@ static int cunn_Tanh_updateGradInput(lua_State *L)
 
   THCudaTensor_resizeAs(gradInput, output);
 
-  thrust::device_ptr<float> output_data(THCudaTensor_data(output));
+  /*thrust::device_ptr<float> output_data(THCudaTensor_data(output));
   thrust::device_ptr<float> gradOutput_data(THCudaTensor_data(gradOutput));
   thrust::device_ptr<float> gradInput_data(THCudaTensor_data(gradInput));
-  thrust::transform(output_data, output_data+size, gradOutput_data, gradInput_data, tanhupdateGradInput_functor());
+  thrust::transform(output_data, output_data+size, gradOutput_data, gradInput_data, tanhupdateGradInput_functor());*/
 
   THCudaTensor_free(gradOutput);
   return 1;

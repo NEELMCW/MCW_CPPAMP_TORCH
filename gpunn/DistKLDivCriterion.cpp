@@ -1,13 +1,13 @@
-#include <thrust/fill.h>
+/*#include <thrust/fill.h>
 #include <thrust/functional.h>
 #include <thrust/reduce.h>
-#include <thrust/inner_product.h>
+#include <thrust/inner_product.h>*/
 
 struct kl_functor
 {
   kl_functor() {}
 
-  __host__ __device__ float operator()(const float& x, const float& y) const
+  float operator()(const float& x, const float& y) const
     {
       return y > 0 ? y * (log(y) - x) : 0;
   }
@@ -27,9 +27,9 @@ static int cunn_DistKLDivCriterion_updateOutput(lua_State *L)
   input = THCudaTensor_newContiguous(input);
   target = THCudaTensor_newContiguous(target);
 
-  thrust::device_ptr<float> input_data(THCudaTensor_data(input));
+  /*rust::device_ptr<float> input_data(THCudaTensor_data(input));
   thrust::device_ptr<float> target_data(THCudaTensor_data(target));
-  sum = thrust::inner_product(input_data, input_data+size, target_data, (float) 0, thrust::plus<float>(), kl_functor());
+  sum = thrust::inner_product(input_data, input_data+size, target_data, (float) 0, thrust::plus<float>(), kl_functor());*/
 
   if(sizeAverage)
     sum /= size;
@@ -51,7 +51,7 @@ struct kl_updateGradInput_functor
 
   kl_updateGradInput_functor(float norm_) : norm(norm_) {}
 
-  __host__ __device__ float operator()(const float& x, const float& y) const
+   float operator()(const float& x, const float& y) const
     {
       return y > 0 ? norm * (-y) : 0;
   }
@@ -72,11 +72,11 @@ static int cunn_DistKLDivCriterion_updateGradInput(lua_State *L)
 
   THCudaTensor_resizeAs(gradInput, input);
 
-  thrust::device_ptr<float> input_data(THCudaTensor_data(input));
+  /*thrust::device_ptr<float> input_data(THCudaTensor_data(input));
   thrust::device_ptr<float> target_data(THCudaTensor_data(target));
   thrust::device_ptr<float> gradInput_data(THCudaTensor_data(gradInput));
 
-  thrust::transform(input_data, input_data+size, target_data, gradInput_data, kl_updateGradInput_functor(norm));
+  thrust::transform(input_data, input_data+size, target_data, gradInput_data, kl_updateGradInput_functor(norm));*/
 
   THCudaTensor_free(input);
   THCudaTensor_free(target);

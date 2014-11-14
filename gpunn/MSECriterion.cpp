@@ -1,13 +1,13 @@
-#include <thrust/fill.h>
+/*#include <thrust/fill.h>
 #include <thrust/functional.h>
 #include <thrust/reduce.h>
-#include <thrust/inner_product.h>
+#include <thrust/inner_product.h>*/
 
 struct mse_functor
 {
   mse_functor() {}
 
-  __host__ __device__ float operator()(const float& x, const float& y) const
+  float operator()(const float& x, const float& y) const
     {
       float z = x-y;
       return z*z;
@@ -28,9 +28,9 @@ static int cunn_MSECriterion_updateOutput(lua_State *L)
   input = THCudaTensor_newContiguous(input);
   target = THCudaTensor_newContiguous(target);
 
-  thrust::device_ptr<float> input_data(THCudaTensor_data(input));
+  /*thrust::device_ptr<float> input_data(THCudaTensor_data(input));
   thrust::device_ptr<float> target_data(THCudaTensor_data(target));
-  sum = thrust::inner_product(input_data, input_data+size, target_data, (float) 0, thrust::plus<float>(), mse_functor());
+  sum = thrust::inner_product(input_data, input_data+size, target_data, (float) 0, thrust::plus<float>(), mse_functor());*/
 
   if(sizeAverage)
     sum /= size;
@@ -52,7 +52,7 @@ struct mse_updateGradInput_functor
 
   mse_updateGradInput_functor(float norm_) : norm(norm_) {}
 
-  __host__ __device__ float operator()(const float& x, const float& y) const
+   float operator()(const float& x, const float& y) const
     {
       return norm * (x - y);
   }
@@ -73,11 +73,11 @@ static int cunn_MSECriterion_updateGradInput(lua_State *L)
 
   THCudaTensor_resizeAs(gradInput, input);
 
-  thrust::device_ptr<float> input_data(THCudaTensor_data(input));
+  /*thrust::device_ptr<float> input_data(THCudaTensor_data(input));
   thrust::device_ptr<float> target_data(THCudaTensor_data(target));
   thrust::device_ptr<float> gradInput_data(THCudaTensor_data(gradInput));
 
-  thrust::transform(input_data, input_data+size, target_data, gradInput_data, mse_updateGradInput_functor(norm));
+  thrust::transform(input_data, input_data+size, target_data, gradInput_data, mse_updateGradInput_functor(norm));*/
 
   THCudaTensor_free(input);
   THCudaTensor_free(target);
@@ -86,9 +86,9 @@ static int cunn_MSECriterion_updateGradInput(lua_State *L)
 
 #define MSECRITERION_THREADS 128
 
-__global__ void cunn_MSECriterion_updateOutput_kernel(float* output, float *input, float *target, int nframe, int dim, int sizeAverage)
+void cunn_MSECriterion_updateOutput_kernel(float* output, float *input, float *target, int nframe, int dim, int sizeAverage)
 {
-  __shared__ float buffer[MSECRITERION_THREADS];
+/*  __shared__ float buffer[MSECRITERION_THREADS];
   int k = blockIdx.x;
   float *input_k = input + k*dim;
   float *target_k = target + k*dim;
@@ -118,12 +118,13 @@ __global__ void cunn_MSECriterion_updateOutput_kernel(float* output, float *inpu
     if (sizeAverage)
       *output /= dim;
   }
+*/
 }
 
 
-__global__ void cunn_MSECriterion_updateGradInput_kernel(float *gradInput, float *input, float *target, float norm, int nframe, int dim)
+void cunn_MSECriterion_updateGradInput_kernel(float *gradInput, float *input, float *target, float norm, int nframe, int dim)
 {
-  int k = blockIdx.x;
+/*  int k = blockIdx.x;
   float *gradInput_k = gradInput + k*dim;
   float *input_k = input + k*dim;
   float *target_k = target + k*dim;
@@ -135,6 +136,7 @@ __global__ void cunn_MSECriterion_updateGradInput_kernel(float *gradInput, float
   // gradInput
   for (int i=i_start; i<i_end; i+=i_step)
     gradInput_k[i] = norm*(input_k[i] - target_k[i]);
+*/
 }
 
 static int cunn_MSECriterion_updateOutput2(lua_State *L)
@@ -149,20 +151,15 @@ static int cunn_MSECriterion_updateOutput2(lua_State *L)
 
   THCudaStorage *output = THCudaStorage_newWithSize(1);
 
-  dim3 blocks(1);
-  dim3 threads(MSECRITERION_THREADS);
 
-  cunn_MSECriterion_updateOutput_kernel<<<blocks,threads>>>(output->data,
-						       THCudaTensor_data(input), 
-						       THCudaTensor_data(target), 
-						       1, size,
-						       sizeAverage);
+  //cunn_MSECriterion_updateOutput_kernel<<<blocks,threads>>>(output->data,
+//						       THCudaTensor_data(input), 
+//						       THCudaTensor_data(target), 
+///						       1, size,
+//						       sizeAverage);
 
   lua_pushnumber(L, THCudaStorage_get(output, 0));
 
-  cudaError errcode = cudaGetLastError();
-  if(errcode != cudaSuccess)
-    THError(cudaGetErrorString(errcode));
 
   THCudaTensor_free(input);
   THCudaTensor_free(target);
@@ -189,18 +186,13 @@ static int cunn_MSECriterion_updateGradInput2(lua_State *L)
 
   THCudaTensor_resizeAs(gradInput, input);
 
-  dim3 blocks(1);
-  dim3 threads(MSECRITERION_THREADS);
 
-  cunn_MSECriterion_updateGradInput_kernel<<<blocks,threads>>>(THCudaTensor_data(gradInput),
-							THCudaTensor_data(input),
-							THCudaTensor_data(target),
-							norm,
-							1, size);
+//  cunn_MSECriterion_updateGradInput_kernel<<<blocks,threads>>>(THCudaTensor_data(gradInput),
+//							THCudaTensor_data(input),
+//							THCudaTensor_data(target),
+//							norm,
+//							1, size);
 
-  cudaError errcode = cudaGetLastError();
-  if(errcode != cudaSuccess)
-    THError(cudaGetErrorString(errcode));
   
   THCudaTensor_free(input);
   THCudaTensor_free(target);

@@ -9,8 +9,6 @@
 /home/neelakandan/Documents/gputorch/gpunn/Abs.cpp
 
 /home/neelakandan/Documents/gputorch/gpunn/AbsCriterion.cpp
-thrust/fill.h
--
 thrust/functional.h
 -
 thrust/reduce.h
@@ -19,8 +17,6 @@ thrust/inner_product.h
 -
 
 /home/neelakandan/Documents/gputorch/gpunn/DistKLDivCriterion.cpp
-thrust/fill.h
--
 thrust/functional.h
 -
 thrust/reduce.h
@@ -35,8 +31,6 @@ thrust/inner_product.h
 /home/neelakandan/Documents/gputorch/gpunn/LogSoftMax.cpp
 
 /home/neelakandan/Documents/gputorch/gpunn/MSECriterion.cpp
-thrust/fill.h
--
 thrust/functional.h
 -
 thrust/reduce.h
@@ -57,18 +51,18 @@ thrust/inner_product.h
 /home/neelakandan/Documents/gputorch/gpunn/SoftPlus.cpp
 
 /home/neelakandan/Documents/gputorch/gpunn/SpatialConvolutionCUDA.cpp
-SpatialConvolutionCUDA/updateOutput.cu
-/home/neelakandan/Documents/gputorch/gpunn/SpatialConvolutionCUDA/updateOutput.cu
-SpatialConvolutionCUDA/updateGradInput.cu
-/home/neelakandan/Documents/gputorch/gpunn/SpatialConvolutionCUDA/updateGradInput.cu
-SpatialConvolutionCUDA/accGradParameters.cu
-/home/neelakandan/Documents/gputorch/gpunn/SpatialConvolutionCUDA/accGradParameters.cu
+SpatialConvolutionCUDA/updateOutput.cpp
+/home/neelakandan/Documents/gputorch/gpunn/SpatialConvolutionCUDA/updateOutput.cpp
+SpatialConvolutionCUDA/updateGradInput.cpp
+/home/neelakandan/Documents/gputorch/gpunn/SpatialConvolutionCUDA/updateGradInput.cpp
+SpatialConvolutionCUDA/accGradParameters.cpp
+/home/neelakandan/Documents/gputorch/gpunn/SpatialConvolutionCUDA/accGradParameters.cpp
 
-/home/neelakandan/Documents/gputorch/gpunn/SpatialConvolutionCUDA/accGradParameters.cu
+/home/neelakandan/Documents/gputorch/gpunn/SpatialConvolutionCUDA/accGradParameters.cpp
 
-/home/neelakandan/Documents/gputorch/gpunn/SpatialConvolutionCUDA/updateGradInput.cu
+/home/neelakandan/Documents/gputorch/gpunn/SpatialConvolutionCUDA/updateGradInput.cpp
 
-/home/neelakandan/Documents/gputorch/gpunn/SpatialConvolutionCUDA/updateOutput.cu
+/home/neelakandan/Documents/gputorch/gpunn/SpatialConvolutionCUDA/updateOutput.cpp
 
 /home/neelakandan/Documents/gputorch/gpunn/SpatialConvolutionMM.cpp
 
@@ -77,14 +71,14 @@ SpatialConvolutionCUDA/accGradParameters.cu
 /home/neelakandan/Documents/gputorch/gpunn/SpatialMaxPooling.cpp
 
 /home/neelakandan/Documents/gputorch/gpunn/SpatialMaxPoolingCUDA.cpp
-SpatialPoolingCUDA/updateOutput.cu
-/home/neelakandan/Documents/gputorch/gpunn/SpatialPoolingCUDA/updateOutput.cu
-SpatialPoolingCUDA/updateGradInput.cu
-/home/neelakandan/Documents/gputorch/gpunn/SpatialPoolingCUDA/updateGradInput.cu
+SpatialPoolingCUDA/updateOutput.cpp
+/home/neelakandan/Documents/gputorch/gpunn/SpatialPoolingCUDA/updateOutput.cpp
+SpatialPoolingCUDA/updateGradInput.cpp
+/home/neelakandan/Documents/gputorch/gpunn/SpatialPoolingCUDA/updateGradInput.cpp
 
-/home/neelakandan/Documents/gputorch/gpunn/SpatialPoolingCUDA/updateGradInput.cu
+/home/neelakandan/Documents/gputorch/gpunn/SpatialPoolingCUDA/updateGradInput.cpp
 
-/home/neelakandan/Documents/gputorch/gpunn/SpatialPoolingCUDA/updateOutput.cu
+/home/neelakandan/Documents/gputorch/gpunn/SpatialPoolingCUDA/updateOutput.cpp
 
 /home/neelakandan/Documents/gputorch/gpunn/SpatialSubSampling.cpp
 
@@ -93,8 +87,6 @@ luaT.h
 /home/neelakandan/Documents/gputorch/gpunn/luaT.h
 THC.h
 /home/neelakandan/Documents/gputorch/gpunn/THC.h
-thrust/transform.h
--
 thrust/reduce.h
 -
 thrust/transform_reduce.h

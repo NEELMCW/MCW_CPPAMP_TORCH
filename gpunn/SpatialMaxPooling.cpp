@@ -6,11 +6,11 @@
  *    this function maxpools an input 4D tensor along dimensions 2 and 3
  *    4D input, 4D output, 4D argmax x and y 
  */
-__global__ void maxpool(float *input, float *output, float *indices_x, float *indices_y,
+void maxpool(float *input, float *output, float *indices_x, float *indices_y,
                         int input_n, int input_h, int input_w,
                         int kH, int kW, int dH, int dW)
 {
-  // iterators
+/*  // iterators
   int xx, yy;
 
   // output size
@@ -65,17 +65,18 @@ __global__ void maxpool(float *input, float *output, float *indices_x, float *in
       *ptr_ind_y = argmax_y + 1;
     }
   }
+*/
 }
 
 /*
  * Description:
  *    this function computes the gradInput from weight and gradOutput
  */
-__global__ void maxgradinput(float *gradInput, float *gradOutput, float *indices_x, float *indices_y,
+void maxgradinput(float *gradInput, float *gradOutput, float *indices_x, float *indices_y,
                              int input_n, int input_h, int input_w,
                              int kH, int kW, int dH, int dW)
 {
-  // iterators
+/*  // iterators
   int xx, yy;
 
   // output size
@@ -116,6 +117,7 @@ __global__ void maxgradinput(float *gradInput, float *gradOutput, float *indices
       ptr_gradInput[argmax_x + argmax_y*input_w] += z;
     }
   }
+*/
 }
 
 /*
@@ -123,12 +125,12 @@ __global__ void maxgradinput(float *gradInput, float *gradOutput, float *indices
  *    this function computes the gradInput from weight and gradOutput
  *    when kH != dH or kW != dW (uses atomic add)
  */
-__global__ void atomicmaxgradinput(
+void atomicmaxgradinput(
   float *gradInput, float *gradOutput, float *indices_x, float *indices_y,
   int input_n, int input_h, int input_w, int kH, int kW, int dH, int dW
 )
 {
-  // iterators
+/*  // iterators
   int xx, yy;
 
   // output size
@@ -170,6 +172,7 @@ __global__ void atomicmaxgradinput(
       atomicAdd(&(ptr_gradInput[argmax_x + argmax_y*input_w]), z);
     }
   }
+*/
 }
 
 static int cunn_SpatialMaxPooling_updateOutput(lua_State *L)
@@ -210,13 +213,11 @@ static int cunn_SpatialMaxPooling_updateOutput(lua_State *L)
     // cuda blocks & threads:
     int yblocks = (int)(16L / nInputPlane);
     yblocks = yblocks < 1 ? 1 : yblocks;
-    dim3 blocks(nInputPlane,yblocks);
-    dim3 threads(32,8);
 
     // run maxpool kernel
-    maxpool <<<blocks, threads>>> (input_data, output_data, 
-                                   indices_data+nInputPlane*nOutputCols*nOutputRows, indices_data,
-                                   nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW);
+   // maxpool <<<blocks, threads>>> (input_data, output_data, 
+     //                              indices_data+nInputPlane*nOutputCols*nOutputRows, indices_data,
+       //                            nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW);
   } else {
     long nInputCols = input->size[3];
     long nInputRows = input->size[2];
@@ -239,24 +240,17 @@ static int cunn_SpatialMaxPooling_updateOutput(lua_State *L)
     // cuda blocks & threads:
     int yblocks = (int)(16L / nInputPlane);
     yblocks = yblocks < 1 ? 1 : yblocks;
-    dim3 blocks(nInputPlane*nbatch,yblocks);
-    dim3 threads(32,8);
 
     // run maxpool kernel
-    maxpool <<<blocks, threads>>> (input_data, output_data,
-                                   indices_data+nbatch*nInputPlane*nOutputCols*nOutputRows, indices_data,
-                                   nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW);
+   // maxpool <<<blocks, threads>>> (input_data, output_data,
+     //                              indices_data+nbatch*nInputPlane*nOutputCols*nOutputRows, indices_data,
+       //                            nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW);
   }
 
   // clean
   THCudaTensor_free(input);
 
   // check for errors
-  cudaError_t err = cudaGetLastError();
-  if (err != cudaSuccess) {
-    printf("error in SpatialMaxsampling.updateOutput: %s\n", cudaGetErrorString(err));
-    THError("aborting");
-  }
   return 1;
 }
 
@@ -294,22 +288,20 @@ static int cunn_SpatialMaxPooling_updateGradInput(lua_State *L)
     // cuda blocks & threads:
     int yblocks = (int)(16L / nInputPlane);
     yblocks = yblocks < 1 ? 1 : yblocks;
-    dim3 blocks(nInputPlane,yblocks);
-    dim3 threads(32,8);
 
     if(atomic)
     {
       // run updateGradInput kernel, accumulate gradients atomically
-      atomicmaxgradinput <<<blocks, threads>>> (gradInput_data, gradOutput_data, 
-                                          indices_data+nInputPlane*nOutputCols*nOutputRows, indices_data,
-                                          nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW);
+     // atomicmaxgradinput <<<blocks, threads>>> (gradInput_data, gradOutput_data, 
+       //                                   indices_data+nInputPlane*nOutputCols*nOutputRows, indices_data,
+         //                                 nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW);
     }
     else
     {
       // run updateGradInput kernel
-      atomicmaxgradinput <<<blocks, threads>>> (gradInput_data, gradOutput_data, 
-                                          indices_data+nInputPlane*nOutputCols*nOutputRows, indices_data,
-                                          nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW);
+    //  atomicmaxgradinput <<<blocks, threads>>> (gradInput_data, gradOutput_data, 
+      //                                    indices_data+nInputPlane*nOutputCols*nOutputRows, indices_data,
+        //                                  nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW);
     }
   } else {
     long nInputCols = input->size[3];
@@ -329,31 +321,24 @@ static int cunn_SpatialMaxPooling_updateGradInput(lua_State *L)
     // cuda blocks & threads:
     int yblocks = (int)(16L / nInputPlane);
     yblocks = yblocks < 1 ? 1 : yblocks;
-    dim3 blocks(nInputPlane*nbatch,yblocks);
-    dim3 threads(32,8);
 
     if(atomic)
     {
       // run updateGradInput kernel, accumulate gradients atomically
-      atomicmaxgradinput <<<blocks, threads>>> (gradInput_data, gradOutput_data,
-                                          indices_data+nbatch*nInputPlane*nOutputCols*nOutputRows, indices_data,
-                                          nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW);
+     // atomicmaxgradinput <<<blocks, threads>>> (gradInput_data, gradOutput_data,
+      //                                    indices_data+nbatch*nInputPlane*nOutputCols*nOutputRows, indices_data,
+        //                                  nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW);
     }
     else
     {
       // run updateGradInput kernel, accumulate gradients atomically
-      maxgradinput <<<blocks, threads>>> (gradInput_data, gradOutput_data,
-                                          indices_data+nbatch*nInputPlane*nOutputCols*nOutputRows, indices_data,
-                                          nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW);
+     // maxgradinput <<<blocks, threads>>> (gradInput_data, gradOutput_data,
+       //                                   indices_data+nbatch*nInputPlane*nOutputCols*nOutputRows, indices_data,
+         //                                 nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW);
     }
   }
 
   // check for errors
-  cudaError_t err = cudaGetLastError();
-  if (err != cudaSuccess) {
-    printf("error in SpatialMaxsampling.updateGradInput: %s\n", cudaGetErrorString(err));
-    THError("aborting");
-  }
   return 1;
 }
 

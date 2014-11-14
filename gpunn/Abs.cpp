@@ -1,6 +1,6 @@
 struct absupdateOutput_functor
 {
-  __host__ __device__ float operator()(const float& input) const
+  float operator()(const float& input) const
   {
       return abs(input);
   }
@@ -16,9 +16,9 @@ static int cunn_Abs_updateOutput(lua_State *L)
 
   THCudaTensor_resizeAs(output, input);
 
-  thrust::device_ptr<float> output_data(THCudaTensor_data(output));
-  thrust::device_ptr<float> input_data(THCudaTensor_data(input));
-  thrust::transform(input_data, input_data+size, output_data, absupdateOutput_functor());
+  //thrust::device_ptr<float> output_data(THCudaTensor_data(output));
+  //thrust::device_ptr<float> input_data(THCudaTensor_data(input));
+ // thrust::transform(input_data, input_data+size, output_data, absupdateOutput_functor());
 
   THCudaTensor_free(input);
   return 1;
@@ -26,7 +26,7 @@ static int cunn_Abs_updateOutput(lua_State *L)
 
 struct absupdateGradInput_functor
 {
-  __host__ __device__ float operator()(const float& input, const float& gradOutput) const
+  float operator()(const float& input, const float& gradOutput) const
   {
     if(input < 0)
         return -gradOutput;
@@ -47,10 +47,10 @@ static int cunn_Abs_updateGradInput(lua_State *L)
 
   THCudaTensor_resizeAs(gradInput, input);
 
-  thrust::device_ptr<float> input_data(THCudaTensor_data(input));
-  thrust::device_ptr<float> gradOutput_data(THCudaTensor_data(gradOutput));
-  thrust::device_ptr<float> gradInput_data(THCudaTensor_data(gradInput));
-  thrust::transform(input_data, input_data+size, gradOutput_data, gradInput_data, absupdateGradInput_functor());
+  //thrust::device_ptr<float> input_data(THCudaTensor_data(input));
+  //thrust::device_ptr<float> gradOutput_data(THCudaTensor_data(gradOutput));
+  //thrust::device_ptr<float> gradInput_data(THCudaTensor_data(gradInput));
+  //thrust::transform(input_data, input_data+size, gradOutput_data, gradInput_data, absupdateGradInput_functor());
 
   THCudaTensor_free(gradOutput);
   THCudaTensor_free(input);

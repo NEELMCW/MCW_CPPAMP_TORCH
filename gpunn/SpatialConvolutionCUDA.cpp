@@ -13,9 +13,9 @@
     };
 #endif
 
-#include "SpatialConvolutionCUDA/updateOutput.cu"
-#include "SpatialConvolutionCUDA/updateGradInput.cu"
-#include "SpatialConvolutionCUDA/accGradParameters.cu"
+#include "SpatialConvolutionCUDA/updateOutput.cpp"
+#include "SpatialConvolutionCUDA/updateGradInput.cpp"
+#include "SpatialConvolutionCUDA/accGradParameters.cpp"
 
 static int cunn_SpatialConvolutionCUDA_updateOutput(lua_State *L)
 {

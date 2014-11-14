@@ -16,15 +16,15 @@ CMakeFiles/cunn.dir/init.cpp.o
  /home/neelakandan/Documents/gputorch/gpunn/SoftMax.cpp
  /home/neelakandan/Documents/gputorch/gpunn/SoftPlus.cpp
  /home/neelakandan/Documents/gputorch/gpunn/SpatialConvolutionCUDA.cpp
- /home/neelakandan/Documents/gputorch/gpunn/SpatialConvolutionCUDA/accGradParameters.cu
- /home/neelakandan/Documents/gputorch/gpunn/SpatialConvolutionCUDA/updateGradInput.cu
- /home/neelakandan/Documents/gputorch/gpunn/SpatialConvolutionCUDA/updateOutput.cu
+ /home/neelakandan/Documents/gputorch/gpunn/SpatialConvolutionCUDA/accGradParameters.cpp
+ /home/neelakandan/Documents/gputorch/gpunn/SpatialConvolutionCUDA/updateGradInput.cpp
+ /home/neelakandan/Documents/gputorch/gpunn/SpatialConvolutionCUDA/updateOutput.cpp
  /home/neelakandan/Documents/gputorch/gpunn/SpatialConvolutionMM.cpp
  /home/neelakandan/Documents/gputorch/gpunn/SpatialConvolutionMM_BHWD.cpp
  /home/neelakandan/Documents/gputorch/gpunn/SpatialMaxPooling.cpp
  /home/neelakandan/Documents/gputorch/gpunn/SpatialMaxPoolingCUDA.cpp
- /home/neelakandan/Documents/gputorch/gpunn/SpatialPoolingCUDA/updateGradInput.cu
- /home/neelakandan/Documents/gputorch/gpunn/SpatialPoolingCUDA/updateOutput.cu
+ /home/neelakandan/Documents/gputorch/gpunn/SpatialPoolingCUDA/updateGradInput.cpp
+ /home/neelakandan/Documents/gputorch/gpunn/SpatialPoolingCUDA/updateOutput.cpp
  /home/neelakandan/Documents/gputorch/gpunn/SpatialSubSampling.cpp
  /home/neelakandan/Documents/gputorch/gpunn/SpatialUpSamplingNearest.cpp
  /home/neelakandan/Documents/gputorch/gpunn/Sqrt.cpp

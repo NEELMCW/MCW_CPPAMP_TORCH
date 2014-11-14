@@ -5,7 +5,7 @@ struct thresholdupdateOutput_functor
 
   thresholdupdateOutput_functor(double threshold_, double val_) : threshold(threshold_), val(val_) {}
 
-  __host__ __device__ float operator()(const float& input) const
+ float operator()(const float& input) const
   {
     return (input > threshold) ? input : val;
   }
@@ -23,10 +23,10 @@ static int cunn_Threshold_updateOutput(lua_State *L)
 
   THCudaTensor_resizeAs(output, input);
 
-  thrust::device_ptr<float> output_data(THCudaTensor_data(output));
+ /* thrust::device_ptr<float> output_data(THCudaTensor_data(output));
   thrust::device_ptr<float> input_data(THCudaTensor_data(input));
   thrust::transform(input_data, input_data+size, output_data, 
-                    thresholdupdateOutput_functor(threshold, val));
+                    thresholdupdateOutput_functor(threshold, val));*/
 
   THCudaTensor_free(input);
   return 1;
@@ -39,7 +39,7 @@ struct thresholdupdateGradInput_functor
 
   thresholdupdateGradInput_functor(double threshold_, double val_) : threshold(threshold_), val(val_) {}
 
-  __host__ __device__ float operator()(const float& input, const float& gradOutput) const
+  float operator()(const float& input, const float& gradOutput) const
   {
     return (input > threshold) ? gradOutput : 0;
   }
@@ -58,11 +58,11 @@ static int cunn_Threshold_updateGradInput(lua_State *L)
   gradOutput = THCudaTensor_newContiguous(gradOutput);
   THCudaTensor_resizeAs(gradInput, output);
 
-  thrust::device_ptr<float> input_data(THCudaTensor_data(input));
+ /* thrust::device_ptr<float> input_data(THCudaTensor_data(input));
   thrust::device_ptr<float> gradOutput_data(THCudaTensor_data(gradOutput));
   thrust::device_ptr<float> gradInput_data(THCudaTensor_data(gradInput));
   thrust::transform(input_data, input_data+size, gradOutput_data, gradInput_data, 
-                    thresholdupdateGradInput_functor(threshold, val));
+                    thresholdupdateGradInput_functor(threshold, val));*/
 
   THCudaTensor_free(gradOutput);
   return 1;

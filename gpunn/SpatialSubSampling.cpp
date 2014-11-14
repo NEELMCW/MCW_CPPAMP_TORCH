@@ -6,12 +6,12 @@
  *    this function subsamples an input 3D tensor along dimensions 1 and 2
  *    3D input, 3D output, 1D weight, 1D bias
  */
-__global__ void subsample(float *input, float *output, float *weight, float *bias,
+void subsample(float *input, float *output, float *weight, float *bias,
                           int input_n, int input_h, int input_w,
                           int kH, int kW, int dH, int dW)
 {
   // iterators
-  int xx, yy;
+/*  int xx, yy;
 
   // output size
   int output_w = (input_w - kW) / dW + 1;
@@ -57,18 +57,19 @@ __global__ void subsample(float *input, float *output, float *weight, float *bia
       *ptr_output = the_weight*sum + the_bias;
     }
   }
+*/
 }
 
 /*
  * Description:
  *    this function computes the gradWeight from input and gradOutput
  */
-__global__ void subgradweight(float *input, float *gradOutput, float *gradWeight, float *gradBias,
+void subgradweight(float *input, float *gradOutput, float *gradWeight, float *gradBias,
                               int input_n, int input_h, int input_w,
                               int kH, int kW, int dH, int dW,
                               float scale)
 {
-  // iterators
+/*  // iterators
   int xx, yy;
 
   // output size
@@ -134,17 +135,18 @@ __global__ void subgradweight(float *input, float *gradOutput, float *gradWeight
     for (int i=0; i<(blockDim.x*blockDim.y); i++)
       gradBias[k] += scale*sums[i];
   }
+*/
 }
 
 /*
  * Description:
  *    this function computes the gradInput from weight and gradOutput
  */
-__global__ void subgradinput(float *gradInput, float *gradOutput, float *weight,
+void subgradinput(float *gradInput, float *gradOutput, float *weight,
                              int input_n, int input_h, int input_w,
                              int kH, int kW, int dH, int dW)
 {
-  // iterators
+/*  // iterators
   int xx, yy;
 
   // output size
@@ -185,6 +187,7 @@ __global__ void subgradinput(float *gradInput, float *gradOutput, float *weight,
       }
     }
   }
+*/
 }
 
 static int cunn_SpatialSubSampling_updateOutput(lua_State *L)
@@ -225,12 +228,10 @@ static int cunn_SpatialSubSampling_updateOutput(lua_State *L)
     // cuda blocks & threads:
     int yblocks = (int)(16L / nInputPlane);
     yblocks = yblocks < 1 ? 1 : yblocks;
-    dim3 blocks(nInputPlane,yblocks);
-    dim3 threads(32,8);
 
     // run subsample kernel
-    subsample <<<blocks, threads>>> (input_data, output_data, weight_data, bias_data,
-                                     nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW);
+   // subsample <<<blocks, threads>>> (input_data, output_data, weight_data, bias_data,
+     //                                nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW);
   } else {
     long nInputCols = input->size[3];
     long nInputRows = input->size[2];
@@ -250,23 +251,16 @@ static int cunn_SpatialSubSampling_updateOutput(lua_State *L)
     // cuda blocks & threads:
     int yblocks = (int)(16L / nInputPlane);
     yblocks = yblocks < 1 ? 1 : yblocks;
-    dim3 blocks(nInputPlane*nbatch,yblocks);
-    dim3 threads(32,8);
 
     // run subsample kernel
-    subsample <<<blocks, threads>>> (input_data, output_data, weight_data, bias_data,
-                                     nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW);
+    //subsample <<<blocks, threads>>> (input_data, output_data, weight_data, bias_data,
+      //                               nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW);
   }
 
   // clean
   THCudaTensor_free(input);
 
   // check for errors
-  cudaError_t err = cudaGetLastError();
-  if (err != cudaSuccess) {
-    printf("error in SpatialSubsampling.updateOutput: %s\n", cudaGetErrorString(err));
-    THError("aborting");
-  }
   return 1;
 }
 
@@ -301,12 +295,10 @@ static int cunn_SpatialSubSampling_updateGradInput(lua_State *L)
     // cuda blocks & threads:
     int yblocks = (int)(16L / nInputPlane);
     yblocks = yblocks < 1 ? 1 : yblocks;
-    dim3 blocks(nInputPlane,yblocks);
-    dim3 threads(32,8);
 
     // run updateGradInput kernel
-    subgradinput <<<blocks, threads>>> (gradInput_data, gradOutput_data, weight_data,
-                                        nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW);
+   // subgradinput <<<blocks, threads>>> (gradInput_data, gradOutput_data, weight_data,
+     //                                   nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW);
   } else {
     long nInputCols = input->size[3];
     long nInputRows = input->size[2];
@@ -323,21 +315,12 @@ static int cunn_SpatialSubSampling_updateGradInput(lua_State *L)
     // cuda blocks & threads:
     int yblocks = (int)(16L / nInputPlane);
     yblocks = yblocks < 1 ? 1 : yblocks;
-    dim3 blocks(nInputPlane*nbatch,yblocks);
-    dim3 threads(32,8);
 
     // run updateGradInput kernel
-    subgradinput <<<blocks, threads>>> (gradInput_data, gradOutput_data, weight_data,
-                                        nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW);
+    //subgradinput <<<blocks, threads>>> (gradInput_data, gradOutput_data, weight_data,
+      //                                  nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW);
   }
-
-  // check for errors
-  cudaError_t err = cudaGetLastError();
-  if (err != cudaSuccess) {
-    printf("error in SpatialSubsampling.updateGradInput: %s\n", cudaGetErrorString(err));
-    THError("aborting");
-  }
-  return 1;
+   return 0;
 }
 
 static int cunn_SpatialSubSampling_accGradParameters(lua_State *L)
@@ -370,12 +353,10 @@ static int cunn_SpatialSubSampling_accGradParameters(lua_State *L)
     input_data = THCudaTensor_data(input);
 
     // cuda blocks & threads:
-    dim3 blocks(nInputPlane);
-    dim3 threads(32,8);
 
     // run gradweight kernel
-    subgradweight <<<blocks, threads>>> (input_data, gradOutput_data, gradWeight_data, gradBias_data,
-                                         nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW, scale);
+   // subgradweight <<<blocks, threads>>> (input_data, gradOutput_data, gradWeight_data, gradBias_data,
+     //                                    nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW, scale);
   } else {
     long nInputCols = input->size[3];
     long nInputRows = input->size[2];
@@ -390,28 +371,20 @@ static int cunn_SpatialSubSampling_accGradParameters(lua_State *L)
     input_data = THCudaTensor_data(input);
 
     // cuda blocks & threads:
-    dim3 blocks(nInputPlane);
-    dim3 threads(32,8);
 
     // run gradweight kernel
     long sl;
     for (sl=0; sl<nbatch; sl++) {
-      subgradweight <<<blocks, threads>>> (input_data + sl*input->stride[0], 
-                                           gradOutput_data + sl*gradOutput->stride[0], 
-                                           gradWeight_data, gradBias_data,
-                                           nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW, scale);
+  //    subgradweight <<<blocks, threads>>> (input_data + sl*input->stride[0], 
+    //                                       gradOutput_data + sl*gradOutput->stride[0], 
+      //                                     gradWeight_data, gradBias_data,
+        //                                   nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW, scale);
     }
   }
 
   // clean
   THCudaTensor_free(input);
 
-  // check for errors
-  cudaError_t err = cudaGetLastError();
-  if (err != cudaSuccess) {
-    printf("error in SpatialSubsampling.accGradParameters: %s\n", cudaGetErrorString(err));
-    THError("aborting");
-  }
   return 0;
 }
 

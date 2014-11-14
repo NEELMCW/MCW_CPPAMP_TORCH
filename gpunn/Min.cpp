@@ -4,11 +4,11 @@
  *    this function finds the min along the innermost dimension
  *    Nd input, (N-1)d output, (N-1)d argmin
  */
-__global__ void min_output(float *input, float *output, float *indices,
+void min_output(float *input, float *output, float *indices,
                            long nrows, long ncols)
 {
   // output offset:
-  long o = threadIdx.x + blockDim.x * blockIdx.x;
+/*  long o = threadIdx.x + blockDim.x * blockIdx.x;
   if (o >= nrows) return;
 
   // input offset:
@@ -31,13 +31,13 @@ __global__ void min_output(float *input, float *output, float *indices,
 
   // store
   output[o] = min;
-  indices[o] = argmin+1;
+  indices[o] = argmin+1;*/
 }
 
-__global__ void min_gradInput(float *input, float *output, float *indices,
+void min_gradInput(float *input, float *output, float *indices,
                               long nrows, long ncols)
 {
-  // output offset:
+/*  // output offset:
   long o = threadIdx.x + blockDim.x * blockIdx.x;
   if (o >= nrows) return;
 
@@ -47,6 +47,7 @@ __global__ void min_gradInput(float *input, float *output, float *indices,
   // bprop min gradient:
   long idx = indices[o]-1;
   input[i+idx] = output[o];
+*/
 }
 
 static int cunn_Min_updateOutput(lua_State *L)
@@ -80,19 +81,10 @@ static int cunn_Min_updateOutput(lua_State *L)
   // cuda blocks & threads:
   long nthreads = 256;
   long nblocks = ceil((float)nrows / nthreads);
-  dim3 blocks(nblocks);
-  dim3 threads(nthreads);
 
   // kernel:
-  min_output <<<blocks, threads>>> (input_data, output_data, indices_data, nrows, ncols);
+ // min_output <<<blocks, threads>>> (input_data, output_data, indices_data, nrows, ncols);
 
-  // check for errors
-  cudaError_t err = cudaGetLastError();
-  if (err != cudaSuccess) {
-    printf("error in Min.updateOutput: %s\n", cudaGetErrorString(err));
-    THError("aborting");
-  }
- 
   // final cut:
   THCudaTensor_free(input); 
   THCudaTensor_select(output, NULL, dimension, 0);
@@ -121,18 +113,10 @@ static int cunn_Min_updateGradInput(lua_State *L)
   // cuda blocks & threads:
   long nthreads = 256;
   long nblocks = ceil((float)nrows / nthreads);
-  dim3 blocks(nblocks);
-  dim3 threads(nthreads);
   
   // kernel:
-  min_gradInput <<<blocks, threads>>> (gradInput_data, gradOutput_data, indices_data, nrows, ncols);
+  //min_gradInput <<<blocks, threads>>> (gradInput_data, gradOutput_data, indices_data, nrows, ncols);
 
-  // check for errors
-  cudaError_t err = cudaGetLastError();
-  if (err != cudaSuccess) {
-    printf("error in Min.updateOutput: %s\n", cudaGetErrorString(err));
-    THError("aborting");
-  }
 
   return 1;
 }

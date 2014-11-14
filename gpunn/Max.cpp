@@ -4,10 +4,10 @@
  *    this function finds the max along the innermost dimension
  *    Nd input, (N-1)d output, (N-1)d argmax
  */
-__global__ void max_output(float *input, float *output, float *indices,
+void max_output(float *input, float *output, float *indices,
                            long nrows, long ncols)
 {
-  // output offset:
+/*  // output offset:
   long o = threadIdx.x + blockDim.x * blockIdx.x;
   if (o >= nrows) return;
 
@@ -31,13 +31,13 @@ __global__ void max_output(float *input, float *output, float *indices,
 
   // store
   output[o] = max;
-  indices[o] = argmax+1;
+  indices[o] = argmax+1;*/
 }
 
-__global__ void max_gradInput(float *input, float *output, float *indices,
+void max_gradInput(float *input, float *output, float *indices,
                               long nrows, long ncols)
 {
-  // output offset:
+/*  // output offset:
   long o = threadIdx.x + blockDim.x * blockIdx.x;
   if (o >= nrows) return;
 
@@ -47,6 +47,7 @@ __global__ void max_gradInput(float *input, float *output, float *indices,
   // bprop max gradient:
   long idx = indices[o]-1;
   input[i+idx] = output[o];
+*/
 }
 
 static int cunn_Max_updateOutput(lua_State *L)
@@ -79,19 +80,13 @@ static int cunn_Max_updateOutput(lua_State *L)
 
   // cuda blocks & threads:
   long nthreads = 256;
-  long nblocks = ceil((float)nrows / nthreads);
+  /*long nblocks = ceil((float)nrows / nthreads);
   dim3 blocks(nblocks);
-  dim3 threads(nthreads);
+  dim3 threads(nthreads);*/
 
   // kernel:
-  max_output <<<blocks, threads>>> (input_data, output_data, indices_data, nrows, ncols);
+ // max_output <<<blocks, threads>>> (input_data, output_data, indices_data, nrows, ncols);
 
-  // check for errors
-  cudaError_t err = cudaGetLastError();
-  if (err != cudaSuccess) {
-    printf("error in Max.updateOutput: %s\n", cudaGetErrorString(err));
-    THError("aborting");
-  }
  
   // final cut:
   THCudaTensor_free(input); 
@@ -121,18 +116,10 @@ static int cunn_Max_updateGradInput(lua_State *L)
   // cuda blocks & threads:
   long nthreads = 256;
   long nblocks = ceil((float)nrows / nthreads);
-  dim3 blocks(nblocks);
-  dim3 threads(nthreads);
   
   // kernel:
-  max_gradInput <<<blocks, threads>>> (gradInput_data, gradOutput_data, indices_data, nrows, ncols);
+ // max_gradInput <<<blocks, threads>>> (gradInput_data, gradOutput_data, indices_data, nrows, ncols);
 
-  // check for errors
-  cudaError_t err = cudaGetLastError();
-  if (err != cudaSuccess) {
-    printf("error in Max.updateOutput: %s\n", cudaGetErrorString(err));
-    THError("aborting");
-  }
 
   return 1;
 }

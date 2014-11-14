@@ -4,7 +4,7 @@ struct sqrtupdateOutput_functor
 
   sqrtupdateOutput_functor(double bias_) : bias(bias_) {}
 
-  __host__ __device__ float operator()(const float& input) const
+  float operator()(const float& input) const
   {
     return sqrt(input+bias);
   }
@@ -21,9 +21,9 @@ static int cunn_Sqrt_updateOutput(lua_State *L)
 
   THCudaTensor_resizeAs(output, input);
 
-  thrust::device_ptr<float> output_data(THCudaTensor_data(output));
+  /*thrust::device_ptr<float> output_data(THCudaTensor_data(output));
   thrust::device_ptr<float> input_data(THCudaTensor_data(input));
-  thrust::transform(input_data, input_data+size, output_data, sqrtupdateOutput_functor(bias));
+  thrust::transform(input_data, input_data+size, output_data, sqrtupdateOutput_functor(bias));*/
 
   THCudaTensor_free(input);
   return 1;
@@ -35,7 +35,7 @@ struct sqrtupdateGradInput_functor
 
   sqrtupdateGradInput_functor(double bias_) : bias(bias_) {}
 
-  __host__ __device__ float operator()(const float& output, const float& gradOutput) const
+  float operator()(const float& output, const float& gradOutput) const
   {
     return 0.5 * gradOutput / output;
   }
@@ -52,10 +52,10 @@ static int cunn_Sqrt_updateGradInput(lua_State *L)
   gradOutput = THCudaTensor_newContiguous(gradOutput);
   THCudaTensor_resizeAs(gradInput, output);
 
-  thrust::device_ptr<float> output_data(THCudaTensor_data(output));
+  /*thrust::device_ptr<float> output_data(THCudaTensor_data(output));
   thrust::device_ptr<float> gradOutput_data(THCudaTensor_data(gradOutput));
   thrust::device_ptr<float> gradInput_data(THCudaTensor_data(gradInput));
-  thrust::transform(output_data, output_data+size, gradOutput_data, gradInput_data, sqrtupdateGradInput_functor(bias));
+  thrust::transform(output_data, output_data+size, gradOutput_data, gradInput_data, sqrtupdateGradInput_functor(bias));*/
 
   THCudaTensor_free(gradOutput);
   return 1;

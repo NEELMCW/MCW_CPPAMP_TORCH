@@ -1,17 +1,17 @@
 #include "luaT.h"
 #include "THC.h"
 
-#include <thrust/transform.h>
+/*#include <thrust/transform.h>
 #include <thrust/reduce.h>
 #include <thrust/transform_reduce.h>
-#include <thrust/functional.h>
+#include <thrust/functional.h>*/
 
 
 /*
  * Description:
  */
 
-__device__ int translate_idx(int ii, int d1, int d2, int d3, int scale_factor)
+int translate_idx(int ii, int d1, int d2, int d3, int scale_factor)
 {
   int x, y, z, w;
   w = ii % d3;
@@ -28,7 +28,7 @@ __device__ int translate_idx(int ii, int d1, int d2, int d3, int scale_factor)
   return (((x*d1+y)*d2)+z)*d3+w;
 
 }
-__device__ int translate_idx_inv(int ii, int d1, int d2, int d3, int scale_factor, int off_x, int off_y)
+int translate_idx_inv(int ii, int d1, int d2, int d3, int scale_factor, int off_x, int off_y)
 {
   int x, y, z, w;
   w = ii % d3;
@@ -46,15 +46,16 @@ __device__ int translate_idx_inv(int ii, int d1, int d2, int d3, int scale_facto
 
 }
 
-__global__ void upscale(float *input, float *output, long no_elements,
+void upscale(float *input, float *output, long no_elements,
                         int scale_factor, int d1, int d2, int d3)
 {
-  // output offset:
+/*  // output offset:
   long ii = threadIdx.x + blockDim.x * blockIdx.x;
   ii += threadIdx.y + blockDim.y * (blockDim.x * gridDim.x) * blockIdx.y;
   if (ii >= no_elements) return;
   int ipidx = translate_idx(ii, d1, d2, d3, scale_factor);
   output[ii]=input[ipidx];
+*/
 }
 
 
@@ -95,23 +96,16 @@ static int cunn_SpatialUpSamplingNearest_updateOutput(lua_State *L)
   // Max number of blocks: http://en.wikipedia.org/wiki/CUDA
   // 65535 for SM 2.x, 2^32 -1 for >= 3.0
   // TODO: When we move to SM 3.5 we should update this
-  long n_xblocks = min(max((int)ceil((float)no_elements / nthreads), 1), 65535);
+  long n_xblocks =1;// min(max((int)ceil((float)no_elements / nthreads), 1), 65535);
   long n_yblocks = (long)ceil((float)no_elements / (float)(n_xblocks * nthreads));
   if (n_yblocks > 65535) {
     THError("Input size is too large!  aborting");
   }
-  dim3 blocks(n_xblocks, n_yblocks);
-  dim3 threads(nthreads);
 
   // kernel:
-  upscale<<<blocks, threads>>> (input_data, output_data, no_elements, scale_factor, d1, d2, d3);
+//  upscale<<<blocks, threads>>> (input_data, output_data, no_elements, scale_factor, d1, d2, d3);
 
   // check for errors
-  cudaError_t err = cudaGetLastError();
-  if (err != cudaSuccess) {
-    printf("error in SpatialUpSamplingNearest.updateOutput: %s\n", cudaGetErrorString(err));
-    THError("aborting");
-  }
  
   // final cut:
   THCudaTensor_free(input); 
@@ -122,11 +116,11 @@ static int cunn_SpatialUpSamplingNearest_updateOutput(lua_State *L)
 /*
  * Description:
  */
-__global__ void downscale(float *gradInput_data, float *gradOutput_data, long no_elements,
+void downscale(float *gradInput_data, float *gradOutput_data, long no_elements,
                               int scale_factor, int d1, int d2, int d3)
 {
   // output offset:
-  long ii = threadIdx.x + blockDim.x * blockIdx.x;
+/*  long ii = threadIdx.x + blockDim.x * blockIdx.x;
   ii += threadIdx.y + blockDim.y * (blockDim.x * gridDim.x) * blockIdx.y;
   if (ii >= no_elements) return;
   for (int i=0; i < scale_factor; i++){
@@ -135,6 +129,7 @@ __global__ void downscale(float *gradInput_data, float *gradOutput_data, long no
       gradInput_data[ii] += gradOutput_data[ipidx];
     }
   }
+*/
 }
 
 
@@ -173,24 +168,17 @@ static int cunn_SpatialUpSamplingNearest_updateGradInput(lua_State *L)
   // Max number of blocks: http://en.wikipedia.org/wiki/CUDA
   // 65535 for SM 2.x, 2^32 -1 for >= 3.0
   // TODO: When we move to SM 3.5 we should update this
-  long n_xblocks = min(max((int)ceil((float)no_elements / nthreads), 1), 65535);
+  long n_xblocks = 1; //min(max((int)ceil((float)no_elements / nthreads), 1), 65535);
   long n_yblocks = (long)ceil((float)no_elements / (float)(n_xblocks * nthreads));
   if (n_yblocks > 65535) {
     THError("Input size is too large!  aborting");
   }
-  dim3 blocks(n_xblocks, n_yblocks);
-  dim3 threads(nthreads);
  
   // kernel:
-  downscale<<<blocks, threads>>> (gradInput_data, gradOutput_data, no_elements, 
-    scale_factor, d1, d2, d3);
+ // downscale<<<blocks, threads>>> (gradInput_data, gradOutput_data, no_elements, 
+   // scale_factor, d1, d2, d3);
  
   // check for errors
-  cudaError_t err = cudaGetLastError();
-  if (err != cudaSuccess) {
-    printf("error in SpatialUpSamplingNearest.updateOutput: %s\n", cudaGetErrorString(err));
-    THError("aborting");
-  }
 
   return 1;
 }

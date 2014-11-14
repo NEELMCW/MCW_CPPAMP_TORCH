@@ -1,8 +1,4 @@
 // CUDA: grid stride looping
-#define CUDA_KERNEL_LOOP(i, n)                        \
-  for (int i = blockIdx.x * blockDim.x + threadIdx.x; \
-      i < (n);                                       \
-      i += blockDim.x * gridDim.x)
 
 // Use 1024 threads per block, which requires cuda sm_2x or above
 const int CUDA_NUM_THREADS = 1024;
@@ -14,11 +10,11 @@ inline int GET_BLOCKS(const int N) {
 
 // Kernel for fast unfold+copy
 // (borrowed from Caffe: https://github.com/BVLC/caffe/blob/master/src/caffe/layers/conv_layer.cu)
-__global__ void im2col_kernel(const int n, const float* data_im,
+void im2col_kernel(const int n, const float* data_im,
     const int height, const int width, const int ksize_h, const int ksize_w, const int pad_h,
     const int pad_w, const int stride_h, const int stride_w, const int height_col, const int width_col,
     float* data_col) {
-  CUDA_KERNEL_LOOP(index, n) {
+/*  CUDA_KERNEL_LOOP(index, n) {
     int w_out = index % width_col;
     index /= width_col;
     int h_out = index % height_col;
@@ -38,6 +34,7 @@ __global__ void im2col_kernel(const int n, const float* data_im,
       }
     }
   }
+*/
 }
 
 void im2col(const float* data_im, const int channels,
@@ -49,18 +46,18 @@ void im2col(const float* data_im, const int channels,
   int width_col = (width + 2 * pad_w - ksize_w) / stride_w + 1;
   int num_kernels = channels * height_col * width_col;
   // Launch
-  im2col_kernel <<<GET_BLOCKS(num_kernels), CUDA_NUM_THREADS>>> (
+ /* im2col_kernel <<<GET_BLOCKS(num_kernels), CUDA_NUM_THREADS>>> (
       num_kernels, data_im, height, width, ksize_h, ksize_w,
       pad_h, pad_w, stride_h, stride_w,
       height_col, width_col, data_col
-  );
+  );*/
 }
 
-__global__ void col2im_kernel(const int n, const float* data_col,
+void col2im_kernel(const int n, const float* data_col,
     const int height, const int width, const int channels, const int patch_h, const int patch_w,
     const int pad_h, const int pad_w, const int stride_h, const int stride_w, const int height_col, const int width_col,
     float* data_im) {
-  CUDA_KERNEL_LOOP(index, n) {
+/*  CUDA_KERNEL_LOOP(index, n) {
     float val = 0;
     int w = index % width + pad_w;
     int h = (index / width) % height + pad_h;
@@ -70,7 +67,6 @@ __global__ void col2im_kernel(const int n, const float* data_col,
     int w_col_end = min(w / stride_w + 1, width_col);
     int h_col_start = (h < patch_h) ? 0 : (h - patch_h) / stride_h + 1;
     int h_col_end = min(h / stride_h + 1, height_col);
-    /*
        for (int h_col = h_col_start; h_col < h_col_end; ++h_col) {
        for (int w_col = w_col_start; w_col < w_col_end; ++w_col) {
     // the col location: [c * width * height + h_out, w_out]
@@ -78,7 +74,6 @@ __global__ void col2im_kernel(const int n, const float* data_col,
     val += data_col[(c_col * height_col + h_col) * width_col + w_col];
     }
     }
-     */
     // equivalent implementation
     int offset = (c * patch_h * patch_w + h * patch_w + w) * height_col * width_col;
     int coeff_h_col = (1 - stride_h * patch_w * height_col) * width_col;
@@ -89,7 +84,7 @@ __global__ void col2im_kernel(const int n, const float* data_col,
       }
     }
     data_im[index] = val;
-  }
+  }*/
 }
 
 void col2im(const float* data_col, const int channels,
@@ -100,11 +95,11 @@ void col2im(const float* data_col, const int channels,
   int num_kernels = channels * height * width;
   // To avoid involving atomic operations, we will launch one kernel per
   // bottom dimension, and then in the kernel add up the top dimensions.
-  col2im_kernel <<<GET_BLOCKS(num_kernels), CUDA_NUM_THREADS>>> (
+ /* col2im_kernel <<<GET_BLOCKS(num_kernels), CUDA_NUM_THREADS>>> (
       num_kernels, data_col, height, width, channels,
       patch_h, patch_w, pad_h, pad_w, stride_h, stride_w,
       height_col, width_col, data_im
-  );
+  );*/
 }
 
 static int cunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
@@ -177,7 +172,7 @@ static int cunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
     long k_ = 1;
 
     // Do GEMM (note: this is a bit confusing because gemm assumes column-major matrices)
-    THCudaBlas_gemm(
+    /*THCudaBlas_gemm(
         't', 'n',
         n_, m_, k_,
         1,
@@ -185,7 +180,7 @@ static int cunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
         THCudaTensor_data(bias), k_,
         0,
         THCudaTensor_data(output_n), n_
-    );
+    );*/
 
     // Extract columns:
     im2col(
@@ -201,7 +196,7 @@ static int cunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
     long k = weight->size[1];
 
     // Do GEMM (note: this is a bit confusing because gemm assumes column-major matrices)
-    THCudaBlas_gemm(
+    /*THCudaBlas_gemm(
         'n', 'n',
         n, m, k,
         1,
@@ -209,7 +204,7 @@ static int cunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
         THCudaTensor_data(weight), k,
         1,
         THCudaTensor_data(output_n), n
-    );
+    );*/
   }
 
   // Free
@@ -287,7 +282,7 @@ static int cunn_SpatialConvolutionMM_updateGradInput(lua_State *L) {
     long k = weight->size[0];
 
     // Do GEMM (note: this is a bit confusing because gemm assumes column-major matrices)
-    THCudaBlas_gemm(
+    /*THCudaBlas_gemm(
         'n', 't',
         n, m, k,
         1,
@@ -295,7 +290,7 @@ static int cunn_SpatialConvolutionMM_updateGradInput(lua_State *L) {
         THCudaTensor_data(weight), m,
         0,
         THCudaTensor_data(gradColumns), n
-    );
+    );*/
 
     // Unpack columns back into input:
     col2im(
@@ -393,7 +388,7 @@ static int cunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
     long k = columns->size[1];
 
     // Do GEMM (note: this is a bit confusing because gemm assumes column-major matrices)
-    THCudaBlas_gemm(
+    /*THCudaBlas_gemm(
         't', 'n',
         n, m, k,
         scale,
@@ -401,7 +396,7 @@ static int cunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
         THCudaTensor_data(gradOutput_n), k,
         1,
         THCudaTensor_data(gradWeight), n
-    );
+    );*/
 
     // Do Bias:
     // M,N,K are dims of matrix A and B
@@ -410,7 +405,7 @@ static int cunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
     long k_ = outputHeight * outputWidth;
 
     // Do GEMV (note: this is a bit confusing because gemv assumes column-major matrices)
-    THCudaBlas_gemv(
+    /*THCudaBlas_gemv(
         't',
         k_, m_,
         scale,
@@ -418,7 +413,7 @@ static int cunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
         THCudaTensor_data(ones), 1,
         1,
         THCudaTensor_data(gradBias), 1
-    );
+    );*/
   }
 
   // Free

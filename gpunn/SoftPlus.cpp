@@ -5,7 +5,7 @@ struct softPlusupdateOutput_functor
 
   softPlusupdateOutput_functor(float threshold_, float beta_) : threshold(threshold_), beta(beta_) {}
 
-  __host__ __device__ float operator()(const float& input) const
+  float operator()(const float& input) const
   {
     float betain = beta * input;
     return ((betain) > threshold) ? input : (1/beta) * log1p(exp(betain));
@@ -24,10 +24,10 @@ static int cunn_SoftPlus_updateOutput(lua_State *L)
 
   THCudaTensor_resizeAs(output, input);
 
-  thrust::device_ptr<float> output_data(THCudaTensor_data(output));
-  thrust::device_ptr<float> input_data(THCudaTensor_data(input));
-  thrust::transform(input_data, input_data+size, output_data, 
-                    softPlusupdateOutput_functor(threshold, beta));
+  //thrust::device_ptr<float> output_data(THCudaTensor_data(output));
+ // thrust::device_ptr<float> input_data(THCudaTensor_data(input));
+ // thrust::transform(input_data, input_data+size, output_data, 
+  //                  softPlusupdateOutput_functor(threshold, beta));
 
   THCudaTensor_free(input);
   return 1;
@@ -40,7 +40,7 @@ struct softPlusupdateGradInput_functor
 
   softPlusupdateGradInput_functor(float threshold_, float beta_) : threshold(threshold_), beta(beta_) {}
 
-  __host__ __device__ float operator()(const float& output, const float& gradOutput) const
+  float operator()(const float& output, const float& gradOutput) const
   {
     float betaout = beta * output;
     float exp_bo = exp(betaout);
@@ -61,11 +61,11 @@ static int cunn_SoftPlus_updateGradInput(lua_State *L)
   gradOutput = THCudaTensor_newContiguous(gradOutput);
   THCudaTensor_resizeAs(gradInput, output);
 
-  thrust::device_ptr<float> output_data(THCudaTensor_data(output));
-  thrust::device_ptr<float> gradOutput_data(THCudaTensor_data(gradOutput));
-  thrust::device_ptr<float> gradInput_data(THCudaTensor_data(gradInput));
-  thrust::transform(output_data, output_data+size, gradOutput_data, gradInput_data, 
-                    softPlusupdateGradInput_functor(threshold, beta));
+ // thrust::device_ptr<float> output_data(THCudaTensor_data(output));
+ // thrust::device_ptr<float> gradOutput_data(THCudaTensor_data(gradOutput));
+ // thrust::device_ptr<float> gradInput_data(THCudaTensor_data(gradInput));
+ // thrust::transform(output_data, output_data+size, gradOutput_data, gradInput_data, 
+   //                 softPlusupdateGradInput_functor(threshold, beta));
 
   THCudaTensor_free(gradOutput);
   return 1;

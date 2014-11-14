@@ -1,9 +1,9 @@
 #define MINUS_LOG_THRESHOLD -18.42
 #define LOGSOFTMAX_THREADS 128
 
-__global__ void cunn_LogSoftMax_updateOutput_kernel(float *output, float *input, int nframe, int dim)
+void cunn_LogSoftMax_updateOutput_kernel(float *output, float *input, int nframe, int dim)
 {
-  __shared__ float buffer[LOGSOFTMAX_THREADS+1];
+/*  __shared__ float buffer[LOGSOFTMAX_THREADS+1];
   int k = blockIdx.x;
   float *input_k = input + k*dim;
   float *output_k = output + k*dim;
@@ -61,12 +61,13 @@ __global__ void cunn_LogSoftMax_updateOutput_kernel(float *output, float *input,
   float logsum_k = buffer[LOGSOFTMAX_THREADS];
   for (int i=i_start; i<i_end; i+=i_step)
     output_k[i] = input_k[i] - logsum_k;
+*/
 }
 
 
-__global__ void cunn_LogSoftMax_updateGradInput_kernel(float *gradInput, float *output, float *gradOutput, int nframe, int dim)
+void cunn_LogSoftMax_updateGradInput_kernel(float *gradInput, float *output, float *gradOutput, int nframe, int dim)
 {
-  __shared__ float buffer[LOGSOFTMAX_THREADS];
+/*  __shared__ float buffer[LOGSOFTMAX_THREADS];
   int k = blockIdx.x;
   float *gradInput_k = gradInput + k*dim;
   float *output_k = output + k*dim;
@@ -94,6 +95,7 @@ __global__ void cunn_LogSoftMax_updateGradInput_kernel(float *gradInput, float *
   float sum_k = buffer[0];
   for (int i=tx; i<i_end; i+=i_step)
     gradInput_k[i] = gradOutput_k[i] - __expf(output_k[i])*sum_k;
+*/
 }
 
 static int cunn_LogSoftMax_updateOutput(lua_State *L)
@@ -106,22 +108,19 @@ static int cunn_LogSoftMax_updateOutput(lua_State *L)
 
   if(input->nDimension == 1)
   {
-    dim3 blocks(1);
+   /* dim3 blocks(1);
     dim3 threads(LOGSOFTMAX_THREADS);
-    cunn_LogSoftMax_updateOutput_kernel<<<blocks,threads>>>(THCudaTensor_data(output), THCudaTensor_data(input), 1, input->size[0]);
+    cunn_LogSoftMax_updateOutput_kernel<<<blocks,threads>>>(THCudaTensor_data(output), THCudaTensor_data(input), 1, input->size[0]);*/
   }
   else if(input->nDimension == 2)
   {
-    dim3 blocks(input->size[0]);
+   /* dim3 blocks(input->size[0]);
     dim3 threads(LOGSOFTMAX_THREADS);
-    cunn_LogSoftMax_updateOutput_kernel<<<blocks,threads>>>(THCudaTensor_data(output), THCudaTensor_data(input), input->size[0], input->size[1]);
+    cunn_LogSoftMax_updateOutput_kernel<<<blocks,threads>>>(THCudaTensor_data(output), THCudaTensor_data(input), input->size[0], input->size[1]);*/
   }
   else
     THError("vector or matrix expected");
 
-  cudaError errcode = cudaGetLastError();
-  if(errcode != cudaSuccess)
-    THError(cudaGetErrorString(errcode));
 
   THCudaTensor_free(input);
   return 1;
@@ -140,30 +139,27 @@ static int cunn_LogSoftMax_updateGradInput(lua_State *L)
 
   if(gradInput->nDimension == 1)
   {
-    dim3 blocks(1);
+    /*dim3 blocks(1);
     dim3 threads(LOGSOFTMAX_THREADS);
 
     cunn_LogSoftMax_updateGradInput_kernel<<<blocks,threads>>>(THCudaTensor_data(gradInput),
                                                         THCudaTensor_data(output),
                                                         THCudaTensor_data(gradOutput),
-                                                        1, gradInput->size[0]);
+                                                        1, gradInput->size[0]);*/
   }
   else if(gradInput->nDimension == 2)
   {
-    dim3 blocks(gradInput->size[0]);
+   /* dim3 blocks(gradInput->size[0]);
     dim3 threads(LOGSOFTMAX_THREADS);
 
     cunn_LogSoftMax_updateGradInput_kernel<<<blocks,threads>>>(THCudaTensor_data(gradInput),
                                                         THCudaTensor_data(output),
                                                         THCudaTensor_data(gradOutput),
-                                                        gradInput->size[0], gradInput->size[1]);
+                                                        gradInput->size[0], gradInput->size[1]);*/
   }
   else
     THError("vector or matrix expected");
 
-  cudaError errcode = cudaGetLastError();
-  if(errcode != cudaSuccess)
-    THError(cudaGetErrorString(errcode));
 
   THCudaTensor_free(gradOutput);
   THCudaTensor_free(output);
