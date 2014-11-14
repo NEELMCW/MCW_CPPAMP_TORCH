@@ -2,7 +2,7 @@
 #include "THCGeneral.h"
 #include "THCTensorRandom.h"
 #include "amp_math.h"
-#include "bolt/cl/device_vector.h"
+//#include "bolt/cl/device_vector.h"
 
 
 #define NB_THREADS_PER_BLOCK 256
@@ -179,7 +179,7 @@ void THCudaTensor_cmul(THCudaTensor *self_, THCudaTensor *src1, THCudaTensor *sr
     long size = THCudaTensor_nElement(self);
     src1 = THCudaTensor_newContiguous(src1);
     src2 = THCudaTensor_newContiguous(src2);
-    bolt::cl::device_vector<float> self_data(THCudaTensor_data(self),0);
+   // bolt::cl::device_vector<float> self_data(THCudaTensor_data(self),0);
    // thrust::device_ptr<float> src1_data(THCudaTensor_data(src1));
    // thrust::device_ptr<float> src2_data(THCudaTensor_data(src2));
 
