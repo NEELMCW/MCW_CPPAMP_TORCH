@@ -1,1 +1,0 @@
-/home/neelakandan/Downloads/mcw_cppamp/build/compiler/bin/clang++  -fPIC -O3 -DNDEBUG   -shared -Wl,-soname,libcunn.so -o libcunn.so CMakeFiles/cunn.dir/init.cpp.o  -L/usr/local/lib -lluaT -lTHC /usr/local/lib/libTH.so -Wl,-rpath,/usr/local/lib::::::::::::::: 
