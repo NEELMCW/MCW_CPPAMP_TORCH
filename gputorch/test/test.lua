@@ -287,7 +287,7 @@ function test.addcdiv()
    compareFloatAndCudaTensorArgs(x, 'addcdiv', y, z)
 end
 
---[[function test.logicalValue()
+function test.logicalValue()
    local sz1 = math.floor(torch.uniform(minsize,maxsize))
    local sz2 = math.floor(torch.uniform(minsize,maxsize))
    local x = torch.FloatTensor():rand(sz1, sz2)
@@ -295,7 +295,7 @@ end
    compareFloatAndCudaTensorArgs(x, 'gt', y, 0.3)
    compareFloatAndCuda(x, 'gt', 0.3)
 end
-]]--
+
 
 function test.logicalTensor()
    local sz1 = math.floor(torch.uniform(minsize,maxsize))

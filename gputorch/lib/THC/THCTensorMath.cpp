@@ -952,8 +952,8 @@ float THCudaTensor_meanall(THCudaTensor *self)
 void
 THCudaTensor_mean(THCudaTensor *self, THCudaTensor *src, long dim)
 {
-/*  THCudaTensor_sum(self, src, dim);
-  THCudaTensor_div(self, THCudaTensor_size(src, dim));*/
+  THCudaTensor_sum(self, src, dim);
+  THCudaTensor_div(self, THCudaTensor_size(src, dim));
 }
 
 struct square_functor
@@ -995,18 +995,20 @@ float THCudaTensor_stdall(THCudaTensor *self)
 template<class Op>
 void THCudaTensor_logicalValue(THCudaTensor *self_, THCudaTensor *src, Op op)
 {
-/*  THCudaTensor_resizeAs(self_, src);
+  THCudaTensor_resizeAs(self_, src);
   
   THCudaTensor *self = THCudaTensor_newContiguous(self_);
   long size = THCudaTensor_nElement(self);
   src = THCudaTensor_newContiguous(src);
-  thrust::device_ptr<float> self_data(THCudaTensor_data(self));
-  thrust::device_ptr<float> src_data(THCudaTensor_data(src));
+  std::vector<float> self_data(THCudaTensor_data(self), THCudaTensor_data(self)+THCudaTensor_nElement(self));
+   // thrust::device_ptr<float> src1_data(THCudaTensor_data(src1));  
+  std::vector<float> src_data(THCudaTensor_data(src), THCudaTensor_data(src)+THCudaTensor_nElement(src));
 
-  thrust::transform(src_data, src_data+size, self_data, op);
+  std::transform(src_data.begin(), src_data.end(), self_data.begin(), op);
 
+  std::copy(self_data.begin(), self_data.end(),self->storage->data);
   THCudaTensor_free(src);
-  THCudaTensor_freeCopyTo(self, self_);*/
+  THCudaTensor_freeCopyTo(self, self_);
 }
 
 
@@ -1020,7 +1022,7 @@ struct partial_less_functor
 
 void THCudaTensor_ltValue(THCudaTensor *self_, THCudaTensor *src, float value)
 {
-  //THCudaTensor_logicalValue(self_, src, partial_less_functor(value));
+  THCudaTensor_logicalValue(self_, src, partial_less_functor(value));
 }
 
 
@@ -1034,7 +1036,7 @@ struct partial_greater_functor
 
 void THCudaTensor_gtValue(THCudaTensor *self_, THCudaTensor *src, float value)
 {
-  //THCudaTensor_logicalValue(self_, src, partial_greater_functor(value));
+  THCudaTensor_logicalValue(self_, src, partial_greater_functor(value));
 }
 
 
@@ -1062,7 +1064,7 @@ struct partial_greater_equal_functor
 
 void THCudaTensor_geValue(THCudaTensor *self_, THCudaTensor *src, float value)
 {
-  //THCudaTensor_logicalValue(self_, src, partial_greater_equal_functor(value));
+  THCudaTensor_logicalValue(self_, src, partial_greater_equal_functor(value));
 }
 
 
@@ -1076,7 +1078,7 @@ struct partial_equal_functor
 
 void THCudaTensor_eqValue(THCudaTensor *self_, THCudaTensor *src, float value)
 {
-  //THCudaTensor_logicalValue(self_, src, partial_equal_functor(value));
+  THCudaTensor_logicalValue(self_, src, partial_equal_functor(value));
 }
 
 
@@ -1090,7 +1092,7 @@ struct partial_not_equal_functor
 
 void THCudaTensor_neValue(THCudaTensor *self_, THCudaTensor *src, float value)
 {
-  //THCudaTensor_logicalValue(self_, src, partial_not_equal_functor(value));
+  THCudaTensor_logicalValue(self_, src, partial_not_equal_functor(value));
 }
 
 
