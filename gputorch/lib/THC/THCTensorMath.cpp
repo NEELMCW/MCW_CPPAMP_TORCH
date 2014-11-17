@@ -1097,58 +1097,62 @@ void THCudaTensor_neValue(THCudaTensor *self_, THCudaTensor *src, float value)
 template<class Op>
 void THCudaTensor_logicalTensor(THCudaTensor *self_, THCudaTensor *src1, THCudaTensor *src2, Op op)
 {
- /* THCudaTensor_resizeAs(self_, src1);
+  THCudaTensor_resizeAs(self_, src1);
   THArgCheck(THCudaTensor_nElement(src1) == THCudaTensor_nElement(src2), 3, "size do not match");
 
   THCudaTensor *self = THCudaTensor_newContiguous(self_);
   long size = THCudaTensor_nElement(self);
   src1 = THCudaTensor_newContiguous(src1);
   src2 = THCudaTensor_newContiguous(src2);
-  thrust::device_ptr<float> self_data(THCudaTensor_data(self));
-  thrust::device_ptr<float> src1_data(THCudaTensor_data(src1));
-  thrust::device_ptr<float> src2_data(THCudaTensor_data(src2));
+  std::vector<float> self_data(THCudaTensor_data(self), THCudaTensor_data(self)+THCudaTensor_nElement(self));
+   // thrust::device_ptr<float> src1_data(THCudaTensor_data(src1));  
+  std::vector<float> src1_data(THCudaTensor_data(src1), THCudaTensor_data(src1)+THCudaTensor_nElement(src1));
+   // thrust::device_ptr<float> src2_data(THCudaTensor_data(src2));
+  std::vector<float> src2_data(THCudaTensor_data(src2), THCudaTensor_data(src2)+THCudaTensor_nElement(src2));
 
-  thrust::transform(src1_data, src1_data+size, src2_data, self_data, op);
+  std::transform(src1_data.begin(), src1_data.end(), src2_data.begin(), self_data.begin(), op);
+
+  std::copy(self_data.begin(), self_data.end(),self->storage->data);
 
   THCudaTensor_free(src1);
   THCudaTensor_free(src2);
-  THCudaTensor_freeCopyTo(self, self_);*/
+  THCudaTensor_freeCopyTo(self, self_);
 }
 
 
 void THCudaTensor_ltTensor(THCudaTensor *self_, THCudaTensor *src1, THCudaTensor *src2)
 {
-  //THCudaTensor_logicalTensor(self_, src1, src2, thrust::less<float>());
+  THCudaTensor_logicalTensor(self_, src1, src2, std::less<float>());
 }
 
 
 void THCudaTensor_gtTensor(THCudaTensor *self_, THCudaTensor *src1, THCudaTensor *src2)
 {
-  //THCudaTensor_logicalTensor(self_, src1, src2, thrust::greater<float>());
+  THCudaTensor_logicalTensor(self_, src1, src2, std::greater<float>());
 }
 
 
 void THCudaTensor_leTensor(THCudaTensor *self_, THCudaTensor *src1, THCudaTensor *src2)
 {
-  //THCudaTensor_logicalTensor(self_, src1, src2, thrust::less_equal<float>());
+  THCudaTensor_logicalTensor(self_, src1, src2, std::less_equal<float>());
 }
 
 
 void THCudaTensor_geTensor(THCudaTensor *self_, THCudaTensor *src1, THCudaTensor *src2)
 {
- // THCudaTensor_logicalTensor(self_, src1, src2, thrust::greater_equal<float>());
+  THCudaTensor_logicalTensor(self_, src1, src2, std::greater_equal<float>());
 }
 
 
 void THCudaTensor_eqTensor(THCudaTensor *self_, THCudaTensor *src1, THCudaTensor *src2)
 {
-  //THCudaTensor_logicalTensor(self_, src1, src2, thrust::equal_to<float>());
+  THCudaTensor_logicalTensor(self_, src1, src2, std::equal_to<float>());
 }
 
 
 void THCudaTensor_neTensor(THCudaTensor *self_, THCudaTensor *src1, THCudaTensor *src2)
 {
- // THCudaTensor_logicalTensor(self_, src1, src2, thrust::not_equal_to<float>());
+  THCudaTensor_logicalTensor(self_, src1, src2, std::not_equal_to<float>());
 }
 
 
