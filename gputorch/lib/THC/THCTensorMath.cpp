@@ -179,60 +179,47 @@ void THCudaTensor_cmul(THCudaTensor *self_, THCudaTensor *src1, THCudaTensor *sr
     long size = THCudaTensor_nElement(self);
     src1 = THCudaTensor_newContiguous(src1);
     src2 = THCudaTensor_newContiguous(src2);
-   // bolt::cl::device_vector<float> self_data(THCudaTensor_data(self),0);
-   // thrust::device_ptr<float> src1_data(THCudaTensor_data(src1));
+
+   std::vector<float> self_data(THCudaTensor_data(self), THCudaTensor_data(self)+THCudaTensor_nElement(self));
+   // thrust::device_ptr<float> src1_data(THCudaTensor_data(src1));  
+   std::vector<float> src1_data(THCudaTensor_data(src1), THCudaTensor_data(src1)+THCudaTensor_nElement(src1));
    // thrust::device_ptr<float> src2_data(THCudaTensor_data(src2));
+   std::vector<float> src2_data(THCudaTensor_data(src2), THCudaTensor_data(src2)+THCudaTensor_nElement(src2));
 
-   // thrust::transform(src2_data, src2_data+size, src1_data, self_data, thrust::multiplies<float>());
+   std::transform(src2_data.begin(), src2_data.end(), src1_data.begin(), self_data.begin(), std::multiplies<float>());
 
-    THCudaTensor_free(src1);
-    THCudaTensor_free(src2);
-    THCudaTensor_freeCopyTo(self, self_);
+   std::copy(self_data.begin(), self_data.end(),self->storage->data);
+
+   THCudaTensor_free(src1);
+   THCudaTensor_free(src2);
+   THCudaTensor_freeCopyTo(self, self_);
   }
 }
 
 void THCudaTensor_cdiv(THCudaTensor *self_, THCudaTensor *src1, THCudaTensor *src2)
 {
-    THCudaTensor_resizeAs(self_, src1);
-    THArgCheck(THCudaTensor_nElement(src1) == THCudaTensor_nElement(src2), 3, "size do not match");
-  
+  THCudaTensor_resizeAs(self_, src1);
+  THArgCheck(THCudaTensor_nElement(src1) == THCudaTensor_nElement(src2), 3, "size do not match");
+  {
     THCudaTensor *self = THCudaTensor_newContiguous(self_);
-    THCudaTensor *temp1 = src1;
-    THCudaTensor *temp2 = src2;
     long size = THCudaTensor_nElement(self);
     src1 = THCudaTensor_newContiguous(src1);
     src2 = THCudaTensor_newContiguous(src2);
-    Concurrency::array_view<float,1> selfData(Concurrency::extent<1>(THCudaTensor_nElement(self_)),THCudaTensor_data(self));
-    Concurrency::array_view<float,1> src1Data(Concurrency::extent<1>(THCudaTensor_nElement(src1)),THCudaTensor_data(src1));
-    Concurrency::array_view<float,1> src2Data(Concurrency::extent<1>(THCudaTensor_nElement(src2)),THCudaTensor_data(src2));
 
-    Concurrency::parallel_for_each(selfData.get_extent(), [=] (Concurrency::index<1> idx) restrict(amp)
-    {
-        selfData[idx] = (float)src1Data[idx] / src2Data[idx]; 
-    });
+   std::vector<float> self_data(THCudaTensor_data(self), THCudaTensor_data(self)+THCudaTensor_nElement(self));
+   // thrust::device_ptr<float> src1_data(THCudaTensor_data(src1));  
+   std::vector<float> src1_data(THCudaTensor_data(src1), THCudaTensor_data(src1)+THCudaTensor_nElement(src1));
+   // thrust::device_ptr<float> src2_data(THCudaTensor_data(src2));
+   std::vector<float> src2_data(THCudaTensor_data(src2), THCudaTensor_data(src2)+THCudaTensor_nElement(src2));
 
-    selfData.synchronize();
-    src1Data.synchronize();
-    src2Data.synchronize();
+   std::transform(src1_data.begin(), src1_data.end(), src2_data.begin(), self_data.begin(), std::divides<float>());
 
-    THCudaTensor_copy(self_,self);
-   // THCudaTensor_free(src1);
-   // THCudaTensor_free(src2);
-    if (src1 != temp1)
-    {
-        THCudaStorage_free(src1->storage);
-        THCudaTensor_free(src1);
-    }
-    if (src2 != temp2)
-    {
-        THCudaStorage_free(src2->storage);
-        THCudaTensor_free(src2);
-    }
-    if (self != self_)
-    {
-        THCudaStorage_free(self->storage);
-        THCudaTensor_free(self);
-    }
+   std::copy(self_data.begin(), self_data.end(),self->storage->data);
+
+   THCudaTensor_free(src1);
+   THCudaTensor_free(src2);
+   THCudaTensor_freeCopyTo(self, self_);
+  }
   
 }
 

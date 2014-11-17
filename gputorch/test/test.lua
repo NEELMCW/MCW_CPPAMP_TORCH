@@ -7,7 +7,7 @@ local tester
 local test = {}
 local msize = 100
 local minsize = 10
-local maxsize = 100
+local maxsize = 10
 local minvalue = 2
 local maxvalue = 20
 local nloop = 100
@@ -30,11 +30,11 @@ local function isEqual(a, b, tolerance, ...)
    if torch.type(b) ~= torch.type(a) then
       b = b:typeAs(a) -- TODO: remove the need for this (a-b doesnt work for bytetensor, cudatensor pairs)
    end
-   --[[print("A Matrix")
+  --[[ print("A Matrix")
    print(a)
    print("B Matrix")
-   print(b)
-   print("diff Matrix")]]--
+   print(b)]]--
+   --print("diff Matrix")
    local diff = a-b
 --   print(diff)
    tolerance = 0.001
@@ -244,21 +244,21 @@ function test.add()
 end
 
 
---[[function test.cmul()
+function test.cmul()
    local sz1 = math.floor(torch.uniform(minsize,maxsize))
    local sz2 = math.floor(torch.uniform(minsize,maxsize))
    local x = torch.FloatTensor():rand(sz1, sz2)
    local y = torch.FloatTensor():rand(sz1, sz2)
-   compareFloatAndCudaTensorArgs(x, 'cmul', y)
-end]]--
+   compareFloatAndCudaTensorArgs(x,'cmul', y)
+end
 
---[[function test.cdiv()
+function test.cdiv()
    local sz1 = math.floor(torch.uniform(minsize,maxsize))
    local sz2 = math.floor(torch.uniform(minsize,maxsize))
    local x = torch.FloatTensor():rand(sz1, sz2)
    local y = torch.FloatTensor():rand(sz1, sz2)
    compareFloatAndCudaTensorArgs(x, 'cdiv', y)
-end]]--
+end
 
 --[[function test.cdiv3()
    local sz1 = math.floor(torch.uniform(minsize,maxsize))
