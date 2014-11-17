@@ -973,23 +973,27 @@ struct square_functor
 
 float THCudaTensor_varall(THCudaTensor *self)
 {
-/*  self = THCudaTensor_newContiguous(self);
+  self = THCudaTensor_newContiguous(self);
   long size = THCudaTensor_nElement(self);
-  thrust::device_ptr<float> self_data(THCudaTensor_data(self));
 
+  std::vector<float> self_data(THCudaTensor_data(self), THCudaTensor_data(self)+THCudaTensor_nElement(self));
   float mean = THCudaTensor_meanall(self);
-  float result = thrust::transform_reduce(self_data, self_data+size, square_functor(mean), (float)0, thrust::plus<float>());
+
+  std::vector<float> diff(self_data.size());
+  std::transform(self_data.begin(), self_data.end(), diff.begin(),std::bind2nd(std::minus<float>(), mean));
+   
+  float result = std::inner_product(diff.begin(), diff.end(), diff.begin(), 0.0);
 
   result = result/(THCudaTensor_nElement(self)-1);
 
   THCudaTensor_free(self);
-  return result;*/
+  return result;
   return 0;
 }
 
 float THCudaTensor_stdall(THCudaTensor *self)
 {
-  //return sqrt(THCudaTensor_varall(self));
+  return sqrt(THCudaTensor_varall(self));
   return 0;
 }
 

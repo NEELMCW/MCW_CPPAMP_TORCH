@@ -348,7 +348,7 @@ function test.min()
    --compareFloatAndCuda(x, 'max', 2)
 end
 
---[[function test.var()
+function test.var()
    local sz1 = math.floor(torch.uniform(minsize,maxsize))
    local sz2 = math.floor(torch.uniform(minsize,maxsize))
    local x = torch.FloatTensor():rand(sz1, sz2)
@@ -373,7 +373,7 @@ function test.std()
 end
 
 -- Test element-wise unary operators with both one and two arguments.
-local function testUnary1(fn)
+--[[local function testUnary1(fn)
    local function test()
       local sz1 = math.floor(torch.uniform(minsize,maxsize))
       local sz2 = math.floor(torch.uniform(minsize,maxsize))
