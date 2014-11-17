@@ -2,6 +2,7 @@
 #include "THCGeneral.h"
 #include "THCTensorRandom.h"
 #include "amp_math.h"
+#include<numeric>
 //#include "bolt/cl/device_vector.h"
 
 
@@ -420,59 +421,70 @@ struct dim4 {
  *
  * Reduction along the innermost dimension is handled in a separate kernel.
  */
-template<class UnaryFunction, class BinaryFunction>
+
+template<class BinaryFunction, class UnaryFunction>
 void THCudaTensor_kernel_transformReduceOuterDim(float *tgt, float *src_,
-        dim4 src_stride, dim4 tgt_stride, dim4 size,
-        UnaryFunction unary_op, float init, BinaryFunction binary_op)
+unsigned int tgtSz, unsigned int srcSz, unsigned int src_stride[], unsigned int tgt_stride[], unsigned int size[],
+UnaryFunction unary_op, float init, BinaryFunction binary_op, unsigned int gridConf[])
 {
-/*  const size_t reduce = 3;
+    const size_t reduce = 3;
+    Concurrency::array_view<float,1> avTgt(tgtSz,tgt);
+    Concurrency::array_view<float,1> avSrc(srcSz,src_);
+    Concurrency::extent<3> grdExt(gridConf[2],gridConf[1],gridConf[0]*256);
+    Concurrency::tiled_extent<1,1,256> t_ext(grdExt);
 
-  for(unsigned z = blockIdx.z; z < size[2] ; z += gridDim.z)
-  for(unsigned y = blockIdx.y; y < size[1] ; y += gridDim.y)
-  for(unsigned col = blockIdx.x * blockDim.x + threadIdx.x; col < size[0]; col += blockDim.x * gridDim.x) {
-    float *src = src_ + z * src_stride[2] + y * src_stride[1] + col;
-    float acc = init;
-    for(unsigned i=0; i < size[reduce]; i++) {
-      acc = binary_op(acc, unary_op(*src));
-      src += src_stride[reduce];
-    }
-    tgt[z * tgt_stride[2] + y * tgt_stride[1] + col] = float(acc);
-  }*/
+    Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1,1,256>tidx) restrict(amp)
+    {
+        for(unsigned z = tidx.tile[0]; z < size[2] ; z += t_ext[0])
+        {
+            for(unsigned y = tidx.tile[1]; y < size[1] ; y += t_ext[1])  
+            {
+                for(unsigned col = tidx.global[2]; col < size[0]; col += t_ext.tile_dim2 * t_ext[2]) 
+                {
+                    //float *src = src_ + z * src_stride[2] + y * src_stride[1] + col;
+                    float acc = init;
+                    for(unsigned i=0; i < size[reduce]; i++) {
+                        acc = binary_op(acc, unary_op(avSrc[z * src_stride[2] + y * src_stride[1] + col + i * src_stride[reduce]]));
+                        //src += src_stride[reduce];
+                    }
+                    avTgt[z * tgt_stride[2] + y * tgt_stride[1] + col] = float(acc);
+                }
+            }
+        }
+    });
+    avTgt.synchronize();
 }
 
 
-
-template<class UnaryFunction, class BinaryFunction>
+template<class BinaryFunction, class UnaryFunction>
 void THCudaTensor_transformReduceOuterDim(THCudaTensor *tgt, THCudaTensor *src,
-        long rdim, UnaryFunction unary_op, float init, BinaryFunction binary_op)
+long rdim, UnaryFunction unary_op, float init, BinaryFunction binary_op)
 {
-/*  const size_t reduce = 3;
-  dim4 src_stride(0);
-  dim4 tgt_stride(0);
-  dim4 size(1);
-
-  unsigned ndim = THCudaTensor_nDimension(src);
-  for(unsigned idim=0, o=ndim-2; idim < ndim; idim++) {
-    unsigned odim = idim == rdim ? reduce : o--;
-    src_stride[odim] = THCudaTensor_stride(src, idim);
-    tgt_stride[odim] = THCudaTensor_stride(tgt, idim);
-    size[odim]       = THCudaTensor_size(src, idim);
-  }
-
-  const unsigned nThreadPerBlock = 256;
-  unsigned nBlockPerColumn = (size[0] + nThreadPerBlock - 1) / nThreadPerBlock;
-  dim3 threads(nThreadPerBlock);
-  unsigned maxGridDim = 1024; // anything < 64k is fine. The choice has no impact on performance.
-  dim3 grid(min(maxGridDim, nBlockPerColumn), min(maxGridDim, size[1]), min(maxGridDim, size[2]));
-
-  THCudaTensor_kernel_transformReduceOuterDim<<<grid, threads>>>(THCudaTensor_data(tgt),
-          THCudaTensor_data(src), src_stride, tgt_stride, size, unary_op, init, binary_op);
-  cudaError errcode = cudaGetLastError();
-  if(errcode != cudaSuccess) {
-    THError(cudaGetErrorString(errcode));
-  }
-*/
+    const size_t reduce = 3;
+    unsigned int src_stride[4];
+    unsigned int tgt_stride[4];
+    unsigned int size[4];
+    unsigned int gridConfig[3];
+    unsigned ndim = THCudaTensor_nDimension(src);
+    for(unsigned idim=0, o=ndim-2; idim < ndim; idim++) 
+    {
+        unsigned odim = idim == rdim ? reduce : o--;
+        src_stride[odim] = THCudaTensor_stride(src, idim);
+        tgt_stride[odim] = THCudaTensor_stride(tgt, idim);
+        size[odim] = THCudaTensor_size(src, idim);
+    }
+    const unsigned nThreadPerBlock = 256;
+    unsigned nBlockPerColumn = (size[0] + nThreadPerBlock - 1) / nThreadPerBlock;
+    //dim3 threads(nThreadPerBlock);
+    unsigned maxGridDim = 1024; // anything < 64k is fine. The choice has no impact on performance.
+    gridConfig[0] = std::min(maxGridDim, nBlockPerColumn);
+    gridConfig[1] = std::min(maxGridDim, size[1]);
+    gridConfig[2] = std::min(maxGridDim, size[2]);
+    THCudaTensor_kernel_transformReduceOuterDim(THCudaTensor_data(tgt),
+        THCudaTensor_data(src), THCudaTensor_nElement(src), THCudaTensor_nElement(tgt), src_stride, tgt_stride, size, unary_op, init, binary_op,gridConfig);
 }
+
+
 
 
 
@@ -486,91 +498,98 @@ void THCudaTensor_transformReduceOuterDim(THCudaTensor *tgt, THCudaTensor *src,
  *
  * Reduction along other dimensions is handled in a separate kernel.
  */
+
+
 template<class UnaryFunction, class BinaryFunction>
-void THCudaTensor_kernel_transformReduceInnermostDim(float *tgt, float *src_,
-        dim4 src_stride, dim4 tgt_stride, dim4 size, UnaryFunction unary_op, float init, BinaryFunction binary_op)
+void THCudaTensor_kernel_transformReduceInnermostDim(float *tgt, float *src_,unsigned int tgtSz, unsigned int srcSz,
+unsigned int src_stride[], unsigned int tgt_stride[], unsigned int size[4], UnaryFunction unary_op, float init, BinaryFunction binary_op, unsigned int gridConf[])
 {
-/*  __shared__ float sbuf[16][32]; // 8kB
+    Concurrency::array_view<float,1> avTgt(tgtSz,tgt);
+    Concurrency::array_view<float,1> avSrc(srcSz,src_);
+    Concurrency::extent<3> grdExt(gridConf[2],gridConf[1]*16,gridConf[0]*32);
+    Concurrency::tiled_extent<1,16,32> t_ext(grdExt);
 
-  for(unsigned z = blockIdx.z; z < size[3] ; z += gridDim.z)
-  for(unsigned x = blockIdx.x; x < size[2] ; x += gridDim.x)
-  for(unsigned bRow = blockIdx.y * blockDim.y; bRow < size[1]; bRow += blockDim.y * gridDim.y) {
-
-    float acc = init;
-    unsigned row = bRow + threadIdx.y;
-    float *src = src_ + z * src_stride[3] + x * src_stride[2] + row * src_stride[1];
-    bool reducing = threadIdx.x < blockDim.y && bRow + threadIdx.x < size[1] && threadIdx.y == 0;
-
-    for(unsigned bCol=0; bCol < size[0]; bCol += blockDim.x) {
-
-      sbuf[threadIdx.y][threadIdx.x] = init;
-      unsigned col = bCol + threadIdx.x;
-      if(row < size[1] && col < size[0]) {
-        sbuf[threadIdx.y][threadIdx.x] = unary_op(src[col]);
-      }
-      __syncthreads();
-
-      float* line = &sbuf[threadIdx.y][0];
-      for(unsigned s = 16; s > 1; s >>= 1) {
-        if(row < size[1] && threadIdx.x < s) {
-          line[threadIdx.x] = binary_op(line[threadIdx.x], line[threadIdx.x + s]);
+    Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1,16,32>tidx) restrict(amp)
+    {
+    	tile_static float sbuf[16][32]; // 8kB
+        for(unsigned z = tidx.tile[0]; z < size[3] ; z += t_ext[0])
+        {
+            for(unsigned x = tidx.tile[2]; x < size[2] ; x += t_ext[2])
+            {
+                for(unsigned bRow = tidx.tile_origin[1]; bRow < size[1]; bRow += t_ext.tile_dim1 * t_ext[1]) 
+                {
+                    float acc = init;
+                    unsigned row = bRow + tidx.local[1];
+                    //float *src = src_ + z * src_stride[3] + x * src_stride[2] + row * src_stride[1];
+                    bool reducing = tidx.local[2] < t_ext.tile_dim1 && bRow + tidx.local[2] < size[1] && tidx.local[1] == 0;
+                    for(unsigned bCol=0; bCol < size[0]; bCol += t_ext.tile_dim2) 
+                    {
+                        sbuf[tidx.local[1]][tidx.local[2]] = init;
+                        unsigned col = bCol + tidx.local[2];
+                        if(row < size[1] && col < size[0]) 
+                        {
+                            sbuf[tidx.local[1]][tidx.local[2]] = unary_op(avSrc[z * src_stride[3] + x * src_stride[2] + row * src_stride[1] + col]);
+                        }
+                        tidx.barrier.wait();
+                        float* line = &sbuf[tidx.local[1]][0];
+                        for(unsigned s = 16; s > 1; s >>= 1) 
+                        {
+                            if(row < size[1] && tidx.local[2] < s) 
+                            {
+                                line[tidx.local[2]] = binary_op(line[tidx.local[2]], line[tidx.local[2] + s]);
+                            }
+                            tidx.barrier.wait();
+                        }
+                        if(reducing) 
+                        {
+                            sbuf[tidx.local[2]][0] = binary_op(sbuf[tidx.local[2]][0], sbuf[tidx.local[2]][1]);
+                            acc = binary_op(acc, sbuf[tidx.local[2]][0]);
+                        }
+                        tidx.barrier.wait();
+                    }
+                    if(reducing) 
+                    {
+                        unsigned row = bRow + tidx.local[2];
+                        unsigned tgt_offset = z * tgt_stride[3] + x * tgt_stride[2];
+                        avTgt[tgt_offset + row] = acc;
+                    }
+                }
+            }
         }
-        __syncthreads();
-      }
-      if(reducing) {
-        sbuf[threadIdx.x][0] = binary_op(sbuf[threadIdx.x][0], sbuf[threadIdx.x][1]);
-        acc = binary_op(acc, sbuf[threadIdx.x][0]);
-      }
-      __syncthreads();
-    }
-
-    if(reducing) {
-      unsigned row = bRow + threadIdx.x;
-      unsigned tgt_offset = z * tgt_stride[3] + x * tgt_stride[2];
-      tgt[tgt_offset + row] = acc;
-    }
-  }
-*/
+    });
+    avTgt.synchronize();
 }
-
-
 
 template<class UnaryFunction, class BinaryFunction>
 void THCudaTensor_transformReduceInnermostDim(THCudaTensor *tgt, THCudaTensor *src,
-        UnaryFunction unary_op, float init, BinaryFunction binary_op)
+UnaryFunction unary_op, float init, BinaryFunction binary_op)
 {
-/*  dim4 src_stride(0);
-  dim4 tgt_stride(0);
-  dim4 size(1);
-
-  unsigned ndim = THCudaTensor_nDimension(src);
-  for(unsigned dim=0; dim < ndim; dim++) {
-    unsigned odim = ndim - 1 - dim;
-    src_stride[odim] = THCudaTensor_stride(src, dim);
-    tgt_stride[odim] = THCudaTensor_stride(tgt, dim);
-    size[odim]       = THCudaTensor_size(src, dim);
-  }
-
-  dim3 threads(32, 16);
-  unsigned nBlockPerRow = (size[1] + threads.y - 1) / threads.y;
-  unsigned maxGridDim = 1024; // anything < 64k is fine. The choice has no impact on performance.
-  dim3 grid(min(maxGridDim, size[2]), min(maxGridDim, nBlockPerRow), min(maxGridDim, size[3]));
-
-  THCudaTensor_kernel_transformReduceInnermostDim<<<grid, threads>>>(THCudaTensor_data(tgt),
-          THCudaTensor_data(src), src_stride, tgt_stride, size, unary_op, init, binary_op);
-  cudaError errcode = cudaGetLastError();
-  if(errcode != cudaSuccess) {
-    THError(cudaGetErrorString(errcode));
-  }
-*/
+    unsigned int src_stride[4];
+    unsigned int tgt_stride[4];
+    unsigned int size[4];
+    unsigned int gridConfig[3];
+    unsigned ndim = THCudaTensor_nDimension(src);
+    for(unsigned dim=0; dim < ndim; dim++) 
+    {
+        unsigned odim = ndim - 1 - dim;
+        src_stride[odim] = THCudaTensor_stride(src, dim);
+        tgt_stride[odim] = THCudaTensor_stride(tgt, dim);
+        size[odim] = THCudaTensor_size(src, dim);
+    }
+    //dim3 threads(32, 16);
+    unsigned nBlockPerRow = (size[1] + 16 - 1) / 16;
+    unsigned maxGridDim = 1024; // anything < 64k is fine. The choice has no impact on performance.
+    gridConfig[0]= std::min(maxGridDim, size[2]);
+    gridConfig[1]= std::min(maxGridDim, nBlockPerRow);
+    gridConfig[2] = std::min(maxGridDim, size[3]);
+    THCudaTensor_kernel_transformReduceInnermostDim(THCudaTensor_data(tgt),
+        THCudaTensor_data(src), THCudaTensor_nElement(tgt),THCudaTensor_nElement(src), src_stride, tgt_stride, size, unary_op, init, binary_op,gridConfig);
 }
-
-
 template<class UnaryFunction, class BinaryFunction>
 void THCudaTensor_transformReduceDim(THCudaTensor *self_, THCudaTensor *src,
         long dimension, UnaryFunction unary_op, float init, BinaryFunction binary_op)
 {
-/*  THArgCheck(dimension >= 0 && dimension < THCudaTensor_nDimension(src), 3, "dimension out of range");
+  THArgCheck(dimension >= 0 && dimension < THCudaTensor_nDimension(src), 3, "dimension out of range");
   THArgCheck(THCudaTensor_nDimension(src) <= 4, 2, "too many dimensions (>4)");
 
   THLongStorage *dim = THCudaTensor_newSizeOf(src);
@@ -588,7 +607,7 @@ void THCudaTensor_transformReduceDim(THCudaTensor *self_, THCudaTensor *src,
   }
 
   THCudaTensor_free(src);
-  THCudaTensor_freeCopyTo(self, self_);*/
+  THCudaTensor_freeCopyTo(self, self_);
 }
 
 
@@ -601,7 +620,7 @@ void THCudaTensor_reduceDim(THCudaTensor *self_, THCudaTensor *src, long dimensi
 
 void THCudaTensor_sum(THCudaTensor *self, THCudaTensor *src, long dimension)
 {
-//  return THCudaTensor_reduceDim(self, src, dimension, 0.0f, thrust::plus<float>());
+  return THCudaTensor_reduceDim(self, src, dimension, 0.0f, std::plus<float>());
 }
 
 
