@@ -406,7 +406,7 @@ for _,name in ipairs({"log", "log1p", "exp",
    test[name .. "2"] = testUnary2(name)
 
 end
-
+]]--
 function test.pow1()
    local sz1 = math.floor(torch.uniform(minsize,maxsize))
    local sz2 = math.floor(torch.uniform(minsize,maxsize))
@@ -424,7 +424,7 @@ function test.pow2()
    compareFloatAndCudaTensorArgs(y, 'pow', x, pow)
 end
 
---[[function test.clamp1()
+function test.clamp1()
    local sz1 = math.floor(torch.uniform(minsize,maxsize))
    local sz2 = math.floor(torch.uniform(minsize,maxsize))
    local x = torch.FloatTensor():rand(sz1, sz2):mul(5):add(-2.5)
@@ -435,9 +435,9 @@ end
      x[1][2] = max_val + 1
    end
    compareFloatAndCudaTensorArgs(x, 'clamp', min_val, max_val)
-end]]--
+end
 
---[[function test.clamp2()
+function test.clamp2()
    local sz1 = math.floor(torch.uniform(minsize,maxsize))
    local sz2 = math.floor(torch.uniform(minsize,maxsize))
    local x = torch.FloatTensor():rand(sz1, sz2):mul(5):add(-2.5)
@@ -449,7 +449,7 @@ end]]--
    end
    local y = torch.FloatTensor():resizeAs(x)
    compareFloatAndCudaTensorArgs(y, 'clamp', x, min_val, max_val)
-end]]--
+end
 
 --[[function test.index()
    local sz1 = math.floor(torch.uniform(minsize,maxsize))
