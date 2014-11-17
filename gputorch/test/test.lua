@@ -493,7 +493,7 @@ function test.clamp2()
    compareFloatAndCudaTensorArgs(y, 'clamp', x, min_val, max_val)
 end
 
-function test.index()
+--[[function test.index()
    local sz1 = math.floor(torch.uniform(minsize,maxsize))
    local sz2 = math.floor(torch.uniform(minsize,maxsize))
    local sz3 = math.floor(torch.uniform(10,20))
@@ -516,7 +516,7 @@ function test.index()
    index = 3
    longIndex = torch.randperm(sz3):long()
    compareFloatAndCuda(x, 'index', index, longIndex)
-end
+end]]--
 
 function test.indexCopy()
    local sz1 = math.floor(torch.uniform(minsize,maxsize)) -- dim1
