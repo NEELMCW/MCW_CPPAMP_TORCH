@@ -930,23 +930,26 @@ struct sign_functor
 
 void THCudaTensor_sign(THCudaTensor *self_, THCudaTensor *src)
 {
-/*  THCudaTensor_resizeAs(self_, src);
+  THCudaTensor_resizeAs(self_, src);
   THCudaTensor *self = THCudaTensor_newContiguous(self_);
   long size = THCudaTensor_nElement(self);
   src = THCudaTensor_newContiguous(src);
-  thrust::device_ptr<float> self_data(THCudaTensor_data(self));
-  thrust::device_ptr<float> src_data(THCudaTensor_data(src));
+  std::vector<float> self_data(THCudaTensor_data(self), THCudaTensor_data(self)+THCudaTensor_nElement(self));
+   // thrust::device_ptr<float> src1_data(THCudaTensor_data(src1));  
+  std::vector<float> src_data(THCudaTensor_data(src), THCudaTensor_data(src)+THCudaTensor_nElement(src));
 
-  thrust::transform(src_data, src_data+size, self_data, sign_functor());
+  std::transform(src_data.begin(), src_data.end(), self_data.begin(), sign_functor());
+
+  std::copy(self_data.begin(), self_data.end(),self->storage->data);
 
   THCudaTensor_free(src);
-  THCudaTensor_freeCopyTo(self, self_);*/
+  THCudaTensor_freeCopyTo(self, self_);
 }
 
 float THCudaTensor_meanall(THCudaTensor *self)
 {
   THArgCheck(self->nDimension > 0, 1, "empty Tensor");
-  return 0;
+  return THCudaTensor_sumall(self)/THCudaTensor_nElement(self);
 }
 
 void

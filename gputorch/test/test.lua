@@ -294,6 +294,16 @@ function test.logicalValue()
    local y = torch.FloatTensor():rand(sz1, sz2)
    compareFloatAndCudaTensorArgs(x, 'gt', y, 0.3)
    compareFloatAndCuda(x, 'gt', 0.3)
+   compareFloatAndCudaTensorArgs(x, 'lt', y, 0.3)
+   compareFloatAndCuda(x, 'lt', 0.3)
+   compareFloatAndCudaTensorArgs(x, 'le', y, 0.3)
+   compareFloatAndCuda(x, 'le', 0.3)
+   compareFloatAndCudaTensorArgs(x, 'ne', y, 0.3)
+   compareFloatAndCuda(x, 'ne', 0.3)
+   compareFloatAndCudaTensorArgs(x, 'ge', y, 0.3)
+   compareFloatAndCuda(x, 'ge', 0.3)
+   compareFloatAndCudaTensorArgs(x, 'eq', y, 0.3)
+   compareFloatAndCuda(x, 'eq', 0.3)
 end
 
 
@@ -311,14 +321,14 @@ function test.logicalTensor()
    compareFloatAndCudaTensorArgs(x, 'ne', y, z)
 end
 
---[[function test.mean()
+function test.mean()
    local sz1 = math.floor(torch.uniform(minsize,maxsize))
    local sz2 = math.floor(torch.uniform(minsize,maxsize))
    local x = torch.FloatTensor():rand(sz1, sz2)
    compareFloatAndCuda(x, 'mean')
-   compareFloatAndCuda(x, 'mean', 1)
-   compareFloatAndCuda(x, 'mean', 2)
-end]]--
+   --compareFloatAndCuda(x, 'mean', 1)
+   --compareFloatAndCuda(x, 'mean', 2)
+end
 
 function test.max()
    local sz1 = math.floor(torch.uniform(minsize,maxsize))
