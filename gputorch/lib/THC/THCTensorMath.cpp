@@ -925,6 +925,10 @@ void THCudaTensor_addmv(THCudaTensor *self, float beta, THCudaTensor *t, float a
     src = THCudaTensor_newContiguous(src);                                   \
     long size = THCudaTensor_nElement(self);                                 \
                                                                              \
+    std::vector<float> self_data(THCudaTensor_data(self), THCudaTensor_data(self)+THCudaTensor_nElement(self));\
+    std::vector<float> src_data(THCudaTensor_data(src), THCudaTensor_data(src)+THCudaTensor_nElement(src));\
+    std::transform(src_data.begin(), src_data.end(), self_data.begin(),NAME##_functor());\
+    std::copy(self_data.begin(), self_data.end(),self->storage->data);\
                                                                              \
     THCudaTensor_free(src);                                                  \
     THCudaTensor_freeCopyTo(self, self_);                                    \
