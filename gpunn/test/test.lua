@@ -635,7 +635,7 @@ function cunntest.Sum_backward()
    mytester:assertlt(error:abs():max(), precision_backward, 'error on state (backward) ')
 end
 
-function cunntest.Mean_forward()
+--[[function cunntest.Mean_forward()
    local size1 = math.random(1,1000)
    local size2 = math.random(2,100)
 
@@ -664,7 +664,7 @@ function cunntest.Mean_forward()
 
    local error = rescuda:float() - groundtruth
    mytester:assertlt(error:abs():max(), precision_forward, 'error on state (forward) ')
-end
+end]]--
 
 function cunntest.Mean_backward()
    local size1 = math.random(1,1000)

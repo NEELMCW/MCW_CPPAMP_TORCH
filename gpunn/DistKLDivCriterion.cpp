@@ -2,6 +2,7 @@
 #include <thrust/functional.h>
 #include <thrust/reduce.h>
 #include <thrust/inner_product.h>*/
+#include<numeric>
 
 struct kl_functor
 {
@@ -27,10 +28,9 @@ static int cunn_DistKLDivCriterion_updateOutput(lua_State *L)
   input = THCudaTensor_newContiguous(input);
   target = THCudaTensor_newContiguous(target);
 
-  /*rust::device_ptr<float> input_data(THCudaTensor_data(input));
-  thrust::device_ptr<float> target_data(THCudaTensor_data(target));
-  sum = thrust::inner_product(input_data, input_data+size, target_data, (float) 0, thrust::plus<float>(), kl_functor());*/
-
+  std::vector<float> input_data(THCudaTensor_data(input), THCudaTensor_data(input)+THCudaTensor_nElement(input));
+  std::vector<float> target_data(THCudaTensor_data(target), THCudaTensor_data(target)+THCudaTensor_nElement(target));
+  sum = std::inner_product(input_data.begin(), input_data.end(), target_data.begin(), (float) 0, std::plus<float>(), kl_functor());
   if(sizeAverage)
     sum /= size;
 
@@ -77,6 +77,11 @@ static int cunn_DistKLDivCriterion_updateGradInput(lua_State *L)
   thrust::device_ptr<float> gradInput_data(THCudaTensor_data(gradInput));
 
   thrust::transform(input_data, input_data+size, target_data, gradInput_data, kl_updateGradInput_functor(norm));*/
+  std::vector<float> input_data(THCudaTensor_data(input), THCudaTensor_data(input)+THCudaTensor_nElement(input));
+  std::vector<float> target_data(THCudaTensor_data(target), THCudaTensor_data(target)+THCudaTensor_nElement(target));
+   std::vector<float> gradInput_data(THCudaTensor_data(gradInput), THCudaTensor_data(gradInput)+THCudaTensor_nElement(gradInput));
+
+  std::transform(input_data.begin(), input_data.end(), target_data.begin(), gradInput_data.begin(), kl_updateGradInput_functor(norm));
 
   THCudaTensor_free(input);
   THCudaTensor_free(target);

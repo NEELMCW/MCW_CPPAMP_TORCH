@@ -154,69 +154,6 @@ static void THCudaTensor_computesz(THCudaTensor *self, Concurrency::array<long,1
   *dim_ = dim;
 }
 
-/*class CopyFunctionObject
-{
-public:
-    CopyFunctionObject(const Concurrency::array_view<float, 1>& av_dst,
-        const Concurrency::array_view<float, 1>& av_src,
-        const Concurrency::tiled_extent<1,16,16>& t_ext,
-        const Concurrency::array_view<long, 1>& av_dst_sz,
-        const Concurrency::array_view<long, 1>& av_dst_st,
-        const Concurrency::array_view<long, 1>& av_src_sz,
-        const Concurrency::array_view<long, 1>& av_src_st,
-        const long &src_dim,
-        const long &dst_dim,
-        const long &innerdim, 
-        const long &n_elem 
-    )
-    : av_dst(av_dst), av_src(av_src), t_ext(t_ext), av_dst_sz(av_dst_sz), av_dst_st(av_dst_st), av_src_sz(av_src_sz), av_src_st(av_src_st), src_dim(src_dim), dst_dim(dst_dim), innerdim(innerdim), n_elem(n_elem)
-    {
-    }
-
-    void operator()(Concurrency::tiled_index<1,16,16> tidx) restrict(amp)
-    {
-      long k = (tidx.tile[0] * (t_ext[2]/t_ext.tile_dim2) * (t_ext[1]/t_ext.tile_dim1) + tidx.tile[1] * (t_ext[2]/t_ext.tile_dim2) + tidx.tile[2] ) * t_ext.tile_dim1 + tidx.local[1];
-      long i_start = tidx.local[2] * av_src_st[Concurrency::index<1>(src_dim-1)];
-      long i_step = t_ext.tile_dim2 * av_src_st[Concurrency::index<1>(src_dim-1)]; 
-      long o_start = tidx.local[2] * av_dst_st[Concurrency::index<1>(src_dim-1)];
-      long o_step = t_ext.tile_dim2 * av_dst_st[Concurrency::index<1>(src_dim-1)];
-      long o_end = innerdim * av_dst_st[Concurrency::index<1>(src_dim-1)];
-      if (((k+1) * innerdim) <= n_elem) // too safe
-      {
-        long dst_idx = 0;
-        long dst_rest = k * innerdim;
-        for(int dim = 0; dim < dst_dim; dim++)
-        {
-          dst_idx += (dst_rest/av_dst_sz[Concurrency::index<1>(dim)])*av_dst_st[Concurrency::index<1>(dim)];
-          dst_rest = dst_rest % av_dst_sz[Concurrency::index<1>(dim)];
-        }
-        long src_idx = 0;
-        long src_rest = k * innerdim;
-        for(int dim = 0; dim < src_dim; dim++)
-        {
-          src_idx += (src_rest/av_src_sz[Concurrency::index<1>(dim)])*av_src_st[Concurrency::index<1>(dim)];
-          src_rest = src_rest % av_src_sz[Concurrency::index<1>(dim)];
-        }
-        for (int i=i_start, o=o_start; o<o_end; i+=i_step, o+=o_step) 
-        {
-          av_dst[Concurrency::index<1>(dst_idx + o)] = av_src[Concurrency::index<1>(src_idx + i)];
-        }
-      }
-    }
-
-private:
-    Concurrency::array_view<float, 1> av_dst;
-    Concurrency::array_view<float, 1> av_src;
-    Concurrency::tiled_extent<1,16,16> t_ext;
-    Concurrency::array_view<long, 1> av_dst_sz;
-    Concurrency::array_view<long, 1> av_dst_st;
-    Concurrency::array_view<long, 1> av_src_sz;
-    Concurrency::array_view<long, 1> av_src_st;
-    long src_dim;
-    long dst_dim;
-    long innerdim; 
-    long n_elem; 
-};*/
 
 void THCudaTensor_kernel_copy(THCudaTensor *self, THCudaTensor *src, 
                                          Concurrency::array<long,1> *dst_sz, Concurrency::array<long,1> *dst_st, int dst_dim,
