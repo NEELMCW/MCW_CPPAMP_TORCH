@@ -1,3 +1,6 @@
+#include<iostream>
+#include<vector>
+
 struct absupdateOutput_functor
 {
   float operator()(const float& input) const
@@ -17,8 +20,11 @@ static int cunn_Abs_updateOutput(lua_State *L)
   THCudaTensor_resizeAs(output, input);
 
   //thrust::device_ptr<float> output_data(THCudaTensor_data(output));
+   std::vector<float> output_data(THCudaTensor_data(output), THCudaTensor_data(output)+THCudaTensor_nElement(output));
   //thrust::device_ptr<float> input_data(THCudaTensor_data(input));
+   std::vector<float> input_data(THCudaTensor_data(input), THCudaTensor_data(input)+THCudaTensor_nElement(input));
  // thrust::transform(input_data, input_data+size, output_data, absupdateOutput_functor());
+    std::transform(input_data.begin(), input_data.end(), output_data.begin(), absupdateOutput_functor());
 
   THCudaTensor_free(input);
   return 1;

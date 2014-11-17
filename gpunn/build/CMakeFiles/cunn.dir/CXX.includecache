@@ -7,6 +7,10 @@
 #IncludeRegexTransform: 
 
 /home/neelakandan/Documents/gputorch/gpunn/Abs.cpp
+iostream
+-
+vector
+-
 
 /home/neelakandan/Documents/gputorch/gpunn/AbsCriterion.cpp
 thrust/functional.h
