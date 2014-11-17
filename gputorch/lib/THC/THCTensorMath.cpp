@@ -349,61 +349,44 @@ void THCudaTensor_addcdiv(THCudaTensor *self_, float value, THCudaTensor *src1, 
 
 float THCudaTensor_dot(THCudaTensor *self, THCudaTensor *src)
 {
-  THArgCheck(THCudaTensor_nElement(self) == THCudaTensor_nElement(src), 2, "size do not match");
-
-    Concurrency::array_view<float,1> selfData(Concurrency::extent<1>(THCudaTensor_nElement(self)),THCudaTensor_data(self));
-    Concurrency::array_view<float,1> srcData(Concurrency::extent<1>(THCudaTensor_nElement(src)),THCudaTensor_data(src));
-    Concurrency::array_view<float,1> pdt(Concurrency::extent<1>(THCudaTensor_nElement(src)), THCudaTensor_data(src));
-    pdt.discard_data();
-    Concurrency::parallel_for_each(selfData.get_extent(), [=] (Concurrency::index<1> idx) restrict(amp)
-    {
-        pdt[idx] = (float) selfData[idx]  * srcData[idx]; 
-    });
-    pdt.synchronize();
-    float result = 0;
-
-    for(int p = 0; p < THCudaTensor_nElement(src); p += src->stride[1])
-    for(int i= p; i< p + src->size[2]; i++)
-    {
-        result+=pdt[Concurrency::index<1>(i)];
-    }
-
-    return result;
+  return 1;
 }
 
 float THCudaTensor_minall(THCudaTensor *self)
 {
-  /*self = THCudaTensor_newContiguous(self);
-  thrust::device_ptr<float> self_data(THCudaTensor_data(self));
+  self = THCudaTensor_newContiguous(self);
+//  thrust::device_ptr<float> self_data(THCudaTensor_data(self));
 
-  float result = thrust::reduce(self_data, self_data+THCudaTensor_nElement(self), (float)(THInf), thrust::minimum<float>());
+  std::vector<float> self_data(THCudaTensor_data(self),THCudaTensor_data(self) + THCudaTensor_nElement(self));
+
+  float result = *std::min_element(self_data.begin(), self_data.end());
 
   THCudaTensor_free(self);
-  return result;*/
-  return 0;
+  return result;
 }
 
 float THCudaTensor_maxall(THCudaTensor *self)
 {
-  /*self = THCudaTensor_newContiguous(self);
-  thrust::device_ptr<float> self_data(THCudaTensor_data(self));
+  self = THCudaTensor_newContiguous(self);
+//  thrust::device_ptr<float> self_data(THCudaTensor_data(self));
 
-  float result = thrust::reduce(self_data, self_data+THCudaTensor_nElement(self), (float)(-THInf), thrust::maximum<float>());
+  std::vector<float> self_data(THCudaTensor_data(self),THCudaTensor_data(self) + THCudaTensor_nElement(self));
+
+  float result = *std::max_element(self_data.begin(), self_data.end());
 
   THCudaTensor_free(self);
-  return result;*/
-  return 0;
+  return result;
 }
 
 float THCudaTensor_sumall(THCudaTensor *self)
 {
-/*  self = THCudaTensor_newContiguous(self);
-  thrust::device_ptr<float> self_data(THCudaTensor_data(self));
+  self = THCudaTensor_newContiguous(self);
 
-  float result = thrust::reduce(self_data, self_data+THCudaTensor_nElement(self), (float)(0), thrust::plus<float>());
+  std::vector<float> self_data(THCudaTensor_data(self),THCudaTensor_data(self) + THCudaTensor_nElement(self));
+  float result = std::accumulate(self_data.begin(), self_data.end(), (float)(0));
 
   THCudaTensor_free(self);
-  return result;*/
+  return result;
   return 0;
 }
 
