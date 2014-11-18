@@ -168,7 +168,7 @@ static int cunn_SpatialConvolutionCUDA_accGradParameters(lua_State *L)
 
   // convolutions
   spatialConv_accGradParameters(
-    input_data, gradOutput_data, gradWeight_data,
+    input, gradOutput, gradWeight,
     nInputPlane, inputHeight, inputWidth, batchSize,
     nOutputPlane, outputHeight, outputWidth,
     kH, kW,

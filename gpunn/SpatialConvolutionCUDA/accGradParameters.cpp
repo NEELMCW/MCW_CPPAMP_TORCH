@@ -32,32 +32,46 @@
  * After adding pixelsPerThread, register usage went from 20 to 23 (when pixelsPerThread = 1)...
  * so the compiler is messing up here somehow. It's unable to optimize that case away.
  */
+
 template <int B_Y, int B_X, int pixelsPerThread, int preloadCases, int numColors, bool scale, bool checkCaseBounds>
-void conv_weight_acts_c(float* images, float* hidActs, float* targets,
+void conv_weight_acts_c(THCudaTensor* images, THCudaTensor* hidActs, THCudaTensor* targets,
                                    const int numImages, const int numFilters,
                                    const int numModulesY, const int numModulesX,
                                    const int imgSizeY, const int imgSizeX, const int filterSize,
                                    const int paddingStart, const int moduleStride, const int imgStride,
                                    const int partialSum,
-                                   const float scaleTargets, const float scaleOutputs) {
-/*    __shared__ float shImages[pixelsPerThread * B_Y * numColors][preloadCases]; // preload preloadCases cases of B_Y * pixelsPerThread pixels
-    __shared__ float shHidActs[B_X][preloadCases + 1]; // preload preloadCases cases of B_X hidActs
+                                   const float scaleTargets, const float scaleOutputs,
+                                   int nblocks_x, int nblocks_y)
+{
+    Concurrency::array_view<float,1> avImages(Concurrency::extent<1>(images->storage->size), THCudaTensor_data(images));
+    Concurrency::array_view<float,1> avHidActs(Concurrency::extent<1>(hidActs->storage->size), THCudaTensor_data(hidActs));
+    Concurrency::array_view<float,1> avTargets(Concurrency::extent<1>(targets->storage->size), THCudaTensor_data(targets));
+    Concurrency::extent<3> grdExt(1, nblocks_y * 16, nblocks_x * 8);
+    Concurrency::tiled_extent<1, 16, 8> t_ext(grdExt);
+    Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1, 16, 8> tidx) restrict(amp) 
+    {
+    tile_static float shImages[pixelsPerThread * B_Y * numColors][preloadCases]; // preload preloadCases cases of B_Y * pixelsPerThread pixels
+    tile_static float shHidActs[B_X][preloadCases + 1]; // preload preloadCases cases of B_X hidActs
 
-    const int tidx = B_X * threadIdx.y + threadIdx.x;
-    const int loadY = tidx / preloadCases, loadX = tidx % preloadCases;
+    float* images = avImages.data();
+    float* hidActs = avHidActs.data();
+    float* targets = avTargets.data();
+
+    const int t_idx = B_X * tidx.local[1] + tidx.local[2];
+    const int loadY = t_idx / preloadCases, loadX = t_idx % preloadCases;
 
     const int filterPixels = filterSize * filterSize;
     const int imgPixels = imgSizeY * imgSizeX;
 
     const int filterBlocksPerModule = numFilters / B_X;
-    const int outputModuleIdx = blockIdx.x / filterBlocksPerModule;
+    const int outputModuleIdx = tidx.tile[2] / filterBlocksPerModule;
     const int moduleIdx = partialSum * outputModuleIdx;
-    const int blockFilterIdx = B_X * (blockIdx.x % filterBlocksPerModule);
+    const int blockFilterIdx = B_X * (tidx.tile[2] % filterBlocksPerModule);
 
 //    const int moduleStride = (imgSize - filterSize + 1) / numModulesX; 
     const int numModules = numModulesY * numModulesX;
 
-    const int blockPixelOffset = blockIdx.y * B_Y * pixelsPerThread;
+    const int blockPixelOffset = tidx.tile[1] * B_Y * pixelsPerThread;
 
     images += loadX;
     hidActs += moduleIdx * numImages
@@ -68,31 +82,38 @@ void conv_weight_acts_c(float* images, float* hidActs, float* targets,
     targets += (outputModuleIdx * numFilters) * filterPixels * numColors
             + blockPixelOffset * numFilters
             + blockFilterIdx
-            + threadIdx.y * numFilters + threadIdx.x;
+            + tidx.local[1] * numFilters + tidx.local[2];
 
     float* shImgLoad = &shImages[loadY][loadX];
     float* shHidActLoad = &shHidActs[loadY][loadX];
 
     float prod[numColors][pixelsPerThread];
-    #pragma unroll
+
     for (int c = 0; c < numColors; c++) {
-        #pragma unroll
         for (int p = 0; p < pixelsPerThread; p++) {
             prod[c][p] = 0;
         }
     }
     
-    __shared__ int pxDivs[B_Y*pixelsPerThread];
-    if (tidx < B_Y * pixelsPerThread) {
-        pxDivs[tidx] = (((blockPixelOffset + tidx) / filterSize) << 16) + ((blockPixelOffset + tidx) % filterSize);
+    tile_static int pxDivs[B_Y*pixelsPerThread];
+    if (t_idx < B_Y * pixelsPerThread) {
+        pxDivs[t_idx] = (((blockPixelOffset + t_idx) / filterSize) << 16) + ((blockPixelOffset + t_idx) % filterSize);
     }
-    __syncthreads();
+    tidx.barrier.wait();
+
     for (int m = moduleIdx; m < moduleIdx + partialSum; m++) {
         const int imgLoadModPosY = paddingStart + (m / numModulesX) * moduleStride;
         const int imgLoadModPosX = paddingStart + (m % numModulesX) * moduleStride;
         for (int caseIdx = 0; caseIdx < numImages; caseIdx += preloadCases) {
             if (loadY < B_Y * pixelsPerThread) {
-    //            #pragma unroll
+                /*
+                 * As long as B_Y * B_X is divisible by preloadCases this will loop the right
+                 * number of times.
+                 *
+                 * This will load some imgGrads from filter pixels that don't exit (it'll set those to 0),
+                 * but the code does not produce any output for those pixels (see last lines).
+                 */
+
                 for (int y = 0; y < B_Y * pixelsPerThread; y += (B_X * B_Y) / preloadCases) {
                     // Make sure number of rows in the array is divisible by number of rows filled per iteration
                     if ((B_Y * pixelsPerThread) % (B_X * B_Y / preloadCases) == 0 || y + loadY < B_Y * pixelsPerThread) {
@@ -103,18 +124,15 @@ void conv_weight_acts_c(float* images, float* hidActs, float* targets,
                             const int pxX = imgLoadModPosX + LO16(pxDivs[pxIdx]);
                             if (pxY >= 0 && pxY < imgSizeY && pxX >= 0 && pxX < imgSizeX) {
                                 const int pixIdx = (pxY * imgSizeX + pxX) * imgStride;
-                                #pragma unroll
                                 for (int c = 0; c < numColors; c++) {
                                     shImgLoad[(y + c * pixelsPerThread * B_Y) * preloadCases] = images[caseIdx + c * imgPixels * imgStride + pixIdx];
                                 }
                             } else {
-                                #pragma unroll
                                 for (int c = 0; c < numColors; c++) {
                                     shImgLoad[(y + c * pixelsPerThread * B_Y) * preloadCases] = 0;
                                 }
                             }
                         } else {
-                            #pragma unroll
                             for (int c = 0; c < numColors; c++) {
                                 shImgLoad[(y + c * pixelsPerThread * B_Y) * preloadCases] = 0;
                             }
@@ -123,7 +141,6 @@ void conv_weight_acts_c(float* images, float* hidActs, float* targets,
                 }
             }
             if (loadY < B_X && (!checkCaseBounds || caseIdx + loadX < numImages)) {
-                #pragma unroll
                 for (int y = 0; y < B_X; y += (B_X * B_Y) / preloadCases) {
                     // Make sure number of rows in the array is divisible by number of rows filled per iteration
                     if (B_X % (B_X * B_Y / preloadCases) == 0 || y + loadY < B_X) {
@@ -131,47 +148,39 @@ void conv_weight_acts_c(float* images, float* hidActs, float* targets,
                     }
                 }
             }
+            tidx.barrier.wait();
 
-            __syncthreads();
-            #pragma unroll
             for (int p = 0; p < pixelsPerThread; p++) {
-                #pragma unroll
                 for (int i = 0; i < preloadCases; i++) {
-                    #pragma unroll
                     for (int c = 0; c < numColors; c++) {
-                        prod[c][p] += shImages[threadIdx.y + p * B_Y + c * pixelsPerThread * B_Y][i] * shHidActs[threadIdx.x][i];
+                        prod[c][p] += shImages[tidx.local[1] + p * B_Y + c * pixelsPerThread * B_Y][i] * shHidActs[tidx.local[2]][i];
                     }
                 }
             }
-            __syncthreads();
+            tidx.barrier.wait();
         }
         hidActs += numImages;
     }
     
     if (scale) {
-        #pragma unroll
         for (int p = 0; p < pixelsPerThread; p++) {
-            if (blockPixelOffset + p * B_Y + threadIdx.y < filterPixels) {
-                #pragma unroll
+            if (blockPixelOffset + p * B_Y + tidx.local[1] < filterPixels) {
                 for (int c = 0; c < numColors; c++) {
                     targets[p * B_Y * numFilters + c * filterPixels * numFilters] = scaleTargets * targets[p * B_Y * numFilters + c * filterPixels * numFilters] + scaleOutputs * prod[c][p];
                 }
             }
         }
     } else {
-        #pragma unroll
         for (int p = 0; p < pixelsPerThread; p++) {
-            if (blockPixelOffset + p * B_Y + threadIdx.y < filterPixels) {
-                #pragma unroll
+            if (blockPixelOffset + p * B_Y + tidx.local[1] < filterPixels) {
                 for (int c = 0; c < numColors; c++) {
                     targets[p * B_Y * numFilters + c * filterPixels * numFilters] = scaleOutputs * prod[c][p];
                 }
             }
         }
     }
-*/
+    });
 }
-
 /*
  * Each block computes weight gradients for B_Y pixels and B_X * filtersPerThread filters
  * threadIdx.x determines filter
@@ -203,34 +212,46 @@ void conv_weight_acts_c(float* images, float* hidActs, float* targets,
  * This routine is especially fast when numFilters >= 32. That's when it should be used.
  */
 template <int B_Y, int B_X, int filtersPerThread, int colorsPerThread, int preloadCases, bool scale, bool checkCaseBounds>
-void conv_weight_acts_mc_mf(float* images, float* hidActs, float* targets,
+void conv_weight_acts_mc_mf(THCudaTensor* images, THCudaTensor* hidActs, THCudaTensor* targets,
                                        const int numImages, const int numFilters,
                                        const int numModulesY, const int numModulesX,
                                        const int imgSizeY, const int imgSizeX, const int filterSize,
                                        const int paddingStart, const int moduleStride, const int imgStride,
                                        const int numImgColors, const int numGroups, const int partialSum,
-                                       const float scaleTargets, const float scaleOutputs) {
-/*    __shared__ float shImages[colorsPerThread * B_Y][preloadCases]; // preload preloadCases cases of B_Y * pixelsPerThread pixels
-    __shared__ float shHidActs[filtersPerThread * B_X][preloadCases + 1]; // preload preloadCases cases of B_X hidacts
+                                       const float scaleTargets, const float scaleOutputs,
+                                       int nblocks_x, int nblocks_y)
+{
+    Concurrency::array_view<float,1> avImages(Concurrency::extent<1>(images->storage->size), THCudaTensor_data(images));
+    Concurrency::array_view<float,1> avHidActs(Concurrency::extent<1>(hidActs->storage->size), THCudaTensor_data(hidActs));
+    Concurrency::array_view<float,1> avTargets(Concurrency::extent<1>(targets->storage->size), THCudaTensor_data(targets));
+    Concurrency::extent<3> grdExt(1, nblocks_y * 16, nblocks_x * 8);
+    Concurrency::tiled_extent<1, 16, 8> t_ext(grdExt);
+    Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1, 16, 8> tidx) restrict(amp) 
+    {
+    tile_static float shImages[colorsPerThread * B_Y][preloadCases]; // preload preloadCases cases of B_Y * pixelsPerThread pixels
+    tile_static float shHidActs[filtersPerThread * B_X][preloadCases + 1]; // preload preloadCases cases of B_X hidacts
+    float* images = avImages.data();
+    float* hidActs = avHidActs.data();
+    float* targets = avTargets.data();
 
-    const int tidx = B_X * threadIdx.y + threadIdx.x;
-    const int loadY = tidx / preloadCases, loadX = tidx % preloadCases;
+    const int t_idx = B_X * tidx.local[1] + tidx.local[2];
+    const int loadY = t_idx / preloadCases, loadX = t_idx % preloadCases;
 
     const int filterPixels = filterSize * filterSize;
     const int imgPixels = imgSizeY * imgSizeX;
 
     const int numFilterBlocks = numFilters / (B_X * filtersPerThread);
-    const int outputModuleIdx = blockIdx.x / numFilterBlocks;
+    const int outputModuleIdx = tidx.tile[2] / numFilterBlocks;
     const int moduleIdx = partialSum * outputModuleIdx;
-    const int blockFilterIdx = filtersPerThread * B_X * (blockIdx.x % numFilterBlocks);
+    const int blockFilterIdx = filtersPerThread * B_X * (tidx.tile[2] % numFilterBlocks);
     const int numModules = numModulesY * numModulesX;
     
     const int numFiltersPerGroup = numFilters / numGroups;
     const int blockGroupIdx = blockFilterIdx / numFiltersPerGroup;
     const int numFilterColors = numImgColors / numGroups;
     
-    const int blockPixelOffset = (blockIdx.y / (numFilterColors/colorsPerThread)) * B_Y;
-    const int filterColorIdx = (blockIdx.y % (numFilterColors/colorsPerThread)) * colorsPerThread;
+    const int blockPixelOffset = (tidx.tile[1] / (numFilterColors/colorsPerThread)) * B_Y;
+    const int filterColorIdx = (tidx.tile[1] % (numFilterColors/colorsPerThread)) * colorsPerThread;
     const int imgColorIdx = filterColorIdx + blockGroupIdx * numFilterColors;
 
     images += imgColorIdx * imgPixels * imgStride + loadX;
@@ -244,30 +265,37 @@ void conv_weight_acts_mc_mf(float* images, float* hidActs, float* targets,
             + filterColorIdx * filterPixels * numFilters
             + blockPixelOffset * numFilters
             + blockFilterIdx
-            + threadIdx.y * numFilters + threadIdx.x;
+            + tidx.local[1] * numFilters + tidx.local[2];
 
     float* shHidActLoad = &shHidActs[loadY][loadX];
     float* shImgLoad = &shImages[loadY][loadX];
     float prod[colorsPerThread][filtersPerThread];
-    #pragma unroll
+
     for (int c = 0; c < colorsPerThread; c++) {
-        #pragma unroll
         for (int f = 0; f < filtersPerThread; f++) {
             prod[c][f] = 0;
         }
     }
     // This avoids doing a division in an inner loop
-    __shared__ int pxDivs[B_Y];
-    if (tidx < B_Y) {
-        pxDivs[tidx] = (((blockPixelOffset + tidx) / filterSize) << 16) + (blockPixelOffset + tidx) % filterSize;
+    tile_static int pxDivs[B_Y];
+    if (t_idx < B_Y) {
+        pxDivs[t_idx] = (((blockPixelOffset + t_idx) / filterSize) << 16) + (blockPixelOffset + t_idx) % filterSize;
     }
-    __syncthreads();
+    tidx.barrier.wait();
+
     for (int m = moduleIdx; m < moduleIdx + partialSum; m++) {
         const int imgLoadModPosY = paddingStart + (m / numModulesX) * moduleStride;
         const int imgLoadModPosX = paddingStart + (m % numModulesX) * moduleStride;
         for (int caseIdx = 0; caseIdx < numImages; caseIdx += preloadCases) {
             if (loadY < B_Y) {
-    //            #pragma unroll
+                /*
+                 * As long as B_Y * B_X is divisible by preloadCases this will loop the right
+                 * number of times.
+                 *
+                 * This will load some images from filter pixels that don't exist (it'll set those to 0),
+                 * but the code does not produce any output for those pixels (see last lines).
+                 */
+
                 for (int y = 0; y < B_Y; y += (B_X * B_Y) / preloadCases) {
                     // Make sure number of rows in the array is divisible by number of rows filled per iteration
                     if (B_Y % (B_X * B_Y / preloadCases) == 0 || y + loadY < B_Y) {
@@ -278,18 +306,16 @@ void conv_weight_acts_mc_mf(float* images, float* hidActs, float* targets,
                             const int pxX = imgLoadModPosX + LO16(pxDivs[pxIdx]);
                             if (pxY >= 0 && pxY < imgSizeY && pxX >= 0 && pxX < imgSizeX) {
                                 const int pixIdx = (pxY * imgSizeX + pxX) * imgStride; // pixel idx in image
-                                #pragma unroll
+
                                 for (int c = 0; c < colorsPerThread; c++) {
                                     shImgLoad[(y + c * B_Y) * preloadCases] = images[caseIdx + c * imgPixels * imgStride + pixIdx];
                                 }
                             } else {
-                                #pragma unroll
                                 for (int c = 0; c < colorsPerThread; c++) {
                                     shImgLoad[(y + c * B_Y) * preloadCases] = 0;
                                 }
                             }
                         } else {
-                            #pragma unroll
                             for (int c = 0; c < colorsPerThread; c++) {
                                 shImgLoad[(y + c * B_Y) * preloadCases] = 0;
                             }
@@ -298,7 +324,6 @@ void conv_weight_acts_mc_mf(float* images, float* hidActs, float* targets,
                 }
             }
             if (loadY < B_X * filtersPerThread && (!checkCaseBounds || caseIdx + loadX < numImages)) {
-                #pragma unroll
                 for (int y = 0; y < B_X * filtersPerThread; y += (B_X * B_Y) / preloadCases) {
                     // Make sure number of rows in the array is divisible by number of rows filled per iteration
                     if ((B_X * filtersPerThread) % (B_X * B_Y / preloadCases) == 0 || y + loadY < B_X * filtersPerThread) {
@@ -306,43 +331,35 @@ void conv_weight_acts_mc_mf(float* images, float* hidActs, float* targets,
                     }
                 }
             }
+            tidx.barrier.wait();
 
-            __syncthreads();
-
-            #pragma unroll
             for (int c = 0; c < colorsPerThread; c++) {
-                #pragma unroll
                 for (int i = 0; i < preloadCases; i++) {
-                    #pragma unroll
                     for (int f = 0; f < filtersPerThread; f++) {
-                        prod[c][f] += shImages[threadIdx.y + c * B_Y][i] * shHidActs[threadIdx.x + f * B_X][i];
+                        prod[c][f] += shImages[tidx.local[1] + c * B_Y][i] * shHidActs[tidx.local[2] + f * B_X][i];
                     }
                 }
             }
-            __syncthreads();
+            tidx.barrier.wait();
         }
         hidActs += numImages;
     }
-    if (blockPixelOffset + threadIdx.y < filterPixels) {
+    if (blockPixelOffset + tidx.local[1] < filterPixels) {
         if (scale) {
-            #pragma unroll
             for (int f = 0; f < filtersPerThread; f++) {
-                #pragma unroll
                 for (int c = 0; c < colorsPerThread; c++) {
                     targets[c * filterPixels * numFilters + f * B_X] = scaleTargets * targets[c * filterPixels * numFilters + f * B_X] + scaleOutputs * prod[c][f];
                 }
             }
         } else {
-            #pragma unroll
             for (int f = 0; f < filtersPerThread; f++) {
-                #pragma unroll
                 for (int c = 0; c < colorsPerThread; c++) {
                     targets[c * filterPixels * numFilters + f * B_X] = scaleOutputs * prod[c][f];
                 }
             }
         }
     }
-*/
+    });
 }
 
 /*
@@ -361,7 +378,7 @@ void conv_weight_acts_mc_mf(float* images, float* hidActs, float* targets,
  */
 void spatialConv_accGradParameters(
     // raw pointers:
-    float *images, float *hidActs, float *targets,
+    THCudaTensor *images, THCudaTensor *hidActs, THCudaTensor *targets,
     // input dim:
     int numImgColors, int imgSizeY, int imgSizeX, int numImages,
     // output dim:
@@ -400,7 +417,7 @@ void spatialConv_accGradParameters(
     assert(moduleStride <= filterSize);
     
 
-    //dim3 blocks, threads;
+    int blocks_x, blocks_y;
     int bx, by;
     int pixelsPerThread, filtersPerThread, colorsPerThread;
     // Worth playing with these parameters to find best values for your problem.
@@ -410,13 +427,15 @@ void spatialConv_accGradParameters(
         colorsPerThread = numFilterColors % 8 == 0 ? 8 : 4;
         by = numFiltersPerGroup % 64 == 0 ? 4 : 8;
         bx = numFiltersPerGroup % 64 == 0 ? 32 : 16;
-        //blocks = dim3((numModules/partialSum)*(numFilters/(bx*filtersPerThread)), DIVUP(filterPixels, by) * (numFilterColors / colorsPerThread));
+        blocks_x = (numModules/partialSum)*(numFilters/(bx*filtersPerThread));
+        blocks_y = DIVUP(filterPixels, by) * (numFilterColors / colorsPerThread);
     } else {
         assert(numGroups == 1); // Just for sanity
         pixelsPerThread = numFilters % 32 == 0 ? (numImgColors == 1 ? 8 : 5) : (numImgColors == 1 ? 5 : 2);
         by = numFilters % 32 == 0 ? 4 : 8; // by == 4 seems to work best
         bx = numFilters % 32 == 0 ? 32 : 16; 
-       // blocks = dim3((numModules/partialSum)*(numFilters/bx), DIVUP(filterPixels, by*pixelsPerThread));
+        blocks_x = (numModules/partialSum)*(numFilters/bx);
+        blocks_y = DIVUP(filterPixels, by*pixelsPerThread);
     }
     assert((by * bx) % 32 == 0);
     //threads = dim3(bx, by);
@@ -427,79 +446,91 @@ void spatialConv_accGradParameters(
             if (numFiltersPerGroup % 64 == 0) {
                 if (numFilterColors % 8 == 0) {
                     if (checkCaseBounds) {
-                       // cudaFuncSetCacheConfig(conv_weight_acts_mc_mf<4,32,2,8,32, false, true>, cudaFuncCachePreferShared);
-                       // conv_weight_acts_mc_mf<4,32,2,8,32,false, true><<<blocks, threads>>>(images, hidActs, targets,
-                         //                                                              numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize,
-                         //                                                              paddingStart, moduleStride, imgStride, numImgColors, numGroups, partialSum, scaleTargets, scaleOutput);
+                        //cudaFuncSetCacheConfig(conv_weight_acts_mc_mf<4,32,2,8,32, false, true>, cudaFuncCachePreferShared);
+                        conv_weight_acts_mc_mf<4,32,2,8,32,false, true>(images, hidActs, targets,
+                                                                                       numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize,
+                                                                                       paddingStart, moduleStride, imgStride, numImgColors, numGroups, partialSum, scaleTargets, scaleOutput,
+                                                                                       blocks_x, blocks_y);
                     } else {
-                       // cudaFuncSetCacheConfig(conv_weight_acts_mc_mf<4,32,2,8,32, false, false>, cudaFuncCachePreferShared);
-                       // conv_weight_acts_mc_mf<4,32,2,8,32,false, false><<<blocks, threads>>>(images, hidActs, targets,
-                         //                                                              numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize,
-                          //                                                             paddingStart, moduleStride, imgStride, numImgColors, numGroups, partialSum, scaleTargets, scaleOutput);
+                        //cudaFuncSetCacheConfig(conv_weight_acts_mc_mf<4,32,2,8,32, false, false>, cudaFuncCachePreferShared);
+                        conv_weight_acts_mc_mf<4,32,2,8,32,false, false>(images, hidActs, targets,
+                                                                                       numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize,
+                                                                                       paddingStart, moduleStride, imgStride, numImgColors, numGroups, partialSum, scaleTargets, scaleOutput,
+                                                                                       blocks_x, blocks_y);
                     }
                 } else {
                     if (checkCaseBounds) {
-                       // cudaFuncSetCacheConfig(conv_weight_acts_mc_mf<4,32,2,4,32, false, true>, cudaFuncCachePreferShared);
-                       // conv_weight_acts_mc_mf<4,32,2,4,32,false, true><<<blocks, threads>>>(images, hidActs, targets,
-                         //                                                              numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize,
-                         //                                                              paddingStart, moduleStride, imgStride, numImgColors, numGroups, partialSum, scaleTargets, scaleOutput);
+                        //cudaFuncSetCacheConfig(conv_weight_acts_mc_mf<4,32,2,4,32, false, true>, cudaFuncCachePreferShared);
+                        conv_weight_acts_mc_mf<4,32,2,4,32,false, true>(images, hidActs, targets,
+                                                                                       numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize,
+                                                                                       paddingStart, moduleStride, imgStride, numImgColors, numGroups, partialSum, scaleTargets, scaleOutput,
+                                                                                       blocks_x, blocks_y);
                     } else {
-                       // cudaFuncSetCacheConfig(conv_weight_acts_mc_mf<4,32,2,4,32, false, false>, cudaFuncCachePreferShared);
-                       // conv_weight_acts_mc_mf<4,32,2,4,32,false, false><<<blocks, threads>>>(images, hidActs, targets,
-                         //                                                              numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize,
-                          //                                                             paddingStart, moduleStride, imgStride, numImgColors, numGroups, partialSum, scaleTargets, scaleOutput);
+                        //cudaFuncSetCacheConfig(conv_weight_acts_mc_mf<4,32,2,4,32, false, false>, cudaFuncCachePreferShared);
+                        conv_weight_acts_mc_mf<4,32,2,4,32,false, false>(images, hidActs, targets,
+                                                                                       numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize,
+                                                                                       paddingStart, moduleStride, imgStride, numImgColors, numGroups, partialSum, scaleTargets, scaleOutput,
+                                                                                       blocks_x, blocks_y);
                     }
                 }
             } else if (numFiltersPerGroup % 32 == 0) {
                 if (numFilterColors % 8 == 0) {
                     if (checkCaseBounds) {
-                      //  cudaFuncSetCacheConfig(conv_weight_acts_mc_mf<8,16,2,8,32, false, true>, cudaFuncCachePreferShared);
-                       // conv_weight_acts_mc_mf<8,16,2,8,32,false, true><<<blocks, threads>>>(images, hidActs, targets,
-                         //                                                              numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize,
-                           //                                                            paddingStart, moduleStride, imgStride, numImgColors, numGroups, partialSum, scaleTargets, scaleOutput);
+                        //cudaFuncSetCacheConfig(conv_weight_acts_mc_mf<8,16,2,8,32, false, true>, cudaFuncCachePreferShared);
+                        conv_weight_acts_mc_mf<8,16,2,8,32,false, true>(images, hidActs, targets,
+                                                                                       numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize,
+                                                                                       paddingStart, moduleStride, imgStride, numImgColors, numGroups, partialSum, scaleTargets, scaleOutput,
+                                                                                       blocks_x, blocks_y);
                     } else {
-                      //  cudaFuncSetCacheConfig(conv_weight_acts_mc_mf<8,16,2,8,32, false, false>, cudaFuncCachePreferShared);
-                       // conv_weight_acts_mc_mf<8,16,2,8,32,false, false><<<blocks, threads>>>(images, hidActs, targets,
-                         //                                                              numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize,
-                           //                                                            paddingStart, moduleStride, imgStride, numImgColors, numGroups, partialSum, scaleTargets, scaleOutput);
+                        //cudaFuncSetCacheConfig(conv_weight_acts_mc_mf<8,16,2,8,32, false, false>, cudaFuncCachePreferShared);
+                        conv_weight_acts_mc_mf<8,16,2,8,32,false, false>(images, hidActs, targets,
+                                                                                       numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize,
+                                                                                       paddingStart, moduleStride, imgStride, numImgColors, numGroups, partialSum, scaleTargets, scaleOutput,
+                                                                                       blocks_x, blocks_y);
                     }
                 } else {
                     if (checkCaseBounds) {
-                      //  cudaFuncSetCacheConfig(conv_weight_acts_mc_mf<8,16,2,4,32, false, true>, cudaFuncCachePreferShared);
-                       // conv_weight_acts_mc_mf<8,16,2,4,32,false, true><<<blocks, threads>>>(images, hidActs, targets,
-                         //                                                              numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize,
-                           //                                                            paddingStart, moduleStride, imgStride, numImgColors, numGroups, partialSum, scaleTargets, scaleOutput);
+                        //cudaFuncSetCacheConfig(conv_weight_acts_mc_mf<8,16,2,4,32, false, true>, cudaFuncCachePreferShared);
+                        conv_weight_acts_mc_mf<8,16,2,4,32,false, true>(images, hidActs, targets,
+                                                                                       numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize,
+                                                                                       paddingStart, moduleStride, imgStride, numImgColors, numGroups, partialSum, scaleTargets, scaleOutput,
+                                                                                       blocks_x, blocks_y);
                     } else {
-                       // cudaFuncSetCacheConfig(conv_weight_acts_mc_mf<8,16,2,4,32, false, false>, cudaFuncCachePreferShared);
-                       // conv_weight_acts_mc_mf<8,16,2,4,32,false, false><<<blocks, threads>>>(images, hidActs, targets,
-                         //                                                              numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize,
-                           //                                                            paddingStart, moduleStride, imgStride, numImgColors, numGroups, partialSum, scaleTargets, scaleOutput);
+                        //cudaFuncSetCacheConfig(conv_weight_acts_mc_mf<8,16,2,4,32, false, false>, cudaFuncCachePreferShared);
+                        conv_weight_acts_mc_mf<8,16,2,4,32,false, false>(images, hidActs, targets,
+                                                                                       numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize,
+                                                                                       paddingStart, moduleStride, imgStride, numImgColors, numGroups, partialSum, scaleTargets, scaleOutput,
+                                                                                       blocks_x, blocks_y);
                     }
                 }
             } else {
                 if (numFilterColors % 8 == 0) {
                     if (checkCaseBounds) {
-                      //  cudaFuncSetCacheConfig(conv_weight_acts_mc_mf<8,16,1,8,32, false, true>, cudaFuncCachePreferShared);
-                       // conv_weight_acts_mc_mf<8,16,1,8,32,false, true><<<blocks, threads>>>(images, hidActs, targets,
-                         //                                                              numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize,
-                           //                                                            paddingStart, moduleStride, imgStride, numImgColors, numGroups, partialSum, scaleTargets, scaleOutput);
+                        //cudaFuncSetCacheConfig(conv_weight_acts_mc_mf<8,16,1,8,32, false, true>, cudaFuncCachePreferShared);
+                        conv_weight_acts_mc_mf<8,16,1,8,32,false, true>(images, hidActs, targets,
+                                                                                       numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize,
+                                                                                       paddingStart, moduleStride, imgStride, numImgColors, numGroups, partialSum, scaleTargets, scaleOutput,
+                                                                                       blocks_x, blocks_y);
                     } else {
-                     //   cudaFuncSetCacheConfig(conv_weight_acts_mc_mf<8,16,1,8,32, false, false>, cudaFuncCachePreferShared);
-                       // conv_weight_acts_mc_mf<8,16,1,8,32,false, false><<<blocks, threads>>>(images, hidActs, targets,
-                         //                                                              numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize,
-                           //                                                            paddingStart, moduleStride, imgStride, numImgColors, numGroups, partialSum, scaleTargets, scaleOutput);
+                        //cudaFuncSetCacheConfig(conv_weight_acts_mc_mf<8,16,1,8,32, false, false>, cudaFuncCachePreferShared);
+                        conv_weight_acts_mc_mf<8,16,1,8,32,false, false>(images, hidActs, targets,
+                                                                                       numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize,
+                                                                                       paddingStart, moduleStride, imgStride, numImgColors, numGroups, partialSum, scaleTargets, scaleOutput,
+                                                                                       blocks_x, blocks_y);
                     }
                 } else {
                     if (checkCaseBounds) {
-                     //   cudaFuncSetCacheConfig(conv_weight_acts_mc_mf<8,16,1,4,32, false, true>, cudaFuncCachePreferShared);
-                       // conv_weight_acts_mc_mf<8,16,1,4,32,false, true><<<blocks, threads>>>(images, hidActs, targets,
-                         //                                                              numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize,
-                             //                                                          paddingStart, moduleStride, imgStride, numImgColors, numGroups, partialSum, scaleTargets, scaleOutput);
+                        //cudaFuncSetCacheConfig(conv_weight_acts_mc_mf<8,16,1,4,32, false, true>, cudaFuncCachePreferShared);
+                        conv_weight_acts_mc_mf<8,16,1,4,32,false, true>(images, hidActs, targets,
+                                                                                       numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize,
+                                                                                       paddingStart, moduleStride, imgStride, numImgColors, numGroups, partialSum, scaleTargets, scaleOutput,
+                                                                                       blocks_x, blocks_y);
                     } else {
-                     //   cudaFuncSetCacheConfig(conv_weight_acts_mc_mf<8,16,1,4,32, false, false>, cudaFuncCachePreferShared);
-                       // conv_weight_acts_mc_mf<8,16,1,4,32,false, false><<<blocks, threads>>>(images, hidActs, targets,
-                         //                                                              numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize,
-                           //                                                            paddingStart, moduleStride, imgStride, numImgColors, numGroups, partialSum, scaleTargets, scaleOutput);
+                        //cudaFuncSetCacheConfig(conv_weight_acts_mc_mf<8,16,1,4,32, false, false>, cudaFuncCachePreferShared);
+                        conv_weight_acts_mc_mf<8,16,1,4,32,false, false>(images, hidActs, targets,
+                                                                                       numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize,
+                                                                                       paddingStart, moduleStride, imgStride, numImgColors, numGroups, partialSum, scaleTargets, scaleOutput,
+                                                                                       blocks_x, blocks_y);
                     }
                 }
             }
@@ -508,79 +539,91 @@ void spatialConv_accGradParameters(
             if (numFiltersPerGroup % 64 == 0) {
                 if (numFilterColors % 8 == 0) {
                     if (checkCaseBounds) {
-                     //   cudaFuncSetCacheConfig(conv_weight_acts_mc_mf<4,32,2,8,32, false, true>, cudaFuncCachePreferShared);
-                       // conv_weight_acts_mc_mf<4,32,2,8,32,true, true><<<blocks, threads>>>(images, hidActs, targets,
-                         //                                                              numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize,
-                           //                                                            paddingStart, moduleStride, imgStride, numImgColors, numGroups, partialSum, scaleTargets, scaleOutput);
+                        //cudaFuncSetCacheConfig(conv_weight_acts_mc_mf<4,32,2,8,32, false, true>, cudaFuncCachePreferShared);
+                        conv_weight_acts_mc_mf<4,32,2,8,32,true, true>(images, hidActs, targets,
+                                                                                       numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize,
+                                                                                       paddingStart, moduleStride, imgStride, numImgColors, numGroups, partialSum, scaleTargets, scaleOutput,
+                                                                                       blocks_x, blocks_y);
                     } else {
-                     //   cudaFuncSetCacheConfig(conv_weight_acts_mc_mf<4,32,2,8,32, false, false>, cudaFuncCachePreferShared);
-                       // conv_weight_acts_mc_mf<4,32,2,8,32,true, false><<<blocks, threads>>>(images, hidActs, targets,
-                         //                                                              numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize,
-                           //                                                            paddingStart, moduleStride, imgStride, numImgColors, numGroups, partialSum, scaleTargets, scaleOutput);
+                        //cudaFuncSetCacheConfig(conv_weight_acts_mc_mf<4,32,2,8,32, false, false>, cudaFuncCachePreferShared);
+                        conv_weight_acts_mc_mf<4,32,2,8,32,true, false>(images, hidActs, targets,
+                                                                                       numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize,
+                                                                                       paddingStart, moduleStride, imgStride, numImgColors, numGroups, partialSum, scaleTargets, scaleOutput,
+                                                                                       blocks_x, blocks_y);
                     }
                 } else {
                     if (checkCaseBounds) {
-                    //    cudaFuncSetCacheConfig(conv_weight_acts_mc_mf<4,32,2,4,32, false, true>, cudaFuncCachePreferShared);
-                      //  conv_weight_acts_mc_mf<4,32,2,4,32,true, true><<<blocks, threads>>>(images, hidActs, targets,
-                        //                                                               numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize,
-                          //                                                             paddingStart, moduleStride, imgStride, numImgColors, numGroups, partialSum, scaleTargets, scaleOutput);
+                        //cudaFuncSetCacheConfig(conv_weight_acts_mc_mf<4,32,2,4,32, false, true>, cudaFuncCachePreferShared);
+                        conv_weight_acts_mc_mf<4,32,2,4,32,true, true>(images, hidActs, targets,
+                                                                                       numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize,
+                                                                                       paddingStart, moduleStride, imgStride, numImgColors, numGroups, partialSum, scaleTargets, scaleOutput,
+                                                                                       blocks_x, blocks_y);
                     } else {
-                     //   cudaFuncSetCacheConfig(conv_weight_acts_mc_mf<4,32,2,4,32, false, false>, cudaFuncCachePreferShared);
-                       // conv_weight_acts_mc_mf<4,32,2,4,32,true, false><<<blocks, threads>>>(images, hidActs, targets,
-                         //                                                              numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize,
-                           //                                                            paddingStart, moduleStride, imgStride, numImgColors, numGroups, partialSum, scaleTargets, scaleOutput);
+                        //cudaFuncSetCacheConfig(conv_weight_acts_mc_mf<4,32,2,4,32, false, false>, cudaFuncCachePreferShared);
+                        conv_weight_acts_mc_mf<4,32,2,4,32,true, false>(images, hidActs, targets,
+                                                                                       numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize,
+                                                                                       paddingStart, moduleStride, imgStride, numImgColors, numGroups, partialSum, scaleTargets, scaleOutput,
+                                                                                       blocks_x, blocks_y);
                     }
                 }
             } else if (numFiltersPerGroup % 32 == 0) {
                 if (numFilterColors % 8 == 0) {
                     if (checkCaseBounds) {
-                    //    cudaFuncSetCacheConfig(conv_weight_acts_mc_mf<8,16,2,8,32, false, true>, cudaFuncCachePreferShared);
-                      //  conv_weight_acts_mc_mf<8,16,2,8,32,true, true><<<blocks, threads>>>(images, hidActs, targets,
-                        //                                                               numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize,
-                          //                                                             paddingStart, moduleStride, imgStride, numImgColors, numGroups, partialSum, scaleTargets, scaleOutput);
+                        //cudaFuncSetCacheConfig(conv_weight_acts_mc_mf<8,16,2,8,32, false, true>, cudaFuncCachePreferShared);
+                        conv_weight_acts_mc_mf<8,16,2,8,32,true, true>(images, hidActs, targets,
+                                                                                       numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize,
+                                                                                       paddingStart, moduleStride, imgStride, numImgColors, numGroups, partialSum, scaleTargets, scaleOutput,
+                                                                                       blocks_x, blocks_y);
                     } else {
-                      //  cudaFuncSetCacheConfig(conv_weight_acts_mc_mf<8,16,2,8,32, false, false>, cudaFuncCachePreferShared);
-                       // conv_weight_acts_mc_mf<8,16,2,8,32,true, false><<<blocks, threads>>>(images, hidActs, targets,
-                         //                                                              numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize,
-                           //                                                            paddingStart, moduleStride, imgStride, numImgColors, numGroups, partialSum, scaleTargets, scaleOutput);
+                        //cudaFuncSetCacheConfig(conv_weight_acts_mc_mf<8,16,2,8,32, false, false>, cudaFuncCachePreferShared);
+                        conv_weight_acts_mc_mf<8,16,2,8,32,true, false>(images, hidActs, targets,
+                                                                                       numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize,
+                                                                                       paddingStart, moduleStride, imgStride, numImgColors, numGroups, partialSum, scaleTargets, scaleOutput,
+                                                                                       blocks_x, blocks_y);
                     }
                 } else {
                     if (checkCaseBounds) {
-                     //   cudaFuncSetCacheConfig(conv_weight_acts_mc_mf<8,16,2,4,32, false, true>, cudaFuncCachePreferShared);
-                       // conv_weight_acts_mc_mf<8,16,2,4,32,true, true><<<blocks, threads>>>(images, hidActs, targets,
-                         //                                                              numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize,
-                           //                                                            paddingStart, moduleStride, imgStride, numImgColors, numGroups, partialSum, scaleTargets, scaleOutput);
+                        //cudaFuncSetCacheConfig(conv_weight_acts_mc_mf<8,16,2,4,32, false, true>, cudaFuncCachePreferShared);
+                        conv_weight_acts_mc_mf<8,16,2,4,32,true, true>(images, hidActs, targets,
+                                                                                       numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize,
+                                                                                       paddingStart, moduleStride, imgStride, numImgColors, numGroups, partialSum, scaleTargets, scaleOutput,
+                                                                                       blocks_x, blocks_y);
                     } else {
-                      //  cudaFuncSetCacheConfig(conv_weight_acts_mc_mf<8,16,2,4,32, false, false>, cudaFuncCachePreferShared);
-                       // conv_weight_acts_mc_mf<8,16,2,4,32,true, false><<<blocks, threads>>>(images, hidActs, targets,
-                         //                                                              numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize,
-                           //                                                            paddingStart, moduleStride, imgStride, numImgColors, numGroups, partialSum, scaleTargets, scaleOutput);
+                        //cudaFuncSetCacheConfig(conv_weight_acts_mc_mf<8,16,2,4,32, false, false>, cudaFuncCachePreferShared);
+                        conv_weight_acts_mc_mf<8,16,2,4,32,true, false>(images, hidActs, targets,
+                                                                                       numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize,
+                                                                                       paddingStart, moduleStride, imgStride, numImgColors, numGroups, partialSum, scaleTargets, scaleOutput,
+                                                                                       blocks_x, blocks_y);
                     }
                 }
             } else {
                 if (numFilterColors % 8 == 0) {
                     if (checkCaseBounds) {
-                     //   cudaFuncSetCacheConfig(conv_weight_acts_mc_mf<8,16,1,8,32, false, true>, cudaFuncCachePreferShared);
-                       // conv_weight_acts_mc_mf<8,16,1,8,32,true, true><<<blocks, threads>>>(images, hidActs, targets,
-                         //                                                              numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize,
-                           //                                                            paddingStart, moduleStride, imgStride, numImgColors, numGroups, partialSum, scaleTargets, scaleOutput);
+                        //cudaFuncSetCacheConfig(conv_weight_acts_mc_mf<8,16,1,8,32, false, true>, cudaFuncCachePreferShared);
+                        conv_weight_acts_mc_mf<8,16,1,8,32,true, true>(images, hidActs, targets,
+                                                                                       numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize,
+                                                                                       paddingStart, moduleStride, imgStride, numImgColors, numGroups, partialSum, scaleTargets, scaleOutput,
+                                                                                       blocks_x, blocks_y);
                     } else {
-                      //  cudaFuncSetCacheConfig(conv_weight_acts_mc_mf<8,16,1,8,32, false, false>, cudaFuncCachePreferShared);
-                       // conv_weight_acts_mc_mf<8,16,1,8,32,true, false><<<blocks, threads>>>(images, hidActs, targets,
-                         //                                                              numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize,
-                           //                                                            paddingStart, moduleStride, imgStride, numImgColors, numGroups, partialSum, scaleTargets, scaleOutput);
+                        //cudaFuncSetCacheConfig(conv_weight_acts_mc_mf<8,16,1,8,32, false, false>, cudaFuncCachePreferShared);
+                        conv_weight_acts_mc_mf<8,16,1,8,32,true, false>(images, hidActs, targets,
+                                                                                       numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize,
+                                                                                       paddingStart, moduleStride, imgStride, numImgColors, numGroups, partialSum, scaleTargets, scaleOutput,
+                                                                                       blocks_x, blocks_y);
                     }
                 } else {
                     if (checkCaseBounds) {
-                    //    cudaFuncSetCacheConfig(conv_weight_acts_mc_mf<8,16,1,4,32, false, true>, cudaFuncCachePreferShared);
-                      //  conv_weight_acts_mc_mf<8,16,1,4,32,true, true><<<blocks, threads>>>(images, hidActs, targets,
-                        //                                                               numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize,
-                          //                                                             paddingStart, moduleStride, imgStride, numImgColors, numGroups, partialSum, scaleTargets, scaleOutput);
+                        //cudaFuncSetCacheConfig(conv_weight_acts_mc_mf<8,16,1,4,32, false, true>, cudaFuncCachePreferShared);
+                        conv_weight_acts_mc_mf<8,16,1,4,32,true, true>(images, hidActs, targets,
+                                                                                       numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize,
+                                                                                       paddingStart, moduleStride, imgStride, numImgColors, numGroups, partialSum, scaleTargets, scaleOutput,
+                                                                                       blocks_x, blocks_y);
                     } else {
-                 //       cudaFuncSetCacheConfig(conv_weight_acts_mc_mf<8,16,1,4,32, false, false>, cudaFuncCachePreferShared);
-                   //     conv_weight_acts_mc_mf<8,16,1,4,32,true, false><<<blocks, threads>>>(images, hidActs, targets,
-                     //                                                                  numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize,
-                       //                                                                paddingStart, moduleStride, imgStride, numImgColors, numGroups, partialSum, scaleTargets, scaleOutput);
+                        //cudaFuncSetCacheConfig(conv_weight_acts_mc_mf<8,16,1,4,32, false, false>, cudaFuncCachePreferShared);
+                        conv_weight_acts_mc_mf<8,16,1,4,32,true, false>(images, hidActs, targets,
+                                                                                       numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize,
+                                                                                       paddingStart, moduleStride, imgStride, numImgColors, numGroups, partialSum, scaleTargets, scaleOutput,
+                                                                                       blocks_x, blocks_y);
                     }
                 }
             }
@@ -590,67 +633,79 @@ void spatialConv_accGradParameters(
             if (numFilterColors == 1) {
                 if (checkCaseBounds) {
                     if (numFilters % 32 == 0) {
-              //          cudaFuncSetCacheConfig(conv_weight_acts_c<4,32,8,32,1, false, true>, cudaFuncCachePreferShared);
-                //        conv_weight_acts_c<4,32,8,32,1,false, true><<<blocks, threads>>>(images, hidActs, targets,
-                  //                                              numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, imgStride, partialSum, scaleTargets, scaleOutput);
+                        //cudaFuncSetCacheConfig(conv_weight_acts_c<4,32,8,32,1, false, true>, cudaFuncCachePreferShared);
+                        conv_weight_acts_c<4,32,8,32,1,false, true>(images, hidActs, targets,
+                                                                numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, imgStride, partialSum, scaleTargets, scaleOutput,
+                                                                blocks_x, blocks_y);
                     } else {
-                    //    cudaFuncSetCacheConfig(conv_weight_acts_c<8,16,5,32,1, false, true>, cudaFuncCachePreferShared);
-                      //  conv_weight_acts_c<8,16,5,32,1,false, true><<<blocks, threads>>>(images, hidActs, targets,
-                        //                                        numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, imgStride, partialSum, scaleTargets, scaleOutput);
+                        //cudaFuncSetCacheConfig(conv_weight_acts_c<8,16,5,32,1, false, true>, cudaFuncCachePreferShared);
+                        conv_weight_acts_c<8,16,5,32,1,false, true>(images, hidActs, targets,
+                                                                numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, imgStride, partialSum, scaleTargets, scaleOutput,
+                                                                blocks_x, blocks_y);
                     }
                 } else {
                     if (numFilters % 32 == 0) {
-                      //  cudaFuncSetCacheConfig(conv_weight_acts_c<4,32,8,32,1, false, false>, cudaFuncCachePreferShared);
-                        //conv_weight_acts_c<4,32,8,32,1,false, false><<<blocks, threads>>>(images, hidActs, targets,
-                          //                                      numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, imgStride, partialSum, scaleTargets, scaleOutput);
+                        //cudaFuncSetCacheConfig(conv_weight_acts_c<4,32,8,32,1, false, false>, cudaFuncCachePreferShared);
+                        conv_weight_acts_c<4,32,8,32,1,false, false>(images, hidActs, targets,
+                                                                numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, imgStride, partialSum, scaleTargets, scaleOutput,
+                                                                blocks_x, blocks_y);
                     } else {
-                    //    cudaFuncSetCacheConfig(conv_weight_acts_c<8,16,5,32,1, false, false>, cudaFuncCachePreferShared);
-                      //  conv_weight_acts_c<8,16,5,32,1,false, false><<<blocks, threads>>>(images, hidActs, targets,
-                        //                                        numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, imgStride, partialSum, scaleTargets, scaleOutput);
+                        //cudaFuncSetCacheConfig(conv_weight_acts_c<8,16,5,32,1, false, false>, cudaFuncCachePreferShared);
+                        conv_weight_acts_c<8,16,5,32,1,false, false>(images, hidActs, targets,
+                                                                numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, imgStride, partialSum, scaleTargets, scaleOutput,
+                                                                blocks_x, blocks_y);
                     }
                 }
             } else if (numFilterColors == 2) {
                 if (checkCaseBounds) {
                     if (numFilters % 32 == 0) {
-                 //       cudaFuncSetCacheConfig(conv_weight_acts_c<4,32,5,32,2, false, true>, cudaFuncCachePreferShared);
-                   //     conv_weight_acts_c<4,32,5,32,2,false, true><<<blocks, threads>>>(images, hidActs, targets,
-                     //                                           numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, imgStride, partialSum, scaleTargets, scaleOutput);
+                        //cudaFuncSetCacheConfig(conv_weight_acts_c<4,32,5,32,2, false, true>, cudaFuncCachePreferShared);
+                        conv_weight_acts_c<4,32,5,32,2,false, true>(images, hidActs, targets,
+                                                                numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, imgStride, partialSum, scaleTargets, scaleOutput,
+                                                                blocks_x, blocks_y);
                     } else {
-                      //  cudaFuncSetCacheConfig(conv_weight_acts_c<8,16,2,32,2, false, true>, cudaFuncCachePreferShared);
-                       // conv_weight_acts_c<8,16,2,32,2,false, true><<<blocks, threads>>>(images, hidActs, targets,
-                         //                                       numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, imgStride, partialSum, scaleTargets, scaleOutput);
+                        //cudaFuncSetCacheConfig(conv_weight_acts_c<8,16,2,32,2, false, true>, cudaFuncCachePreferShared);
+                        conv_weight_acts_c<8,16,2,32,2,false, true>(images, hidActs, targets,
+                                                                numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, imgStride, partialSum, scaleTargets, scaleOutput,
+                                                                blocks_x, blocks_y);
                     }
                 } else {
                     if (numFilters % 32 == 0) {
-                    //    cudaFuncSetCacheConfig(conv_weight_acts_c<4,32,5,32,2, false, false>, cudaFuncCachePreferShared);
-                      //  conv_weight_acts_c<4,32,5,32,2,false, false><<<blocks, threads>>>(images, hidActs, targets,
-                        //                                        numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, imgStride, partialSum, scaleTargets, scaleOutput);
+                        //cudaFuncSetCacheConfig(conv_weight_acts_c<4,32,5,32,2, false, false>, cudaFuncCachePreferShared);
+                        conv_weight_acts_c<4,32,5,32,2,false, false>(images, hidActs, targets,
+                                                                numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, imgStride, partialSum, scaleTargets, scaleOutput,
+                                                                blocks_x, blocks_y);
                     } else {
-                      //  cudaFuncSetCacheConfig(conv_weight_acts_c<8,16,2,32,2, false, false>, cudaFuncCachePreferShared);
-                       // conv_weight_acts_c<8,16,2,32,2,false, false><<<blocks, threads>>>(images, hidActs, targets,
-                        //                                        numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, imgStride, partialSum, scaleTargets, scaleOutput);
+                        //cudaFuncSetCacheConfig(conv_weight_acts_c<8,16,2,32,2, false, false>, cudaFuncCachePreferShared);
+                        conv_weight_acts_c<8,16,2,32,2,false, false>(images, hidActs, targets,
+                                                                numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, imgStride, partialSum, scaleTargets, scaleOutput,
+                                                                blocks_x, blocks_y);
                     }
                 }
             } else if (numFilterColors == 3) {
                 if (checkCaseBounds) {
                     if (numFilters % 32 == 0) {
-                      //  cudaFuncSetCacheConfig(conv_weight_acts_c<4,32,5,32,3, false, true>, cudaFuncCachePreferShared);
-                       // conv_weight_acts_c<4,32,5,32,3,false, true><<<blocks, threads>>>(images, hidActs, targets,
-                         //                                       numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, imgStride, partialSum, scaleTargets, scaleOutput);
+                        //cudaFuncSetCacheConfig(conv_weight_acts_c<4,32,5,32,3, false, true>, cudaFuncCachePreferShared);
+                        conv_weight_acts_c<4,32,5,32,3,false, true>(images, hidActs, targets,
+                                                                numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, imgStride, partialSum, scaleTargets, scaleOutput,
+                                                                blocks_x, blocks_y);
                     } else {
-                     //   cudaFuncSetCacheConfig(conv_weight_acts_c<8,16,2,32,3, false, true>, cudaFuncCachePreferShared);
-                      //  conv_weight_acts_c<8,16,2,32,3,false, true><<<blocks, threads>>>(images, hidActs, targets,
-                        //                                        numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, imgStride, partialSum, scaleTargets, scaleOutput);
+                        //cudaFuncSetCacheConfig(conv_weight_acts_c<8,16,2,32,3, false, true>, cudaFuncCachePreferShared);
+                        conv_weight_acts_c<8,16,2,32,3,false, true>(images, hidActs, targets,
+                                                                numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, imgStride, partialSum, scaleTargets, scaleOutput,
+                                                                blocks_x, blocks_y);
                     }
                 } else {
                     if (numFilters % 32 == 0) {
-                   //     cudaFuncSetCacheConfig(conv_weight_acts_c<4,32,5,32,3, false, false>, cudaFuncCachePreferShared);
-                     //   conv_weight_acts_c<4,32,5,32,3,false, false><<<blocks, threads>>>(images, hidActs, targets,
-                       //                                         numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, imgStride, partialSum, scaleTargets, scaleOutput);
+                        //cudaFuncSetCacheConfig(conv_weight_acts_c<4,32,5,32,3, false, false>, cudaFuncCachePreferShared);
+                        conv_weight_acts_c<4,32,5,32,3,false, false>(images, hidActs, targets,
+                                                                numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, imgStride, partialSum, scaleTargets, scaleOutput,
+                                                                blocks_x, blocks_y);
                     } else {
-                      //  cudaFuncSetCacheConfig(conv_weight_acts_c<8,16,2,32,3, false, false>, cudaFuncCachePreferShared);
-                      //  conv_weight_acts_c<8,16,2,32,3,false, false><<<blocks, threads>>>(images, hidActs, targets,
-                        //                                        numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, imgStride, partialSum, scaleTargets, scaleOutput);
+                        //cudaFuncSetCacheConfig(conv_weight_acts_c<8,16,2,32,3, false, false>, cudaFuncCachePreferShared);
+                        conv_weight_acts_c<8,16,2,32,3,false, false>(images, hidActs, targets,
+                                                                numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, imgStride, partialSum, scaleTargets, scaleOutput,
+                                                                blocks_x, blocks_y);
                     }
                 }
             }
@@ -659,73 +714,83 @@ void spatialConv_accGradParameters(
             if (numFilterColors == 1) {
                 if (checkCaseBounds) {
                     if (numFilters % 32 == 0) {
-                //        cudaFuncSetCacheConfig(conv_weight_acts_c<4,32,8,32,1, true, true>, cudaFuncCachePreferShared);
-                  //      conv_weight_acts_c<4,32,8,32,1,true, true><<<blocks, threads>>>(images, hidActs, targets,
-                    //                                            numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, imgStride, partialSum, scaleTargets, scaleOutput);
+                        //cudaFuncSetCacheConfig(conv_weight_acts_c<4,32,8,32,1, true, true>, cudaFuncCachePreferShared);
+                        conv_weight_acts_c<4,32,8,32,1,true, true>(images, hidActs, targets,
+                                                                numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, imgStride, partialSum, scaleTargets, scaleOutput,
+                                                                blocks_x, blocks_y);
                     } else {
-                     //   cudaFuncSetCacheConfig(conv_weight_acts_c<8,16,5,32,1, true, true>, cudaFuncCachePreferShared);
-                       // conv_weight_acts_c<8,16,5,32,1,true, true><<<blocks, threads>>>(images, hidActs, targets,
-                         //                                       numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, imgStride, partialSum, scaleTargets, scaleOutput);
+                        //cudaFuncSetCacheConfig(conv_weight_acts_c<8,16,5,32,1, true, true>, cudaFuncCachePreferShared);
+                        conv_weight_acts_c<8,16,5,32,1,true, true>(images, hidActs, targets,
+                                                                numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, imgStride, partialSum, scaleTargets, scaleOutput,
+                                                                blocks_x, blocks_y);
                     }
                 } else {
                     if (numFilters % 32 == 0) {
-                    //    cudaFuncSetCacheConfig(conv_weight_acts_c<4,32,8,32,1, true, false>, cudaFuncCachePreferShared);
-                      //  conv_weight_acts_c<4,32,8,32,1,true, false><<<blocks, threads>>>(images, hidActs, targets,
-                        //                                        numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, imgStride, partialSum, scaleTargets, scaleOutput);
+                        //cudaFuncSetCacheConfig(conv_weight_acts_c<4,32,8,32,1, true, false>, cudaFuncCachePreferShared);
+                        conv_weight_acts_c<4,32,8,32,1,true, false>(images, hidActs, targets,
+                                                                numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, imgStride, partialSum, scaleTargets, scaleOutput,
+                                                                blocks_x, blocks_y);
                     } else {
-                    //    cudaFuncSetCacheConfig(conv_weight_acts_c<8,16,5,32,1, true, false>, cudaFuncCachePreferShared);
-                      //  conv_weight_acts_c<8,16,5,32,1,true, false><<<blocks, threads>>>(images, hidActs, targets,
-                        //                                        numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, imgStride, partialSum, scaleTargets, scaleOutput);
+                        //cudaFuncSetCacheConfig(conv_weight_acts_c<8,16,5,32,1, true, false>, cudaFuncCachePreferShared);
+                        conv_weight_acts_c<8,16,5,32,1,true, false>(images, hidActs, targets,
+                                                                numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, imgStride, partialSum, scaleTargets, scaleOutput,
+                                                                blocks_x, blocks_y);
                     }
                 }
             } else if (numFilterColors == 2) {
                 if (checkCaseBounds) {
                     if (numFilters % 32 == 0) {
-              //          cudaFuncSetCacheConfig(conv_weight_acts_c<4,32,5,32,2, true, true>, cudaFuncCachePreferShared);
-                //        conv_weight_acts_c<4,32,5,32,2,true, true><<<blocks, threads>>>(images, hidActs, targets,
-                  //                                              numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, imgStride, partialSum, scaleTargets, scaleOutput);
+                        //cudaFuncSetCacheConfig(conv_weight_acts_c<4,32,5,32,2, true, true>, cudaFuncCachePreferShared);
+                        conv_weight_acts_c<4,32,5,32,2,true, true>(images, hidActs, targets,
+                                                                numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, imgStride, partialSum, scaleTargets, scaleOutput,
+                                                                blocks_x, blocks_y);
                     } else {
-                   //     cudaFuncSetCacheConfig(conv_weight_acts_c<8,16,2,32,2, true, true>, cudaFuncCachePreferShared);
-                    //    conv_weight_acts_c<8,16,2,32,2,true, true><<<blocks, threads>>>(images, hidActs, targets,
-                      //                                          numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, imgStride, partialSum, scaleTargets, scaleOutput);
+                        //cudaFuncSetCacheConfig(conv_weight_acts_c<8,16,2,32,2, true, true>, cudaFuncCachePreferShared);
+                        conv_weight_acts_c<8,16,2,32,2,true, true>(images, hidActs, targets,
+                                                                numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, imgStride, partialSum, scaleTargets, scaleOutput,
+                                                                blocks_x, blocks_y);
                     }
                 } else {
                     if (numFilters % 32 == 0) {
-                    //    cudaFuncSetCacheConfig(conv_weight_acts_c<4,32,5,32,2, true, false>, cudaFuncCachePreferShared);
-                      //  conv_weight_acts_c<4,32,5,32,2,true, false><<<blocks, threads>>>(images, hidActs, targets,
-                        //                                        numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, imgStride, partialSum, scaleTargets, scaleOutput);
+                        //cudaFuncSetCacheConfig(conv_weight_acts_c<4,32,5,32,2, true, false>, cudaFuncCachePreferShared);
+                        conv_weight_acts_c<4,32,5,32,2,true, false>(images, hidActs, targets,
+                                                                numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, imgStride, partialSum, scaleTargets, scaleOutput,
+                                                                blocks_x, blocks_y);
                     } else {
-                      //  cudaFuncSetCacheConfig(conv_weight_acts_c<8,16,2,32,2, true, false>, cudaFuncCachePreferShared);
-                        //conv_weight_acts_c<8,16,2,32,2,true, false><<<blocks, threads>>>(images, hidActs, targets,
-                          //                                      numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, imgStride, partialSum, scaleTargets, scaleOutput);
+                        //cudaFuncSetCacheConfig(conv_weight_acts_c<8,16,2,32,2, true, false>, cudaFuncCachePreferShared);
+                        conv_weight_acts_c<8,16,2,32,2,true, false>(images, hidActs, targets,
+                                                                numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, imgStride, partialSum, scaleTargets, scaleOutput,
+                                                                blocks_x, blocks_y);
                     }
                 }
             } else if (numFilterColors == 3) {
                 if (checkCaseBounds) {
                     if (numFilters % 32 == 0) {
-                   //     cudaFuncSetCacheConfig(conv_weight_acts_c<4,32,5,32,3, true, true>, cudaFuncCachePreferShared);
-                     //   conv_weight_acts_c<4,32,5,32,3,true, true><<<blocks, threads>>>(images, hidActs, targets,
-                       //                                         numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, imgStride, partialSum, scaleTargets, scaleOutput);
+                        //cudaFuncSetCacheConfig(conv_weight_acts_c<4,32,5,32,3, true, true>, cudaFuncCachePreferShared);
+                        conv_weight_acts_c<4,32,5,32,3,true, true>(images, hidActs, targets,
+                                                                numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, imgStride, partialSum, scaleTargets, scaleOutput,
+                                                                blocks_x, blocks_y);
                     } else {
-                      //  cudaFuncSetCacheConfig(conv_weight_acts_c<8,16,2,32,3, true, true>, cudaFuncCachePreferShared);
-                       // conv_weight_acts_c<8,16,2,32,3,true, true><<<blocks, threads>>>(images, hidActs, targets,
-                         //                                       numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, imgStride, partialSum, scaleTargets, scaleOutput);
+                        //cudaFuncSetCacheConfig(conv_weight_acts_c<8,16,2,32,3, true, true>, cudaFuncCachePreferShared);
+                        conv_weight_acts_c<8,16,2,32,3,true, true>(images, hidActs, targets,
+                                                                numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, imgStride, partialSum, scaleTargets, scaleOutput,
+                                                                blocks_x, blocks_y);
                     }
                 } else {
                     if (numFilters % 32 == 0) {
-                 //       cudaFuncSetCacheConfig(conv_weight_acts_c<4,32,5,32,3, true, false>, cudaFuncCachePreferShared);
-                   //     conv_weight_acts_c<4,32,5,32,3,true, false><<<blocks, threads>>>(images, hidActs, targets,
-                     //                                           numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, imgStride, partialSum, scaleTargets, scaleOutput);
+                        //cudaFuncSetCacheConfig(conv_weight_acts_c<4,32,5,32,3, true, false>, cudaFuncCachePreferShared);
+                        conv_weight_acts_c<4,32,5,32,3,true, false>(images, hidActs, targets,
+                                                                numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, imgStride, partialSum, scaleTargets, scaleOutput,
+                                                                blocks_x, blocks_y);
                     } else {
-                      //  cudaFuncSetCacheConfig(conv_weight_acts_c<8,16,2,32,3, true, false>, cudaFuncCachePreferShared);
-                        //conv_weight_acts_c<8,16,2,32,3,true, false><<<blocks, threads>>>(images, hidActs, targets,
-                          //                                      numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, imgStride, partialSum, scaleTargets, scaleOutput);
+                        //cudaFuncSetCacheConfig(conv_weight_acts_c<8,16,2,32,3, true, false>, cudaFuncCachePreferShared);
+                        conv_weight_acts_c<8,16,2,32,3,true, false>(images, hidActs, targets,
+                                                                numImages, numFilters, numModulesY, numModulesX, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, imgStride, partialSum, scaleTargets, scaleOutput,
+                                                                blocks_x, blocks_y);
                     }
                 }
             }
         }
     }
-    
-    // check for errors
 }
 
