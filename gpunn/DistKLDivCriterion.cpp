@@ -83,6 +83,9 @@ static int cunn_DistKLDivCriterion_updateGradInput(lua_State *L)
 
   std::transform(input_data.begin(), input_data.end(), target_data.begin(), gradInput_data.begin(), kl_updateGradInput_functor(norm));
 
+ 
+  std::copy(gradInput_data.begin(), gradInput_data.end(), gradInput->storage->data);
+
   THCudaTensor_free(input);
   THCudaTensor_free(target);
   return 1;
