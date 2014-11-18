@@ -5,7 +5,8 @@
 //#include <curand.h>
 
 /* Generator */
-typedef struct _Generator {
+typedef struct _Generator
+{
 //  curandGenerator_t gen;
   int initf;
   unsigned long initial_seed;
@@ -106,7 +107,7 @@ struct geometric_functor
 
   float operator()(const float& x) const
   {
-    return (float)((log(1-x) / log(p)) + 1);
+    return (float)((log(1 - x) / log(p)) + 1);
   }
 };
 
@@ -117,7 +118,7 @@ struct exponential_functor
 
   float operator()(const float& x) const
   {
-    return (float)(-1. / lambda * log(1-x));
+    return (float)(-1. / lambda * log(1 - x));
   }
 };
 
@@ -128,11 +129,12 @@ struct cauchy_functor
 
   float operator()(const float& x) const
   {
-    return (float)(median + sigma * tan(M_PI*(x-0.5)));
+    return (float)(median + sigma * tan(M_PI * (x - 0.5)));
   }
 };
 
-THC_API void THCudaTensor_uniform(THCudaTensor *self_, double a, double b) {
+THC_API void THCudaTensor_uniform(THCudaTensor *self_, double a, double b)
+{
   /*if (current_gen == NULL)
   {
     THError("Random number generators have not been initialized.");
@@ -151,7 +153,8 @@ THC_API void THCudaTensor_uniform(THCudaTensor *self_, double a, double b) {
   THCudaTensor_freeCopyTo(self, self_);*/
 };
 
-THC_API void THCudaTensor_bernoulli(THCudaTensor *self_, double p) {
+THC_API void THCudaTensor_bernoulli(THCudaTensor *self_, double p)
+{
  /* if (current_gen == NULL)
   {
     THError("Random number generators have not been initialized.");
@@ -168,7 +171,8 @@ THC_API void THCudaTensor_bernoulli(THCudaTensor *self_, double p) {
   THCudaTensor_freeCopyTo(self, self_);*/
 };
 
-THC_API void THCudaTensor_normal(THCudaTensor *self_, double mean, double stdv) {
+THC_API void THCudaTensor_normal(THCudaTensor *self_, double mean, double stdv)
+{
  /* if (current_gen == NULL)
   {
     THError("Random number generators have not been initialized.");
@@ -182,7 +186,8 @@ THC_API void THCudaTensor_normal(THCudaTensor *self_, double mean, double stdv) 
   THCudaTensor_freeCopyTo(self, self_);*/
 };
 
-THC_API void THCudaTensor_logNormal(THCudaTensor *self_, double mean, double stdv) {
+THC_API void THCudaTensor_logNormal(THCudaTensor *self_, double mean, double stdv)
+{
  /* if (current_gen == NULL)
   {
     THError("Random number generators have not been initialized.");
@@ -196,7 +201,8 @@ THC_API void THCudaTensor_logNormal(THCudaTensor *self_, double mean, double std
   THCudaTensor_freeCopyTo(self, self_);*/
 };
 
-THC_API void THCudaTensor_geometric(THCudaTensor *self_, double p) {
+THC_API void THCudaTensor_geometric(THCudaTensor *self_, double p)
+{
 /*  if (current_gen == NULL)
   {
     THError("Random number generators have not been initialized.");
@@ -205,15 +211,16 @@ THC_API void THCudaTensor_geometric(THCudaTensor *self_, double p) {
   long size = THCudaTensor_nElement(self);
   float *data = THCudaTensor_data(self);
   thrust::device_ptr<float> tdata(data);
-  
+
   curandGenerateUniform(current_gen->gen, data, size);
-  
+
   thrust::transform(tdata, tdata+size, tdata, geometric_functor(p));
 
   THCudaTensor_freeCopyTo(self, self_);*/
 };
 
-THC_API void THCudaTensor_exponential(THCudaTensor *self_, double lambda) {
+THC_API void THCudaTensor_exponential(THCudaTensor *self_, double lambda)
+{
  /* if (current_gen == NULL)
   {
     THError("Random number generators have not been initialized.");
@@ -222,15 +229,16 @@ THC_API void THCudaTensor_exponential(THCudaTensor *self_, double lambda) {
   long size = THCudaTensor_nElement(self);
   float *data = THCudaTensor_data(self);
   thrust::device_ptr<float> tdata(data);
-  
+
   curandGenerateUniform(current_gen->gen, data, size);
-  
+
   thrust::transform(tdata, tdata+size, tdata, exponential_functor(lambda));
 
   THCudaTensor_freeCopyTo(self, self_);*/
 };
 
-THC_API void THCudaTensor_cauchy(THCudaTensor *self_, double median, double sigma) {
+THC_API void THCudaTensor_cauchy(THCudaTensor *self_, double median, double sigma)
+{
   /*if (current_gen == NULL)
   {
     THError("Random number generators have not been initialized.");
