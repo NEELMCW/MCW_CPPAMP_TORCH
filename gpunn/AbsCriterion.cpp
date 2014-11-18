@@ -2,21 +2,20 @@
 #include <thrust/functional.h>
 #include <thrust/reduce.h>
 #include <thrust/inner_product.h>*/
-#include<iostream>
-#include<vector>
-#include<numeric>
+#include <iostream>
+#include <vector>
+#include <numeric>
 
 struct abs_functor
 {
   abs_functor() {}
 
-   float operator()(const float& x, const float& y) const
-    {
-      float z = x-y;
-      return z >= 0 ? z : -z;
-    }
+  float operator()(const float& x, const float& y) const
+  {
+    float z = x-y;
+    return z >= 0 ? z : -z;
+  }
 };
-
 
 static int cunn_AbsCriterion_updateOutput(lua_State *L)
 {
@@ -32,9 +31,9 @@ static int cunn_AbsCriterion_updateOutput(lua_State *L)
   target = THCudaTensor_newContiguous(target);
 
   ///thrust::device_ptr<float> input_data(THCudaTensor_data(input));
-  std::vector<float> input_data(THCudaTensor_data(input), THCudaTensor_data(input)+THCudaTensor_nElement(input));
+  std::vector<float> input_data(THCudaTensor_data(input), THCudaTensor_data(input) + THCudaTensor_nElement(input));
   //thrust::device_ptr<float> target_data(THCudaTensor_data(target));
-  std::vector<float> target_data(THCudaTensor_data(target), THCudaTensor_data(target)+THCudaTensor_nElement(target));
+  std::vector<float> target_data(THCudaTensor_data(target), THCudaTensor_data(target) + THCudaTensor_nElement(target));
   sum = std::inner_product(input_data.begin(), input_data.end(), target_data.begin(), (float) 0, std::plus<float>(), abs_functor());
 
   if(sizeAverage)
@@ -42,7 +41,7 @@ static int cunn_AbsCriterion_updateOutput(lua_State *L)
 
   THCudaTensor_free(input);
   THCudaTensor_free(target);
- 
+
   lua_pushnumber(L, sum);
   lua_setfield(L, 1, "output");
 
@@ -58,9 +57,9 @@ struct abs_updateGradInput_functor
   abs_updateGradInput_functor(float norm_) : norm(norm_) {}
 
   float operator()(const float& x, const float& y) const
-    {
-      return (x - y) >= 0 ? norm : -norm;
-    }
+  {
+    return (x - y) >= 0 ? norm : -norm;
+  }
 };
 
 static int cunn_AbsCriterion_updateGradInput(lua_State *L)
@@ -79,11 +78,11 @@ static int cunn_AbsCriterion_updateGradInput(lua_State *L)
   THCudaTensor_resizeAs(gradInput, input);
 
   //thrust::device_ptr<float> input_data(THCudaTensor_data(input));
- // thrust::device_ptr<float> target_data(THCudaTensor_data(target));
- // thrust::device_ptr<float> gradInput_data(THCudaTensor_data(gradInput));
-  std::vector<float> input_data(THCudaTensor_data(input), THCudaTensor_data(input)+THCudaTensor_nElement(input));
-  std::vector<float> target_data(THCudaTensor_data(target), THCudaTensor_data(target)+THCudaTensor_nElement(target));
-   std::vector<float> gradInput_data(THCudaTensor_data(gradInput), THCudaTensor_data(gradInput)+THCudaTensor_nElement(gradInput));
+  // thrust::device_ptr<float> target_data(THCudaTensor_data(target));
+  // thrust::device_ptr<float> gradInput_data(THCudaTensor_data(gradInput));
+  std::vector<float> input_data(THCudaTensor_data(input), THCudaTensor_data(input) + THCudaTensor_nElement(input));
+  std::vector<float> target_data(THCudaTensor_data(target), THCudaTensor_data(target) + THCudaTensor_nElement(target));
+  std::vector<float> gradInput_data(THCudaTensor_data(gradInput), THCudaTensor_data(gradInput) + THCudaTensor_nElement(gradInput));
 
   std::transform(input_data.begin(), input_data.end(), target_data.begin(), gradInput_data.begin(), abs_updateGradInput_functor(norm));
 

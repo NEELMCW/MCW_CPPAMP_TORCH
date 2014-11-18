@@ -17,8 +17,8 @@ static int cunn_Exp_updateOutput(lua_State *L)
   THCudaTensor_resizeAs(output, input);
 
   //thrust::device_ptr<float> output_data(THCudaTensor_data(output));
- // thrust::device_ptr<float> input_data(THCudaTensor_data(input));
- // thrust::transform(input_data, input_data+size, output_data, expupdateOutput_functor());
+  // thrust::device_ptr<float> input_data(THCudaTensor_data(input));
+  // thrust::transform(input_data, input_data+size, output_data, expupdateOutput_functor());
 
   THCudaTensor_free(input);
   return 1;
@@ -44,9 +44,9 @@ static int cunn_Exp_updateGradInput(lua_State *L)
   THCudaTensor_resizeAs(gradInput, output);
 
   //thrust::device_ptr<float> output_data(THCudaTensor_data(output));
- // thrust::device_ptr<float> gradOutput_data(THCudaTensor_data(gradOutput));
- // thrust::device_ptr<float> gradInput_data(THCudaTensor_data(gradInput));
- // thrust::transform(output_data, output_data+size, gradOutput_data, gradInput_data, expupdateGradInput_functor());
+  // thrust::device_ptr<float> gradOutput_data(THCudaTensor_data(gradOutput));
+  // thrust::device_ptr<float> gradInput_data(THCudaTensor_data(gradInput));
+  // thrust::transform(output_data, output_data+size, gradOutput_data, gradInput_data, expupdateGradInput_functor());
 
   THCudaTensor_free(gradOutput);
   return 1;

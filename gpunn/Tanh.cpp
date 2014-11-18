@@ -28,7 +28,7 @@ struct tanhupdateGradInput_functor
 {
   float operator()(const float& output, const float& gradOutput) const
   {
-    return gradOutput * (1-output*output);
+    return gradOutput * (1 - output * output);
   }
 };
 

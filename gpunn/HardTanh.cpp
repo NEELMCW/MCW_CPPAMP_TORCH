@@ -2,9 +2,9 @@ struct hardtanhupdateOutput_functor
 {
   float operator()(const float& input) const
   {
-    if(input < -1)
+    if (input < -1)
       return -1;
-    else if(input <= 1)
+    else if (input <= 1)
       return input;
     else
       return 1;
@@ -33,7 +33,7 @@ struct hardtanhupdateGradInput_functor
 {
   float operator()(const float& input, const float& gradOutput) const
   {
-    if(input < -1 || input > 1)
+    if (input < -1 || input > 1)
       return 0;
     else
       return gradOutput;

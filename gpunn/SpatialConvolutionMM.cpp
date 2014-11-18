@@ -11,9 +11,10 @@ inline int GET_BLOCKS(const int N) {
 // Kernel for fast unfold+copy
 // (borrowed from Caffe: https://github.com/BVLC/caffe/blob/master/src/caffe/layers/conv_layer.cu)
 void im2col_kernel(const int n, const float* data_im,
-    const int height, const int width, const int ksize_h, const int ksize_w, const int pad_h,
-    const int pad_w, const int stride_h, const int stride_w, const int height_col, const int width_col,
-    float* data_col) {
+                  const int height, const int width, const int ksize_h, const int ksize_w,
+                  const int pad_h, const int pad_w, const int stride_h, const int stride_w,
+                  const int height_col, const int width_col, float* data_col)
+{
 /*  CUDA_KERNEL_LOOP(index, n) {
     int w_out = index % width_col;
     index /= width_col;
@@ -37,9 +38,10 @@ void im2col_kernel(const int n, const float* data_im,
 */
 }
 
-void im2col(const float* data_im, const int channels,
-    const int height, const int width, const int ksize_h, const int ksize_w, const int pad_h,
-    const int pad_w, const int stride_h, const int stride_w, float* data_col) {
+void im2col(const float* data_im, const int channels, const int height, const int width,
+           const int ksize_h, const int ksize_w, const int pad_h, const int pad_w, const int stride_h,
+           const int stride_w, float* data_col)
+{
   // We are going to launch channels * height_col * width_col kernels, each
   // kernel responsible for copying a single-channel grid.
   int height_col = (height + 2 * pad_h - ksize_h) / stride_h + 1;
@@ -53,10 +55,11 @@ void im2col(const float* data_im, const int channels,
   );*/
 }
 
-void col2im_kernel(const int n, const float* data_col,
-    const int height, const int width, const int channels, const int patch_h, const int patch_w,
-    const int pad_h, const int pad_w, const int stride_h, const int stride_w, const int height_col, const int width_col,
-    float* data_im) {
+void col2im_kernel(const int n, const float* data_col, const int height, const int width,
+                  const int channels, const int patch_h, const int patch_w, const int pad_h,
+                  const int pad_w, const int stride_h, const int stride_w, const int height_col,
+                  const int width_col, float* data_im)
+{
 /*  CUDA_KERNEL_LOOP(index, n) {
     float val = 0;
     int w = index % width + pad_w;
@@ -87,9 +90,10 @@ void col2im_kernel(const int n, const float* data_col,
   }*/
 }
 
-void col2im(const float* data_col, const int channels,
-    const int height, const int width, const int patch_h, const int patch_w, const int pad_h,
-    const int pad_w, const int stride_h, const int stride_w, float* data_im) {
+void col2im(const float* data_col, const int channels, const int height, const int width,
+           const int patch_h, const int patch_w, const int pad_h, const int pad_w, const int stride_h,
+           const int stride_w, float* data_im)
+{
   int height_col = (height + 2 * pad_h - patch_h) / stride_h + 1;
   int width_col = (width + 2 * pad_w - patch_w) / stride_w + 1;
   int num_kernels = channels * height * width;
@@ -102,7 +106,8 @@ void col2im(const float* data_col, const int channels,
   );*/
 }
 
-static int cunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
+static int cunn_SpatialConvolutionMM_updateOutput(lua_State *L)
+{
   // Input
   THCudaTensor *input = (THCudaTensor*)luaT_checkudata(L, 2, "torch.CudaTensor");
 
@@ -124,7 +129,8 @@ static int cunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
   luaL_argcheck(L, input->nDimension == 3 || input->nDimension == 4, 2, "3D or 4D (batch mode) tensor is expected");
 
   int batch = 1;
-  if (input->nDimension == 3) {
+  if (input->nDimension == 3)
+  {
     // Force batch
     batch = 0;
     THCudaTensor_resize4d(input, 1, input->size[0], input->size[1], input->size[2]);
@@ -132,9 +138,8 @@ static int cunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
 
   long inputWidth   = input->size[3];
   long inputHeight  = input->size[2];
-  long outputWidth  = (inputWidth + 2*padding - kW) / dW + 1;
-  long outputHeight = (inputHeight + 2*padding - kH) / dH + 1;
-
+  long outputWidth  = (inputWidth + 2 * padding - kW) / dW + 1;
+  long outputHeight = (inputHeight + 2 * padding - kH) / dH + 1;
 
   // Batch size + input planes
   long batchSize = input->size[0];
@@ -143,12 +148,13 @@ static int cunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
   THCudaTensor_resize4d(output, batchSize, nOutputPlane, outputHeight, outputWidth);
 
   // Resize temporary columns
-  THCudaTensor_resize2d(columns, nInputPlane*kW*kH, outputHeight*outputWidth);
+  THCudaTensor_resize2d(columns, nInputPlane * kW * kH, outputHeight * outputWidth);
 
   // Define a buffer of ones, for bias accumulation
   // Note: this buffer can be shared with other modules, it only ever gets increased,
   // and always contains ones.
-  if (ones->nDimension != 2 || ones->size[0]*ones->size[1] < outputHeight*outputWidth) {
+  if (ones->nDimension != 2 || ones->size[0] * ones->size[1] < outputHeight * outputWidth)
+  {
     // Resize plane and fill with ones...
     THCudaTensor_resize2d(ones, outputHeight, outputWidth);
     THCudaTensor_fill(ones, 1);
@@ -159,7 +165,8 @@ static int cunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
   THCudaTensor *output_n = THCudaTensor_new();
 
   // For each elt in batch, do:
-  for (int elt = 0; elt < batchSize; elt ++) {
+  for (int elt = 0; elt < batchSize; elt ++)
+  {
     // Matrix mulitply per output:
     THCudaTensor_select(input_n, input, 0, elt);
     THCudaTensor_select(output_n, output, 0, elt);
@@ -183,11 +190,8 @@ static int cunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
     );*/
 
     // Extract columns:
-    im2col(
-        THCudaTensor_data(input_n),
-        nInputPlane, inputHeight, inputWidth, kH, kW, padding, padding, dH, dW,
-        THCudaTensor_data(columns)
-    );
+    im2col(THCudaTensor_data(input_n), nInputPlane, inputHeight, inputWidth, kH, kW, padding, padding,
+          dH, dW, THCudaTensor_data(columns));
 
     // M,N,K are dims of matrix A and B
     // (see http://docs.nvidia.com/cuda/cublas/#cublas-lt-t-gt-gemm)
@@ -212,7 +216,8 @@ static int cunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
   THCudaTensor_free(output_n);
 
   // Resize output
-  if (batch == 0) {
+  if (batch == 0)
+  {
     THCudaTensor_resize3d(output, nOutputPlane, outputHeight, outputWidth);
     THCudaTensor_resize3d(input, nInputPlane, inputHeight, inputWidth);
   }
@@ -221,7 +226,8 @@ static int cunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
   return 1;
 }
 
-static int cunn_SpatialConvolutionMM_updateGradInput(lua_State *L) {
+static int cunn_SpatialConvolutionMM_updateGradInput(lua_State *L)
+{
   // Inputs
   THCudaTensor *input = (THCudaTensor *)luaT_checkudata(L, 2, "torch.CudaTensor");
   THCudaTensor *gradOutput = (THCudaTensor *)luaT_checkudata(L, 3, "torch.CudaTensor");
@@ -242,7 +248,8 @@ static int cunn_SpatialConvolutionMM_updateGradInput(lua_State *L) {
   luaL_argcheck(L, input->nDimension == 3 || input->nDimension == 4, 2, "3D or 4D (batch mode) tensor is expected");
 
   int batch = 1;
-  if (input->nDimension == 3) {
+  if (input->nDimension == 3)
+  {
     // Force batch
     batch = 0;
     THCudaTensor_resize4d(input, 1, input->size[0], input->size[1], input->size[2]);
@@ -251,8 +258,8 @@ static int cunn_SpatialConvolutionMM_updateGradInput(lua_State *L) {
 
   long inputWidth   = input->size[3];
   long inputHeight  = input->size[2];
-  long outputWidth  = (inputWidth + 2*padding - kW) / dW + 1;
-  long outputHeight = (inputHeight + 2*padding - kH) / dH + 1;
+  long outputWidth  = (inputWidth + 2 * padding - kW) / dW + 1;
+  long outputHeight = (inputHeight + 2 * padding - kH) / dH + 1;
 
   // Batch size + input planes
   long batchSize = input->size[0];
@@ -269,7 +276,8 @@ static int cunn_SpatialConvolutionMM_updateGradInput(lua_State *L) {
   THCudaTensor *gradOutput_n = THCudaTensor_new();
 
   // For each elt in batch, do:
-  for (int elt = 0; elt < batchSize; elt ++) {
+  for (int elt = 0; elt < batchSize; elt ++)
+  {
     // Matrix mulitply per sample:
     THCudaTensor_select(input_n, input, 0, elt);
     THCudaTensor_select(gradInput_n, gradInput, 0, elt);
@@ -293,11 +301,8 @@ static int cunn_SpatialConvolutionMM_updateGradInput(lua_State *L) {
     );*/
 
     // Unpack columns back into input:
-    col2im(
-        THCudaTensor_data(gradColumns),
-        nInputPlane, inputHeight, inputWidth, kH, kW, padding, padding, dH, dW,
-        THCudaTensor_data(gradInput_n)
-    );
+    col2im(THCudaTensor_data(gradColumns), nInputPlane, inputHeight, inputWidth, kH, kW, padding,
+          padding, dH, dW, THCudaTensor_data(gradInput_n));
   }
 
   // Free
@@ -306,7 +311,8 @@ static int cunn_SpatialConvolutionMM_updateGradInput(lua_State *L) {
   THCudaTensor_free(gradOutput_n);
 
   // Resize output
-  if (batch == 0) {
+  if (batch == 0)
+  {
     THCudaTensor_resize3d(gradOutput, nOutputPlane, outputHeight, outputWidth);
     THCudaTensor_resize3d(input, nInputPlane, inputHeight, inputWidth);
     THCudaTensor_resize3d(gradInput, nInputPlane, inputHeight, inputWidth);
@@ -316,7 +322,8 @@ static int cunn_SpatialConvolutionMM_updateGradInput(lua_State *L) {
   return 1;
 }
 
-static int cunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
+static int cunn_SpatialConvolutionMM_accGradParameters(lua_State *L)
+{
   // Inputs
   THCudaTensor *input = (THCudaTensor *)luaT_checkudata(L, 2, "torch.CudaTensor");
   THCudaTensor *gradOutput = (THCudaTensor *)luaT_checkudata(L, 3, "torch.CudaTensor");
@@ -339,7 +346,8 @@ static int cunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
   luaL_argcheck(L, input->nDimension == 3 || input->nDimension == 4, 2, "3D or 4D (batch mode) tensor is expected");
 
   int batch = 1;
-  if (input->nDimension == 3) {
+  if (input->nDimension == 3)
+  {
     // Force batch
     batch = 0;
     THCudaTensor_resize4d(input, 1, input->size[0], input->size[1], input->size[2]);
@@ -348,38 +356,37 @@ static int cunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
 
   long inputWidth   = input->size[3];
   long inputHeight  = input->size[2];
-  long outputWidth  = (inputWidth + 2*padding - kW) / dW + 1;
-  long outputHeight = (inputHeight + 2*padding - kH) / dH + 1;
+  long outputWidth  = (inputWidth + 2 * padding - kW) / dW + 1;
+  long outputHeight = (inputHeight + 2 * padding - kH) / dH + 1;
 
   // Batch size + input planes
   long batchSize = input->size[0];
 
   // Define a buffer of ones, for bias accumulation
-  if (ones->nDimension != 2 || ones->size[0]*ones->size[1] < outputHeight*outputWidth) {
+  if (ones->nDimension != 2 || ones->size[0] * ones->size[1] < outputHeight * outputWidth)
+  {
     // Resize plane and fill with ones...
     THCudaTensor_resize2d(ones, outputHeight, outputWidth);
     THCudaTensor_fill(ones, 1);
   }
 
   // Resize temporary columns
-  THCudaTensor_resize2d(columns, nInputPlane*kW*kH, outputHeight*outputWidth);
+  THCudaTensor_resize2d(columns, nInputPlane * kW * kH, outputHeight * outputWidth);
 
   // Helpers
   THCudaTensor *input_n = THCudaTensor_new();
   THCudaTensor *gradOutput_n = THCudaTensor_new();
 
   // For each elt in batch, do:
-  for (int elt = 0; elt < batchSize; elt ++) {
+  for (int elt = 0; elt < batchSize; elt ++)
+  {
     // Matrix mulitply per output:
     THCudaTensor_select(input_n, input, 0, elt);
     THCudaTensor_select(gradOutput_n, gradOutput, 0, elt);
 
     // Extract columns:
-    im2col(
-        THCudaTensor_data(input_n),
-        nInputPlane, inputHeight, inputWidth, kH, kW, padding, padding, dH, dW,
-        THCudaTensor_data(columns)
-    );
+    im2col(THCudaTensor_data(input_n), nInputPlane, inputHeight, inputWidth, kH, kW, padding, padding,
+          dH, dW, THCudaTensor_data(columns));
 
     // M,N,K are dims of matrix A and B
     // (see http://docs.nvidia.com/cuda/cublas/#cublas-lt-t-gt-gemm)
@@ -421,7 +428,8 @@ static int cunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
   THCudaTensor_free(gradOutput_n);
 
   // Resize
-  if (batch == 0) {
+  if (batch == 0)
+  {
     THCudaTensor_resize3d(gradOutput, nOutputPlane, outputHeight, outputWidth);
     THCudaTensor_resize3d(input, nInputPlane, inputHeight, inputWidth);
   }

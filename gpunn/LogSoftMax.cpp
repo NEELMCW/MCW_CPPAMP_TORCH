@@ -121,7 +121,6 @@ static int cunn_LogSoftMax_updateOutput(lua_State *L)
   else
     THError("vector or matrix expected");
 
-
   THCudaTensor_free(input);
   return 1;
 }
@@ -159,7 +158,6 @@ static int cunn_LogSoftMax_updateGradInput(lua_State *L)
   }
   else
     THError("vector or matrix expected");
-
 
   THCudaTensor_free(gradOutput);
   THCudaTensor_free(output);

@@ -8,7 +8,7 @@ struct softPlusupdateOutput_functor
   float operator()(const float& input) const
   {
     float betain = beta * input;
-    return ((betain) > threshold) ? input : (1/beta) * log1p(exp(betain));
+    return ((betain) > threshold) ? input : (1 / beta) * log1p(exp(betain));
   }
 };
 

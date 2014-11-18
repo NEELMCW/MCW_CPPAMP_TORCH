@@ -6,9 +6,8 @@
  *    this function maxpools an input 4D tensor along dimensions 2 and 3
  *    4D input, 4D output, 4D argmax x and y 
  */
-void maxpool(float *input, float *output, float *indices_x, float *indices_y,
-                        int input_n, int input_h, int input_w,
-                        int kH, int kW, int dH, int dW)
+void maxpool(float *input, float *output, float *indices_x, float *indices_y, int input_n, int input_h,
+            int input_w, int kH, int kW, int dH, int dW)
 {
 /*  // iterators
   int xx, yy;
@@ -72,9 +71,8 @@ void maxpool(float *input, float *output, float *indices_x, float *indices_y,
  * Description:
  *    this function computes the gradInput from weight and gradOutput
  */
-void maxgradinput(float *gradInput, float *gradOutput, float *indices_x, float *indices_y,
-                             int input_n, int input_h, int input_w,
-                             int kH, int kW, int dH, int dW)
+void maxgradinput(float *gradInput, float *gradOutput, float *indices_x, float *indices_y, int input_n,
+                 int input_h, int input_w, int kH, int kW, int dH, int dW)
 {
 /*  // iterators
   int xx, yy;
@@ -125,10 +123,8 @@ void maxgradinput(float *gradInput, float *gradOutput, float *indices_x, float *
  *    this function computes the gradInput from weight and gradOutput
  *    when kH != dH or kW != dW (uses atomic add)
  */
-void atomicmaxgradinput(
-  float *gradInput, float *gradOutput, float *indices_x, float *indices_y,
-  int input_n, int input_h, int input_w, int kH, int kW, int dH, int dW
-)
+void atomicmaxgradinput(float *gradInput, float *gradOutput, float *indices_x, float *indices_y,
+                       int input_n, int input_h, int input_w, int kH, int kW, int dH, int dW)
 {
 /*  // iterators
   int xx, yy;
@@ -192,7 +188,8 @@ static int cunn_SpatialMaxPooling_updateOutput(lua_State *L)
 
   luaL_argcheck(L, input->nDimension == 3 || input->nDimension == 4, 2, "3D or 4D (batch) tensor expected");
 
-  if (input->nDimension == 3) {
+  if (input->nDimension == 3)
+  {
     long nInputCols = input->size[2];
     long nInputRows = input->size[1];
     long nInputPlane = input->size[0];
@@ -206,7 +203,7 @@ static int cunn_SpatialMaxPooling_updateOutput(lua_State *L)
 
     THCudaTensor_resize3d(output, nInputPlane, nOutputRows, nOutputCols);
     THCudaTensor_resize4d(indices, 2, nInputPlane, nOutputRows, nOutputCols);
-    
+
     indices_data = THCudaTensor_data(indices);
     output_data = THCudaTensor_data(output);
 
@@ -218,7 +215,9 @@ static int cunn_SpatialMaxPooling_updateOutput(lua_State *L)
    // maxpool <<<blocks, threads>>> (input_data, output_data, 
      //                              indices_data+nInputPlane*nOutputCols*nOutputRows, indices_data,
        //                            nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW);
-  } else {
+  }
+  else
+  {
     long nInputCols = input->size[3];
     long nInputRows = input->size[2];
     long nInputPlane = input->size[1];
@@ -271,7 +270,8 @@ static int cunn_SpatialMaxPooling_updateGradInput(lua_State *L)
   float *gradInput_data;
   float *gradOutput_data;
 
-  if (input->nDimension == 3) {
+  if (input->nDimension == 3)
+  {
     long nInputCols = input->size[2];
     long nInputRows = input->size[1];
     long nInputPlane = input->size[0];
@@ -289,7 +289,7 @@ static int cunn_SpatialMaxPooling_updateGradInput(lua_State *L)
     int yblocks = (int)(16L / nInputPlane);
     yblocks = yblocks < 1 ? 1 : yblocks;
 
-    if(atomic)
+    if (atomic)
     {
       // run updateGradInput kernel, accumulate gradients atomically
      // atomicmaxgradinput <<<blocks, threads>>> (gradInput_data, gradOutput_data, 
@@ -303,7 +303,9 @@ static int cunn_SpatialMaxPooling_updateGradInput(lua_State *L)
       //                                    indices_data+nInputPlane*nOutputCols*nOutputRows, indices_data,
         //                                  nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW);
     }
-  } else {
+  }
+  else
+  {
     long nInputCols = input->size[3];
     long nInputRows = input->size[2];
     long nInputPlane = input->size[1];
@@ -322,7 +324,7 @@ static int cunn_SpatialMaxPooling_updateGradInput(lua_State *L)
     int yblocks = (int)(16L / nInputPlane);
     yblocks = yblocks < 1 ? 1 : yblocks;
 
-    if(atomic)
+    if (atomic)
     {
       // run updateGradInput kernel, accumulate gradients atomically
      // atomicmaxgradinput <<<blocks, threads>>> (gradInput_data, gradOutput_data,

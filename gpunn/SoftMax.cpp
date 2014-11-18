@@ -111,7 +111,7 @@ static int cunn_SoftMax_updateOutput(lua_State *L)
   input = THCudaTensor_newContiguous(input);
   THCudaTensor_resizeAs(output, input);
 
-  if(input->nDimension == 1)
+  if (input->nDimension == 1)
   {
    /* dim3 blocks(1);
     dim3 threads(SOFTMAX_THREADS);
@@ -126,7 +126,6 @@ static int cunn_SoftMax_updateOutput(lua_State *L)
   else
     THError("vector or matrix expected");
 
-
   THCudaTensor_free(input);
   return 1;
 
@@ -140,7 +139,7 @@ struct softmaxupdateGradInput_functor
 
   float operator()(const float& output, const float& gradOutput) const
   {
-    return gradOutput - exp(output)*value;
+    return gradOutput - exp(output) * value;
   }
 };
 
@@ -155,7 +154,7 @@ static int cunn_SoftMax_updateGradInput(lua_State *L)
 
   THCudaTensor_resizeAs(gradInput, output);
 
-  if(gradInput->nDimension == 1)
+  if (gradInput->nDimension == 1)
   {
    /* dim3 blocks(1);
     dim3 threads(SOFTMAX_THREADS);
@@ -165,7 +164,7 @@ static int cunn_SoftMax_updateGradInput(lua_State *L)
                                                         THCudaTensor_data(gradOutput),
                                                         1, gradInput->size[0]);*/
   }
-  else if(gradInput->nDimension == 2)
+  else if (gradInput->nDimension == 2)
   {
    /* dim3 blocks(gradInput->size[0]);
     dim3 threads(SOFTMAX_THREADS);
@@ -177,7 +176,6 @@ static int cunn_SoftMax_updateGradInput(lua_State *L)
   }
   else
     THError("vector or matrix expected");
-
 
   THCudaTensor_free(gradOutput);
   THCudaTensor_free(output);
