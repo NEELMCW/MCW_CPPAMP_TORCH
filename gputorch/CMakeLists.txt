@@ -35,4 +35,5 @@ ADD_TORCH_WRAP(clamptensormathwrap TensorMath.lua)
   
 ADD_TORCH_PACKAGE(cutorch "${src}" "${luasrc}")
 
+SET_PROPERTY(TARGET cutorch APPEND_STRING PROPERTY LINK_FLAGS " ${CLAMP_LDFLAGS} ${CLAMP_SHAREDFLAGS}")
 TARGET_LINK_LIBRARIES(cutorch luaT THC)

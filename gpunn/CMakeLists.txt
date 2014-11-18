@@ -23,6 +23,7 @@ SET(luasrc init.lua test/test.lua)
 ADD_LIBRARY(cunn MODULE ${src-camp})
 TARGET_LINK_LIBRARIES(cunn luaT THC TH)
 
+SET_PROPERTY(TARGET cunn APPEND_STRING PROPERTY LINK_FLAGS " ${CLAMP_LDFLAGS} ${CLAMP_SHAREDFLAGS}")
 ### Torch packages supposes libraries prefix is "lib"
 SET_TARGET_PROPERTIES(cunn PROPERTIES
   PREFIX "lib"
