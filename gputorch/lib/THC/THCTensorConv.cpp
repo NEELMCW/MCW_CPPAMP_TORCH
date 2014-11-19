@@ -26,61 +26,60 @@
  *     but can be set to 0 to allow arbitrary kernel sizes
  */
 template <bool swapkernel, int T_kernel_h, int T_kernel_w>
-void conv2generic(THCudaTensor *input, THCudaTensor *kernel, THCudaTensor *output,
-                               int input_n, int input_h, int input_w,
-                               int kernel_n, int kernel_h, int kernel_w,
-                               int stride_h, int stride_w, int nOutputPlane, int yblocks)
+void conv2generic(THCudaTensor *input, THCudaTensor *kernel, THCudaTensor *output, int input_n,
+                 int input_h, int input_w, int kernel_n, int kernel_h, int kernel_w, int stride_h,
+                 int stride_w, int nOutputPlane, int yblocks)
 {
 /*  Concurrency::extent<3> copyExt(nOutputPlane,yblocks*16,16);
   Concurrency::tiled_extent<1,16,16> t_ext(copyExt);
 
-  Concurrency::array_view<float,1>input_data(Concurrency::extent<1>(input->storage->size),THCudaTensor_data(input));
-  Concurrency::array_view<float,1>kernel_data(Concurrency::extent<1>(kernel->storage->size),THCudaTensor_data(kernel));
-  Concurrency::array_view<float,1>output_data(Concurrency::extent<1>(output->storage->size),THCudaTensor_data(output));
+  Concurrency::array_view<float,1>input_data(Concurrency::extent<1>(input->storage->size), THCudaTensor_data(input));
+  Concurrency::array_view<float,1>kernel_data(Concurrency::extent<1>(kernel->storage->size), THCudaTensor_data(kernel));
+  Concurrency::array_view<float,1>output_data(Concurrency::extent<1>(output->storage->size), THCudaTensor_data(output));
 
   Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1,16,16> tidx) restrict(amp)
   {
-  // output dimensions
-  int output_h = (input_h - kernel_h) / stride_h + 1;
-  int output_w = (input_w - kernel_w) / stride_w + 1;
+    // output dimensions
+    int output_h = (input_h - kernel_h) / stride_h + 1;
+    int output_w = (input_w - kernel_w) / stride_w + 1;
 
-  // xcorr or conv
-  int koffset = swapkernel ? kernel_w*kernel_h-1 : 0;
+    // xcorr or conv
+    int koffset = swapkernel ? kernel_w*kernel_h-1 : 0;
 
-  // nb outputs
-  int output_n = kernel_n / input_n;
+    // nb outputs
+    int output_n = kernel_n / input_n;
 
-  // generate offsets according to block/thread ids
-  //int xx_start = threadIdx.x;
-  int xx_start = tidx.local[2];
-  int xx_end = output_w;
-  //int xx_step = blockDim.x;
-  int xx_step = t_ext.tile_dim2;
+    // generate offsets according to block/thread ids
+    //int xx_start = threadIdx.x;
+    int xx_start = tidx.local[2];
+    int xx_end = output_w;
+    //int xx_step = blockDim.x;
+    int xx_step = t_ext.tile_dim2;
 
-  //int yy_start = blockDim.y*blockIdx.y + threadIdx.y;
-  int yy_start = tidx.global[1];
-  int yy_end = output_h;
-  //int yy_step = blockDim.y*gridDim.y;
-  int yy_step = t_ext[1];
+    //int yy_start = blockDim.y*blockIdx.y + threadIdx.y;
+    int yy_start = tidx.global[1];
+    int yy_end = output_h;
+    //int yy_step = blockDim.y*gridDim.y;
+    int yy_step = t_ext[1];
 
-  //int oo_start = blockIdx.x;
-  int oo_start = tidx.tile[2];
-  int oo_end = oo_start+1;
+    //int oo_start = blockIdx.x;
+    int oo_start = tidx.tile[2];
+    int oo_end = oo_start+1;
 
-  int ii_start = (oo_start / output_n) * input_n;
-  int ii_end = ii_start + input_n;
+    int ii_start = (oo_start / output_n) * input_n;
+    int ii_end = ii_start + input_n;
 
-  // nb threads, unique thread id
-  //int tid = blockDim.x*blockDim.y*threadIdx.z + blockDim.x * threadIdx.y + threadIdx.x;
-  int tid = t_ext.tile_dim2 * t_ext.tile_dim1 * tidx.local[0] + t_ext.tile_dim2 * tidx.local[1] + tidx.local[2];
-  //int nthreads = blockDim.x * blockDim.y * blockDim.z;
-  int nthreads = t_ext.tile_dim2 * t_ext.tile_dim1 * t_ext.tile_dim0;
+    // nb threads, unique thread id
+    //int tid = blockDim.x*blockDim.y*threadIdx.z + blockDim.x * threadIdx.y + threadIdx.x;
+    int tid = t_ext.tile_dim2 * t_ext.tile_dim1 * tidx.local[0] + t_ext.tile_dim2 * tidx.local[1] + tidx.local[2];
+    //int nthreads = blockDim.x * blockDim.y * blockDim.z;
+    int nthreads = t_ext.tile_dim2 * t_ext.tile_dim1 * t_ext.tile_dim0;
 
-  // iterators
-  int oo, ii, xx, yy, kx, ky, kk;
+    // iterators
+    int oo, ii, xx, yy, kx, ky, kk;
 
-  // do the kernels fit in shared mem ?
-  if (input_n*kernel_w*kernel_h <= CUDA_SHARED_MEM_SIZE) {
+    // do the kernels fit in shared mem ?
+    if (input_n*kernel_w*kernel_h <= CUDA_SHARED_MEM_SIZE) {
 
     // put the kernel in shared memory
     //__shared__ float shared_kernel[CUDA_SHARED_MEM_SIZE];
@@ -220,12 +219,10 @@ void conv2generic(THCudaTensor *input, THCudaTensor *kernel, THCudaTensor *outpu
  *   - all chunks of data should be contiguous
  *   - the swapkernel flag can be used to generate a conv2 instead of xcorr2
  */
-void conv2genericrev(THCudaTensor *input, THCudaTensor *kernel, THCudaTensor *output,
-                                int input_n, int input_h, int input_w,
-                                int kernel_n, int kernel_h, int kernel_w,
-                                float alpha, int stride_h, int stride_w,
-                                int nKernelPlane, int nInputPlane, int nOutputRows,
-                                int cst, int subbatch, int sl)
+void conv2genericrev(THCudaTensor *input, THCudaTensor *kernel, THCudaTensor *output, int input_n,
+                    int input_h, int input_w, int kernel_n, int kernel_h, int kernel_w, float alpha,
+                    int stride_h, int stride_w, int nKernelPlane, int nInputPlane, int nOutputRows,
+                    int cst, int subbatch, int sl)
 {
 /*  int ip_stride =  input->stride[0]*sl;
   int k_stride = kernel->stride[0]*sl;
@@ -767,11 +764,9 @@ THC_API void THCudaTensor_conv2DRevgerm(THCudaTensor *output, float beta, float 
  *   ---- should have a fanin set of inputs contiguously
  */
 template <bool swapkernel, int T_kernel_h, int T_kernel_w>
-void conv2mapgeneric(float *input, float *kernel, float *output,
-                                  int input_n, int input_h, int input_w,
-                                  int kernel_n, int kernel_h, int kernel_w,
-                                  int stride_w, int stride_h,
-                                  float *table, int fanin)
+void conv2mapgeneric(float *input, float *kernel, float *output, int input_n, int input_h, int input_w,
+                    int kernel_n, int kernel_h, int kernel_w, int stride_w, int stride_h,
+                    float *table, int fanin)
 {
 /*  // output dimensions
   int output_h = (input_h - kernel_h) / stride_h + 1;

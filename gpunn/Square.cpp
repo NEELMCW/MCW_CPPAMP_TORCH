@@ -2,7 +2,7 @@ struct squareupdateOutput_functor
 {
   float operator()(const float& input) const
   {
-    return input*input;
+    return input * input;
   }
 };
 

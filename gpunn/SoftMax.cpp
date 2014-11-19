@@ -1,132 +1,106 @@
 #define MINUS_LOG_THRESHOLD -18.42
 #define SOFTMAX_THREADS 128
 
-void cunn_SoftMax_updateOutput_kernel(THCudaTensor *output, THCudaTensor *input, int nframe, int dim)
+void cunn_SoftMax_updateOutput_kernel(float *output, float *input, int nframe, int dim)
 {
-    Concurrency::array_view<float,1> avInp(Concurrency::extent<1>(input->storage->size), THCudaTensor_data(input));
-    Concurrency::array_view<float,1> avOutput(Concurrency::extent<1>(output->storage->size), THCudaTensor_data(output));
-    Concurrency::extent<1> grdExt(nframe * SOFTMAX_THREADS);
-    Concurrency::tiled_extent<SOFTMAX_THREADS> t_ext(grdExt);
-    Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<SOFTMAX_THREADS> tidx) restrict(amp) 
+/*  __shared__ float buffer[SOFTMAX_THREADS+1];
+  int k = blockIdx.x;
+  float *input_k = input + k*dim;
+  float *output_k = output + k*dim;
+
+  int i_start = threadIdx.x;
+  int i_end = dim;
+  int i_step = blockDim.x;
+
+  // max?
+  buffer[threadIdx.x] = -FLT_MAX;
+  for (int i=i_start; i<i_end; i+=i_step)
+  {
+    float z = input_k[i];
+    if(buffer[threadIdx.x] < z)
+      buffer[threadIdx.x] = z;
+  }
+
+  __syncthreads();
+
+  // reduce
+  if (threadIdx.x == 0)
+  {
+    float max_k = -FLT_MAX;
+    for (int i=0; i<blockDim.x; i++)
     {
-        tile_static float buffer[SOFTMAX_THREADS+1];
+      if(max_k < buffer[i])
+        max_k = buffer[i];
+    }
+    buffer[SOFTMAX_THREADS] = max_k;
+  }
 
-        //int k = blockIdx.x;
-        int k = tidx.tile[0];
-        float *input_k = avInp.data();
-        input_k += k*dim;
-        float *output_k = avOutput.data();
-        output_k += k;
+  __syncthreads();
 
-        //int i_start = threadIdx.x;
-        int i_start = tidx.local[0];
-        int i_end = dim;
-        //int i_step = blockDim.x;
-        int i_step = t_ext.tile_dim0;
+  // sum?
+  float max_k = buffer[SOFTMAX_THREADS];
+  buffer[threadIdx.x] = 0;
+  for (int i=i_start; i<i_end; i+=i_step) {
+    float z = __expf(input_k[i]-max_k);
+    buffer[threadIdx.x] += z;
+    output_k[i] = z;
+  }
 
-        // max?
-        buffer[i_start] = -FLT_MAX;
-        for (int i=i_start; i<i_end; i+=i_step)
-        {
-        float z = input_k[i];
-        if(buffer[i_start] < z)
-            buffer[i_start] = z;
-        }
-        //__syncthreads();
-        tidx.barrier.wait();
+  __syncthreads();
 
-        // reduce
-        if (i_start == 0)
-        {
-        float max_k = -FLT_MAX;
-        for (int i=0; i<i_step; i++)
-        {
-            if(max_k < buffer[i])
-            max_k = buffer[i];
-        }
-        buffer[SOFTMAX_THREADS] = max_k;
-        }
-        //__syncthreads();
-        tidx.barrier.wait();
+  // reduce
+  if (threadIdx.x == 0)
+  {
+    float sum_k = 0;
+    for (int i=0; i<blockDim.x; i++)
+      sum_k += buffer[i];
+    buffer[SOFTMAX_THREADS] = sum_k;
+  }
 
-        // sum?
-        float max_k = buffer[SOFTMAX_THREADS];
-        buffer[i_start] = 0;
-        for (int i=i_start; i<i_end; i+=i_step) {
-            float z = Concurrency::fast_math::exp(input_k[i]-max_k);
-        buffer[i_start] += z;
-        output_k[i] = z;
-        }
-        //__syncthreads();
-        tidx.barrier.wait();
+  __syncthreads();
 
-        // reduce
-        if (i_start == 0)
-        {
-        float sum_k = 0;
-        for (int i=0; i<i_step; i++)
-            sum_k += buffer[i];
-        buffer[SOFTMAX_THREADS] = sum_k;
-        }
-        //__syncthreads();
-        tidx.barrier.wait();
-
-        // softmax
-        float sum_k = buffer[SOFTMAX_THREADS];
-        for (int i=i_start; i<i_end; i+=i_step)
-            output_k[i] = output_k[i] / sum_k;
-    });
-    avOutput.synchronize();
+  // softmax
+  float sum_k = buffer[SOFTMAX_THREADS];
+  for (int i=i_start; i<i_end; i+=i_step)
+    output_k[i] = output_k[i] / sum_k;
+*/
 }
 
 
-void cunn_SoftMax_updateGradInput_kernel(THCudaTensor *gradInput, THCudaTensor *output, THCudaTensor *gradOutput, int nframe, int dim)
+void cunn_SoftMax_updateGradInput_kernel(float *gradInput, float *output, float *gradOutput, int nframe, int dim)
 {
-    Concurrency::array_view<float,1> avGradInput(Concurrency::extent<1>(gradInput->storage->size), THCudaTensor_data(gradInput));
-    Concurrency::array_view<float,1> avOutput(Concurrency::extent<1>(output->storage->size), THCudaTensor_data(output));
-    Concurrency::array_view<float,1> avGradOutput(Concurrency::extent<1>(gradOutput->storage->size), THCudaTensor_data(gradOutput));
-    Concurrency::extent<1> grdExt(nframe * SOFTMAX_THREADS);
-    Concurrency::tiled_extent<SOFTMAX_THREADS> t_ext(grdExt);
-    Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<SOFTMAX_THREADS> tidx) restrict(amp) 
-    {
-        tile_static float buffer[SOFTMAX_THREADS];
-        //int k = blockIdx.x;
-        int k = tidx.tile[0];
-        float *gradInput_k = avGradInput.data();
-        gradInput_k += k*dim;
-        float *output_k = avOutput.data();
-        output_k += k*dim;
-        float *gradOutput_k = avGradOutput.data();
-        gradOutput_k += k*dim;
+/*  __shared__ float buffer[SOFTMAX_THREADS];
+  int k = blockIdx.x;
+  float *gradInput_k = gradInput + k*dim;
+  float *output_k = output + k*dim;
+  float *gradOutput_k = gradOutput + k*dim;
 
-        //int i_start = threadIdx.x;
-        int i_start = tidx.local[0];
-        int i_end = dim;
-        //int i_step = blockDim.x;
-        int i_step = t_ext.tile_dim0;
+  int i_start = threadIdx.x;
+  int i_end = dim;
+  int i_step = blockDim.x;
 
-        // sum?
-        buffer[i_start] = 0;
-        for (int i=i_start; i<i_end; i+=i_step)
-            buffer[i_start] += gradOutput_k[i] * output_k[i];
-        //__syncthreads();
-        tidx.barrier.wait();
+  // sum?
+  buffer[threadIdx.x] = 0;
+  for (int i=i_start; i<i_end; i+=i_step)
+    buffer[threadIdx.x] += gradOutput_k[i] * output_k[i];
 
-        // reduce
-        if (i_start == 0)
-        {
-        float sum_k = 0;
-        for (int i=0; i<i_step; i++)
-            sum_k += buffer[i];
-        buffer[0] = sum_k;
-        }
-        //__syncthreads();
-        tidx.barrier.wait();
+  __syncthreads();
 
-        float sum_k = buffer[0];
-        for (int i=i_start; i<i_end; i+=i_step)
-            gradInput_k[i] = output_k[i] * (gradOutput_k[i] - sum_k);
-    });
+  // reduce
+  if (threadIdx.x == 0)
+  {
+    float sum_k = 0;
+    for (int i=0; i<blockDim.x; i++)
+      sum_k += buffer[i];
+    buffer[0] = sum_k;
+  }
+
+  __syncthreads();
+
+  float sum_k = buffer[0];
+  for (int i=i_start; i<i_end; i+=i_step)
+    gradInput_k[i] = output_k[i] * (gradOutput_k[i] - sum_k);
+*/
 }
 
 static int cunn_SoftMax_updateOutput(lua_State *L)
@@ -134,27 +108,25 @@ static int cunn_SoftMax_updateOutput(lua_State *L)
   THCudaTensor *input = (THCudaTensor*)luaT_checkudata(L, 2, "torch.CudaTensor");
   THCudaTensor *output = (THCudaTensor*)luaT_getfieldcheckudata(L, 1, "output", "torch.CudaTensor");
 
-  THCudaTensor *temp = input;
   input = THCudaTensor_newContiguous(input);
   THCudaTensor_resizeAs(output, input);
 
-  if(input->nDimension == 1)
+  if (input->nDimension == 1)
   {
-    cunn_SoftMax_updateOutput_kernel(output, input, 1, input->size[0]);
+   /* dim3 blocks(1);
+    dim3 threads(SOFTMAX_THREADS);
+    cunn_SoftMax_updateOutput_kernel<<<blocks,threads>>>(THCudaTensor_data(output), THCudaTensor_data(input), 1, input->size[0]);*/
   }
   else if(input->nDimension == 2)
   {
-    cunn_SoftMax_updateOutput_kernel(output, input, input->size[0], input->size[1]);
+   /* dim3 blocks(input->size[0]);
+    dim3 threads(SOFTMAX_THREADS);
+    cunn_SoftMax_updateOutput_kernel<<<blocks,threads>>>(THCudaTensor_data(output), THCudaTensor_data(input), input->size[0], input->size[1]);*/
   }
   else
     THError("vector or matrix expected");
 
-  if (input != temp)
-  {
-      THCudaTensor_free(input);
-      input = NULL;
-  }
-
+  THCudaTensor_free(input);
   return 1;
 
 }
@@ -167,7 +139,7 @@ struct softmaxupdateGradInput_functor
 
   float operator()(const float& output, const float& gradOutput) const
   {
-    return gradOutput - exp(output)*value;
+    return gradOutput - exp(output) * value;
   }
 };
 
@@ -182,24 +154,28 @@ static int cunn_SoftMax_updateGradInput(lua_State *L)
 
   THCudaTensor_resizeAs(gradInput, output);
 
-  if(gradInput->nDimension == 1)
+  if (gradInput->nDimension == 1)
   {
+   /* dim3 blocks(1);
+    dim3 threads(SOFTMAX_THREADS);
 
-    cunn_SoftMax_updateGradInput_kernel(gradInput,
-                                                        output,
-                                                        gradOutput,
-                                                        1, gradInput->size[0]);
+    cunn_SoftMax_updateGradInput_kernel<<<blocks,threads>>>(THCudaTensor_data(gradInput),
+                                                        THCudaTensor_data(output),
+                                                        THCudaTensor_data(gradOutput),
+                                                        1, gradInput->size[0]);*/
   }
-  else if(gradInput->nDimension == 2)
+  else if (gradInput->nDimension == 2)
   {
-    cunn_SoftMax_updateGradInput_kernel(gradInput,
-                                                        output,
-                                                        gradOutput,
-                                                        gradInput->size[0], gradInput->size[1]);
+   /* dim3 blocks(gradInput->size[0]);
+    dim3 threads(SOFTMAX_THREADS);
+
+    cunn_SoftMax_updateGradInput_kernel<<<blocks,threads>>>(THCudaTensor_data(gradInput),
+                                                        THCudaTensor_data(output),
+                                                        THCudaTensor_data(gradOutput),
+                                                        gradInput->size[0], gradInput->size[1]);*/
   }
   else
     THError("vector or matrix expected");
-
 
   THCudaTensor_free(gradOutput);
   THCudaTensor_free(output);

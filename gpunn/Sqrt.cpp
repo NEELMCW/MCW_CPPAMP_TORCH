@@ -6,7 +6,7 @@ struct sqrtupdateOutput_functor
 
   float operator()(const float& input) const
   {
-    return sqrt(input+bias);
+    return sqrt(input + bias);
   }
 };
 

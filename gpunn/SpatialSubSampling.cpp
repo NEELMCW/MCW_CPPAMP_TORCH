@@ -6,9 +6,8 @@
  *    this function subsamples an input 3D tensor along dimensions 1 and 2
  *    3D input, 3D output, 1D weight, 1D bias
  */
-void subsample(float *input, float *output, float *weight, float *bias,
-                          int input_n, int input_h, int input_w,
-                          int kH, int kW, int dH, int dW)
+void subsample(float *input, float *output, float *weight, float *bias, int input_n, int input_h,
+              int input_w, int kH, int kW, int dH, int dW)
 {
   // iterators
 /*  int xx, yy;
@@ -64,10 +63,8 @@ void subsample(float *input, float *output, float *weight, float *bias,
  * Description:
  *    this function computes the gradWeight from input and gradOutput
  */
-void subgradweight(float *input, float *gradOutput, float *gradWeight, float *gradBias,
-                              int input_n, int input_h, int input_w,
-                              int kH, int kW, int dH, int dW,
-                              float scale)
+void subgradweight(float *input, float *gradOutput, float *gradWeight, float *gradBias, int input_n,
+                  int input_h, int input_w, int kH, int kW, int dH, int dW, float scale)
 {
 /*  // iterators
   int xx, yy;
@@ -142,9 +139,8 @@ void subgradweight(float *input, float *gradOutput, float *gradWeight, float *gr
  * Description:
  *    this function computes the gradInput from weight and gradOutput
  */
-void subgradinput(float *gradInput, float *gradOutput, float *weight,
-                             int input_n, int input_h, int input_w,
-                             int kH, int kW, int dH, int dW)
+void subgradinput(float *gradInput, float *gradOutput, float *weight, int input_n, int input_h,
+                 int input_w, int kH, int kW, int dH, int dW)
 {
 /*  // iterators
   int xx, yy;
@@ -210,7 +206,8 @@ static int cunn_SpatialSubSampling_updateOutput(lua_State *L)
 
   luaL_argcheck(L, input->nDimension == 3 || input->nDimension == 4, 2, "3D or 4D (batch) tensor expected");
 
-  if (input->nDimension == 3) {
+  if (input->nDimension == 3)
+  {
     long nInputCols = input->size[2];
     long nInputRows = input->size[1];
     long nOutputCols = (nInputCols - kW) / dW + 1;
@@ -232,7 +229,9 @@ static int cunn_SpatialSubSampling_updateOutput(lua_State *L)
     // run subsample kernel
    // subsample <<<blocks, threads>>> (input_data, output_data, weight_data, bias_data,
      //                                nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW);
-  } else {
+  }
+  else
+  {
     long nInputCols = input->size[3];
     long nInputRows = input->size[2];
     long nbatch = input->size[0];
@@ -280,7 +279,8 @@ static int cunn_SpatialSubSampling_updateGradInput(lua_State *L)
   THCudaTensor *weight = (THCudaTensor *)luaT_getfieldcheckudata(L, 1, "weight", "torch.CudaTensor");
   THCudaTensor *gradInput = (THCudaTensor *)luaT_getfieldcheckudata(L, 1, "gradInput", "torch.CudaTensor");
 
-  if (input->nDimension == 3) {
+  if (input->nDimension == 3)
+  {
     long nInputCols = input->size[2];
     long nInputRows = input->size[1];
 
@@ -299,7 +299,9 @@ static int cunn_SpatialSubSampling_updateGradInput(lua_State *L)
     // run updateGradInput kernel
    // subgradinput <<<blocks, threads>>> (gradInput_data, gradOutput_data, weight_data,
      //                                   nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW);
-  } else {
+  }
+  else
+  {
     long nInputCols = input->size[3];
     long nInputRows = input->size[2];
     long nbatch = input->size[0];
@@ -320,7 +322,7 @@ static int cunn_SpatialSubSampling_updateGradInput(lua_State *L)
     //subgradinput <<<blocks, threads>>> (gradInput_data, gradOutput_data, weight_data,
       //                                  nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW);
   }
-   return 0;
+  return 0;
 }
 
 static int cunn_SpatialSubSampling_accGradParameters(lua_State *L)
@@ -340,7 +342,8 @@ static int cunn_SpatialSubSampling_accGradParameters(lua_State *L)
   THCudaTensor *gradWeight = (THCudaTensor *)luaT_getfieldcheckudata(L, 1, "gradWeight", "torch.CudaTensor");
   THCudaTensor *gradBias = (THCudaTensor *)luaT_getfieldcheckudata(L, 1, "gradBias", "torch.CudaTensor");
 
-  if (input->nDimension == 3) {
+  if (input->nDimension == 3)
+  {
     long nInputCols = input->size[2];
     long nInputRows = input->size[1];
 
@@ -357,7 +360,9 @@ static int cunn_SpatialSubSampling_accGradParameters(lua_State *L)
     // run gradweight kernel
    // subgradweight <<<blocks, threads>>> (input_data, gradOutput_data, gradWeight_data, gradBias_data,
      //                                    nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW, scale);
-  } else {
+  }
+  else
+  {
     long nInputCols = input->size[3];
     long nInputRows = input->size[2];
     long nbatch = input->size[0];
@@ -374,7 +379,8 @@ static int cunn_SpatialSubSampling_accGradParameters(lua_State *L)
 
     // run gradweight kernel
     long sl;
-    for (sl=0; sl<nbatch; sl++) {
+    for (sl = 0; sl < nbatch; sl++)
+    {
   //    subgradweight <<<blocks, threads>>> (input_data + sl*input->stride[0], 
     //                                       gradOutput_data + sl*gradOutput->stride[0], 
       //                                     gradWeight_data, gradBias_data,

@@ -36,35 +36,28 @@ static int cunn_TemporalConvolution_updateOutput(lua_State *L)
 
   if (input->nDimension == 2)
   {
-    THCudaTensor_resize2d(output,
-                          nOutputFrame,
-                          outputFrameSize);
+    THCudaTensor_resize2d(output, nOutputFrame, outputFrameSize);
 
     /* bias first */
-    for(k = 0; k < nOutputFrame; k++)
+    for (k = 0; k < nOutputFrame; k++)
     {
       THCudaTensor_select(outputWindow, output, 0, k);
       THCudaTensor_copy(outputWindow, bias);
     }
 
-
     /* ouch */
-    for(k = 0; nOutputFrame > 0; k++)
+    for (k = 0; nOutputFrame > 0; k++)
     {
-      long outputFrameStride = (kW-1)/dW+1;
-      long inputFrameStride = outputFrameStride*dW;
-      long nFrame = (nInputFrame-k*dW-kW)/inputFrameStride + 1;
+      long outputFrameStride = (kW - 1) / dW + 1;
+      long inputFrameStride = outputFrameStride * dW;
+      long nFrame = (nInputFrame - k * dW - kW) / inputFrameStride + 1;
       nOutputFrame -= nFrame;
 
-      THCudaTensor_setStorage2d(inputWindow, input->storage,
-                              input->storageOffset+k*dW*input->size[1],
-                              nFrame, inputFrameStride*input->size[1],
-                              kW*input->size[1], 1);
+      THCudaTensor_setStorage2d(inputWindow, input->storage, input->storageOffset + k * dW * input->size[1],
+                               nFrame, inputFrameStride*input->size[1], kW * input->size[1], 1);
 
-      THCudaTensor_setStorage2d(outputWindow, output->storage,
-                              output->storageOffset + k*output->size[1],
-                              nFrame, outputFrameStride*output->size[1],
-                              output->size[1], 1);
+      THCudaTensor_setStorage2d(outputWindow, output->storage, output->storageOffset + k * output->size[1],
+                               nFrame, outputFrameStride * output->size[1], output->size[1], 1);
 
       THCudaTensor_transpose(weight, NULL, 0, 1);
       THCudaTensor_addmm(outputWindow, 1, outputWindow, 1, inputWindow, weight);
@@ -77,41 +70,38 @@ static int cunn_TemporalConvolution_updateOutput(lua_State *L)
     THCudaTensor *inputSample = THCudaTensor_new();
     int nBatchFrame = input->size[0];
 
-    THCudaTensor_resize3d(output,
-                          nBatchFrame,
-                          nOutputFrame,
-                          outputFrameSize);
+    THCudaTensor_resize3d(output, nBatchFrame, nOutputFrame, outputFrameSize);
 
-    for(i = 0; i < nBatchFrame; i++)
+    for (i = 0; i < nBatchFrame; i++)
     {
       THCudaTensor_select(outputSample, output, 0, i);
       THCudaTensor_select(inputSample, input, 0, i);
       long nOutputSampleFrame = nOutputFrame;
 
       /* bias first */
-      for(k = 0; k < nOutputFrame; k++)
+      for (k = 0; k < nOutputFrame; k++)
       {
         THCudaTensor_select(outputWindow, outputSample, 0, k);
         THCudaTensor_copy(outputWindow, bias);
       }
 
       /* ouch */
-      for(k = 0; nOutputSampleFrame > 0; k++)
+      for (k = 0; nOutputSampleFrame > 0; k++)
       {
-        long outputFrameStride = (kW-1)/dW+1;
-        long inputFrameStride = outputFrameStride*dW;
-        long nFrame = (nInputFrame-k*dW-kW)/inputFrameStride + 1;
+        long outputFrameStride = (kW - 1) / dW + 1;
+        long inputFrameStride = outputFrameStride * dW;
+        long nFrame = (nInputFrame - k * dW - kW) / inputFrameStride + 1;
         nOutputSampleFrame -= nFrame;
 
         THCudaTensor_setStorage2d(inputWindow, inputSample->storage,
-                                inputSample->storageOffset+k*dW*inputSample->size[1],
-                                nFrame, inputFrameStride*inputSample->size[1],
-                                kW*inputSample->size[1], 1);
+                                 inputSample->storageOffset + k * dW * inputSample->size[1],
+                                 nFrame, inputFrameStride*inputSample->size[1],
+                                 kW * inputSample->size[1], 1);
 
         THCudaTensor_setStorage2d(outputWindow, outputSample->storage,
-                                outputSample->storageOffset + k*outputSample->size[1],
-                                nFrame, outputFrameStride*outputSample->size[1],
-                                outputSample->size[1], 1);
+                                 outputSample->storageOffset + k * outputSample->size[1], nFrame,
+                                 outputFrameStride * outputSample->size[1],
+                                 outputSample->size[1], 1);
 
         THCudaTensor_transpose(weight, NULL, 0, 1);
         THCudaTensor_addmm(outputWindow, 1, outputWindow, 1, inputWindow, weight);
@@ -155,7 +145,6 @@ static int cunn_TemporalConvolution_updateGradInput(lua_State *L)
   nInputFrame = input->size[dimS];
   nOutputFrame = gradOutput->size[dimS];
 
-
   /* Not necessary with partial backprop: */
   gradOutputWindow = THCudaTensor_new();
   gradInputWindow = THCudaTensor_new();
@@ -166,22 +155,21 @@ static int cunn_TemporalConvolution_updateGradInput(lua_State *L)
   if (gradOutput->nDimension == 2)
   {
     /* ouch */
-    for(k = 0; nOutputFrame > 0; k++)
+    for (k = 0; nOutputFrame > 0; k++)
     {
-      long outputFrameStride = (kW-1)/dW+1;
-      long inputFrameStride = outputFrameStride*dW;
-      long nFrame = (nInputFrame-k*dW-kW)/inputFrameStride + 1;
+      long outputFrameStride = (kW - 1) / dW + 1;
+      long inputFrameStride = outputFrameStride * dW;
+      long nFrame = (nInputFrame - k * dW - kW) / inputFrameStride + 1;
       nOutputFrame -= nFrame;
 
       THCudaTensor_setStorage2d(gradOutputWindow, gradOutput->storage,
-                              gradOutput->storageOffset + k*gradOutput->size[1],
-                              nFrame, outputFrameStride*gradOutput->size[1],
-                              gradOutput->size[1], 1);
+                               gradOutput->storageOffset + k*gradOutput->size[1], nFrame,
+                               outputFrameStride * gradOutput->size[1], gradOutput->size[1], 1);
 
       THCudaTensor_setStorage2d(gradInputWindow, gradInput->storage,
-                              gradInput->storageOffset+k*dW*gradInput->size[1],
-                              nFrame, inputFrameStride*gradInput->size[1],
-                              kW*gradInput->size[1], 1);
+                               gradInput->storageOffset + k * dW * gradInput->size[1],
+                               nFrame, inputFrameStride * gradInput->size[1],
+                               kW * gradInput->size[1], 1);
 
       THCudaTensor_addmm(gradInputWindow, 1, gradInputWindow, 1, gradOutputWindow, weight);
     }
@@ -191,29 +179,29 @@ static int cunn_TemporalConvolution_updateGradInput(lua_State *L)
     THCudaTensor *gradOutputSample = THCudaTensor_new();
     THCudaTensor *gradInputSample = THCudaTensor_new();
     long nBatchFrame = input->size[0];
-    for(i = 0; i < nBatchFrame; i++)
+    for (i = 0; i < nBatchFrame; i++)
     {
       THCudaTensor_select(gradOutputSample, gradOutput, 0, i);
       THCudaTensor_select(gradInputSample, gradInput, 0, i);
       long nOutputSampleFrame = nOutputFrame;
 
       /* ouch */
-      for(k = 0; nOutputSampleFrame > 0; k++)
+      for (k = 0; nOutputSampleFrame > 0; k++)
       {
-        long outputFrameStride = (kW-1)/dW+1;
-        long inputFrameStride = outputFrameStride*dW;
-        long nFrame = (nInputFrame-k*dW-kW)/inputFrameStride + 1;
+        long outputFrameStride = (kW - 1) / dW + 1;
+        long inputFrameStride = outputFrameStride * dW;
+        long nFrame = (nInputFrame - k * dW - kW) / inputFrameStride + 1;
         nOutputSampleFrame -= nFrame;
 
         THCudaTensor_setStorage2d(gradOutputWindow, gradOutputSample->storage,
-                                gradOutputSample->storageOffset + k*gradOutputSample->size[1],
-                                nFrame, outputFrameStride*gradOutputSample->size[1],
-                                gradOutputSample->size[1], 1);
+                                 gradOutputSample->storageOffset + k * gradOutputSample->size[1],
+                                 nFrame, outputFrameStride * gradOutputSample->size[1],
+                                 gradOutputSample->size[1], 1);
 
         THCudaTensor_setStorage2d(gradInputWindow, gradInputSample->storage,
-                                gradInputSample->storageOffset+k*dW*gradInputSample->size[1],
-                                nFrame, inputFrameStride*gradInputSample->size[1],
-                                kW*gradInputSample->size[1], 1);
+                                 gradInputSample->storageOffset + k * dW * gradInputSample->size[1],
+                                 nFrame, inputFrameStride * gradInputSample->size[1],
+                                 kW * gradInputSample->size[1], 1);
 
         THCudaTensor_addmm(gradInputWindow, 1, gradInputWindow, 1, gradOutputWindow, weight);
       }
@@ -263,29 +251,29 @@ static int cunn_TemporalConvolution_accGradParameters(lua_State *L)
   if (input->nDimension == 2)
   {
     /* bias first */
-    for(k = 0; k < nOutputFrame; k++)
+    for (k = 0; k < nOutputFrame; k++)
     {
       THCudaTensor_select(gradOutputWindow, gradOutput, 0, k);
       THCudaTensor_cadd(gradBias, gradBias, scale, gradOutputWindow);
     }
 
     /* ouch */
-    for(k = 0; nOutputFrame > 0; k++)
+    for (k = 0; nOutputFrame > 0; k++)
     {
-      long outputFrameStride = (kW-1)/dW+1;
-      long inputFrameStride = outputFrameStride*dW;
-      long nFrame = (nInputFrame-k*dW-kW)/inputFrameStride + 1;
+      long outputFrameStride = (kW - 1) / dW + 1;
+      long inputFrameStride = outputFrameStride * dW;
+      long nFrame = (nInputFrame - k * dW - kW) / inputFrameStride + 1;
       nOutputFrame -= nFrame;
 
       THCudaTensor_setStorage2d(inputWindow, input->storage,
-                              input->storageOffset+k*dW*input->size[1],
-                              nFrame, inputFrameStride*input->size[1],
-                              kW*input->size[1], 1);
+                               input->storageOffset + k * dW * input->size[1],
+                               nFrame, inputFrameStride * input->size[1],
+                               kW * input->size[1], 1);
 
       THCudaTensor_setStorage2d(gradOutputWindow, gradOutput->storage,
-                              gradOutput->storageOffset + k*gradOutput->size[1],
-                              nFrame, outputFrameStride*gradOutput->size[1],
-                              gradOutput->size[1], 1);
+                               gradOutput->storageOffset + k * gradOutput->size[1],
+                               nFrame, outputFrameStride * gradOutput->size[1],
+                               gradOutput->size[1], 1);
 
       THCudaTensor_transpose(gradOutputWindow, NULL, 0, 1);
       THCudaTensor_addmm(gradWeight, 1, gradWeight, scale, gradOutputWindow, inputWindow);
@@ -298,36 +286,36 @@ static int cunn_TemporalConvolution_accGradParameters(lua_State *L)
     THCudaTensor *inputSample = THCudaTensor_new();
     long nBatchFrame = input->size[0];
 
-    for(i = 0; i < nBatchFrame; i++)
+    for (i = 0; i < nBatchFrame; i++)
     {
       THCudaTensor_select(gradOutputSample, gradOutput, 0, i);
       THCudaTensor_select(inputSample, input, 0, i);
       long nOutputSampleFrame = nOutputFrame;
 
       /* bias first */
-      for(k = 0; k < nOutputFrame; k++)
+      for (k = 0; k < nOutputFrame; k++)
       {
         THCudaTensor_select(gradOutputWindow, gradOutputSample, 0, k);
         THCudaTensor_cadd(gradBias, gradBias, scale, gradOutputWindow);
       }
 
       /* ouch */
-      for(k = 0; nOutputSampleFrame > 0; k++)
+      for (k = 0; nOutputSampleFrame > 0; k++)
       {
-        long outputFrameStride = (kW-1)/dW+1;
-        long inputFrameStride = outputFrameStride*dW;
-        long nFrame = (nInputFrame-k*dW-kW)/inputFrameStride + 1;
+        long outputFrameStride = (kW - 1) / dW + 1;
+        long inputFrameStride = outputFrameStride * dW;
+        long nFrame = (nInputFrame - k * dW - kW) / inputFrameStride + 1;
         nOutputSampleFrame -= nFrame;
 
         THCudaTensor_setStorage2d(inputWindow, inputSample->storage,
-                                inputSample->storageOffset+k*dW*inputSample->size[1],
-                                nFrame, inputFrameStride*inputSample->size[1],
-                                kW*inputSample->size[1], 1);
+                                 inputSample->storageOffset + k * dW * inputSample->size[1],
+                                 nFrame, inputFrameStride * inputSample->size[1],
+                                 kW * inputSample->size[1], 1);
 
         THCudaTensor_setStorage2d(gradOutputWindow, gradOutputSample->storage,
-                                gradOutputSample->storageOffset + k*gradOutputSample->size[1],
-                                nFrame, outputFrameStride*gradOutputSample->size[1],
-                                gradOutputSample->size[1], 1);
+                                 gradOutputSample->storageOffset + k * gradOutputSample->size[1],
+                                 nFrame, outputFrameStride * gradOutputSample->size[1],
+                                 gradOutputSample->size[1], 1);
 
         THCudaTensor_transpose(gradOutputWindow, NULL, 0, 1);
         THCudaTensor_addmm(gradWeight, 1, gradWeight, scale, gradOutputWindow, inputWindow);
@@ -358,4 +346,3 @@ static void cunn_TemporalConvolution_init(lua_State *L)
   luaT_registeratname(L, cunn_TemporalConvolution__, "nn");
   lua_pop(L,1);
 }
-

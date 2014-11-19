@@ -1,6 +1,7 @@
 #define MULTIMARGIN_THREADS 128
 
-void cunn_MultiMarginCriterion_updateOutput_kernel(float *output, float *input, float *target, int nframe, int dim, int sizeaverage)
+void cunn_MultiMarginCriterion_updateOutput_kernel(float *output, float *input, float *target,
+                                                  int nframe, int dim, int sizeaverage)
 {
 /*  __shared__ float buffer[MULTIMARGIN_THREADS];
   int k = blockIdx.x;
@@ -41,7 +42,8 @@ void cunn_MultiMarginCriterion_updateOutput_kernel(float *output, float *input, 
 }
 
 
-void cunn_MultiMarginCriterion_updateGradInput_kernel(float *gradInput, float *input, float *target, int nframe, int dim, int sizeaverage)
+void cunn_MultiMarginCriterion_updateGradInput_kernel(float *gradInput, float *input, float *target,
+                                                     int nframe, int dim, int sizeaverage)
 {
 /*  __shared__ float buffer[MULTIMARGIN_THREADS];
   int k = blockIdx.x;
@@ -91,7 +93,7 @@ static int cunn_MultiMarginCriterion_updateOutput(lua_State *L)
 
   input = THCudaTensor_newContiguous(input);
 
-  if(input->nDimension == 1)
+  if (input->nDimension == 1)
   {
     float target_ = luaL_checknumber(L, 3);
     THCudaStorage *target = THCudaStorage_newWithSize(1);
@@ -109,7 +111,7 @@ static int cunn_MultiMarginCriterion_updateOutput(lua_State *L)
     THCudaStorage_free(output);
     THCudaStorage_free(target);
   }
-  else if(input->nDimension == 2)
+  else if (input->nDimension == 2)
   {
     THCudaTensor *target = (THCudaTensor*)luaT_checkudata(L, 3, "torch.CudaTensor");
     THCudaTensor *output = THCudaTensor_newWithSize1d(input->size[0]);
@@ -123,7 +125,6 @@ static int cunn_MultiMarginCriterion_updateOutput(lua_State *L)
   }
   else
     THError("vector or matrix expected");
-
 
   lua_pushstring(L, "output");
   lua_pushvalue(L, -2);
@@ -141,7 +142,7 @@ static int cunn_MultiMarginCriterion_updateGradInput(lua_State *L)
 
   THCudaTensor_resizeAs(gradInput, input);
 
-  if(gradInput->nDimension == 1)
+  if (gradInput->nDimension == 1)
   {
     float target_ = luaL_checknumber(L, 3);
     THCudaTensor *target = THCudaTensor_newWithSize1d(1);
@@ -156,7 +157,7 @@ static int cunn_MultiMarginCriterion_updateGradInput(lua_State *L)
 
     THCudaTensor_free(target);
   }
-  else if(gradInput->nDimension == 2)
+  else if (gradInput->nDimension == 2)
   {
     THCudaTensor *target = (THCudaTensor*)luaT_checkudata(L, 3, "torch.CudaTensor");
 
@@ -168,7 +169,6 @@ static int cunn_MultiMarginCriterion_updateGradInput(lua_State *L)
   }
   else
     THError("vector or matrix expected");
-
 
   return 1;
 }

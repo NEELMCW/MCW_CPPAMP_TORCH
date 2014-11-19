@@ -16,7 +16,7 @@ THC_API void THCudaTensor_conv2DRevgerm(THCudaTensor *output, float beta, float 
                                        long srow, long scol);
 
 THC_API void THCudaTensor_conv2Dmap(THCudaTensor *output, THCudaTensor *input,
-                                  THCudaTensor *kernel, long stride_x, long stride_y
-                                   , THCudaTensor *table, long fanin);
+                                   THCudaTensor *kernel, long stride_x, long stride_y,
+                                   THCudaTensor *table, long fanin);
 
 #endif
