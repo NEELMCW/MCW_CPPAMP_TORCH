@@ -5,7 +5,7 @@ local nloop = 1
 local times = {}
 
 --e.g.: th -lcunn -e "nn.testcuda{'copies'}"
-
+--NW
 function cunntest.copies()
    -- test vector
    local t = torch.CudaTensor(100,10)
@@ -35,7 +35,7 @@ function cunntest.copies()
    local t2 = tc:float()
    mytester:asserteq(t:transpose(1,2):add(-1,t2):abs():max(), 0, 'host copy, plus transpoe')
 end
-
+--NW
 function cunntest.Tanh_forward()
    local size = math.random(1,100)
 
@@ -65,7 +65,7 @@ function cunntest.Tanh_forward()
    local error = rescuda:float() - groundtruth
    mytester:assertlt(error:abs():max(), precision_forward, 'error on state (forward) ')
 end
-
+--W
 function cunntest.Tanh_backward()
    local size = math.random(1,100)
 
@@ -101,6 +101,7 @@ function cunntest.Tanh_backward()
    mytester:assertlt(error:abs():max(), precision_backward, 'error on state (backward) ')
 end
 
+--NW
 function cunntest.Abs_forward()
    local size = math.random(1,100)
 
@@ -131,6 +132,7 @@ function cunntest.Abs_forward()
    mytester:assertlt(error:abs():max(), precision_forward, 'error on state (forward) ')
 end
 
+--W
 function cunntest.Abs_backward()
    local size = math.random(1,100)
 
@@ -166,6 +168,7 @@ function cunntest.Abs_backward()
    mytester:assertlt(error:abs():max(), precision_backward, 'error on state (backward) ')
 end
 
+--W
 function cunntest.Sigmoid_forward()
    local size = math.random(1,100)
 
@@ -196,6 +199,7 @@ function cunntest.Sigmoid_forward()
    mytester:assertlt(error:abs():max(), precision_forward, 'error on state (forward) ')
 end
 
+--W
 function cunntest.Sigmoid_backward()
    local size = math.random(1,100)
 
@@ -231,6 +235,7 @@ function cunntest.Sigmoid_backward()
    mytester:assertlt(error:abs():max(), precision_backward, 'error on state (backward) ')
 end
 
+--W
 function cunntest.Threshold_forward()
    local size = math.random(1,100)
    local thres = torch.uniform(-1,1)
@@ -263,6 +268,7 @@ function cunntest.Threshold_forward()
    mytester:assertlt(error:abs():max(), precision_forward, 'error on state (forward) ')
 end
 
+--W
 function cunntest.Threshold_backward()
    local size = math.random(1,100)
 
@@ -298,6 +304,7 @@ function cunntest.Threshold_backward()
    mytester:assertlt(error:abs():max(), precision_backward, 'error on state (backward) ')
 end
 
+--NW
 function cunntest.Sqrt_forward()
    local size = math.random(1,100)
 
@@ -328,6 +335,7 @@ function cunntest.Sqrt_forward()
    mytester:assertlt(error:abs():max(), precision_forward, 'error on state (forward) ')
 end
 
+--W
 function cunntest.Sqrt_backward()
    local size = math.random(1,100)
 
@@ -362,6 +370,7 @@ function cunntest.Sqrt_backward()
 
    mytester:assertlt(error:abs():max(), precision_backward, 'error on state (backward) ')
 end
+
 
 function cunntest.Square_forward()
    local size = math.random(1,100)
@@ -744,7 +753,7 @@ function cunntest.SpatialConvolutionMM_forward_single()
    mytester:assertlt(error:abs():max(), precision_forward, 'error on state (forward) ')
 end
 
-function cunntest.SpatialConvolutionMM_forward_batch()
+--[[function cunntest.SpatialConvolutionMM_forward_batch()
    local bs = math.random(1,4) * 4
    local from = math.random(1,32)
    local to = math.random(1,8) * 8
@@ -785,7 +794,7 @@ function cunntest.SpatialConvolutionMM_forward_batch()
 
    local error = rescuda:float() - groundtruth
    mytester:assertlt(error:abs():max(), precision_forward, 'error on state (forward) ')
-end
+end]]--
 
 function cunntest.SpatialConvolutionMM_backward_single()
    local from = math.random(1,32)
@@ -950,7 +959,7 @@ end
    mytester:assertlt(error:abs():max(), precision_forward, 'error on state (forward) ')
 end]]--
 
-function cunntest.SpatialConvolutionCUDA_forward_batch()
+--[[function cunntest.SpatialConvolutionCUDA_forward_batch()
    local bs = 32
    local from = 4 * math.random(1,4)
    local to = 32
@@ -1001,7 +1010,7 @@ function cunntest.SpatialConvolutionCUDA_forward_batch()
    mytester:assertlt(error:abs():max(), precision_forward, 'error on state (forward) ')
 end
 
---[[function cunntest.SpatialConvolutionCUDA_backward_batch()
+function cunntest.SpatialConvolutionCUDA_backward_batch()
    local bs = 32
    local from = 4 * math.random(1,4)
    local to = 32
