@@ -59,7 +59,7 @@ static int cunn_SpatialConvolutionCUDA_updateOutput(lua_State *L)
 
   // convolutions
   spatialConv_updateOutput(
-    input_data, weight_data, output_data,
+    input, weight, output,
     nInputPlane, inputHeight, inputWidth, batchSize,
     nOutputPlane, outputHeight, outputWidth,
     kH, kW,
