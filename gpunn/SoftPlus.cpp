@@ -8,7 +8,7 @@ struct softPlusupdateOutput_functor
   float operator()(const float& input) const
   {
     float betain = beta * input;
-    return ((betain) > threshold) ? input : (1 / beta) * log1p(exp(betain));
+    return ((betain) > threshold) ? input : (1/beta) * log1p(exp(betain));
   }
 };
 
@@ -29,6 +29,13 @@ static int cunn_SoftPlus_updateOutput(lua_State *L)
  // thrust::transform(input_data, input_data+size, output_data, 
   //                  softPlusupdateOutput_functor(threshold, beta));
 
+   std::vector<float> output_data(THCudaTensor_data(output), THCudaTensor_data(output)+THCudaTensor_nElement(output));
+  //thrust::device_ptr<float> input_data(THCudaTensor_data(input));
+   std::vector<float> input_data(THCudaTensor_data(input), THCudaTensor_data(input)+THCudaTensor_nElement(input));
+ // thrust::transform(input_data, input_data+size, output_data, absupdateOutput_functor());
+   std::transform(input_data.begin(), input_data.end(), output_data.begin(), softPlusupdateOutput_functor(threshold, beta));
+
+   std::copy(output_data.begin(), output_data.end(), output->storage->data);
   THCudaTensor_free(input);
   return 1;
 }
@@ -66,6 +73,17 @@ static int cunn_SoftPlus_updateGradInput(lua_State *L)
  // thrust::device_ptr<float> gradInput_data(THCudaTensor_data(gradInput));
  // thrust::transform(output_data, output_data+size, gradOutput_data, gradInput_data, 
    //                 softPlusupdateGradInput_functor(threshold, beta));
+
+   std::vector<float> input_data(THCudaTensor_data(input), THCudaTensor_data(input)+THCudaTensor_nElement(input));
+  //thrust::device_ptr<float> gradOutput_data(THCudaTensor_data(gradOutput));
+   std::vector<float> gradOutput_data(THCudaTensor_data(gradOutput), THCudaTensor_data(gradOutput)+THCudaTensor_nElement(gradOutput));
+  //thrust::device_ptr<float> gradInput_data(THCudaTensor_data(gradInput));
+   std::vector<float> gradInput_data(THCudaTensor_data(gradInput), THCudaTensor_data(gradInput)+THCudaTensor_nElement(gradInput));
+  //thrust::transform(input_data, input_data+size, gradOutput_data, gradInput_data, absupdateGradInput_functor());
+   std::transform(input_data.begin(), input_data.end(), gradOutput_data.begin(),gradInput_data.begin(), softPlusupdateGradInput_functor(threshold,beta));
+
+   
+   std::copy(gradInput_data.begin(), gradInput_data.end(), gradInput->storage->data);
 
   THCudaTensor_free(gradOutput);
   return 1;
