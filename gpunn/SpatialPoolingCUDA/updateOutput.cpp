@@ -4,6 +4,8 @@
  * licensed under a BSD license.
  */
 
+#include"amp_math.h"
+
 #ifndef SPATIAL_POOL_FPROP_CU
 #define	SPATIAL_POOL_FPROP_CU
 
@@ -12,10 +14,10 @@
 
 class AvgPooler {
  public:
-  inline float operator()(const float a, const float b) const {
+  inline float operator()(const float a, const float b) const restrict(amp) {
     return a + b;
   }
-  inline float getBaseValue() const {
+  inline float getBaseValue() const restrict (amp){
     return 0;
   }
   inline float output(const float a, const int regionSize) const {
@@ -25,26 +27,26 @@ class AvgPooler {
 
 class MaxPooler {
  public:
-  inline float operator()(const float a, const float b) const {
-    return fmaxf(a, b);
+  inline float operator()(const float a, const float b) const restrict(amp){
+    return Concurrency::fast_math::fmaxf(a, b);
   }
-  inline float getBaseValue() const {
+  inline float getBaseValue()  const restrict(amp){
     return -2e38; 
   }
-  inline float output(const float a, const int regionSize) const {
+  inline float output(const float a, const int regionSize) const restrict(amp){
     return a;
   }
 };
 
 class MaxAbsPooler {
  public:
-  inline float operator()(const float a, const float b) const {
+  inline float operator()(const float a, const float b) const restrict(amp){
     return fabsf(a) > fabsf(b) ? a : b;
   }
-  inline float getBaseValue() const {
+  inline float getBaseValue() const restrict(amp) {
     return 0.0f;
   }
-  inline float output(const float a, const int regionSize) const {
+  inline float output(const float a, const int regionSize) const restrict(amp) {
     return a;
   }
 };

@@ -29,12 +29,12 @@ static int cunn_SpatialMaxPoolingCUDA_updateOutput(lua_State *L)
   THCudaTensor_resize4d(output, nInputPlane, nOutputRows, nOutputCols, batchSize);
   float *output_data = THCudaTensor_data(output);
 
-  /*spatialMaxPooling_updateOutput<MaxPooler>
-    (input_data, output_data, 
+  spatialMaxPooling_updateOutput<MaxPooler>
+    (input, output, 
      nInputPlane, nInputRows, nInputCols, batchSize,
      nOutputRows, nOutputCols, 
      kH, kW,
-     0, dW);*/
+     0, dW);
 
   return 1;
 }
@@ -66,12 +66,12 @@ static int cunn_SpatialMaxPoolingCUDA_updateGradInput(lua_State *L)
   float *gradOutput_data = THCudaTensor_data(gradOutput);
   float *gradInput_data = THCudaTensor_data(gradInput);
 
- /* spatialMaxPooling_updateGradInput
-    (input_data, gradOutput_data, output_data, gradInput_data,
+ spatialMaxPooling_updateGradInput
+    (input, gradOutput, output, gradInput,
      nInputPlane, nInputRows, nInputCols, batchSize,
      nOutputRows, nOutputCols, 
      kH, kW,
-     0, dW);*/
+     0, dW);
     return 1;
 
 }
