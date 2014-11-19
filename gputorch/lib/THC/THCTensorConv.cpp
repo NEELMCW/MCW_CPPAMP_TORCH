@@ -14,7 +14,7 @@
  *   July 21, 2011, 11:21PM  -  Clement Farabet  -  Creation, based conv2d routine
  */
 
-#define CUDA_SHARED_MEM_SIZE (12*1024-32) // this is given by nVidia: max shared mem per block
+#define CUDA_SHARED_MEM_SIZE (12 * 1024 - 32) // this is given by nVidia: max shared mem per block
 
 /*
  * Description:
@@ -25,26 +25,27 @@
  *   - the templated kernel size is useful to generate code that's 2x faster
  *     but can be set to 0 to allow arbitrary kernel sizes
  */
+
 template <bool swapkernel, int T_kernel_h, int T_kernel_w>
 void conv2generic(THCudaTensor *input, THCudaTensor *kernel, THCudaTensor *output, int input_n,
                  int input_h, int input_w, int kernel_n, int kernel_h, int kernel_w, int stride_h,
                  int stride_w, int nOutputPlane, int yblocks)
 {
-/*  Concurrency::extent<3> copyExt(nOutputPlane,yblocks*16,16);
-  Concurrency::tiled_extent<1,16,16> t_ext(copyExt);
+/*  Concurrency::extent<3> copyExt(nOutputPlane, yblocks * 16, 16);
+  Concurrency::tiled_extent<1, 16, 16> t_ext(copyExt);
 
-  Concurrency::array_view<float,1>input_data(Concurrency::extent<1>(input->storage->size), THCudaTensor_data(input));
-  Concurrency::array_view<float,1>kernel_data(Concurrency::extent<1>(kernel->storage->size), THCudaTensor_data(kernel));
-  Concurrency::array_view<float,1>output_data(Concurrency::extent<1>(output->storage->size), THCudaTensor_data(output));
+  Concurrency::array_view<float, 1> input_data(Concurrency::extent<1>(input->storage->size), THCudaTensor_data(input));
+  Concurrency::array_view<float, 1> kernel_data(Concurrency::extent<1>(kernel->storage->size), THCudaTensor_data(kernel));
+  Concurrency::array_view<float, 1> output_data(Concurrency::extent<1>(output->storage->size), THCudaTensor_data(output));
 
-  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1,16,16> tidx) restrict(amp)
+  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1, 16, 16> tidx) restrict(amp)
   {
     // output dimensions
     int output_h = (input_h - kernel_h) / stride_h + 1;
     int output_w = (input_w - kernel_w) / stride_w + 1;
 
     // xcorr or conv
-    int koffset = swapkernel ? kernel_w*kernel_h-1 : 0;
+    int koffset = swapkernel ? kernel_w * kernel_h - 1 : 0;
 
     // nb outputs
     int output_n = kernel_n / input_n;
@@ -56,21 +57,21 @@ void conv2generic(THCudaTensor *input, THCudaTensor *kernel, THCudaTensor *outpu
     //int xx_step = blockDim.x;
     int xx_step = t_ext.tile_dim2;
 
-    //int yy_start = blockDim.y*blockIdx.y + threadIdx.y;
+    //int yy_start = blockDim.y * blockIdx.y + threadIdx.y;
     int yy_start = tidx.global[1];
     int yy_end = output_h;
-    //int yy_step = blockDim.y*gridDim.y;
+    //int yy_step = blockDim.y * gridDim.y;
     int yy_step = t_ext[1];
 
     //int oo_start = blockIdx.x;
     int oo_start = tidx.tile[2];
-    int oo_end = oo_start+1;
+    int oo_end = oo_start + 1;
 
     int ii_start = (oo_start / output_n) * input_n;
     int ii_end = ii_start + input_n;
 
     // nb threads, unique thread id
-    //int tid = blockDim.x*blockDim.y*threadIdx.z + blockDim.x * threadIdx.y + threadIdx.x;
+    //int tid = blockDim.x * blockDim.y * threadIdx.z + blockDim.x * threadIdx.y + threadIdx.x;
     int tid = t_ext.tile_dim2 * t_ext.tile_dim1 * tidx.local[0] + t_ext.tile_dim2 * tidx.local[1] + tidx.local[2];
     //int nthreads = blockDim.x * blockDim.y * blockDim.z;
     int nthreads = t_ext.tile_dim2 * t_ext.tile_dim1 * t_ext.tile_dim0;
@@ -79,49 +80,164 @@ void conv2generic(THCudaTensor *input, THCudaTensor *kernel, THCudaTensor *outpu
     int oo, ii, xx, yy, kx, ky, kk;
 
     // do the kernels fit in shared mem ?
-    if (input_n*kernel_w*kernel_h <= CUDA_SHARED_MEM_SIZE) {
+    if (input_n * kernel_w * kernel_h <= CUDA_SHARED_MEM_SIZE)
+    {
 
-    // put the kernel in shared memory
-    //__shared__ float shared_kernel[CUDA_SHARED_MEM_SIZE];
+      // put the kernel in shared memory
+      //__shared__ float shared_kernel[CUDA_SHARED_MEM_SIZE];
       tile_static float shared_kernel[CUDA_SHARED_MEM_SIZE];
 
-    // first thread of each block does the copy
-    for (kk = tid; kk < kernel_w*kernel_h*input_n; kk += nthreads) {
-      shared_kernel[kk] = kernel_data[input_n*kernel_w*kernel_h*(oo_start % output_n) + kk];
-    }
-    //__syncthreads();
-    tidx.barrier.wait();
+      // first thread of each block does the copy
+      for (kk = tid; kk < kernel_w * kernel_h * input_n; kk += nthreads)
+      {
+        shared_kernel[kk] = kernel_data[input_n * kernel_w * kernel_h * (oo_start % output_n) + kk];
+      }
+      //__syncthreads();
+      tidx.barrier.wait();
 
-    // templated kernel size
-    if ((T_kernel_w > 0) && (T_kernel_h > 0)) {
-      // unrolled convolution loop
-      for(oo = oo_start; oo < oo_end; oo++) {
-        for(ii = ii_start; ii < ii_end; ii++) {
-          for(yy = yy_start; yy < yy_end; yy+=yy_step) {
-            for(xx = xx_start; xx < xx_end; xx+=xx_step) {
+      // templated kernel size
+      if ((T_kernel_w > 0) && (T_kernel_h > 0))
+      {
+        // unrolled convolution loop
+        for (oo = oo_start; oo < oo_end; oo++) 
+        {
+          for(ii = ii_start; ii < ii_end; ii++)
+          {
+            for (yy = yy_start; yy < yy_end; yy += yy_step) 
+            {
+              for (xx = xx_start; xx < xx_end; xx += xx_step)
+              {
+                // Dot product in two dimensions... (between input image and the mask)
+                // float *input_p = input_data + ii * input_h * input_w + yy * stride_h * input_w + xx * stride_w;
+                float *input_p = input_data.data();
+                input_p += (ii * input_h * input_w + yy * stride_h * input_w + xx * stride_w);
+                float *output_p = output_data.data();
+                output_p += (oo * output_h * output_w + yy * output_w + xx);
+                float *kernel_p = shared_kernel + (ii % input_n) * kernel_w * kernel_h + koffset;
+                float sum = 0;
+                if (swapkernel)
+                {
+                  //#pragma unroll
+                  for (ky = 0; ky < T_kernel_h; ky++)
+                  {
+                    //#pragma unroll
+                    for (kx = 0; kx < T_kernel_w; kx++)
+                    {
+                      sum += input_p[kx] * (*kernel_p--);
+                    }
+                    input_p += input_w;
+                  }
+                }
+                else
+                {
+                  //#pragma unroll
+                  for (ky = 0; ky < T_kernel_h; ky++)
+                  {
+                    //#pragma unroll
+                    for (kx = 0; kx < T_kernel_w; kx++)
+                    {
+                      sum += input_p[kx] * (*kernel_p++);
+                    }
+                    input_p += input_w;
+                  }
+                }
+                *output_p += sum;
+              }
+            }
+          }
+        }
+      }
+      else
+      {
+        // default convolution loop
+        for (oo = oo_start; oo < oo_end; oo++)
+        {
+          for (ii = ii_start; ii < ii_end; ii++)
+          {
+            for (yy = yy_start; yy < yy_end; yy += yy_step)
+            {
+              for (xx = xx_start; xx < xx_end; xx += xx_step)
+              {
+                // Dot product in two dimensions... (between input image and the mask)
+                float *input_p = input_data.data();
+                input_p += (ii * input_h * input_w + yy * stride_h * input_w + xx * stride_w);
+                float *output_p = output_data.data();
+                output_p += (oo * output_h * output_w + yy * output_w + xx);
+                float *kernel_p = shared_kernel + (ii % input_n) * kernel_w * kernel_h + koffset;
+                float sum = 0;
+                if (swapkernel)
+                {
+                  for (ky = 0; ky < kernel_h; ky++)
+                  {
+                    //#pragma unroll 5
+                    for (kx = 0; kx < kernel_w; kx++)
+                    {
+                      sum += input_p[kx] * (*kernel_p--);
+                    }
+                    input_p += input_w;
+                  }
+                }
+                else
+                {
+                  for (ky = 0; ky < kernel_h; ky++)
+                  {
+                    //#pragma unroll 5
+                    for (kx = 0; kx < kernel_w; kx++)
+                    {
+                      sum += input_p[kx] * (*kernel_p++);
+                    }
+                    input_p += input_w;
+                  }
+                }
+                *output_p += sum;
+              }
+            }
+          }
+        }
+      }
+
+    }
+    else
+    {
+      // not enough shared mem for kernels, simply stream them
+
+      // convolution loop
+      for (oo = oo_start; oo < oo_end; oo++)
+      {
+        for (ii = ii_start; ii < ii_end; ii++)
+        {
+          for (yy = yy_start; yy < yy_end; yy += yy_step)
+          {
+            for (xx = xx_start; xx < xx_end; xx += xx_step)
+            {
               // Dot product in two dimensions... (between input image and the mask)
-           //   float *input_p = input_data + ii*input_h*input_w + yy*stride_h*input_w + xx*stride_w;
               float *input_p = input_data.data();
-              input_p += (ii*input_h*input_w + yy*stride_h*input_w + xx*stride_w);
+              input_p += (ii * input_h * input_w + yy * stride_h * input_w + xx * stride_w);
               float *output_p = output_data.data();
-              output_p += (oo*output_h*output_w + yy*output_w + xx);
-              float *kernel_p = shared_kernel + (ii % input_n)*kernel_w*kernel_h + koffset;
+              output_p += (oo * output_h * output_w + yy * output_w + xx);
+              float *kernel_p = kernel_data.data();
+              kernel_p += (((oo % output_n) * input_n + (ii % input_n)) * kernel_w * kernel_h + koffset);
               float sum = 0;
-              if (swapkernel) {
-//#pragma unroll
-                for(ky = 0; ky < T_kernel_h; ky++) {
-//#pragma unroll
-                  for(kx = 0; kx < T_kernel_w; kx++) {
-                    sum += input_p[kx]*(*kernel_p--);
+              if (swapkernel)
+              {
+                for (ky = 0; ky < kernel_h; ky++)
+                {
+                  //#pragma unroll 5
+                  for (kx = 0; kx < kernel_w; kx++)
+                  {
+                    sum += input_p[kx] * (*kernel_p--);
                   }
                   input_p += input_w;
                 }
-              } else {
-//#pragma unroll
-                for(ky = 0; ky < T_kernel_h; ky++) {
-//#pragma unroll
-                  for(kx = 0; kx < T_kernel_w; kx++) {
-                    sum += input_p[kx]*(*kernel_p++);
+              }
+              else
+              {
+                for (ky = 0; ky < kernel_h; ky++)
+                {
+                  //#pragma unroll 5
+                  for (kx = 0; kx < kernel_w; kx++)
+                  {
+                    sum += input_p[kx] * (*kernel_p++);
                   }
                   input_p += input_w;
                 }
@@ -131,81 +247,7 @@ void conv2generic(THCudaTensor *input, THCudaTensor *kernel, THCudaTensor *outpu
           }
         }
       }
-    } else {
-      // default convolution loop
-      for(oo = oo_start; oo < oo_end; oo++) {
-        for(ii = ii_start; ii < ii_end; ii++) {
-          for(yy = yy_start; yy < yy_end; yy+=yy_step) {
-            for(xx = xx_start; xx < xx_end; xx+=xx_step) {
-              // Dot product in two dimensions... (between input image and the mask)
-              float *input_p = input_data.data();
-              input_p += (ii*input_h*input_w + yy*stride_h*input_w + xx*stride_w);
-              float *output_p = output_data.data();
-              output_p += (oo*output_h*output_w + yy*output_w + xx);
-              float *kernel_p = shared_kernel + (ii % input_n) * kernel_w * kernel_h + koffset;
-              float sum = 0;
-              if (swapkernel) {
-                for(ky = 0; ky < kernel_h; ky++) {
-//#pragma unroll 5
-                  for(kx = 0; kx < kernel_w; kx++) {
-                    sum += input_p[kx]*(*kernel_p--);
-                  }
-                  input_p += input_w;
-                }
-              } else {
-                for(ky = 0; ky < kernel_h; ky++) {
-//#pragma unroll 5
-                  for(kx = 0; kx < kernel_w; kx++) {
-                    sum += input_p[kx]*(*kernel_p++);
-                  }
-                  input_p += input_w;
-                }
-              }
-              *output_p += sum;
-            }
-          }
-        }
-      }
     }
-
-  } else { // not enough shared mem for kernels, simply stream them
-
-    // convolution loop
-    for(oo = oo_start; oo < oo_end; oo++) {
-      for(ii = ii_start; ii < ii_end; ii++) {
-        for(yy = yy_start; yy < yy_end; yy+=yy_step) {
-          for(xx = xx_start; xx < xx_end; xx+=xx_step) {
-            // Dot product in two dimensions... (between input image and the mask)
-            float *input_p = input_data.data();
-            input_p += (ii*input_h*input_w + yy*stride_h*input_w + xx*stride_w);
-            float *output_p = output_data.data();
-            output_p += (oo*output_h*output_w + yy*output_w + xx);
-            float *kernel_p = kernel_data.data();
-            kernel_p += (((oo % output_n) * input_n + (ii % input_n))*kernel_w*kernel_h + koffset);
-            float sum = 0;
-            if (swapkernel) {
-              for(ky = 0; ky < kernel_h; ky++) {
-//#pragma unroll 5
-                for(kx = 0; kx < kernel_w; kx++) {
-                  sum += input_p[kx]*(*kernel_p--);
-                }
-                input_p += input_w;
-              }
-            } else {
-              for(ky = 0; ky < kernel_h; ky++) {
-//#pragma unroll 5
-                for(kx = 0; kx < kernel_w; kx++) {
-                  sum += input_p[kx]*(*kernel_p++);
-                }
-                input_p += input_w;
-              }
-            }
-            *output_p += sum;
-          }
-        }
-      }
-    }
-  }
   });
 */
 }
@@ -219,109 +261,100 @@ void conv2generic(THCudaTensor *input, THCudaTensor *kernel, THCudaTensor *outpu
  *   - all chunks of data should be contiguous
  *   - the swapkernel flag can be used to generate a conv2 instead of xcorr2
  */
+
 void conv2genericrev(THCudaTensor *input, THCudaTensor *kernel, THCudaTensor *output, int input_n,
                     int input_h, int input_w, int kernel_n, int kernel_h, int kernel_w, float alpha,
                     int stride_h, int stride_w, int nKernelPlane, int nInputPlane, int nOutputRows,
                     int cst, int subbatch, int sl)
 {
-/*  int ip_stride =  input->stride[0]*sl;
-  int k_stride = kernel->stride[0]*sl;
+/*  int ip_stride =  input->stride[0] * sl;
+  int k_stride = kernel->stride[0] * sl;
 
-  Concurrency::extent<3> copyExt(1,nInputPlane*16,nKernelPlane*16);
-  Concurrency::tiled_extent<1,16,16> t_ext(copyExt);
+  Concurrency::extent<3> copyExt(1, nInputPlane * 16, nKernelPlane * 16);
+  Concurrency::tiled_extent<1, 16, 16> t_ext(copyExt);
 
-  Concurrency::array_view<float,1>input_data(Concurrency::extent<1>(input->storage->size),THCudaTensor_data(input));
-  Concurrency::array_view<float,1>kernel_data(Concurrency::extent<1>(kernel->storage->size),THCudaTensor_data(kernel));
-  Concurrency::array_view<float,1>output_o(Concurrency::extent<1>(output->storage->size),THCudaTensor_data(output));
-
-  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1,16,16> tidx) restrict(amp)
-  {
-  // output dimensions
-  int output_h = input_h - (kernel_h - 1) * stride_h;
-  int output_w = input_w - (kernel_w - 1) * stride_w;
-
-  // this thread only processes one output, defined by the block Ids
-  //int kk = blockIdx.x;
-  int kk = tidx.tile[2];
-  //int ii = blockIdx.y;
-  int ii = tidx.tile[1];
-
-  // batch id
-  //int batch = threadIdx.z;
-  int batch = tidx.local[0];
-
-  // kernel id
-  //int kid = threadIdx.x;
-  int kid = tidx.local[2];
-  //int nkids = blockDim.x;
-  int nkids = t_ext.tile_dim2;
-
-  // thread ID
-  //int tid = kid + batch*blockDim.x;
-  int tid = kid + batch*nkids;
-  //int nthreads = blockDim.x * blockDim.z;
-  int nthreads = nkids * t_ext.tile_dim0;
-
-  // one thread only sees one output
-  float *output_data = output_o.data();
-  output_data += (kk * input_n + ii) * output_h*output_w;
-
-  // put the output in shared memory
-  //__shared__ float shared_output[CUDA_SHARED_MEM_SIZE];
-  tile_static float shared_output[CUDA_SHARED_MEM_SIZE];
-
-  // generate tid outputs in shared memory
-  float *output_s = shared_output + tid*output_w*output_h;
-
-  // convolution loop
-  int xx, yy, kx, ky;
-  //yy = threadIdx.y;
-  yy = tidx.local[1];
-  float *output_p = output_s + yy * output_w;
-  for(xx=0; xx<output_w; xx++) {
-    // Dot product in two dimensions... (between input image and kernel)
-    //float *input_p = input_data + (ii + batch*input_n)*input_h*input_w + yy*stride_h*input_w + xx*stride_w;
-    float *input_p = input_data.data();
-    input_p += ((ii + batch*input_n)*input_h*input_w + yy*stride_h*input_w + xx*stride_w) + ip_stride;
-    //float *kernel_p = kernel_data + (kk + batch*kernel_n)*kernel_w*kernel_h;
-    float *kernel_p = kernel_data.data();
-    kernel_p += ((kk + batch*kernel_n)*kernel_w*kernel_h) + k_stride;
-    float sum = 0;
-    for(ky=0; ky<kernel_h; ky++) {
-      for(kx=kid; kx<kernel_w; kx+=nkids) {
-        sum += input_p[kx]*kernel_p[kx];
+  Concurrency::array_view<float, 1> input_data(Concurrency::extent<1>(input->storage->size), THCudaTensor_data(input));
+  Concurrency::array_view<float, 1> kernel_data(Concurrency::extent<1>(kernel->storage->size), THCudaTensor_data(kernel));
+  Concurrency::array_view<float, 1> output_o(Concurrency::extent<1>(output->storage->size), THCudaTensor_data(output));
+  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1, 16, 16> tidx) restrict(amp)
+  {
+    // output dimensions
+    int output_h = input_h - (kernel_h - 1) * stride_h;
+    int output_w = input_w - (kernel_w - 1) * stride_w;    // this thread only processes one output, defined by the block Ids
+    //int kk = blockIdx.x;
+    int kk = tidx.tile[2];
+    //int ii = blockIdx.y;
+    int ii = tidx.tile[1];
+    // batch id
+    //int batch = threadIdx.z;
+    int batch = tidx.local[0];
+    // kernel id
+    //int kid = threadIdx.x;
+    int kid = tidx.local[2];
+    //int nkids = blockDim.x;
+    int nkids = t_ext.tile_dim2;
+    // thread ID
+    //int tid = kid + batch * blockDim.x;
+    int tid = kid + batch * nkids;
+    //int nthreads = blockDim.x * blockDim.z;
+    int nthreads = nkids * t_ext.tile_dim0;
+    // one thread only sees one output
+    float *output_data = output_o.data();
+    output_data += (kk * input_n + ii) * output_h * output_w;
+    // put the output in shared memory
+    //__shared__ float shared_output[CUDA_SHARED_MEM_SIZE];
+    tile_static float shared_output[CUDA_SHARED_MEM_SIZE];
+    // generate tid outputs in shared memory
+    float *output_s = shared_output + tid * output_w * output_h;
+    // convolution loop
+    int xx, yy, kx, ky;
+    //yy = threadIdx.y;
+    yy = tidx.local[1];
+    float *output_p = output_s + yy * output_w;
+    for (xx = 0; xx < output_w; xx++)    {
+      // Dot product in two dimensions... (between input image and kernel)
+      //float *input_p = input_data + (ii + batch * input_n) * input_h * input_w + yy * stride_h * input_w + xx * stride_w;
+      float *input_p = input_data.data();
+      input_p += ((ii + batch * input_n) * input_h * input_w + yy * stride_h * input_w + xx * stride_w) + ip_stride;
+      //float *kernel_p = kernel_data + (kk + batch * kernel_n) * kernel_w * kernel_h;
+      float *kernel_p = kernel_data.data();
+      kernel_p += ((kk + batch * kernel_n) * kernel_w * kernel_h) + k_stride;
+      float sum = 0;
+      for (ky = 0; ky < kernel_h; ky++)      {
+        for (kx = kid; kx < kernel_w; kx += nkids)        {
+          sum += input_p[kx] * kernel_p[kx];
+        }
+        input_p += input_w;
+        kernel_p += kernel_w;
       }
-      input_p += input_w;
-      kernel_p += kernel_w;
-    }
-    *(output_p++) = sum;
-  }
-  //__syncthreads();
-  //tidx.barrier.wait();
-
-  // reduce and write back
-  if (yy == 0) {
-    // reduce outputs
-    for (int k=1; k<nthreads; k++) {
-      for (int i=tid; i<output_w*output_h; i+=nthreads) {
-        shared_output[i] += shared_output[k*output_h*output_w + i];
-      }
+      *(output_p++) = sum;
     }
     //__syncthreads();
     //tidx.barrier.wait();
-
-    // add existing output, and write back
-    for (int i=tid; i<output_w*output_h; i+=nthreads) {
-      output_data[i] += alpha*shared_output[i];
+    // reduce and write back
+    if (yy == 0)    {
+      // reduce outputs
+      for (int k = 1; k < nthreads; k++)      {
+        for (int i = tid; i < output_w * output_h; i += nthreads)        {
+          shared_output[i] += shared_output[k * output_h * output_w + i];
+
+        }
+      }
+      //__syncthreads();
+      //tidx.barrier.wait();
+      // add existing output, and write back
+      for (int i = tid; i < output_w * output_h; i += nthreads)      {
+        output_data[i] += alpha * shared_output[i];
+      }
     }
-  }
- });*/
+  });*/
 }
 
 // A helper macro for the common pattern of checking the input
 // rows/columns for a small number of values, specializing the kernel
 // template paremeters if rows/columns are equal and small, and
 // otherwise just passing zero to the kernel.
+
 #define FOR_KERNEL_SPECIALIZED_DIMENSION(ROWS, COLUMNS, KERNEL) \
   if ((ROWS) == (COLUMNS)) {                                    \
     switch ((ROWS)) {                                           \
@@ -347,6 +380,7 @@ void conv2genericrev(THCudaTensor *input, THCudaTensor *kernel, THCudaTensor *ou
  * 3D input, 4D kernel, 3D output
  * matrix vector product like: y <- Ax + beta*y
  */
+
 THC_API void THCudaTensor_conv2Dmv(THCudaTensor *output, float beta, THCudaTensor *input,
                                   THCudaTensor *kernel, long srow, long scol, const char *type)
 {
@@ -375,7 +409,8 @@ THC_API void THCudaTensor_conv2Dmv(THCudaTensor *output, float beta, THCudaTenso
   THArgCheck( (nInputRows >= nKernelRows && nInputCols >= nKernelCols) || *type == 'f', 2,
               "conv2Dmv : Input image is smaller than kernel");
 
-  if (*type == 'f') {
+  if (*type == 'f')
+  {
     // output dims
     nOutputRows = (nInputRows - 1) * srow + nKernelRows;
     nOutputCols = (nInputCols - 1) * scol + nKernelCols;
@@ -383,7 +418,8 @@ THC_API void THCudaTensor_conv2Dmv(THCudaTensor *output, float beta, THCudaTenso
     // use temp buffer
     static THCudaTensor *inputP;
     static int firstcall = 1;
-    if (firstcall) {
+    if (firstcall)
+    {
       inputP = THCudaTensor_new();
       firstcall = 0;
     }
@@ -395,8 +431,8 @@ THC_API void THCudaTensor_conv2Dmv(THCudaTensor *output, float beta, THCudaTenso
     THCudaTensor_zero(inputP);
 
     THCudaTensor *centered = THCudaTensor_new();
-    THCudaTensor_narrow(centered, inputP, 2, nKernelCols-1, nInputCols);
-    THCudaTensor_narrow(centered, NULL, 1, nKernelRows-1, nInputRows);
+    THCudaTensor_narrow(centered, inputP, 2, nKernelCols - 1, nInputCols);
+    THCudaTensor_narrow(centered, NULL, 1, nKernelRows - 1, nInputRows);
     THCudaTensor_copy(centered, input);
     THCudaTensor_free(centered);
 
@@ -406,7 +442,10 @@ THC_API void THCudaTensor_conv2Dmv(THCudaTensor *output, float beta, THCudaTenso
     nInputRows = nInputRowsPadded;
     nInputCols = nInputColsPadded;
 
-  } else { // 'v'
+  }
+  else
+  {
+    // 'v'
     // output dims
     nOutputRows = (nInputRows - nKernelRows) / srow + 1;
     nOutputCols = (nInputCols - nKernelCols) / scol + 1;
@@ -415,9 +454,12 @@ THC_API void THCudaTensor_conv2Dmv(THCudaTensor *output, float beta, THCudaTenso
   long nelem = THCudaTensor_nElement(output);
   THCudaTensor_resize3d(output, nOutputPlane, nOutputRows, nOutputCols);
 
-  if (beta == 0 || nelem != THCudaTensor_nElement(output)) {
+  if (beta == 0 || nelem != THCudaTensor_nElement(output))
+  {
     THCudaTensor_zero(output);
-  } else if (beta != 1) {
+  }
+  else if (beta != 1)
+  {
     THCudaTensor_mul(output, beta);
   }
 
@@ -428,22 +470,26 @@ THC_API void THCudaTensor_conv2Dmv(THCudaTensor *output, float beta, THCudaTenso
   // cuda blocks & threads:
   int yblocks = (int)(16L / nOutputPlane);
   yblocks = yblocks < 1 ? 1 : yblocks;
-  dim3 blocks(nOutputPlane,yblocks);
-  dim3 threads(32,8);
+  dim3 blocks(nOutputPlane, yblocks);
+  dim3 threads(32, 8);
 
   // convolution: xcorr2 or conv2
-  if (type[1] == 'x') {
-#define X_CONV_KERNEL(dim)                                              \
-    conv2generic <false, (dim), (dim)> <<<blocks, threads>>> (          \
+  if (type[1] == 'x')
+  {
+    #define X_CONV_KERNEL(dim)                                              \
+      conv2generic <false, (dim), (dim)> <<<blocks, threads>>> (          \
         input_data, weight_data, output_data,                           \
         nInputPlane, nInputRows, nInputCols,                            \
         nOutputPlane*nInputPlane, nKernelRows, nKernelCols,             \
         srow, scol);
 
-    FOR_KERNEL_SPECIALIZED_DIMENSION(nKernelRows, nKernelCols, X_CONV_KERNEL);
-#undef X_CONV_KERNEL
-  } else { // 'c'
-#define C_CONV_KERNEL(dim)                                              \
+     FOR_KERNEL_SPECIALIZED_DIMENSION(nKernelRows, nKernelCols, X_CONV_KERNEL);
+     #undef X_CONV_KERNEL
+  }
+  else
+  {
+    // 'c'
+    #define C_CONV_KERNEL(dim)                                              \
     conv2generic <true, (dim), (dim)> <<<blocks, threads>>> (           \
         input_data, weight_data, output_data,                           \
         nInputPlane, nInputRows, nInputCols,                            \
@@ -451,16 +497,18 @@ THC_API void THCudaTensor_conv2Dmv(THCudaTensor *output, float beta, THCudaTenso
         srow, scol);
 
     FOR_KERNEL_SPECIALIZED_DIMENSION(nKernelRows, nKernelCols, C_CONV_KERNEL);
-#undef C_CONV_KERNEL
+    #undef C_CONV_KERNEL
   }
 
   // clean
-  if (*type != 'f') THCudaTensor_free(input);
+  if (*type != 'f')
+    THCudaTensor_free(input);
   THCudaTensor_free(kernel);
 
   // check for errors
   cudaError_t err = cudaGetLastError();
-  if (err != cudaSuccess) {
+  if (err != cudaSuccess)
+  {
     printf("error in conv2Dmv: %s\n", cudaGetErrorString(err));
     THError("aborting");
   }
@@ -472,10 +520,11 @@ THC_API void THCudaTensor_conv2Dmv(THCudaTensor *output, float beta, THCudaTenso
  * 4D input, 4D kernel, 4D output
  * matrix vector product like: y <- Ax + beta*y
  */
+
 THC_API void THCudaTensor_conv2Dmm(THCudaTensor *output, float beta, THCudaTensor *input,
                                   THCudaTensor *kernel, long srow, long scol, const char *type)
 {
- /* long nbatch, nInputPlane, nInputRows, nInputCols;
+/*  long nbatch, nInputPlane, nInputRows, nInputCols;
   long nKernelRows, nKernelCols;
   long nOutputPlane, nOutputRows, nOutputCols;
 
@@ -501,7 +550,8 @@ THC_API void THCudaTensor_conv2Dmm(THCudaTensor *output, float beta, THCudaTenso
   THArgCheck( (nInputRows >= nKernelRows && nInputCols >= nKernelCols) || *type == 'f', 2,
               "conv2Dmm : Input image is smaller than kernel");
 
-  if (*type == 'f') {
+  if (*type == 'f')
+  {
     // output dims
     nOutputRows = (nInputRows - 1) * srow + nKernelRows;
     nOutputCols = (nInputCols - 1) * scol + nKernelCols;
@@ -509,7 +559,8 @@ THC_API void THCudaTensor_conv2Dmm(THCudaTensor *output, float beta, THCudaTenso
     // use temp buffer
     static THCudaTensor *inputP;
     static int firstcall = 1;
-    if (firstcall) {
+    if (firstcall)
+    {
       inputP = THCudaTensor_new();
       firstcall = 0;
     }
@@ -521,8 +572,8 @@ THC_API void THCudaTensor_conv2Dmm(THCudaTensor *output, float beta, THCudaTenso
     THCudaTensor_zero(inputP);
 
     THCudaTensor *centered = THCudaTensor_new();
-    THCudaTensor_narrow(centered, inputP, 3, nKernelCols-1, nInputCols);
-    THCudaTensor_narrow(centered, NULL, 2, nKernelRows-1, nInputRows);
+    THCudaTensor_narrow(centered, inputP, 3, nKernelCols - 1, nInputCols);
+    THCudaTensor_narrow(centered, NULL, 2, nKernelRows - 1, nInputRows);
     THCudaTensor_copy(centered, input);
     THCudaTensor_free(centered);
 
@@ -532,7 +583,10 @@ THC_API void THCudaTensor_conv2Dmm(THCudaTensor *output, float beta, THCudaTenso
     nInputRows = nInputRowsPadded;
     nInputCols = nInputColsPadded;
 
-  } else { // 'v'
+  }
+  else
+  {
+    // 'v'
     // output dims
     nOutputRows = (nInputRows - nKernelRows) / srow + 1;
     nOutputCols = (nInputCols - nKernelCols) / scol + 1;
@@ -541,9 +595,12 @@ THC_API void THCudaTensor_conv2Dmm(THCudaTensor *output, float beta, THCudaTenso
   long nelem = THCudaTensor_nElement(output);
   THCudaTensor_resize4d(output, nbatch, nOutputPlane, nOutputRows, nOutputCols);
 
-  if (beta == 0 || nelem != THCudaTensor_nElement(output)) {
+  if (beta == 0 || nelem != THCudaTensor_nElement(output))
+  {
     THCudaTensor_zero(output);
-  } else if (beta != 1) {
+  }
+  else if (beta != 1)
+  {
     THCudaTensor_mul(output, beta);
   }
 
@@ -554,12 +611,13 @@ THC_API void THCudaTensor_conv2Dmm(THCudaTensor *output, float beta, THCudaTenso
   // cuda blocks & threads:
   int yblocks = (int)(16L / nOutputPlane);
   yblocks = yblocks < 1 ? 1 : yblocks;
-  dim3 blocks(nOutputPlane*nbatch,yblocks);
-  dim3 threads(32,8);
+  dim3 blocks(nOutputPlane * nbatch, yblocks);
+  dim3 threads(32, 8);
 
   // convolution: xcorr2 or conv2
-  if (type[1] == 'x') {
-#define X_CONV_KERNEL(dim)                                              \
+  if (type[1] == 'x')
+  {
+    #define X_CONV_KERNEL(dim)                                              \
     conv2generic <false, (dim), (dim)> <<<blocks, threads>>> (          \
         input_data, weight_data, output_data,                           \
         nInputPlane, nInputRows, nInputCols,                            \
@@ -567,9 +625,12 @@ THC_API void THCudaTensor_conv2Dmm(THCudaTensor *output, float beta, THCudaTenso
         srow, scol);
 
     FOR_KERNEL_SPECIALIZED_DIMENSION(nKernelCols, nKernelRows, X_CONV_KERNEL);
-#undef X_CONV_KERNEL
-  } else { // 'c'
-#define C_CONV_KERNEL(dim)                                              \
+    #undef X_CONV_KERNEL
+  }
+  else
+  {
+    // 'c'
+    #define C_CONV_KERNEL(dim)                                              \
     conv2generic <true, (dim), (dim)> <<<blocks, threads>>> (           \
         input_data, weight_data, output_data,                           \
         nInputPlane, nInputRows, nInputCols,                            \
@@ -577,16 +638,18 @@ THC_API void THCudaTensor_conv2Dmm(THCudaTensor *output, float beta, THCudaTenso
         srow, scol);                                                    \
 
     FOR_KERNEL_SPECIALIZED_DIMENSION(nKernelCols, nKernelRows, C_CONV_KERNEL);
-#undef C_CONV_KERNEL
+    #undef C_CONV_KERNEL
   }
 
   // clean
-  if (*type != 'f') THCudaTensor_free(input);
+  if (*type != 'f')
+    THCudaTensor_free(input);
   THCudaTensor_free(kernel);
 
   // check for errors
   cudaError_t err = cudaGetLastError();
-  if (err != cudaSuccess) {
+  if (err != cudaSuccess)
+  {
     cudaDeviceProp deviceProp;
     cudaGetDeviceProperties(&deviceProp, 0);
     printf("error in conv2Dmm: %s\n", cudaGetErrorString(err));
@@ -609,6 +672,7 @@ THC_API void THCudaTensor_conv2Dmm(THCudaTensor *output, float beta, THCudaTenso
  * for sr,sc=1 this is equivalent to xcorr2Dger, but otherwise it is useful for
  * calculating derivatives wrt a kernel that is applied with stride sr,sc != 1
  */
+
 THC_API void THCudaTensor_conv2DRevger(THCudaTensor *output, float beta, float alpha,
                                       THCudaTensor *input, THCudaTensor *kernel,
                                       long srow, long scol)
@@ -642,29 +706,26 @@ THC_API void THCudaTensor_conv2DRevger(THCudaTensor *output, float beta, float a
   long nelem = THCudaTensor_nElement(output);
   THCudaTensor_resize4d(output, nKernelPlane, nInputPlane, nOutputRows, nOutputCols);
 
-  if (nelem == 0 || beta == 0 || nelem != THCudaTensor_nElement(output)) {
+  if (nelem == 0 || beta == 0 || nelem != THCudaTensor_nElement(output))
+  {
     THCudaTensor_zero(output);
-  } else if (beta != 1) {
+  }
+  else if (beta != 1)
+  {
     THCudaTensor_mul(output, beta);
   }
 
   int cst = 0, subbatch = 0, sl = 0;
-
   // auto compute nb of blocks and threads
   dim3 blocks(nKernelPlane, nInputPlane);
-  dim3 threads(128/nOutputRows, nOutputRows);
+  dim3 threads(128 / nOutputRows, nOutputRows);
 
   // compute rev conv
-  conv2genericrev (input, kernel, output,
-                                       nInputPlane, nInputRows, nInputCols,
-                                       nKernelPlane, nKernelRows, nKernelCols,
-                                       alpha, srow, scol, nKernelPlane, nInputPlane, 
-                                       nOutputRows, cst, subbatch, sl);
+  conv2genericrev (input, kernel, output, nInputPlane, nInputRows, nInputCols, nKernelPlane,                  nKernelRows, nKernelCols, alpha, srow, scol, nKernelPlane, nInputPlane, nOutputRows,                  cst, subbatch, sl);
 
   // clean
   THCudaTensor_free(input);
   THCudaTensor_free(kernel);*/
-
 }
 
 /*
@@ -672,6 +733,7 @@ THC_API void THCudaTensor_conv2DRevger(THCudaTensor *output, float beta, float a
  * 4D input, 4D kernel, 4D output
  * conv2DRevgerm is doing the same thing as conv2DRevger, but with batch inputs
  */
+
 THC_API void THCudaTensor_conv2DRevgerm(THCudaTensor *output, float beta, float alpha,
                                        THCudaTensor *input, THCudaTensor *kernel,
                                        long srow, long scol)
@@ -707,9 +769,12 @@ THC_API void THCudaTensor_conv2DRevgerm(THCudaTensor *output, float beta, float 
   long nelem = THCudaTensor_nElement(output);
   THCudaTensor_resize4d(output, nKernelPlane, nInputPlane, nOutputRows, nOutputCols);
 
-  if (nelem == 0 || beta == 0 || nelem != THCudaTensor_nElement(output)) {
+  if (nelem == 0 || beta == 0 || nelem != THCudaTensor_nElement(output))
+  {
     THCudaTensor_zero(output);
-  } else if (beta != 1) {
+  }
+  else if (beta != 1)
+  {
     THCudaTensor_mul(output, beta);
   }
 
@@ -719,17 +784,19 @@ THC_API void THCudaTensor_conv2DRevgerm(THCudaTensor *output, float beta, float 
 
   // kernel is called multiple times
   // (the arbitrary split below is just here to make sure we dont go over 256 threads)
-  for (int sl=0; sl<nbatch; sl+=6) {
+  for (int sl = 0; sl < nbatch; sl += 6)
+  {
     // auto compute nb of blocks and threads
     dim3 blocks(nKernelPlane, nInputPlane);
     int subbatch = 6;
-    if (sl+subbatch > nbatch) subbatch = nbatch - sl;
+    if (sl+subbatch > nbatch)
+      subbatch = nbatch - sl;
     int cst = 256 / (subbatch * nOutputRows);
     dim3 threads(cst, nOutputRows, subbatch);
 
     // compute rev conv
-    conv2genericrev <<<blocks, threads>>> (input_data + input->stride[0]*sl,
-                                           kernel_data + kernel->stride[0]*sl, 
+    conv2genericrev <<<blocks, threads>>> (input_data + input->stride[0] * sl,
+                                           kernel_data + kernel->stride[0] * sl,
                                            output_data,
                                            nInputPlane, nInputRows, nInputCols,
                                            nKernelPlane, nKernelRows, nKernelCols,
@@ -742,13 +809,13 @@ THC_API void THCudaTensor_conv2DRevgerm(THCudaTensor *output, float beta, float 
 
   // check for errors
   cudaError_t err = cudaGetLastError();
-  if (err != cudaSuccess) {
+  if (err != cudaSuccess)
+  {
     printf("error in conv2DRevger: %s\n", cudaGetErrorString(err));
     THError("aborting");
   }
 */
 }
-
 
 ///////////////////////////////////
 ///// ConvolutionMap
@@ -763,6 +830,7 @@ THC_API void THCudaTensor_conv2DRevgerm(THCudaTensor *output, float beta, float 
  *   ---- the table should have the first dim with the outputs, each output 
  *   ---- should have a fanin set of inputs contiguously
  */
+
 template <bool swapkernel, int T_kernel_h, int T_kernel_w>
 void conv2mapgeneric(float *input, float *kernel, float *output, int input_n, int input_h, int input_w,
                     int kernel_n, int kernel_h, int kernel_w, int stride_w, int stride_h,
@@ -773,7 +841,7 @@ void conv2mapgeneric(float *input, float *kernel, float *output, int input_n, in
   int output_w = (input_w - kernel_w) / stride_w + 1;
 
   // xcorr or conv
-  int koffset = swapkernel ? kernel_w*kernel_h-1 : 0;
+  int koffset = swapkernel ? kernel_w * kernel_h - 1 : 0;
 
   // nb outputs
   // int output_n = kernel_n / fanin;
@@ -783,64 +851,75 @@ void conv2mapgeneric(float *input, float *kernel, float *output, int input_n, in
   int xx_end = output_w;
   int xx_step = blockDim.x;
 
-  int yy_start = blockDim.y*blockIdx.y + threadIdx.y;
+  int yy_start = blockDim.y * blockIdx.y + threadIdx.y;
   int yy_end = output_h;
-  int yy_step = blockDim.y*gridDim.y;
+  int yy_step = blockDim.y * gridDim.y;
 
   int oo_start = blockIdx.x;
-  int oo_end = oo_start+1;
+  int oo_end = oo_start + 1;
 
   int table_start = blockIdx.x * (fanin * 2);
   int table_end = table_start + (fanin * 2);
 
   // nb threads, unique thread id
-  int tid = blockDim.x*blockDim.y*threadIdx.z 
-    + blockDim.x * threadIdx.y + threadIdx.x;
+  int tid = blockDim.x * blockDim.y * threadIdx.z + blockDim.x * threadIdx.y + threadIdx.x;
   int nthreads = blockDim.x * blockDim.y * blockDim.z;
 
   // iterators
   int oo, ii, xx, yy, kx, ky, kk;
 
   // do the kernels fit in shared mem ?
-  if (kernel_w*kernel_h*kernel_n <= CUDA_SHARED_MEM_SIZE) { 
+  if (kernel_w * kernel_h * kernel_n <= CUDA_SHARED_MEM_SIZE)
+  {
     // put the kernel in shared memory
     __shared__ float shared_kernel[CUDA_SHARED_MEM_SIZE];
 
     // first thread of each block does the copy
-    for (kk = tid; kk < kernel_w*kernel_h*kernel_n; kk += nthreads) {
+    for (kk = tid; kk < kernel_w * kernel_h * kernel_n; kk += nthreads)
+    {
       shared_kernel[kk] = kernel[kk];
     }
     __syncthreads();
 
     // templated kernel size
-    if ((T_kernel_w > 0) && (T_kernel_h > 0)) {
+    if ((T_kernel_w > 0) && (T_kernel_h > 0))
+    {
       // unrolled convolution loop
-      for(oo = oo_start; oo < oo_end; oo++) {
-        for (ii = table_start; ii < table_end; ii = ii + 2) {
-          for(yy = yy_start; yy < yy_end; yy+=yy_step) {
-            for(xx = xx_start; xx < xx_end; xx+=xx_step) {
+      for (oo = oo_start; oo < oo_end; oo++)
+      {
+        for (ii = table_start; ii < table_end; ii = ii + 2)
+        {
+          for (yy = yy_start; yy < yy_end; yy += yy_step)
+          {
+            for (xx = xx_start; xx < xx_end; xx += xx_step)
+            {
               // Dot product in two dimensions... (between input image and the mask)
-              float *input_p = input + ((long)table[ii]-1)*input_h*input_w 
-                + yy*stride_h*input_w + xx*stride_w;
-              float *output_p = output + oo*output_h*output_w + yy*output_w + xx;
-              float *kernel_p = shared_kernel 
-                + ((long)table[ii + 1]-1) *kernel_w*kernel_h + koffset;
+              float *input_p = input + ((long)table[ii] - 1) * input_h * input_w + yy * stride_h * input_w + xx * stride_w;
+              float *output_p = output + oo * output_h * output_w + yy * output_w + xx;
+              float *kernel_p = shared_kernel + ((long)table[ii + 1] - 1) * kernel_w * kernel_h + koffset;
               float sum = 0;
-              if (swapkernel) {
-#pragma unroll
-                for(ky = 0; ky < T_kernel_h; ky++) {
-#pragma unroll
-                  for(kx = 0; kx < T_kernel_w; kx++) {
-                    sum += input_p[kx]*(*kernel_p--);
+              if (swapkernel)
+              {
+                #pragma unroll
+                for (ky = 0; ky < T_kernel_h; ky++)
+                {
+                  #pragma unroll
+                  for (kx = 0; kx < T_kernel_w; kx++)
+                  {
+                    sum += input_p[kx] * (*kernel_p--);
                   }
                   input_p += input_w;
                 }
-              } else {
-#pragma unroll
-                for(ky = 0; ky < T_kernel_h; ky++) {
-#pragma unroll
-                  for(kx = 0; kx < T_kernel_w; kx++) {
-                    sum += input_p[kx]*(*kernel_p++);
+              }
+              else
+              {
+                #pragma unroll
+                for (ky = 0; ky < T_kernel_h; ky++)
+                {
+                  #pragma unroll
+                  for (kx = 0; kx < T_kernel_w; kx++)
+                  {
+                    sum += input_p[kx] * (*kernel_p++);
                   }
                   input_p += input_w;
                 }
@@ -850,33 +929,43 @@ void conv2mapgeneric(float *input, float *kernel, float *output, int input_n, in
           }
         }
       }
-    } else {
+    }
+    else
+    {
       // default convolution loop
-      for(oo = oo_start; oo < oo_end; oo++) {
-        for (ii = table_start; ii < table_end; ii++) {
-          for(yy = yy_start; yy < yy_end; yy+=yy_step) {
-            for(xx = xx_start; xx < xx_end; xx+=xx_step) {
+      for (oo = oo_start; oo < oo_end; oo++)
+      {
+        for (ii = table_start; ii < table_end; ii++)
+        {
+          for(yy = yy_start; yy < yy_end; yy += yy_step)
+          {
+            for (xx = xx_start; xx < xx_end; xx += xx_step)
+            {
               // Dot product in two dims (between input image and the mask)
-              float *input_p = input + ((long)table[ii]-1)*input_h*input_w 
-                + yy*stride_h*input_w + xx*stride_w;
-              float *output_p = output + oo*output_h*output_w + yy*output_w 
-                + xx;
-              float *kernel_p = shared_kernel 
-                + ((long)table[ii + 1]-1) *kernel_w*kernel_h + koffset;
+              float *input_p = input + ((long)table[ii] - 1) * input_h * input_w + yy * stride_h * input_w + xx * stride_w;
+              float *output_p = output + oo * output_h * output_w + yy * output_w + xx;
+              float *kernel_p = shared_kernel + ((long)table[ii + 1] - 1) * kernel_w * kernel_h + koffset;
               float sum = 0;
-              if (swapkernel) {
-                for(ky = 0; ky < kernel_h; ky++) {
-#pragma unroll 5
-                  for(kx = 0; kx < kernel_w; kx++) {
-                    sum += input_p[kx]*(*kernel_p--);
+              if (swapkernel)
+              {
+                for (ky = 0; ky < kernel_h; ky++)
+                {
+                  #pragma unroll 5
+                  for (kx = 0; kx < kernel_w; kx++)
+                  {
+                    sum += input_p[kx] * (*kernel_p--);
                   }
                   input_p += input_w;
                 }
-              } else {
-                for(ky = 0; ky < kernel_h; ky++) {
-#pragma unroll 5
-                  for(kx = 0; kx < kernel_w; kx++) {
-                    sum += input_p[kx]*(*kernel_p++);
+              }
+              else
+              {
+                for (ky = 0; ky < kernel_h; ky++)
+                {
+                  #pragma unroll 5
+                  for (kx = 0; kx < kernel_w; kx++)
+                  {
+                    sum += input_p[kx] * (*kernel_p++);
                   }
                   input_p += input_w;
                 }
@@ -888,32 +977,45 @@ void conv2mapgeneric(float *input, float *kernel, float *output, int input_n, in
       }
     }
 
-  } else { // not enough shared mem for kernels, simply stream them
+  }
+  else
+  {
+    // not enough shared mem for kernels, simply stream them
 
     // convolution loop
-    for(oo = oo_start; oo < oo_end; oo++) {
-      for (ii = table_start; ii < table_end; ii = ii + 2) {
-        for(yy = yy_start; yy < yy_end; yy+=yy_step) {
-          for(xx = xx_start; xx < xx_end; xx+=xx_step) {
+    for (oo = oo_start; oo < oo_end; oo++)
+    {
+      for (ii = table_start; ii < table_end; ii = ii + 2)
+      {
+        for(yy = yy_start; yy < yy_end; yy += yy_step)
+        {
+          for (xx = xx_start; xx < xx_end; xx += xx_step)
+          {
             // Dot product in two dimensions... (between input image and the mask)
-            float *input_p = input + ((long)table[ii]-1)*input_h*input_w 
-              + yy*stride_h*input_w + xx*stride_w;
-            float *output_p = output + oo*output_h*output_w + yy*output_w + xx;
-            float *kernel_p = kernel + ((long)table[ii + 1]-1) *kernel_w*kernel_h + koffset;
+            float *input_p = input + ((long)table[ii] - 1) * input_h * input_w + yy * stride_h * input_w + xx * stride_w;
+            float *output_p = output + oo * output_h * output_w + yy * output_w + xx;
+            float *kernel_p = kernel + ((long)table[ii + 1]-1) * kernel_w * kernel_h + koffset;
             float sum = 0;
-            if (swapkernel) {
-              for(ky = 0; ky < kernel_h; ky++) {
-#pragma unroll 5
-                for(kx = 0; kx < kernel_w; kx++) {
-                  sum += input_p[kx]*(*kernel_p--);
+            if (swapkernel)
+            {
+              for (ky = 0; ky < kernel_h; ky++)
+              {
+                #pragma unroll 5
+                for (kx = 0; kx < kernel_w; kx++)
+                {
+                  sum += input_p[kx] * (*kernel_p--);
                 }
                 input_p += input_w;
               }
-            } else {
-              for(ky = 0; ky < kernel_h; ky++) {
-#pragma unroll 5
-                for(kx = 0; kx < kernel_w; kx++) {
-                  sum += input_p[kx]*(*kernel_p++);
+            }
+            else
+            {
+              for (ky = 0; ky < kernel_h; ky++)
+              {
+                #pragma unroll 5
+                for (kx = 0; kx < kernel_w; kx++)
+                {
+                  sum += input_p[kx] * (*kernel_p++);
                 }
                 input_p += input_w;
               }
@@ -927,12 +1029,12 @@ void conv2mapgeneric(float *input, float *kernel, float *output, int input_n, in
 */
 }
 
-
 /*
  * API-compatible with THRealTensor_conv2Dmv
  * 3D input, 4D kernel, 3D output
  * matrix vector product like: y <- Ax + beta*y
  */
+
 THC_API void THCudaTensor_conv2Dmap(THCudaTensor *output, THCudaTensor *input,
                                    THCudaTensor *kernel, long stride_x, long stride_y,
                                    THCudaTensor *table, long fanin)
@@ -979,17 +1081,17 @@ THC_API void THCudaTensor_conv2Dmap(THCudaTensor *output, THCudaTensor *input,
   int block_height = (int)(16L / nOutputPlane);
   if (block_height < 1)
     block_height = 1;
-  dim3 blocks(nOutputPlane,block_height);
-  dim3 threads(nthreads_x,nthreads_y);
+  dim3 blocks(nOutputPlane, block_height);
+  dim3 threads(nthreads_x, nthreads_y);
 
-#define GENERIC_MAP_KERNEL(dim)                                         \
+  #define GENERIC_MAP_KERNEL(dim)                                         \
   conv2mapgeneric <false, (dim), (dim)> <<<blocks, threads>>> (         \
       input_data, kernel_data, output_data, nInputPlane, nInputRows,    \
       nInputCols, nOutputPlane*fanin, nKernelRows, nKernelCols,         \
       stride_x, stride_y, table_data, fanin);
 
   FOR_KERNEL_SPECIALIZED_DIMENSION(nKernelCols, nKernelRows, GENERIC_MAP_KERNEL);
-#undef GENERIC_MAP_KERNEL
+  #undef GENERIC_MAP_KERNEL
   // clean
   THCudaTensor_free(input);
   THCudaTensor_free(kernel);
@@ -997,7 +1099,8 @@ THC_API void THCudaTensor_conv2Dmap(THCudaTensor *output, THCudaTensor *input,
 
   // check for errors
   cudaError_t err = cudaGetLastError();
-  if (err != cudaSuccess) {
+  if (err != cudaSuccess)
+  {
     printf("error in conv2Dmap: %s\n", cudaGetErrorString(err));
     THError("aborting");
   }

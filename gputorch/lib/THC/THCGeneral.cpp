@@ -25,7 +25,7 @@ void THCudaInit(void)
       {
         int can = 0;
         THCudaCheck(cudaDeviceCanAccessPeer(&can, i, j));
-        if(can)
+        if (can)
           THCudaCheck(cudaDeviceEnablePeerAccess(j, 0));
       }
     }

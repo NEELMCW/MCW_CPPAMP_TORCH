@@ -97,7 +97,6 @@ void THCudaTensor_copyCuda(THCudaTensor *self, THCudaTensor *src)
   THCudaTensor_copy(self, src);
 }
 
-
 #ifndef DIVUP
 #define DIVUP(x, y) (((x) + (y) - 1) / (y))
 #endif
@@ -153,7 +152,6 @@ static void THCudaTensor_computesz(THCudaTensor *self, Concurrency::array<long,1
 
   *dim_ = dim;
 }
-
 
 void THCudaTensor_kernel_copy(THCudaTensor *self, THCudaTensor *src, Concurrency::array<long, 1> *dst_sz,
                              Concurrency::array<long, 1> *dst_st, int dst_dim, 

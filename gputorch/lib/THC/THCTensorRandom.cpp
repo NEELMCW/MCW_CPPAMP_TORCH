@@ -20,8 +20,9 @@ static int num_devices = -1;
 /* Initialize generator array (must be called before any other function) */
 void THCRandom_init(int devices, int current_device)
 {
- /*num_devices = devices;
-  if (gen) free(gen);
+/*  num_devices = devices;
+  if (gen)
+    free(gen);
   gen = (Generator*)malloc(num_devices * sizeof(Generator));
   for (int i = 0; i < num_devices; ++i)
   {
@@ -37,7 +38,8 @@ void THCRandom_init(int devices, int current_device)
 /* Destroy generators and free memory */
 void THCRandom_shutdown()
 {
-  /*if (gen == NULL) return;
+  /*if (gen == NULL)
+    return;
   for (int i = 0; i < num_devices; ++i)
   {
     curandDestroyGenerator(gen[i].gen);
@@ -50,7 +52,8 @@ void THCRandom_shutdown()
 /* Set the generator for the current device */
 void THCRandom_setGenerator(int device)
 {
- /* if (device >= num_devices) THError("Invalid device index.");
+ /* if (device >= num_devices)
+    THError("Invalid device index.");
   current_gen = &gen[device];
   if (current_gen->initf == 0)
   {
@@ -75,7 +78,8 @@ void THCRandom_manualSeed(unsigned long seed)
     THError("Random number generators have not been initialized.");
   }
   current_gen->initial_seed = seed;
-  if (current_gen->initf == 1) curandDestroyGenerator(current_gen->gen);
+  if (current_gen->initf == 1)
+    curandDestroyGenerator(current_gen->gen);
   curandCreateGenerator(&current_gen->gen, CURAND_RNG_PSEUDO_MTGP32);
   curandSetPseudoRandomGeneratorSeed(current_gen->gen, seed);
   current_gen->initf = 1;*/
@@ -145,9 +149,10 @@ THC_API void THCudaTensor_uniform(THCudaTensor *self_, double a, double b)
 
   curandGenerateUniform(current_gen->gen, data, size);
 
-  if ((a != 0) || (b != 1)) {
-      THCudaTensor_mul(self, b-a);
-      THCudaTensor_add(self, a);
+  if ((a != 0) || (b != 1))
+  {
+    THCudaTensor_mul(self, b - a);
+    THCudaTensor_add(self, a);
   }
 
   THCudaTensor_freeCopyTo(self, self_);*/
@@ -163,10 +168,10 @@ THC_API void THCudaTensor_bernoulli(THCudaTensor *self_, double p)
   long size = THCudaTensor_nElement(self);
   float *data = THCudaTensor_data(self);
   thrust::device_ptr<float> tdata(data);
-  
+
   curandGenerateUniform(current_gen->gen, data, size);
-  
-  thrust::transform(tdata, tdata+size, tdata, bernoulli_functor(p));
+
+  thrust::transform(tdata, tdata + size, tdata, bernoulli_functor(p));
 
   THCudaTensor_freeCopyTo(self, self_);*/
 };
@@ -195,7 +200,7 @@ THC_API void THCudaTensor_logNormal(THCudaTensor *self_, double mean, double std
   THCudaTensor *self = THCudaTensor_newContiguous(self_);
   long size = THCudaTensor_nElement(self);
   float *data = THCudaTensor_data(self);
-  
+
   curandGenerateLogNormal(current_gen->gen, data, size, mean, stdv);
 
   THCudaTensor_freeCopyTo(self, self_);*/
@@ -214,7 +219,7 @@ THC_API void THCudaTensor_geometric(THCudaTensor *self_, double p)
 
   curandGenerateUniform(current_gen->gen, data, size);
 
-  thrust::transform(tdata, tdata+size, tdata, geometric_functor(p));
+  thrust::transform(tdata, tdata + size, tdata, geometric_functor(p));
 
   THCudaTensor_freeCopyTo(self, self_);*/
 };
@@ -232,7 +237,7 @@ THC_API void THCudaTensor_exponential(THCudaTensor *self_, double lambda)
 
   curandGenerateUniform(current_gen->gen, data, size);
 
-  thrust::transform(tdata, tdata+size, tdata, exponential_functor(lambda));
+  thrust::transform(tdata, tdata + size, tdata, exponential_functor(lambda));
 
   THCudaTensor_freeCopyTo(self, self_);*/
 };
@@ -250,7 +255,7 @@ THC_API void THCudaTensor_cauchy(THCudaTensor *self_, double median, double sigm
   
   curandGenerateUniform(current_gen->gen, data, size);
   
-  thrust::transform(tdata, tdata+size, tdata, cauchy_functor(median, sigma));
+  thrust::transform(tdata, tdata + size, tdata, cauchy_functor(median, sigma));
 
   THCudaTensor_freeCopyTo(self, self_);*/
 };
