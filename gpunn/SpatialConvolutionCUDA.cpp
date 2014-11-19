@@ -58,7 +58,7 @@ static int cunn_SpatialConvolutionCUDA_updateOutput(lua_State *L)
   float *output_data = THCudaTensor_data(output);
 
   // convolutions
-  spatialConv_updateOutput(input_data, weight_data, output_data, nInputPlane, inputHeight, inputWidth,
+  spatialConv_updateOutput(input, weight, output, nInputPlane, inputHeight, inputWidth,
                           batchSize, nOutputPlane, outputHeight, outputWidth, kH, kW,
                           -floor((double)padding/2), dW, 0, 1, true);
 
@@ -159,7 +159,7 @@ static int cunn_SpatialConvolutionCUDA_accGradParameters(lua_State *L)
   float *gradOutput_data = THCudaTensor_data(gradOutput);
 
   // convolutions
-  spatialConv_accGradParameters(input_data, gradOutput_data, gradWeight_data, nInputPlane, inputHeight,
+  spatialConv_accGradParameters(input, gradOutput, gradWeight, nInputPlane, inputHeight,
                                inputWidth, batchSize, nOutputPlane, outputHeight, outputWidth, kH, kW,
                                -floor((double)padding/2), dW, 0, scale, partialSum);
 
