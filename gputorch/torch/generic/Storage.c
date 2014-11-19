@@ -5,31 +5,31 @@
 static int torch_Storage_(new)(lua_State *L)
 {
   THStorage *storage;
-  if(lua_type(L, 1) == LUA_TSTRING)
+  if (lua_type(L, 1) == LUA_TSTRING)
   {
     const char *fileName = luaL_checkstring(L, 1);
     int isShared = luaT_optboolean(L, 2, 0);
     long size = luaL_optlong(L, 3, 0);
     storage = THStorage_(newWithMapping)(fileName, size, isShared);
   }
-  else if(lua_type(L, 1) == LUA_TTABLE)
+  else if (lua_type(L, 1) == LUA_TTABLE)
   {
     long size = lua_objlen(L, 1);
     long i;
     storage = THStorage_(newWithSize)(size);
-    for(i = 1; i <= size; i++)
+    for (i = 1; i <= size; i++)
     {
       lua_rawgeti(L, 1, i);
-      if(!lua_isnumber(L, -1))
+      if (!lua_isnumber(L, -1))
       {
         THStorage_(free)(storage);
         luaL_error(L, "element at index %d is not a number", i);
       }
-      THStorage_(set)(storage, i-1, (real)lua_tonumber(L, -1));
+      THStorage_(set)(storage, i - 1, (real)lua_tonumber(L, -1));
       lua_pop(L, 1);
     }
   }
-  else if(lua_type(L, 2) == LUA_TNUMBER)
+  else if (lua_type(L, 2) == LUA_TNUMBER)
   {
     long size = luaL_optlong(L, 1, 0);
     real *ptr = (real *)luaL_optlong(L, 2, 0);
@@ -66,21 +66,21 @@ static int torch_Storage_(copy)(lua_State *L)
 {
   THStorage *storage = (THStorage *)luaT_checkudata(L, 1, torch_Storage);
   void *src;
-  if( (src = luaT_toudata(L, 2, torch_Storage)) )
+  if ( (src = luaT_toudata(L, 2, torch_Storage)) )
     THStorage_(copy)(storage, (THCudaStorage *)src);
-  else if( (src = luaT_toudata(L, 2, "torch.ByteStorage")) )
+  else if ( (src = luaT_toudata(L, 2, "torch.ByteStorage")) )
     THStorage_(copyByte)(storage, (THByteStorage *)src);
-  else if( (src = luaT_toudata(L, 2, "torch.CharStorage")) )
+  else if ( (src = luaT_toudata(L, 2, "torch.CharStorage")) )
     THStorage_(copyChar)(storage, (THCharStorage *)src);
-  else if( (src = luaT_toudata(L, 2, "torch.ShortStorage")) )
+  else if ( (src = luaT_toudata(L, 2, "torch.ShortStorage")) )
     THStorage_(copyShort)(storage, (THShortStorage *)src);
-  else if( (src = luaT_toudata(L, 2, "torch.IntStorage")) )
+  else if ( (src = luaT_toudata(L, 2, "torch.IntStorage")) )
     THStorage_(copyInt)(storage, (THIntStorage *)src);
-  else if( (src = luaT_toudata(L, 2, "torch.LongStorage")) )
+  else if ( (src = luaT_toudata(L, 2, "torch.LongStorage")) )
     THStorage_(copyLong)(storage, (THLongStorage *)src);
-  else if( (src = luaT_toudata(L, 2, "torch.FloatStorage")) )
+  else if ( (src = luaT_toudata(L, 2, "torch.FloatStorage")) )
     THStorage_(copyFloat)(storage,(THFloatStorage *)src);
-  else if( (src = luaT_toudata(L, 2, "torch.DoubleStorage")) )
+  else if ( (src = luaT_toudata(L, 2, "torch.DoubleStorage")) )
     THStorage_(copyDouble)(storage, (THDoubleStorage *)src);
   else
     luaL_typerror(L, 2, "torch.*Storage");
@@ -106,7 +106,7 @@ static int torch_Storage_(__len__)(lua_State *L)
 
 static int torch_Storage_(__newindex__)(lua_State *L)
 {
-  if(lua_isnumber(L, 2))
+  if (lua_isnumber(L, 2))
   {
     THStorage *storage = (THStorage *)luaT_checkudata(L, 1, torch_Storage);
     long index = luaL_checklong(L, 2) - 1;
@@ -122,7 +122,7 @@ static int torch_Storage_(__newindex__)(lua_State *L)
 
 static int torch_Storage_(__index__)(lua_State *L)
 {
-  if(lua_isnumber(L, 2))
+  if (lua_isnumber(L, 2))
   {
     THStorage *storage = (THStorage *)luaT_checkudata(L, 1, torch_Storage);
     long index = luaL_checklong(L, 2) - 1;
@@ -141,7 +141,7 @@ static int torch_Storage_(__index__)(lua_State *L)
 static int torch_Storage_(string)(lua_State *L)
 {
   THStorage *storage = luaT_checkudata(L, 1, torch_Storage);
-  if(lua_isstring(L, -1))
+  if (lua_isstring(L, -1))
   {
     size_t len = 0;
     const char *str = lua_tolstring(L, -1, &len);
@@ -162,10 +162,10 @@ static int torch_Storage_(totable)(lua_State *L)
   long i;
 
   lua_newtable(L);
-  for(i = 0; i < storage->size; i++)
+  for (i = 0; i < storage->size; i++)
   {
     lua_pushnumber(L, (lua_Number)storage->data[i]);
-    lua_rawseti(L, -2, i+1);
+    lua_rawseti(L, -2, i + 1);
   }
   return 1;
 }
