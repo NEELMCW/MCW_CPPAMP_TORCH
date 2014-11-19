@@ -100,7 +100,7 @@ void cutorch_CudaStorage_init(lua_State* L)
                                           cutorch_DoubleStorage_copy,
                                           cutorch_CudaStorage_copy};
 
-    for(i = 0; i < 8; i++)
+    for (i = 0; i < 8; i++)
     {
       luaT_pushmetatable(L, tnames[i]);
       lua_pushcfunction(L, funcs[i]);

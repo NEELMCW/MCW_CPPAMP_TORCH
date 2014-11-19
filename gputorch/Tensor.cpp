@@ -79,17 +79,17 @@ static void THFloatTensor_computesz(THFloatTensor *self, long **sz_, long **st_)
 {
   long *sz, *st, *szh;
   int i;
-  
-  sz = (long *)THAlloc(sizeof(long)*self->nDimension);
-  st = (long *)THAlloc(sizeof(long)*self->nDimension);
-  szh = (long *)THAlloc(sizeof(long)*self->nDimension);
 
-  for(i = self->nDimension-1; i >= 0; i--)
+  sz = (long *)THAlloc(sizeof(long) * self->nDimension);
+  st = (long *)THAlloc(sizeof(long) * self->nDimension);
+  szh = (long *)THAlloc(sizeof(long) * self->nDimension);
+
+  for (i = self->nDimension - 1; i >= 0; i--)
   {
-    if(i == self->nDimension-1)
+    if (i == self->nDimension - 1)
       szh[i] = 1;
     else
-      szh[i] = szh[i+1]*self->size[i+1];
+      szh[i] = szh[i+1] * self->size[i + 1];
   }
 
   memcpy(sz, szh, self->nDimension * sizeof(long));
@@ -100,15 +100,12 @@ static void THFloatTensor_computesz(THFloatTensor *self, long **sz_, long **st_)
   *st_ = st;
 }
 
-void THFloatTensor_kernel_copy(float *dst, 
-                                         long *dst_sz, long *dst_st, int dst_dim,
-                                         float *src,
-                                         long *src_sz, long *src_st, int src_dim,
-                                         long n_elem)
+void THFloatTensor_kernel_copy(float *dst, long *dst_sz, long *dst_st, int dst_dim, float *src,
+                              long *src_sz, long *src_st, int src_dim, long n_elem)
 {
   long k;
 
-  for(k = 0; k < n_elem; k++)
+  for (k = 0; k < n_elem; k++)
   {
     long src_idx = 0;
     long src_rest = k;
@@ -116,15 +113,15 @@ void THFloatTensor_kernel_copy(float *dst,
     long dst_rest = k;
     int dim;
 
-    for(dim = 0; dim < dst_dim; dim++)
+    for (dim = 0; dim < dst_dim; dim++)
     {
-      dst_idx += (dst_rest/dst_sz[dim])*dst_st[dim];
+      dst_idx += (dst_rest / dst_sz[dim]) * dst_st[dim];
       dst_rest = dst_rest % dst_sz[dim];
     }
 
-    for(dim = 0; dim < src_dim; dim++)
+    for (dim = 0; dim < src_dim; dim++)
     {
-      src_idx += (src_rest/src_sz[dim])*src_st[dim];
+      src_idx += (src_rest / src_sz[dim]) * src_st[dim];
       src_rest = src_rest % src_sz[dim];
     }
 
@@ -149,7 +146,7 @@ static int cuda_FloatTensor_fakecopy(lua_State *L)
                             THFloatTensor_data(src),
                             d_src_sz, d_src_st, src->nDimension,
                             nElement);
-  
+
   THFree(d_self_sz);
   THFree(d_self_st);
   THFree(d_src_sz);
@@ -192,7 +189,7 @@ void cutorch_CudaTensor_init(lua_State* L)
                                           cutorch_DoubleTensor_copy,
                                           cutorch_CudaTensor_copy};
 
-    for(i = 0; i < 8; i++)
+    for (i = 0; i < 8; i++)
     {
       luaT_pushmetatable(L, tnames[i]);
       lua_pushcfunction(L, funcs[i]);
