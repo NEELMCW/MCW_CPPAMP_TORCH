@@ -10,12 +10,9 @@
 void THCudaTensor_fill(THCudaTensor *self_, float value)
 {
   THCudaTensor *self = THCudaTensor_newContiguous(self_);
-  Concurrency::array_view<float, 1> selfData(Concurrency::extent<1>(self->storage->size), THCudaTensor_data(self));
-  Concurrency::parallel_for_each(selfData.get_extent(), [=] (Concurrency::index<1> idx) restrict (amp)
-  {
-    selfData[idx] = value;
-  });
-  selfData.synchronize();
+  std::vector<float> self_data(self->storage->data, self->storage->data + self->storage->size);
+  std::fill(self_data.begin(),self_data.end(),value);
+  std::copy(self_data.begin(),self_data.end(),self->storage->data);
   THCudaTensor_copy(self_, self);
   if (self != self_)
   {
@@ -27,12 +24,9 @@ void THCudaTensor_fill(THCudaTensor *self_, float value)
 void THCudaTensor_zero(THCudaTensor *self_)
 {
   THCudaTensor *self = THCudaTensor_newContiguous(self_);
-  Concurrency::array_view<float, 1> selfData(Concurrency::extent<1>(self->storage->size), THCudaTensor_data(self));
-  Concurrency::parallel_for_each(selfData.get_extent(), [=] (Concurrency::index<1> idx) restrict (amp)
-  {
-    selfData[idx] = 0;
-  });
-  selfData.synchronize();
+  std::vector<float> self_data(self->storage->data, self->storage->data + self->storage->size);
+  std::fill(self_data.begin(),self_data.end(),0);
+  std::copy(self_data.begin(),self_data.end(),self->storage->data);
   THCudaTensor_copy(self_, self);
   if (self != self_)
   {

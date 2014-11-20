@@ -1,5 +1,6 @@
 // CUDA: grid stride looping
 #include "amp_math.h"
+#include "THBlas.h"
 // Use 1024 threads per block, which requires cuda sm_2x or above
 const int CUDA_NUM_THREADS = 1024;
 
@@ -194,7 +195,7 @@ static int cunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
     long k_ = 1;
 
     // Do GEMM (note: this is a bit confusing because gemm assumes column-major matrices)
-    /*THCudaBlas_gemm(
+    THFloatBlas_gemm(
         't', 'n',
         n_, m_, k_,
         1,
@@ -202,7 +203,7 @@ static int cunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
         THCudaTensor_data(bias), k_,
         0,
         THCudaTensor_data(output_n), n_
-    );*/
+    );
 
     // Extract columns:
     im2col(
@@ -218,7 +219,7 @@ static int cunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
     long k = weight->size[1];
 
     // Do GEMM (note: this is a bit confusing because gemm assumes column-major matrices)
-    /*THCudaBlas_gemm(
+    THFloatBlas_gemm(
         'n', 'n',
         n, m, k,
         1,
@@ -226,7 +227,7 @@ static int cunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
         THCudaTensor_data(weight), k,
         1,
         THCudaTensor_data(output_n), n
-    );*/
+    );
   }
 
   // Free
@@ -304,7 +305,7 @@ static int cunn_SpatialConvolutionMM_updateGradInput(lua_State *L) {
     long k = weight->size[0];
 
     // Do GEMM (note: this is a bit confusing because gemm assumes column-major matrices)
-    /*THCudaBlas_gemm(
+    THFloatBlas_gemm(
         'n', 't',
         n, m, k,
         1,
@@ -312,7 +313,7 @@ static int cunn_SpatialConvolutionMM_updateGradInput(lua_State *L) {
         THCudaTensor_data(weight), m,
         0,
         THCudaTensor_data(gradColumns), n
-    );*/
+    );
 
     // Unpack columns back into input:
     col2im(
@@ -323,9 +324,9 @@ static int cunn_SpatialConvolutionMM_updateGradInput(lua_State *L) {
   }
 
   // Free
-  THCudaTensor_free(input_n);
+/*  THCudaTensor_free(input_n);
   THCudaTensor_free(gradInput_n);
-  THCudaTensor_free(gradOutput_n);
+  THCudaTensor_free(gradOutput_n);*/
 
   // Resize output
   if (batch == 0) {
@@ -410,7 +411,7 @@ static int cunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
     long k = columns->size[1];
 
     // Do GEMM (note: this is a bit confusing because gemm assumes column-major matrices)
-    /*THCudaBlas_gemm(
+    THFloatBlas_gemm(
         't', 'n',
         n, m, k,
         scale,
@@ -418,7 +419,7 @@ static int cunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
         THCudaTensor_data(gradOutput_n), k,
         1,
         THCudaTensor_data(gradWeight), n
-    );*/
+    );
 
     // Do Bias:
     // M,N,K are dims of matrix A and B
@@ -427,7 +428,7 @@ static int cunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
     long k_ = outputHeight * outputWidth;
 
     // Do GEMV (note: this is a bit confusing because gemv assumes column-major matrices)
-    /*THCudaBlas_gemv(
+    THFloatBlas_gemv(
         't',
         k_, m_,
         scale,
@@ -435,7 +436,7 @@ static int cunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
         THCudaTensor_data(ones), 1,
         1,
         THCudaTensor_data(gradBias), 1
-    );*/
+    );
   }
 
   // Free
