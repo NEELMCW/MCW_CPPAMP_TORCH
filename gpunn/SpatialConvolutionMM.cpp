@@ -2,7 +2,7 @@
 #include "amp_math.h"
 #include "THBlas.h"
 // Use 1024 threads per block, which requires cuda sm_2x or above
-const int CUDA_NUM_THREADS = 256;
+const int CUDA_NUM_THREADS = 1024;
 
 // CUDA: number of blocks for threads.
 inline int GET_BLOCKS(const int N) {
@@ -324,9 +324,9 @@ static int cunn_SpatialConvolutionMM_updateGradInput(lua_State *L) {
   }
 
   // Free
-/*  THCudaTensor_free(input_n);
+  THCudaTensor_free(input_n);
   THCudaTensor_free(gradInput_n);
-  THCudaTensor_free(gradOutput_n);*/
+  THCudaTensor_free(gradOutput_n);
 
   // Resize output
   if (batch == 0) {
