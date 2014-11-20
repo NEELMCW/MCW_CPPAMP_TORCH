@@ -14,12 +14,18 @@
   {                                                                     \
     float *fdata = (float *)THAlloc(sizeof(float)*size);                         \
     THFile_readFloatRaw(file, fdata, size);                             \
+    Concurrency::array_view<float> avData(Concurrency::extent<1>(size),data); \
+    Concurrency::array_view<float> avFData(Concurrency::extent<1>(size),fdata); \
+    avFData.copy_to(avData); \
     THFree(fdata);                                                      \
   }
 
 #define THFile_writeRealRaw(file, data, size)                           \
   {                                                                     \
     float *fdata = (float *)THAlloc(sizeof(float)*size);                         \
+    Concurrency::array_view<float> avData(Concurrency::extent<1>(size),data); \
+    Concurrency::array_view<float> avFData(Concurrency::extent<1>(size),fdata); \
+    avData.copy_to(avFData); \
     THFile_writeFloatRaw(file, fdata, size);                            \
     THFree(fdata);                                                      \
   }

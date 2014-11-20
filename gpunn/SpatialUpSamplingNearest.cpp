@@ -11,7 +11,7 @@
  * Description:
  */
 
-int translate_idx(int ii, int d1, int d2, int d3, int scale_factor)
+int translate_idx(int ii, int d1, int d2, int d3, int scale_factor) restrict(amp)
 {
   int x, y, z, w;
   w = ii % d3;
@@ -28,7 +28,7 @@ int translate_idx(int ii, int d1, int d2, int d3, int scale_factor)
   return (((x * d1 + y) * d2) + z) * d3 + w;
 }
 
-int translate_idx_inv(int ii, int d1, int d2, int d3, int scale_factor, int off_x, int off_y)
+int translate_idx_inv(int ii, int d1, int d2, int d3, int scale_factor, int off_x, int off_y) restrict(amp)
 {
   int x, y, z, w;
   w = ii % d3;
@@ -45,15 +45,23 @@ int translate_idx_inv(int ii, int d1, int d2, int d3, int scale_factor, int off_
   return (((x * d1 + y) * d2) + z) * d3 + w;
 }
 
-void upscale(float *input, float *output, long no_elements, int scale_factor, int d1, int d2, int d3)
+void upscale(float *input, float *output, unsigned int inpSz, unsigned int outSz, long no_elements,
+                        int scale_factor, int d1, int d2, int d3, unsigned int grdConf[])
 {
-/*  // output offset:
-  long ii = threadIdx.x + blockDim.x * blockIdx.x;
-  ii += threadIdx.y + blockDim.y * (blockDim.x * gridDim.x) * blockIdx.y;
-  if (ii >= no_elements) return;
-  int ipidx = translate_idx(ii, d1, d2, d3, scale_factor);
-  output[ii]=input[ipidx];
-*/
+    // output offset:
+    Concurrency::array_view<float,1> avInp(inpSz, input);
+    Concurrency::array_view<float,1> avOut(outSz, output);
+    Concurrency::extent<2> grdExt(grdConf[1],grdConf[0]*256);
+    Concurrency::tiled_extent<1,256> t_ext(grdExt);
+
+    Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1,256> tidx) restrict(amp) 
+    {
+        long ii = tidx.global[1];
+        ii += tidx.local[0] + t_ext.tile_dim0 * (t_ext.tile_dim1 * t_ext[1]) * tidx.tile[0];
+        if (ii >= no_elements) return;
+        int ipidx = translate_idx(ii, d1, d2, d3, scale_factor);
+        avOut[ii]=avInp[ipidx];
+    });
 }
 
 static int cunn_SpatialUpSamplingNearest_updateOutput(lua_State *L)
@@ -97,43 +105,57 @@ static int cunn_SpatialUpSamplingNearest_updateOutput(lua_State *L)
   // Max number of blocks: http://en.wikipedia.org/wiki/CUDA
   // 65535 for SM 2.x, 2^32 -1 for >= 3.0
   // TODO: When we move to SM 3.5 we should update this
-  long n_xblocks = 1;// min(max((int)ceil((float)no_elements / nthreads), 1), 65535);
+  long n_xblocks = fmin(fmax((int)ceil((float)no_elements / nthreads), 1), 65535);
   long n_yblocks = (long)ceil((float)no_elements / (float)(n_xblocks * nthreads));
   if (n_yblocks > 65535)
   {
     THError("Input size is too large!  aborting");
   }
 
-  // kernel:
-  //  upscale<<<blocks, threads>>> (input_data, output_data, no_elements, scale_factor, d1, d2, d3);
+    unsigned int grdConf[2];
 
-  // check for errors
+    grdConf[0] = n_xblocks;
+    grdConf[1] = n_yblocks;
 
+    unsigned int inpSz = THCudaTensor_nElement(input);
+    unsigned int outSz = THCudaTensor_nElement(output);
+    // kernel:
+    upscale(input_data, output_data, inpSz, outSz, no_elements, scale_factor, d1, d2, d3, grdConf);    
+ 
   // final cut:
   THCudaTensor_free(input); 
 
   return 1;
 }
 
+
 /*
  * Description:
  */
-void downscale(float *gradInput_data, float *gradOutput_data, long no_elements, int scale_factor,
-              int d1, int d2, int d3)
+void downscale(float *gradInput_data, float *gradOutput_data, unsigned int gradInpSz, unsigned int gradOutSz, long no_elements,
+                              int scale_factor, int d1, int d2, int d3, unsigned int gridConf[])
 {
-  // output offset:
-/*  long ii = threadIdx.x + blockDim.x * blockIdx.x;
-  ii += threadIdx.y + blockDim.y * (blockDim.x * gridDim.x) * blockIdx.y;
-  if (ii >= no_elements) return;
-  for (int i=0; i < scale_factor; i++){
-    for(int j=0; j < scale_factor; j++){
-      int ipidx = translate_idx_inv(ii, d1, d2, d3, scale_factor, i, j);
-      gradInput_data[ii] += gradOutput_data[ipidx];
-    }
-  }
-*/
-}
+    Concurrency::array_view<float,1> avInp(gradInpSz, gradInput_data);
+    Concurrency::array_view<float,1> avOut(gradOutSz, gradOutput_data);
+    Concurrency::extent<2> grdExt(gridConf[1],gridConf[0]*256);
+    Concurrency::tiled_extent<1,256> t_ext(grdExt);
+    // output offset:
+    Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1,256> tidx) restrict(amp) 
+    {
+        long ii = tidx.global[1];
+        ii += tidx.local[0] + t_ext.tile_dim0 * (t_ext.tile_dim1 * t_ext[1]) * tidx.tile[0];
+        if (ii >= no_elements) return;
+        for (int i=0; i < scale_factor; i++)
+        {
+            for(int j=0; j < scale_factor; j++)
+            {
+                int ipidx = translate_idx_inv(ii, d1, d2, d3, scale_factor, i, j);
+                avInp[ii] += avOut[ipidx];
+            }
+        }
+    });
 
+}
 
 static int cunn_SpatialUpSamplingNearest_updateGradInput(lua_State *L)
 {
@@ -169,26 +191,33 @@ static int cunn_SpatialUpSamplingNearest_updateGradInput(lua_State *L)
     d3 = gradInput->size[3];
   }
 
-  // cuda blocks & threads:
-  long nthreads = 256;
-  // Max number of blocks: http://en.wikipedia.org/wiki/CUDA
-  // 65535 for SM 2.x, 2^32 -1 for >= 3.0
-  // TODO: When we move to SM 3.5 we should update this
-  long n_xblocks = 1; //min(max((int)ceil((float)no_elements / nthreads), 1), 65535);
-  long n_yblocks = (long)ceil((float)no_elements / (float)(n_xblocks * nthreads));
-  if (n_yblocks > 65535)
-  {
-    THError("Input size is too large!  aborting");
-  }
+    // Cuda blocks & threads:
+    long nthreads = 256;
+    // Max number of blocks: http://en.wikipedia.org/wiki/Cuda
+    // 65535 for SM 2.x, 2^32 -1 for >= 3.0
+    // TODO: When we move to SM 3.5 we should update this
+    long n_xblocks = fmin(fmax((int)ceil((float)no_elements / nthreads), 1), 65535);
+    long n_yblocks = (long)ceil((float)no_elements / (float)(n_xblocks * nthreads));
+    if (n_yblocks > 65535) 
+    {
+        THError("Input size is too large!  aborting");
+    }
 
-  // kernel:
-  // downscale<<<blocks, threads>>> (gradInput_data, gradOutput_data, no_elements, 
-  // scale_factor, d1, d2, d3);
+    unsigned int gradConf[2];
+    gradConf[0] = n_xblocks;
+    gradConf[1] = n_yblocks;
 
-  // check for errors
-
-  return 1;
+    //dim3 blocks(n_xblocks, n_yblocks);
+    //dim3 threads(nthreads);
+ 
+    // kernel:
+    downscale(gradInput_data, gradOutput_data, THCudaTensor_nElement(gradInput), THCudaTensor_nElement(gradOutput), no_elements, 
+        scale_factor, d1, d2, d3, gradConf);
+ 
+    return 1;
 }
+
+
 
 static const struct luaL_Reg cunn_SpatialUpSamplingNearest__ [] = {
   {"SpatialUpSamplingNearest_updateOutput", cunn_SpatialUpSamplingNearest_updateOutput},

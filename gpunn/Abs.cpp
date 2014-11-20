@@ -25,6 +25,8 @@ static int cunn_Abs_updateOutput(lua_State *L)
   std::vector<float> input_data(THCudaTensor_data(input), THCudaTensor_data(input) + THCudaTensor_nElement(input));
  // thrust::transform(input_data, input_data+size, output_data, absupdateOutput_functor());
   std::transform(input_data.begin(), input_data.end(), output_data.begin(), absupdateOutput_functor());
+ 
+  std::copy(output_data.begin(), output_data.end(),output->storage->data);
 
   THCudaTensor_free(input);
   return 1;
@@ -62,6 +64,7 @@ static int cunn_Abs_updateGradInput(lua_State *L)
   //thrust::transform(input_data, input_data+size, gradOutput_data, gradInput_data, absupdateGradInput_functor());
   std::transform(input_data.begin(), input_data.end(), gradOutput_data.begin(),gradInput_data.begin(), absupdateGradInput_functor());
 
+  std::copy(gradInput_data.begin(), gradInput_data.end(),gradInput->storage->data);
   THCudaTensor_free(gradOutput);
   THCudaTensor_free(input);
   return 1;
