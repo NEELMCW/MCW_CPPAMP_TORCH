@@ -8,7 +8,7 @@ void imt2col_kernel(const int n, THCudaTensor* data_im,
         const int stride, const int channels,
         const int height_col, const int width_col,
         const int bidx, const int batch,
-        THCudaTensor* data_col)
+        THCudaTensor* data_col, unsigned int elt)
 {
     Concurrency::array_view<float,1> avData_im(Concurrency::extent<1>(data_im->storage->size), THCudaTensor_data(data_im));
     Concurrency::array_view<float,1> avData_col(Concurrency::extent<1>(data_col->storage->size), THCudaTensor_data(data_col));
@@ -20,6 +20,7 @@ void imt2col_kernel(const int n, THCudaTensor* data_im,
         {
             float *data_col = avData_col.data();
             float *data_im = avData_im.data();
+            data_im = data_im + elt * height * width * ksize;
             int w_out = i % width_col;
             i /= width_col;
             int h_out = i % height_col;
@@ -44,7 +45,7 @@ void imt2col_kernel(const int n, THCudaTensor* data_im,
     });
 }
 
-void imt2col(THCudaTensor* data_im, const int channels,
+void imt2col(THCudaTensor* data_im, unsigned int elt, const int channels,
         const int height, const int width, const int ksize, const int pad,
         const int stride, const int batch, THCudaTensor* data_col)
 {
@@ -57,7 +58,7 @@ void imt2col(THCudaTensor* data_im, const int channels,
     for (int bidx = 0; bidx < batch; bidx++) {
         imt2col_kernel(num_kernels, data_im, height, width, ksize,
                        pad, stride, channels,height_col, width_col,
-                       bidx, batch, data_col);
+                       bidx, batch, data_col, elt);
     }
 }
 
@@ -135,11 +136,11 @@ static int cunn_SpatialConvolutionMM_BHWD_updateOutput(lua_State *L) {
         for (int elt = 0; elt < batchSize; elt += stepBatchSize) {
             // Extract columns:
             // To Do by  Neelakandan
-            /*imt2col(
-                THCudaTensor_data(input) + elt * inputHeight * inputWidth * nInputPlane,
+            imt2col(
+                input, elt,
                 nInputPlane, inputHeight, inputWidth, kW, padding, dW, stepBatchSize,
-                THCudaTensor_data(columns)
-            );*/
+                columns
+            );
 
             // Matrix mulitply per output:
             THCudaTensor_narrow(output_n, output, 0, elt, stepBatchSize);
@@ -151,7 +152,7 @@ static int cunn_SpatialConvolutionMM_BHWD_updateOutput(lua_State *L) {
             long k = weight->size[1];
 
             // Do GEMM_BHWD (note: this is a bit confusing because gemm assumes column-major matrices)
-            /*THCudaBlas_gemm(
+            THFloatBlas_gemm(
                 't', 't',
                 m, n, k,
                 1,
@@ -159,7 +160,7 @@ static int cunn_SpatialConvolutionMM_BHWD_updateOutput(lua_State *L) {
                 THCudaTensor_data(columns), n,
                 1,
                 THCudaTensor_data(output_n), m
-            );*/
+            );
         }
 
         // Free
