@@ -622,7 +622,7 @@ end]]--
    tester:assertTensorEq(groundtruth, rescuda, 0.00001, "Error in indexSelect")
 end]]--
 
---[[function test.addmv()
+function test.addmv()
    local sizes = {
       {2,1},
       {1,2},
@@ -641,7 +641,7 @@ end]]--
    end
 end
 
-function test.mv()
+--[[function test.mv()
    local sizes = {
       {2,1},
       {1,2},
@@ -658,7 +658,7 @@ function test.mv()
       local b = torch.randn(m)
       compareFloatAndCudaTensorArgs(c, 'mv', a, b)
    end
-end
+end]]--
 
 function test.addr()
    local sizes = {
@@ -698,7 +698,7 @@ function test.addmm()
    end
 end
 
-function test.mm()
+--[[function test.mm()
    local sizes = {
       {16, 3, 1},
       {1, 12, 1},
@@ -715,9 +715,9 @@ function test.mm()
       local b = torch.randn(k, m)
       compareFloatAndCudaTensorArgs(c, 'mm', a, b)
    end
-end
+end]]--
 
-function test.ger()
+--[[function test.ger()
    local sizes = {
       {16, 1},
       {1, 12},
