@@ -13,7 +13,6 @@ void imt2col_kernel(const int n, THCudaTensor* data_im,
     Concurrency::array_view<float,1> avData_im(Concurrency::extent<1>(data_im->storage->size), THCudaTensor_data(data_im));
     Concurrency::array_view<float,1> avData_col(Concurrency::extent<1>(data_col->storage->size), THCudaTensor_data(data_col));
     Concurrency::extent<1> grdExt(((n + 256 - 1) / 256) * 256);
-    std::cout<<"\n Imtttt2ColKernel"<<std::endl;
     Concurrency::tiled_extent<256> t_ext(grdExt);
     Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<256> tidx) restrict(amp)
     {
