@@ -2,6 +2,7 @@
 #include "THCGeneral.h"
 #include "THCTensorRandom.h"
 #include "amp_math.h"
+#include "THBlas.h"
 #include <numeric>
 //#include "bolt/cl/device_vector.h"
 
@@ -707,200 +708,201 @@ void THCudaTensor_min(THCudaTensor *self, THCudaTensor* indices, THCudaTensor *s
   const float maxfloat32 = 3.402823466e+38f;
   //return THCudaTensor_reduceDim(self, src, dimension, maxfloat32, thrust::minimum<float>());
 }
-
-void THCudaTensor_addmm(THCudaTensor *self, float beta, THCudaTensor *t, float alpha, THCudaTensor *mat1,
-                       THCudaTensor *mat2)
+void THCudaTensor_addmv(THCudaTensor *r_, float beta, THCudaTensor *t, float alpha, THCudaTensor *mat, THCudaTensor *vec)
 {
-}
-
-void THCudaTensor_addmv(THCudaTensor *self, float beta, float alpha, THCudaTensor *mat, THCudaTensor *vec)
-{
-/*  if( (mat->nDimension != 2) || (vec->nDimension != 1) )
+  if( (mat->nDimension != 2) || (vec->nDimension != 1) )
     THError("matrix and vector expected");
 
   if( mat->size[1] != vec->size[0] )
     THError("size mismatch");
 
-  if(self->nDimension != 1)
+  if(t->nDimension != 1)
     THError("size mismatch");
 
-  if( self->size[0] != mat->size[0] )
+  if(t->size[0] != mat->size[0])
     THError("size mismatch");
+
+  if(r_ != t)
+  {
+    THCudaTensor_resizeAs(r_, t);
+    THCudaTensor_copy(r_, t);
+  }
 
   if(mat->stride[0] == 1)
   {
-    THCudaBlas_gemv('n', mat->size[0], mat->size[1],
-                alpha, THCudaTensor_data(mat), mat->stride[1],
-                THCudaTensor_data(vec), vec->stride[0],
-                beta, THCudaTensor_data(self), self->stride[0]);
+    THFloatBlas_gemv('n', mat->size[0], mat->size[1],
+                    alpha, THCudaTensor_data(mat), mat->stride[1],
+                    THCudaTensor_data(vec), vec->stride[0],
+                  beta, THCudaTensor_data(r_), r_->stride[0]);
   }
   else if(mat->stride[1] == 1)
   {
-    THCudaBlas_gemv('t',  mat->size[1], mat->size[0],
-                alpha, THCudaTensor_data(mat), mat->stride[0],
-                THCudaTensor_data(vec), vec->stride[0],
-                beta, THCudaTensor_data(self), self->stride[0]);
+    THFloatBlas_gemv('t',  mat->size[1], mat->size[0],
+                  alpha, THCudaTensor_data(mat), mat->stride[0],
+                  THCudaTensor_data(vec), vec->stride[0],
+                  beta, THCudaTensor_data(r_), r_->stride[0]);
   }
   else
   {
-    mat = THCudaTensor_newContiguous(mat);
-    
-    THCudaBlas_gemv('t',  mat->size[1], mat->size[0],
-                alpha, THCudaTensor_data(mat), mat->stride[0],
-                THCudaTensor_data(vec), vec->stride[0],
-                beta, THCudaTensor_data(self), self->stride[0]);
-    
-    THCudaTensor_free(mat);
-  }*/
+    THCudaTensor *cmat = THCudaTensor_newContiguous(mat);
+
+    THFloatBlas_gemv('t',  mat->size[1], mat->size[0],
+                  alpha, THCudaTensor_data(cmat), cmat->stride[0],
+                  THCudaTensor_data(vec), vec->stride[0],
+                  beta, THCudaTensor_data(r_), r_->stride[0]);
+
+    THCudaTensor_free(cmat);
+  }
 }
 
-void THCudaTensor_addmv(THCudaTensor *self, float beta, THCudaTensor *t, float alpha, THCudaTensor *mat,
-                       THCudaTensor *vec)
+void THCudaTensor_addmm(THCudaTensor *r_, float beta, THCudaTensor *t, float alpha, THCudaTensor *m1, THCudaTensor *m2)
 {
- /* char transpose, transpose_m1, transpose_m2;
-  THCudaTensor *self_, *m1_, *m2_;
+  char transpose_r, transpose_m1, transpose_m2;
+  THCudaTensor *r__, *m1_, *m2_;
 
-  if( (m1->nDimension != 2) || (m2->nDimension != 2) ) 
-    THError("matrix and matrix expected"); 
+  if( (m1->nDimension != 2) || (m2->nDimension != 2) )
+    THError("matrix and matrix expected");
 
-  if(self->nDimension != 2)
-    THError("size mismatch"); 
+  if(t->nDimension != 2)
+    THError("size mismatch");
 
-  if( (self->size[0] != m1->size[0]) || (self->size[1] != m2->size[1]) || (m1->size[1] != m2->size[0]) ) 
-    THError("size mismatch"); 
+  if( (t->size[0] != m1->size[0]) || (t->size[1] != m2->size[1]) || (m1->size[1] != m2->size[0]) )
+    THError("size mismatch");
 
-  if ((self->stride[0] == 1) && (self->stride[1] > 1))
+  if(t != r_)
   {
-    transpose = 'n';
-    self_ = self;
+    THCudaTensor_resizeAs(r_, t);
+    THCudaTensor_copy(r_, t);
   }
-  else if(self->stride[1] == 1)
+
+  /* r_ */
+  if(r_->stride[0] == 1)
+  {
+    transpose_r = 'n';
+    r__ = r_;
+  }
+  else if(r_->stride[1] == 1)
   {
     THCudaTensor *swap = m2;
     m2 = m1;
     m1 = swap;
-    THCudaTensor_transpose(self, NULL, 0, 1);
-    THCudaTensor_transpose(m1, NULL, 0, 1);
-    THCudaTensor_transpose(m2, NULL, 0, 1);
-    transpose = 't';
-    self_ = self;
+    transpose_r = 't';
+    r__ = r_;
   }
   else
   {
-    transpose = 'n';
-    THCudaTensor_transpose(self, NULL, 0, 1);
-    self_ = THCudaTensor_newClone(self);
-    THCudaTensor_transpose(self, NULL, 0, 1);
-    THCudaTensor_transpose(self_, NULL, 0, 1);
+    transpose_r = 'n';
+
+    r__ = THCudaTensor_newWithSize2d(r_->size[1], r_->size[0]);
+    THCudaTensor_copy(r__, r_);
+    THCudaTensor_transpose(r__, NULL, 0, 1);
   }
 
-  if(m1->stride[0] == 1)
+  /* m1 */
+  if(m1->stride[(transpose_r == 'n' ? 0 : 1)] == 1)
   {
     transpose_m1 = 'n';
     m1_ = m1;
   }
-  else if(m1->stride[1] == 1)
+  else if(m1->stride[(transpose_r == 'n' ? 1 : 0)] == 1)
   {
     transpose_m1 = 't';
     m1_ = m1;
   }
   else
   {
-    transpose_m1 = 't';
+    transpose_m1 = (transpose_r == 'n' ? 't' : 'n');
     m1_ = THCudaTensor_newContiguous(m1);
   }
 
-  if(m2->stride[0] == 1)
+  /* m2 */
+  if(m2->stride[(transpose_r == 'n' ? 0 : 1)] == 1)
   {
     transpose_m2 = 'n';
     m2_ = m2;
   }
-  else if(m2->stride[1] == 1)
+  else if(m2->stride[(transpose_r == 'n' ? 1 : 0)] == 1)
   {
     transpose_m2 = 't';
     m2_ = m2;
   }
   else
   {
-    transpose_m2 = 't';
+    transpose_m2 = (transpose_r == 'n' ? 't' : 'n');
     m2_ = THCudaTensor_newContiguous(m2);
   }
 
-  THCudaBlas_gemm(transpose_m1,
-                  transpose_m2,
-                  self_->size[0],
-                  self_->size[1],
-                  m1_->size[1],
-                  alpha,
-                  THCudaTensor_data(m1_),
-                  (transpose_m1 == 'n' ? m1_->stride[1] : m1_->stride[0]),
-                  THCudaTensor_data(m2_),
-                  (transpose_m2 == 'n' ? m2_->stride[1] : m2_->stride[0]),
-                  beta,
-                  THCudaTensor_data(self_),
-                  self_->stride[1]);
+  /* do the operation */
+  THFloatBlas_gemm(transpose_m1,
+                transpose_m2,
+                r__->size[(transpose_r == 'n' ? 0 : 1)],
+                r__->size[(transpose_r == 'n' ? 1 : 0)],
+                m1_->size[(transpose_r == 'n' ? 1 : 0)],
+                alpha,
+                THCudaTensor_data(m1_),
+                (transpose_m1 == 'n' ? m1_->stride[(transpose_r == 'n' ? 1 : 0)] : m1_->stride[(transpose_r == 'n' ? 0 : 1)]),
+                THCudaTensor_data(m2_),
+                (transpose_m2 == 'n' ? m2_->stride[(transpose_r == 'n' ? 1 : 0)] : m2_->stride[(transpose_r == 'n' ? 0 : 1)]),
+                beta,
+                THCudaTensor_data(r__),
+                r__->stride[(transpose_r == 'n' ? 1 : 0)]);
 
+  /* free intermediate variables */
   if(m1_ != m1)
     THCudaTensor_free(m1_);
 
   if(m2_ != m2)
     THCudaTensor_free(m2_);
 
-  if(self_ != self)
-    THCudaTensor_freeCopyTo(self_, self);
-
-  if(transpose == 't')
-  {
-    THCudaTensor_transpose(self, NULL, 0, 1);
-    THCudaTensor_transpose(m1, NULL, 0, 1);
-    THCudaTensor_transpose(m2, NULL, 0, 1);
-  }*/
+  if(r__ != r_)
+    THCudaTensor_freeCopyTo(r__, r_);
 }
 
-void THCudaTensor_addr(THCudaTensor *self, float beta, THCudaTensor *t, float alpha, THCudaTensor *vec1,
-                      THCudaTensor *vec2)
+void THCudaTensor_addr(THCudaTensor *r_, float beta, THCudaTensor *t, float alpha, THCudaTensor *vec1, THCudaTensor *vec2)
 {
-/*  if( (vec1->nDimension != 1) || (vec2->nDimension != 1) )
+  if( (vec1->nDimension != 1) || (vec2->nDimension != 1) )
     THError("vector and vector expected");
 
-  if(self->nDimension != 2)
+  if(t->nDimension != 2)
     THError("size mismatch");
 
-  if( (self->size[0] != vec1->size[0]) || (self->size[1] != vec2->size[0]) )
+  if( (t->size[0] != vec1->size[0]) || (t->size[1] != vec2->size[0]) )
     THError("size mismatch");
 
-  if(self->stride[0] == 1)
+  if(r_ != t)
   {
-    THCudaBlas_ger(vec1->size[0], vec2->size[0],
-               alpha, THCudaTensor_data(vec1), vec1->stride[0],
-               THCudaTensor_data(vec2), vec2->stride[0],
-               THCudaTensor_data(self), self->stride[1]);
+    THCudaTensor_resizeAs(r_, t);
+    THCudaTensor_copy(r_, t);
   }
-  else if(self->stride[1] == 1)
+
+  if(beta != 1)
+    THCudaTensor_mul(r_, r_, beta);
+
+  if(r_->stride[0] == 1)
   {
-    THCudaBlas_ger(vec2->size[0], vec1->size[0],
-               alpha, THCudaTensor_data(vec2), vec2->stride[0],
-               THCudaTensor_data(vec1), vec1->stride[0],
-               THCudaTensor_data(self), self->stride[0]);
+    THFloatBlas_ger(vec1->size[0], vec2->size[0],
+                 alpha, THCudaTensor_data(vec1), vec1->stride[0],
+                 THCudaTensor_data(vec2), vec2->stride[0],
+                 THCudaTensor_data(r_), r_->stride[1]);
+  }
+  else if(r_->stride[1] == 1)
+  {
+    THFloatBlas_ger(vec2->size[0], vec1->size[0],
+                 alpha, THCudaTensor_data(vec2), vec2->stride[0],
+                 THCudaTensor_data(vec1), vec1->stride[0],
+                 THCudaTensor_data(r_), r_->stride[0]);
   }
   else
   {
-    THCudaTensor *cself = THCudaTensor_newClone(self);
+    THCudaTensor *cr = THCudaTensor_newClone(r_);
 
-    THCudaBlas_ger(vec2->size[0], vec1->size[0],
-               alpha, THCudaTensor_data(vec2), vec2->stride[0],
-               THCudaTensor_data(vec1), vec1->stride[0],
-               THCudaTensor_data(cself), cself->stride[0]);
+    THFloatBlas_ger(vec2->size[0], vec1->size[0],
+                 alpha, THCudaTensor_data(vec2), vec2->stride[0],
+                 THCudaTensor_data(vec1), vec1->stride[0],
+                 THCudaTensor_data(cr), cr->stride[0]);
 
-    THCudaTensor_freeCopyTo(cself, self);
+    THCudaTensor_freeCopyTo(cr, r_);
   }
-*/
-}
-
-
-void THCudaTensor_addmv(THCudaTensor *self, float beta, THCudaTensor *t, float alpha, THCudaTensor *mat,
-                       THCudaTensor *vec)
-{
 }
 
 #define IMPLEMENT_CUDA_TENSOR_BASIC_FUNC(NAME, CFUNC)                        \
