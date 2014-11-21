@@ -2,6 +2,7 @@
 #include "THCGeneral.h"
 #include "THCTensorRandom.h"
 #include "amp_math.h"
+#include "THCBlas.h"
 #include "THBlas.h"
 #include <numeric>
 //#include "bolt/cl/device_vector.h"
@@ -730,14 +731,14 @@ void THCudaTensor_addmv(THCudaTensor *r_, float beta, THCudaTensor *t, float alp
 
   if(mat->stride[0] == 1)
   {
-    THFloatBlas_gemv('n', mat->size[0], mat->size[1],
+    THCudaBlas_gemv('n', mat->size[0], mat->size[1],
                     alpha, THCudaTensor_data(mat), mat->stride[1],
                     THCudaTensor_data(vec), vec->stride[0],
                   beta, THCudaTensor_data(r_), r_->stride[0]);
   }
   else if(mat->stride[1] == 1)
   {
-    THFloatBlas_gemv('t',  mat->size[1], mat->size[0],
+    THCudaBlas_gemv('t',  mat->size[1], mat->size[0],
                   alpha, THCudaTensor_data(mat), mat->stride[0],
                   THCudaTensor_data(vec), vec->stride[0],
                   beta, THCudaTensor_data(r_), r_->stride[0]);
@@ -746,7 +747,7 @@ void THCudaTensor_addmv(THCudaTensor *r_, float beta, THCudaTensor *t, float alp
   {
     THCudaTensor *cmat = THCudaTensor_newContiguous(mat);
 
-    THFloatBlas_gemv('t',  mat->size[1], mat->size[0],
+    THCudaBlas_gemv('t',  mat->size[1], mat->size[0],
                   alpha, THCudaTensor_data(cmat), cmat->stride[0],
                   THCudaTensor_data(vec), vec->stride[0],
                   beta, THCudaTensor_data(r_), r_->stride[0]);

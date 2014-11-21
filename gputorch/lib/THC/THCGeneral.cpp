@@ -2,6 +2,10 @@
 #include "TH.h"
 #include "THCTensorRandom.h"
 
+cl_device_id mdevice=0;
+cl_context mcontext=0;
+cl_command_queue mqueue=0;
+
 void THCudaInit()
 {
   int count = 0;
@@ -31,9 +35,6 @@ void THCudaInit()
     }
   }
   THCudaCheck(cudaSetDevice(device));*/
-     mdevice = 0;
-     mcontext = 0;
-     mqueue = 0;
 	
     cl_int err;
     cl_platform_id platform = 0;
