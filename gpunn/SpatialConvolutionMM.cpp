@@ -1,13 +1,11 @@
-// CUDA: grid stride looping
+// CUDA: grid stride l oping
+
+#define CUDA_KERNEL_LOOP(i, n) \
+for (int i = tidx.tile_dim0 * tidx.tile[0] + tidx.local[0]; i < (n); i += t_ext[0])\
+
 #include "amp_math.h"
 #include "THBlas.h"
-// Use 1024 threads per block, which requires cuda sm_2x or above
-const int CUDA_NUM_THREADS = 1024;
 
-// CUDA: number of blocks for threads.
-inline int GET_BLOCKS(const int N) {
-  return (N + CUDA_NUM_THREADS - 1) / CUDA_NUM_THREADS;
-}
 
 // Kernel for fast unfold+copy
 // (borrowed from Caffe: https://github.com/BVLC/caffe/blob/master/src/caffe/layers/conv_layer.cu)
@@ -18,15 +16,16 @@ void im2col_kernel(const int n, THCudaTensor* data_im, const int height, const i
 {
     Concurrency::array_view<float,1> avData_im(Concurrency::extent<1>(data_im->storage->size), THCudaTensor_data(data_im));
     Concurrency::array_view<float,1> avData_col(Concurrency::extent<1>(data_col->storage->size), THCudaTensor_data(data_col));
-    Concurrency::extent<1> grdExt(((n + CUDA_NUM_THREADS - 1) / CUDA_NUM_THREADS) * CUDA_NUM_THREADS);
-    Concurrency::tiled_extent<CUDA_NUM_THREADS> t_ext(grdExt);
-    Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<CUDA_NUM_THREADS> tidx) restrict(amp)
+    std::cout<<"\n Im2ColKernel"<<std::endl;
+    Concurrency::extent<1> grdExt(((n + 256 - 1) / 256) * 256);
+    Concurrency::tiled_extent<256> t_ext(grdExt);
+    Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<256> tidx) restrict(amp)
     {
         //for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < (n); i += blockDim.x * gridDim.x)
+        float dataCol = 0;
+        float dataIm = 0;
         for (int i = tidx.global[0]; i < (n); i += t_ext[0])
         {
-            float *dataCol = avData_col.data();
-            float *dataIm = avData_im.data();
             int w_out = i % width_col;
             i /= width_col;
             int h_out = i % height_col;
@@ -36,18 +35,21 @@ void im2col_kernel(const int n, THCudaTensor* data_im, const int height, const i
             int w_in = w_out * stride_w - pad_w;
             dataCol += (channel_out * height_col + h_out) * width_col + w_out;
             dataIm += (channel_in * height + h_in) * width + w_in;
-            for (int i = 0; i < ksize_h; ++i)
+            for (int p = 0; p < ksize_h; ++p)
             {
                 for (int j = 0; j < ksize_w; ++j)
                 {
-                    int h = h_in + i;
+                    int h = h_in + p;
                     int w = w_in + j;
-                    *dataCol = (h >= 0 && w >= 0 && h < height && w < width) ? dataIm[i * width + j] : 0;
+                    avData_col[dataCol] = (h >= 0 && w >= 0 && h < height && w < width) ? avData_im[ dataIm + p * width + j] : 0;
                     dataCol += height_col * width_col;
                 }
             }
         }
     });
+    avData_im.synchronize();
+    avData_col.synchronize();
+
 }
 
 void im2col(THCudaTensor* data_im, const int channels, const int height, const int width,
@@ -69,16 +71,14 @@ void col2im_kernel(const int n, THCudaTensor* data_col, const int height, const 
 {
     Concurrency::array_view<float,1> avData_im(Concurrency::extent<1>(data_im->storage->size), THCudaTensor_data(data_im));
     Concurrency::array_view<float,1> avData_col(Concurrency::extent<1>(data_col->storage->size), THCudaTensor_data(data_col));
-    Concurrency::extent<1> grdExt(((n + CUDA_NUM_THREADS - 1) / CUDA_NUM_THREADS) * CUDA_NUM_THREADS);
-    Concurrency::tiled_extent<CUDA_NUM_THREADS> t_ext(grdExt);
-    Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<CUDA_NUM_THREADS> tidx) restrict(amp)
+    Concurrency::extent<1> grdExt(((n + 256 - 1) / 256) * 256);
+    std::cout<<"\n Col2ImKernel"<<std::endl;
+    Concurrency::tiled_extent<256> t_ext(grdExt);
+    Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<256> tidx) restrict(amp)
     {
-        //for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < (n); i += blockDim.x * gridDim.x)
-        for (int i = tidx.global[0]; i < (n); i += t_ext[0])
-        {
-            float *dataCol = avData_col.data();
-            float *dataIm = avData_im.data();
-            float val = 0;
+       //for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < (n); i += blockDim.x * gridDim.x)
+        CUDA_KERNEL_LOOP(i, n) {
+            float val = 0.0;
             int w = i % width + pad_w;
             int h = (i / width) % height + pad_h;
             int c = i / (width * height);
@@ -87,15 +87,6 @@ void col2im_kernel(const int n, THCudaTensor* data_col, const int height, const 
             int w_col_end = Concurrency::fast_math::fmin(w / stride_w + 1, width_col);
             int h_col_start = (h < patch_h) ? 0 : (h - patch_h) / stride_h + 1;
             int h_col_end = Concurrency::fast_math::fmin(h / stride_h + 1, height_col);
-            /*
-              for (int h_col = h_col_start; h_col < h_col_end; ++h_col) {
-              for (int w_col = w_col_start; w_col < w_col_end; ++w_col) {
-              // the col location: [c * width * height + h_out, w_out]
-              int c_col = c * patch_h * patch_w + (h - h_col * stride_h) * ksize + (w - w_col * stride_w);
-              val += data_col[(c_col * height_col + h_col) * width_col + w_col];
-              }
-              }
-            */
             // equivalent implementation
             int offset = (c * patch_h * patch_w + h * patch_w + w) * height_col * width_col;
             int coeff_h_col = (1 - stride_h * patch_w * height_col) * width_col;
@@ -104,12 +95,14 @@ void col2im_kernel(const int n, THCudaTensor* data_col, const int height, const 
             {
                 for (int w_col = w_col_start; w_col < w_col_end; ++w_col) 
                 {
-                    val += dataCol[offset + h_col * coeff_h_col + w_col * coeff_w_col];
+                    val += avData_col[offset + h_col * coeff_h_col + w_col * coeff_w_col];
                 }
             }
-            dataIm[i] = val;
+            avData_im[i] = val;
         }
+     
     });
+    avData_im.synchronize();
 }
 
 void col2im(THCudaTensor* data_col, const int channels, const int height, const int width,
@@ -121,7 +114,7 @@ void col2im(THCudaTensor* data_col, const int channels, const int height, const 
     int num_kernels = channels * height * width;
     // To avoid involving atomic operations, we will launch one kernel per
     // bottom dimension, and then in the kernel add up the top dimensions.
-    col2im_kernel(num_kernels, data_col, height, width, channels, patch_h, patch_w,
+       col2im_kernel(num_kernels, data_col, height, width, channels, patch_h, patch_w,
                   pad_h, pad_w, stride_h, stride_w, height_col, width_col, data_im);
 }
 

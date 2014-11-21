@@ -526,6 +526,8 @@ void spatialConv_updateGradInput(
     bool conv
 )
 {
+
+    std::cout <<"Calling Empty kernel" <<std::endl;
     int numGroups = 1;
     int numFilterColors = numImgColors / numGroups;
     /* int filterModuleMult = conv ? 1 : numModules; */
