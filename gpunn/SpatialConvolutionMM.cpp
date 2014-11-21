@@ -5,6 +5,9 @@ for (int i = tidx.tile_dim0 * tidx.tile[0] + tidx.local[0]; i < (n); i += t_ext[
 
 #include "amp_math.h"
 #include "THBlas.h"
+#include "../gputorch/lib/THC/THCBlas.h"
+#include "THCGeneral.h"
+
 
 
 // Kernel for fast unfold+copy
@@ -186,7 +189,7 @@ static int cunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
     long k_ = 1;
 
     // Do GEMM (note: this is a bit confusing because gemm assumes column-major matrices)
-    THFloatBlas_gemm(
+    THCudaBlas_gemm(
         't', 'n',
         n_, m_, k_,
         1,
@@ -210,7 +213,7 @@ static int cunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
     long k = weight->size[1];
 
     // Do GEMM (note: this is a bit confusing because gemm assumes column-major matrices)
-    THFloatBlas_gemm(
+    THCudaBlas_gemm(
         'n', 'n',
         n, m, k,
         1,
@@ -296,7 +299,7 @@ static int cunn_SpatialConvolutionMM_updateGradInput(lua_State *L) {
     long k = weight->size[0];
 
     // Do GEMM (note: this is a bit confusing because gemm assumes column-major matrices)
-    THFloatBlas_gemm(
+    THCudaBlas_gemm(
         'n', 't',
         n, m, k,
         1,
@@ -402,7 +405,7 @@ static int cunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
     long k = columns->size[1];
 
     // Do GEMM (note: this is a bit confusing because gemm assumes column-major matrices)
-    THFloatBlas_gemm(
+    THCudaBlas_gemm(
         't', 'n',
         n, m, k,
         scale,

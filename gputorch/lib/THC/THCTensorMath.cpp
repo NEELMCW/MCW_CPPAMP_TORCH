@@ -800,7 +800,7 @@ void THCudaTensor_addmm(THCudaTensor *r_, float beta, THCudaTensor *t, float alp
   }
 
   /* do the operation */
-  THFloatBlas_gemm(transpose_m1,
+  THCudaBlas_gemm(transpose_m1,
                 transpose_m2,
                 r__->size[(transpose_r == 'n' ? 0 : 1)],
                 r__->size[(transpose_r == 'n' ? 1 : 0)],

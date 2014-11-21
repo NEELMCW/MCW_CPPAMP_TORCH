@@ -3,6 +3,7 @@
 // Kernel for fast unfold+copy
 // (borrowed from Caffe: https://github.com/BVLC/caffe/blob/master/src/caffe/layers/conv_layer.cu)
 
+#include "../gputorch/lib/THC/THCBlas.h"
 void imt2col_kernel(const int n, THCudaTensor* data_im,
         const int height, const int width, const int ksize, const int pad,
         const int stride, const int channels,
@@ -153,7 +154,7 @@ static int cunn_SpatialConvolutionMM_BHWD_updateOutput(lua_State *L) {
             long k = weight->size[1];
 
             // Do GEMM_BHWD (note: this is a bit confusing because gemm assumes column-major matrices)
-            THFloatBlas_gemm(
+            THCudaBlas_gemm(
                 't', 't',
                 m, n, k,
                 1,
