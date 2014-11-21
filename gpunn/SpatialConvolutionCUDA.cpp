@@ -105,7 +105,7 @@ static int cunn_SpatialConvolutionCUDA_updateGradInput(lua_State *L)
   float *gradOutput_data = THCudaTensor_data(gradOutput);
 
   // convolutions
-  spatialConv_updateGradInput(gradOutput_data, weight_data, gradInput_data, nInputPlane, inputHeight,
+  spatialConv_updateGradInput(gradOutput, weight, gradInput, nInputPlane, inputHeight,
                              inputWidth, batchSize, nOutputPlane, outputHeight, outputWidth, kH, kW,
                              -floor((double)padding/2), dW, 0, 1, true);
 
