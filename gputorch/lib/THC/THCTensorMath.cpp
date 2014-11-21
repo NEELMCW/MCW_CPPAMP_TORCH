@@ -149,47 +149,26 @@ void THCudaTensor_div(THCudaTensor *self_, THCudaTensor *src_, float value)
   THCudaTensor_freeCopyTo(self, self_);
 }
 
+
 void THCudaTensor_cadd(THCudaTensor *self_, THCudaTensor* src1, float value, THCudaTensor *src2)
 {
   THCudaTensor_resizeAs(self_, src1);
   THArgCheck(THCudaTensor_nElement(src1) == THCudaTensor_nElement(src2), 3, "size do not match");
-
-  THCudaTensor *self = THCudaTensor_newContiguous(self_);
-  THCudaTensor *temp1 = src1;
-  THCudaTensor *temp2 = src2;
-
-  if (self_ != src1)
   {
-    src1 = THCudaTensor_newContiguous(src1);
-    THCudaTensor_copy(self, src1);
-    THCudaTensor_free(src1);
-  }
+    THCudaTensor *self = THCudaTensor_newContiguous(self_);
 
-  Concurrency::array_view<float, 1> selfData(Concurrency::extent<1>(THCudaTensor_nElement(self_)), THCudaTensor_data(self));
-  Concurrency::array_view<float, 1> src2Data(Concurrency::extent<1>(THCudaTensor_nElement(src2)), THCudaTensor_data(src2));
+    if (self_ != src1) {
+      src1 = THCudaTensor_newContiguous(src1);
+      THCudaTensor_copy(self, src1);
+      THCudaTensor_free(src1);
+    }
 
-  Concurrency::parallel_for_each(selfData.get_extent(), [=] (Concurrency::index<1> idx) restrict(amp)
-  {
-    selfData[idx] = (float)selfData[idx] + (value * src2Data[idx]); 
-  });
+    src2 = THCudaTensor_newContiguous(src2);
 
-  selfData.synchronize();
+    THCudaBlas_axpy(THCudaTensor_nElement(self), value, THCudaTensor_data(src2), 1, THCudaTensor_data(self), 1);
 
-  THCudaTensor_copy(self_, self);
-  if (src1 != temp1)
-  {
-    THCudaStorage_free(src1->storage);
-    THCudaTensor_free(src1);
-  }
-  if (src2 != temp2)
-  {
-    THCudaStorage_free(src2->storage);
     THCudaTensor_free(src2);
-  }
-  if (self != self_)
-  {
-    THCudaStorage_free(self->storage);
-    THCudaTensor_free(self);
+    THCudaTensor_freeCopyTo(self, self_);
   }
 }
 
@@ -314,22 +293,9 @@ void THCudaTensor_addcmul(THCudaTensor *self_, THCudaTensor* t, float value, THC
   THCudaGetGridSize(&nBlockPerRow, &nBlockPerColumn, &nThreadPerBlock, size);
   THCudaTensor_kernel_addcmul(THCudaTensor_data(self), value, THCudaTensor_data(src1), THCudaTensor_data(src2), size, nThreadPerBlock, nBlockPerRow, nBlockPerColumn);
 
-  THCudaTensor_copy(self_, self);
-  if (src1 != temp1)
-  {
-    THCudaStorage_free(src1->storage);
-    THCudaTensor_free(src1);
-  }
-  if (src2 != temp2)
-  {
-    THCudaStorage_free(src2->storage);
-    THCudaTensor_free(src2);
-  }
-  if (self != self_)
-  {
-    THCudaStorage_free(self->storage);
-    THCudaTensor_free(self);
-  }
+  THCudaTensor_free(src1);
+  THCudaTensor_free(src2);
+  THCudaTensor_freeCopyTo(self, self_);
 }
 
 void THCudaTensor_kernel_addcdiv(float *data, float value, float *src1, float *src2, long size,

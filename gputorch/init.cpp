@@ -128,7 +128,7 @@ int luaopen_libcutorch(lua_State *L)
   lua_newtable(L);
   luaL_register(L, NULL, cutorch_stuff__);
 
- // THCudaInit();
+  THCudaInit();
 
   cutorch_CudaStorage_init(L);
   cutorch_CudaTensor_init(L);

@@ -279,7 +279,7 @@ function test.cdiv3()
    compareFloatAndCudaTensorArgs(z, 'cdiv', x, y)
 end
 
-function test.addcmul()
+--[[function test.addcmul()
    local sz1 = math.floor(torch.uniform(minsize,maxsize))
    local sz2 = math.floor(torch.uniform(minsize,maxsize))
    local x = torch.FloatTensor():rand(sz1, sz2)
@@ -291,7 +291,7 @@ function test.addcmul()
    local r = torch.zeros(sz1, sz2)
    compareFloatAndCudaTensorArgs(r, 'addcmul', x, y, z)
    compareFloatAndCudaTensorArgs(r, 'addcmul', x, torch.uniform(), y, z)
-end
+end]]--
 
 --[[function test.addcdiv()
    local sz1 = math.floor(torch.uniform(minsize,maxsize))
@@ -622,7 +622,7 @@ end]]--
    tester:assertTensorEq(groundtruth, rescuda, 0.00001, "Error in indexSelect")
 end]]--
 
-function test.addmv()
+--[[function test.addmv()
    local sizes = {
       {2,1},
       {1,2},
@@ -639,7 +639,7 @@ function test.addmv()
       local b = torch.randn(m)
       compareFloatAndCudaTensorArgs(c, 'addmv', torch.normal(), torch.normal(), a, b)
    end
-end
+end]]--
 
 --[[function test.mv()
    local sizes = {

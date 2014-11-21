@@ -296,8 +296,12 @@ void THCudaBlas_gemv(char trans, long m, long n, float alpha, float *a, long lda
     size_t i_n = (size_t)n;
     int i_incx = (int)incx;
     int i_incy = (int)incy;
+    //int lenM = 1 + (m-1)*abs(i_incx);
+    //int lenN = 1 + (n-1)*abs(i_incy);
     int lenM = 1 + (m-1)*abs(i_incx);
     int lenN = 1 + (n-1)*abs(i_incy);
+
+   
 
     bufA = clCreateBuffer(mcontext, CL_MEM_READ_ONLY, lenM * lenN * sizeof(*a), NULL, &err);
     bufX = clCreateBuffer(mcontext, CL_MEM_READ_ONLY, lenN * sizeof(*x), NULL, &err);
