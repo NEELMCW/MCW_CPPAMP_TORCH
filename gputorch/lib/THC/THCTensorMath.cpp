@@ -534,35 +534,38 @@ void THCudaTensor_kernel_transformReduceInnermostDim(float *tgt, float *src_,uns
 {
   Concurrency::array_view<float, 1> avTgt(tgtSz, tgt);
   Concurrency::array_view<float, 1> avSrc(srcSz, src_);
+  Concurrency::array_view<unsigned int, 1> avSrc_stride(4, src_stride);
+  Concurrency::array_view<unsigned int, 1> avTgt_stride(4, tgt_stride);
+  Concurrency::array_view<unsigned int, 1> avSize(4, size);
   Concurrency::extent<3> grdExt(gridConf[2], gridConf[1] * 16, gridConf[0] * 32);
   Concurrency::tiled_extent<1, 16, 32> t_ext(grdExt);
 
   Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1, 16, 32> tidx) restrict(amp)
   {
     tile_static float sbuf[16][32]; // 8kB
-    for (unsigned z = tidx.tile[0]; z < size[3] ; z += t_ext[0])
+    for (unsigned z = tidx.tile[0]; z < avSize[3] ; z += t_ext[0])
     {
-      for (unsigned x = tidx.tile[2]; x < size[2] ; x += t_ext[2])
+      for (unsigned x = tidx.tile[2]; x < avSize[2] ; x += t_ext[2])
       {
-        for (unsigned bRow = tidx.tile_origin[1]; bRow < size[1]; bRow += t_ext.tile_dim1 * t_ext[1]) 
+        for (unsigned bRow = tidx.tile_origin[1]; bRow < avSize[1]; bRow += grdExt[1]) 
         {
           float acc = init;
           unsigned row = bRow + tidx.local[1];
           //float *src = src_ + z * src_stride[3] + x * src_stride[2] + row * src_stride[1];
-          bool reducing = tidx.local[2] < t_ext.tile_dim1 && bRow + tidx.local[2] < size[1] && tidx.local[1] == 0;
-          for (unsigned bCol = 0; bCol < size[0]; bCol += t_ext.tile_dim2) 
+          bool reducing = tidx.local[2] < t_ext.tile_dim1 && bRow + tidx.local[2] < avSize[1] && tidx.local[1] == 0;
+          for (unsigned bCol = 0; bCol < avSize[0]; bCol += t_ext.tile_dim2) 
           {
             sbuf[tidx.local[1]][tidx.local[2]] = init;
             unsigned col = bCol + tidx.local[2];
-            if(row < size[1] && col < size[0]) 
+            if(row < avSize[1] && col < avSize[0]) 
             {
-              sbuf[tidx.local[1]][tidx.local[2]] = unary_op(avSrc[z * src_stride[3] + x * src_stride[2] + row * src_stride[1] + col]);
+              sbuf[tidx.local[1]][tidx.local[2]] = unary_op(avSrc[z * avSrc_stride[3] + x * avSrc_stride[2] + row * avSrc_stride[1] + col]);
             }
             tidx.barrier.wait();
             float* line = &sbuf[tidx.local[1]][0];
             for (unsigned s = 16; s > 1; s >>= 1) 
             {
-              if (row < size[1] && tidx.local[2] < s) 
+              if (row < avSize[1] && tidx.local[2] < s) 
               {
                 line[tidx.local[2]] = binary_op(line[tidx.local[2]], line[tidx.local[2] + s]);
               }
@@ -578,7 +581,7 @@ void THCudaTensor_kernel_transformReduceInnermostDim(float *tgt, float *src_,uns
           if (reducing)
           {
             unsigned row = bRow + tidx.local[2];
-            unsigned tgt_offset = z * tgt_stride[3] + x * tgt_stride[2];
+            unsigned tgt_offset = z * avTgt_stride[3] + x * avTgt_stride[2];
             avTgt[tgt_offset + row] = acc;
           }
         }
