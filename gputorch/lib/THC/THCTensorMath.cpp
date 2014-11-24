@@ -595,9 +595,9 @@ template<class UnaryFunction, class BinaryFunction>
 void THCudaTensor_transformReduceInnermostDim(THCudaTensor *tgt, THCudaTensor *src, 
                                              UnaryFunction unary_op, float init, BinaryFunction binary_op)
 {
-  unsigned int src_stride[4];
-  unsigned int tgt_stride[4];
-  unsigned int size[4];
+  unsigned int src_stride[4] = { 0, 0, 0, 0 };
+  unsigned int tgt_stride[4] = { 0, 0, 0, 0 };
+  unsigned int size[4] = { 1, 1, 1, 1 };
   unsigned int gridConfig[3];
   unsigned ndim = THCudaTensor_nDimension(src);
   for (unsigned dim = 0; dim < ndim; dim++) 
