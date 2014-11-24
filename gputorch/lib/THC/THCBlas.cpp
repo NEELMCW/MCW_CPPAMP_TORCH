@@ -1,5 +1,6 @@
 #include "THCBlas.h"
 #include "THCGeneral.h"
+#include<iostream>
 
 
 void THCudaBlas_init(int devices, int device)
@@ -271,8 +272,25 @@ float THCudaBlas_dot(long n, float *x, long incx, float *y, long incy)
 /* Level 2 */
 void THCudaBlas_gemv(char trans, long m, long n, float alpha, float *a, long lda, float *x, long incx, float beta, float *y, long incy)
 {
-  if(n == 1)
-    lda = m;
+
+  int transa_ = ((trans == 't') || (trans == 'T'));
+  
+ std::cout<<"\n CodeN"<<n<<std::endl;
+ std::cout<<"\n CodeM"<<m<<std::endl;
+
+  if(transa_)
+  {
+   
+    if(m == 1)
+      lda = n;
+  }
+  else
+  {
+    if(n == 1)
+      lda = m;
+  }
+
+
 
   //cublasOperation_t op;
   clblasTranspose op;
@@ -291,24 +309,24 @@ void THCudaBlas_gemv(char trans, long m, long n, float alpha, float *a, long lda
     cl_event event = NULL;
 
     size_t i_m = (size_t)m;
-    int i_lda = (int)lda;
+    size_t i_lda = (size_t)lda;
 
     size_t i_n = (size_t)n;
     int i_incx = (int)incx;
     int i_incy = (int)incy;
-    //int lenM = 1 + (m-1)*abs(i_incx);
-    //int lenN = 1 + (n-1)*abs(i_incy);
     int lenM = 1 + (m-1)*abs(i_incx);
     int lenN = 1 + (n-1)*abs(i_incy);
+    //int lenM = m;
+    //int lenN = n;
 
    
 
     bufA = clCreateBuffer(mcontext, CL_MEM_READ_ONLY, lenM * lenN * sizeof(*a), NULL, &err);
-    bufX = clCreateBuffer(mcontext, CL_MEM_READ_ONLY, lenN * sizeof(*x), NULL, &err);
-    bufY = clCreateBuffer(mcontext, CL_MEM_READ_WRITE, lenM * sizeof(*y), NULL, &err);
+    bufX = clCreateBuffer(mcontext, CL_MEM_READ_ONLY, lenM * sizeof(*x), NULL, &err);
+    bufY = clCreateBuffer(mcontext, CL_MEM_READ_WRITE, lenN * sizeof(*y), NULL, &err);
     err = clEnqueueWriteBuffer(mqueue, bufA, CL_TRUE, 0, lenM * lenN * sizeof(*a), a, 0, NULL, NULL);
-    err = clEnqueueWriteBuffer(mqueue, bufX, CL_TRUE, 0, lenN * sizeof(*x), x, 0, NULL, NULL);
-    err = clEnqueueWriteBuffer(mqueue, bufY, CL_TRUE, 0, lenM * sizeof(*y), y, 0, NULL, NULL);
+    err = clEnqueueWriteBuffer(mqueue, bufX, CL_TRUE, 0, lenM * sizeof(*x), x, 0, NULL, NULL);
+    err = clEnqueueWriteBuffer(mqueue, bufY, CL_TRUE, 0, lenN * sizeof(*y), y, 0, NULL, NULL);
 
     /* Call clblas extended function. */
     err = clblasSgemv(order, op, i_m , i_n , alpha, bufA, 0, i_lda, bufX, 0, i_incx, beta, bufY, 0, i_incy, 1, &mqueue, 0, NULL, &event);
@@ -320,7 +338,7 @@ void THCudaBlas_gemv(char trans, long m, long n, float alpha, float *a, long lda
         /* Wait for calculations to be finished. */
         err = clWaitForEvents(1, &event);
         /* Fetch results of calculations from GPU memory. */
-        err = clEnqueueReadBuffer(mqueue, bufY, CL_TRUE, 0, lenM * sizeof(*y), y, 0, NULL, NULL);
+        err = clEnqueueReadBuffer(mqueue, bufY, CL_TRUE, 0, lenN * sizeof(*y), y, 0, NULL, NULL);
     }
     /* Release OpenCL memory objects. */
     clReleaseMemObject(bufY);

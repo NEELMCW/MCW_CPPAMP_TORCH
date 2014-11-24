@@ -21,7 +21,7 @@ SET(src Storage.cpp init.cpp Tensor.cpp TensorMath.cpp torch/utils.c)
 #SET (OPENCL_INC "/usr/local/cuda/include/")
 SET (OPENCL_INC "/opt/AMDAPP/include/")
 SET(CLAMP_CXXFLAGS "-std=c++amp -I/opt/AMDAPP/include -I/opt/AMDAPP/clBLAS/include -I/home/neelakandan/Downloads/mcw_cppamp/cppamp-driver-ng/include -I/home/neelakandan/Downloads/mcw_cppamp/cppamp-driver-ng/libc++/libcxx/include")
-SET(CLAMP_LDFLAGS  "-std=c++amp -L/home/neelakandan/Downloads/mcw_cppamp/build/build/Release/lib -L/home/neelakandan/Downloads/mcw_cppamp/build/libc++/libcxx/lib -L/home/neelakandan/Downloads/mcw_cppamp/build/libc++/libcxxrt/lib -Wl,--rpath=/home/neelakandan/Downloads/mcw_cppamp/build/build/Release/lib:/home/neelakandan/Downloads/mcw_cppamp/build/libc++/libcxx/lib:/home/neelakandan/Downloads/mcw_cppamp/build/libc++/libcxxrt/lib -lOpenCL -lc++ -lcxxrt -ldl -lpthread -Wl,--whole-archive -lmcwamp -Wl,--no-whole-archive ")
+SET(CLAMP_LDFLAGS "-std=c++amp -L/home/neelakandan/Downloads/mcw_cppamp/build/build/Release/lib -L/home/neelakandan/Downloads/mcw_cppamp/build/libc++/libcxx/lib -L/home/neelakandan/Downloads/mcw_cppamp/build/libc++/libcxxrt/lib -Wl,--rpath=/home/neelakandan/Downloads/mcw_cppamp/build/build/Release/lib:/home/neelakandan/Downloads/mcw_cppamp/build/libc++/libcxx/lib:/home/neelakandan/Downloads/mcw_cppamp/build/libc++/libcxxrt/lib -lc++ -lcxxrt -ldl -Wl,--whole-archive -lmcwamp -Wl,--no-whole-archive")
 SET(CLAMP_SHAREDFLAGS "-shared -fPIC -Wl,-Bsymbolic")
 
 SET_PROPERTY(SOURCE Storage.cpp APPEND_STRING PROPERTY COMPILE_FLAGS " ${CLAMP_CXXFLAGS}")

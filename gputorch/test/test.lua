@@ -622,24 +622,28 @@ end]]--
    tester:assertTensorEq(groundtruth, rescuda, 0.00001, "Error in indexSelect")
 end]]--
 
---[[function test.addmv()
+function test.addmv()
    local sizes = {
-      {2,1},
-      {1,2},
+      {2,1}
+      --[[{1,2},
       {1,1},
       {3,4},
       {3,3},
       {15,18},
-      {19,15}
+      {19,15}]]--
    }
    for _, size in pairs(sizes) do
       local n, m = unpack(size)
+      print("n")
+      print(n)
+      print("m")
+      print(m)
       local c = torch.zeros(n)
       local a = torch.randn(n, m)
       local b = torch.randn(m)
       compareFloatAndCudaTensorArgs(c, 'addmv', torch.normal(), torch.normal(), a, b)
    end
-end]]--
+end
 
 --[[function test.mv()
    local sizes = {
