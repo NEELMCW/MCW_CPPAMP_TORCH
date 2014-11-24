@@ -4,6 +4,7 @@
 #include "amp_math.h"
 #include "THCBlas.h"
 #include "THBlas.h"
+#include<iostream>
 #include <numeric>
 //#include "bolt/cl/device_vector.h"
 
@@ -847,23 +848,26 @@ void THCudaTensor_addr(THCudaTensor *r_, float beta, THCudaTensor *t, float alph
 
   if(r_->stride[0] == 1)
   {
-    THFloatBlas_ger(vec1->size[0], vec2->size[0],
+    std::cout<<"case 1" <<std::endl;
+    THCudaBlas_ger(vec1->size[0], vec2->size[0],
                  alpha, THCudaTensor_data(vec1), vec1->stride[0],
                  THCudaTensor_data(vec2), vec2->stride[0],
                  THCudaTensor_data(r_), r_->stride[1]);
   }
   else if(r_->stride[1] == 1)
   {
-    THFloatBlas_ger(vec2->size[0], vec1->size[0],
+    std::cout<<"case 2" <<std::endl;
+    THCudaBlas_ger(vec2->size[0], vec1->size[0],
                  alpha, THCudaTensor_data(vec2), vec2->stride[0],
                  THCudaTensor_data(vec1), vec1->stride[0],
                  THCudaTensor_data(r_), r_->stride[0]);
   }
   else
   {
+    std::cout<<"case 3" <<std::endl;
     THCudaTensor *cr = THCudaTensor_newClone(r_);
 
-    THFloatBlas_ger(vec2->size[0], vec1->size[0],
+    THCudaBlas_ger(vec2->size[0], vec1->size[0],
                  alpha, THCudaTensor_data(vec2), vec2->stride[0],
                  THCudaTensor_data(vec1), vec1->stride[0],
                  THCudaTensor_data(cr), cr->stride[0]);
