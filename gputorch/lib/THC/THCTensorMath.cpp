@@ -3,6 +3,8 @@
 #include "THCTensorRandom.h"
 #include "amp_math.h"
 #include "THBlas.h"
+#include<algorithm>
+#include<utility>
 #include<numeric>
 //#include "bolt/cl/device_vector.h"
 
@@ -576,92 +578,102 @@ long rdim, UnaryFunction unary_op, float init, BinaryFunction binary_op)
  * Reduction along other dimensions is handled in a separate kernel.
  */
 
-
 template<class UnaryFunction, class BinaryFunction>
-void THCudaTensor_kernel_transformReduceInnermostDim(float *tgt, float *src_,unsigned int tgtSz, unsigned int srcSz,
-unsigned int src_stride[], unsigned int tgt_stride[], unsigned int size[4], UnaryFunction unary_op, float init, BinaryFunction binary_op, unsigned int gridConf[])
+void THCudaTensor_kernel_transformReduceInnermostDim(float *tgt, float *src_,unsigned int tgtSz,
+                                                    unsigned int srcSz, unsigned int src_stride[],
+                                                    unsigned int tgt_stride[], unsigned int size[4],
+                                                    UnaryFunction unary_op, float init,
+                                                    BinaryFunction binary_op, unsigned int gridConf[])
 {
-    Concurrency::array_view<float,1> avTgt(tgtSz,tgt);
-    Concurrency::array_view<float,1> avSrc(srcSz,src_);
-    Concurrency::extent<3> grdExt(gridConf[2],gridConf[1]*16,gridConf[0]*32);
-    Concurrency::tiled_extent<1,16,32> t_ext(grdExt);
+  Concurrency::array_view<float, 1> avTgt(tgtSz, tgt);
+  Concurrency::array_view<float, 1> avSrc(srcSz, src_);
+  Concurrency::array_view<unsigned int, 1> avSrc_stride(4, src_stride);
+  Concurrency::array_view<unsigned int, 1> avTgt_stride(4, tgt_stride);
+  Concurrency::array_view<unsigned int, 1> avSize(4, size);
+  Concurrency::extent<3> grdExt(gridConf[2], gridConf[1] * 16, gridConf[0] * 32);
+  Concurrency::tiled_extent<1, 16, 32> t_ext(grdExt);
 
-    Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1,16,32>tidx) restrict(amp)
+  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1, 16, 32> tidx) restrict(amp)
+  {
+    tile_static float sbuf[16][32]; // 8kB
+    for (unsigned z = tidx.tile[0]; z < avSize[3] ; z += t_ext[0])
     {
-    	tile_static float sbuf[16][32]; // 8kB
-        for(unsigned z = tidx.tile[0]; z < size[3] ; z += t_ext[0])
+      for (unsigned x = tidx.tile[2]; x < avSize[2] ; x += t_ext[2])
+      {
+        for (unsigned bRow = tidx.tile_origin[1]; bRow < avSize[1]; bRow += grdExt[1]) 
         {
-            for(unsigned x = tidx.tile[2]; x < size[2] ; x += t_ext[2])
+          float acc = init;
+          unsigned row = bRow + tidx.local[1];
+          //float *src = src_ + z * src_stride[3] + x * src_stride[2] + row * src_stride[1];
+          bool reducing = tidx.local[2] < t_ext.tile_dim1 && bRow + tidx.local[2] < avSize[1] && tidx.local[1] == 0;
+          for (unsigned bCol = 0; bCol < avSize[0]; bCol += t_ext.tile_dim2) 
+          {
+            sbuf[tidx.local[1]][tidx.local[2]] = init;
+            unsigned col = bCol + tidx.local[2];
+            if(row < avSize[1] && col < avSize[0]) 
             {
-                for(unsigned bRow = tidx.tile_origin[1]; bRow < size[1]; bRow += t_ext.tile_dim1 * t_ext[1]) 
-                {
-                    float acc = init;
-                    unsigned row = bRow + tidx.local[1];
-                    //float *src = src_ + z * src_stride[3] + x * src_stride[2] + row * src_stride[1];
-                    bool reducing = tidx.local[2] < t_ext.tile_dim1 && bRow + tidx.local[2] < size[1] && tidx.local[1] == 0;
-                    for(unsigned bCol=0; bCol < size[0]; bCol += t_ext.tile_dim2) 
-                    {
-                        sbuf[tidx.local[1]][tidx.local[2]] = init;
-                        unsigned col = bCol + tidx.local[2];
-                        if(row < size[1] && col < size[0]) 
-                        {
-                            sbuf[tidx.local[1]][tidx.local[2]] = unary_op(avSrc[z * src_stride[3] + x * src_stride[2] + row * src_stride[1] + col]);
-                        }
-                        tidx.barrier.wait();
-                        float* line = &sbuf[tidx.local[1]][0];
-                        for(unsigned s = 16; s > 1; s >>= 1) 
-                        {
-                            if(row < size[1] && tidx.local[2] < s) 
-                            {
-                                line[tidx.local[2]] = binary_op(line[tidx.local[2]], line[tidx.local[2] + s]);
-                            }
-                            tidx.barrier.wait();
-                        }
-                        if(reducing) 
-                        {
-                            sbuf[tidx.local[2]][0] = binary_op(sbuf[tidx.local[2]][0], sbuf[tidx.local[2]][1]);
-                            acc = binary_op(acc, sbuf[tidx.local[2]][0]);
-                        }
-                        tidx.barrier.wait();
-                    }
-                    if(reducing) 
-                    {
-                        unsigned row = bRow + tidx.local[2];
-                        unsigned tgt_offset = z * tgt_stride[3] + x * tgt_stride[2];
-                        avTgt[tgt_offset + row] = acc;
-                    }
-                }
+              sbuf[tidx.local[1]][tidx.local[2]] = unary_op(avSrc[z * avSrc_stride[3] + x * avSrc_stride[2] + row * avSrc_stride[1] + col]);
             }
+            tidx.barrier.wait();
+            float* line = &sbuf[tidx.local[1]][0];
+            for (unsigned s = 16; s > 1; s >>= 1) 
+            {
+              if (row < avSize[1] && tidx.local[2] < s) 
+              {
+                line[tidx.local[2]] = binary_op(line[tidx.local[2]], line[tidx.local[2] + s]);
+              }
+              tidx.barrier.wait();
+            }
+            if (reducing)
+            {
+              sbuf[tidx.local[2]][0] = binary_op(sbuf[tidx.local[2]][0], sbuf[tidx.local[2]][1]);
+              acc = binary_op(acc, sbuf[tidx.local[2]][0]);
+            }
+            tidx.barrier.wait();
+          }
+          if (reducing)
+          {
+            unsigned row = bRow + tidx.local[2];
+            unsigned tgt_offset = z * avTgt_stride[3] + x * avTgt_stride[2];
+            avTgt[tgt_offset + row] = acc;
+          }
         }
-    });
-    avTgt.synchronize();
+      }
+    }
+  });
+  avTgt.synchronize();
 }
 
 template<class UnaryFunction, class BinaryFunction>
-void THCudaTensor_transformReduceInnermostDim(THCudaTensor *tgt, THCudaTensor *src,
-UnaryFunction unary_op, float init, BinaryFunction binary_op)
+void THCudaTensor_transformReduceInnermostDim(THCudaTensor *tgt, THCudaTensor *src, 
+                                             UnaryFunction unary_op, float init, BinaryFunction binary_op)
 {
-    unsigned int src_stride[4];
-    unsigned int tgt_stride[4];
-    unsigned int size[4];
-    unsigned int gridConfig[3];
-    unsigned ndim = THCudaTensor_nDimension(src);
-    for(unsigned dim=0; dim < ndim; dim++) 
-    {
-        unsigned odim = ndim - 1 - dim;
-        src_stride[odim] = THCudaTensor_stride(src, dim);
-        tgt_stride[odim] = THCudaTensor_stride(tgt, dim);
-        size[odim] = THCudaTensor_size(src, dim);
-    }
-    //dim3 threads(32, 16);
-    unsigned nBlockPerRow = (size[1] + 16 - 1) / 16;
-    unsigned maxGridDim = 1024; // anything < 64k is fine. The choice has no impact on performance.
-    gridConfig[0]= std::min(maxGridDim, size[2]);
-    gridConfig[1]= std::min(maxGridDim, nBlockPerRow);
-    gridConfig[2] = std::min(maxGridDim, size[3]);
-    THCudaTensor_kernel_transformReduceInnermostDim(THCudaTensor_data(tgt),
-        THCudaTensor_data(src), THCudaTensor_nElement(tgt),THCudaTensor_nElement(src), src_stride, tgt_stride, size, unary_op, init, binary_op,gridConfig);
+  unsigned int src_stride[4] = { 0, 0, 0, 0 };
+  unsigned int tgt_stride[4] = { 0, 0, 0, 0 };
+  unsigned int size[4] = { 1, 1, 1, 1 };
+  unsigned int gridConfig[3];
+  unsigned ndim = THCudaTensor_nDimension(src);
+  for (unsigned dim = 0; dim < ndim; dim++) 
+  {
+    unsigned odim = ndim - 1 - dim;
+    src_stride[odim] = THCudaTensor_stride(src, dim);
+    tgt_stride[odim] = THCudaTensor_stride(tgt, dim);
+    size[odim] = THCudaTensor_size(src, dim);
+  }
+  //dim3 threads(32, 16);
+  unsigned nBlockPerRow = (size[1] + 16 - 1) / 16;
+  unsigned maxGridDim = 1024; // anything < 64k is fine. The choice has no impact on performance.
+  gridConfig[0]= std::min(maxGridDim, size[2]);
+  gridConfig[1]= std::min(maxGridDim, nBlockPerRow);
+  gridConfig[2] = std::min(maxGridDim, size[3]);
+  THCudaTensor_kernel_transformReduceInnermostDim(THCudaTensor_data(tgt), THCudaTensor_data(src),
+                                                 THCudaTensor_nElement(tgt), THCudaTensor_nElement(src),
+                                                 src_stride, tgt_stride, size, unary_op, init,
+                                                 binary_op, gridConfig);
 }
+
+
+
 template<class UnaryFunction, class BinaryFunction>
 void THCudaTensor_transformReduceDim(THCudaTensor *self_, THCudaTensor *src,
         long dimension, UnaryFunction unary_op, float init, BinaryFunction binary_op)
@@ -688,10 +700,11 @@ void THCudaTensor_transformReduceDim(THCudaTensor *self_, THCudaTensor *src,
 }
 
 
+
 template<class BinaryFunction>
 void THCudaTensor_reduceDim(THCudaTensor *self_, THCudaTensor *src, long dimension, float init, BinaryFunction binary_op)
 {
-//  THCudaTensor_transformReduceDim(self_, src, dimension, thrust::identity<float>(), init, binary_op);
+  THCudaTensor_transformReduceDim(self_, src, dimension, std::identity<float>(), init, binary_op);
 }
 
 
@@ -708,14 +721,14 @@ void THCudaTensor_prod(THCudaTensor *self, THCudaTensor *src, long dimension)
 void THCudaTensor_max(THCudaTensor *self, THCudaTensor *indices, THCudaTensor *src, long dimension)
 {
   const float minfloat32 = -3.402823466e+38f;
-  //return THCudaTensor_reduceDim(self, src, dimension, minfloat32, thrust::maximum<float>());
+  //return THCudaTensor_reduceDim(self, src, dimension, minfloat32, std::max_element<float>());
 }
 
 
 void THCudaTensor_min(THCudaTensor *self, THCudaTensor* indices, THCudaTensor *src, long dimension)
 {
   const float maxfloat32 = 3.402823466e+38f;
-  //return THCudaTensor_reduceDim(self, src, dimension, maxfloat32, thrust::minimum<float>());
+ // return THCudaTensor_reduceDim(self, src, dimension, maxfloat32, std::min_element<float>());
 }
 
 void THCudaTensor_addmv(THCudaTensor *r_, float beta, THCudaTensor *t, float alpha, THCudaTensor *mat, THCudaTensor *vec)
