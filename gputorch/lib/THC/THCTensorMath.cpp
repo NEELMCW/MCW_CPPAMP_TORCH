@@ -6,8 +6,7 @@
 #include<algorithm>
 #include<utility>
 #include<numeric>
-//#include "bolt/cl/device_vector.h"
-
+#include "bolt/amp/functional.h"
 
 #define NB_THREADS_PER_BLOCK 256
 
@@ -21,11 +20,11 @@ void THCudaTensor_fill(THCudaTensor *self_, float value)
 	});
 	selfData.synchronize();
 	THCudaTensor_copy(self_,self);
-    if (self != self_)
-    {
-        THCudaStorage_free(self->storage);
-        THCudaTensor_free(self);
-    }
+        if (self != self_)
+        {
+           THCudaStorage_free(self->storage);
+           THCudaTensor_free(self);
+        }
 }
 
 void THCudaTensor_zero(THCudaTensor *self_)
@@ -692,7 +691,7 @@ void THCudaTensor_transformReduceDim(THCudaTensor *self_, THCudaTensor *src,
   if(dimension == THCudaTensor_nDimension(src)-1) {
     THCudaTensor_transformReduceInnermostDim(self, src, unary_op, init, binary_op);
   } else {
-    THCudaTensor_transformReduceOuterDim(self, src, dimension, unary_op, init, binary_op);
+    //THCudaTensor_transformReduceOuterDim(self, src, dimension, unary_op, init, binary_op);
   }
 
   THCudaTensor_free(src);
@@ -704,31 +703,31 @@ void THCudaTensor_transformReduceDim(THCudaTensor *self_, THCudaTensor *src,
 template<class BinaryFunction>
 void THCudaTensor_reduceDim(THCudaTensor *self_, THCudaTensor *src, long dimension, float init, BinaryFunction binary_op)
 {
-  THCudaTensor_transformReduceDim(self_, src, dimension, std::identity<float>(), init, binary_op);
+  THCudaTensor_transformReduceDim(self_, src, dimension, bolt::amp::identity<float>(), init, binary_op);
 }
 
 
 void THCudaTensor_sum(THCudaTensor *self, THCudaTensor *src, long dimension)
 {
-  return THCudaTensor_reduceDim(self, src, dimension, 0.0f, std::plus<float>());
+  return THCudaTensor_reduceDim(self, src, dimension, 0.0f, bolt::amp::plus<float>());
 }
 
 void THCudaTensor_prod(THCudaTensor *self, THCudaTensor *src, long dimension)
 {
-  return THCudaTensor_reduceDim(self, src, dimension, 0.0f, std::multiplies<float>());
+  return THCudaTensor_reduceDim(self, src, dimension, 0.0f, bolt::amp::multiplies<float>());
 }
 
 void THCudaTensor_max(THCudaTensor *self, THCudaTensor *indices, THCudaTensor *src, long dimension)
 {
   const float minfloat32 = -3.402823466e+38f;
-  //return THCudaTensor_reduceDim(self, src, dimension, minfloat32, std::max_element<float>());
+  return THCudaTensor_reduceDim(self, src, dimension, minfloat32, bolt::amp::maximum<float>());
 }
 
 
 void THCudaTensor_min(THCudaTensor *self, THCudaTensor* indices, THCudaTensor *src, long dimension)
 {
   const float maxfloat32 = 3.402823466e+38f;
- // return THCudaTensor_reduceDim(self, src, dimension, maxfloat32, std::min_element<float>());
+  return THCudaTensor_reduceDim(self, src, dimension, maxfloat32, bolt::amp::minimum<float>());
 }
 
 void THCudaTensor_addmv(THCudaTensor *r_, float beta, THCudaTensor *t, float alpha, THCudaTensor *mat, THCudaTensor *vec)
