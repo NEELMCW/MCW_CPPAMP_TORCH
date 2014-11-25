@@ -753,13 +753,13 @@ function test.isSameSizeAs()
 end
 
 -- Test random number generation.
---[[local function checkIfUniformlyDistributed(t, min, max)
+local function checkIfUniformlyDistributed(t, min, max)
    tester:assertge(t:min(), min - 1e-6, "values are too low")
    tester:assertle(t:max(), max + 1e-6, "values are too high")
    tester:assertalmosteq(t:mean(), (min + max) / 2, 0.1, "mean is wrong")
 end
 
-function test.uniform()
+--[[function test.uniform()
    local sz1 = math.floor(torch.uniform(minsize,maxsize))
    local sz2 = math.floor(torch.uniform(minsize,maxsize))
    local min = torch.uniform()
@@ -807,7 +807,7 @@ end]]--
    local logt = t:log()
    tester:assertalmosteq(logt:mean(), mean, tolerance, "mean is wrong")
    tester:assertalmosteq(logt:std(), std, tolerance, "standard deviation is wrong")
-end
+end]]--
 
 function test.geometric()
    local sz1 = math.floor(torch.uniform(minsize,maxsize))
@@ -821,7 +821,7 @@ function test.geometric()
    checkIfUniformlyDistributed(u, 0, 1)
 end
 
-function test.exponential()
+--[[function test.exponential()
    local sz1 = math.floor(torch.uniform(minsize,maxsize))
    local sz2 = math.floor(torch.uniform(minsize,maxsize))
    local lambda = torch.uniform()

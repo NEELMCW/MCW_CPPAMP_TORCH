@@ -2543,7 +2543,7 @@ return 1;
 return 0;
 }
 
-/*static int cutorch_CudaTensor_geometric(lua_State *L)
+static int cutorch_CudaTensor_geometric(lua_State *L)
 {
 int narg = lua_gettop(L);
 THCudaState *arg1 = NULL;
@@ -2562,12 +2562,12 @@ else
 luaL_error(L, "expected arguments: *CudaTensor* float");
 lua_getglobal(L, "cutorch");
 lua_getfield(L, -1, "_state");
-arg1 = lua_touserdata(L, -1);
+arg1 = (THCudaState *)lua_touserdata(L, -1);
 lua_pop(L, 2);
 lua_pushvalue(L, arg2_idx);
-THCudaTensor_geometric(arg1->rngState,arg2,arg3);
+THCudaTensor_geometric(NULL,arg2,arg3);
 return 1;
-}*/
+}
 
 static int cutorch_CudaTensor_bernoulli(lua_State *L)
 {
@@ -5297,7 +5297,7 @@ return 1;
 return 0;
 }
 
-/*static int wrapper_geometric(lua_State *L)
+static int wrapper_geometric(lua_State *L)
 {
 int narg = lua_gettop(L);
 THCudaState *arg1 = NULL;
@@ -5316,13 +5316,13 @@ else
 luaL_error(L, "expected arguments: *CudaTensor* float");
 lua_getglobal(L, "cutorch");
 lua_getfield(L, -1, "_state");
-arg1 = lua_touserdata(L, -1);
+arg1 = (THCudaState *)lua_touserdata(L, -1);
 lua_pop(L, 2);
 lua_pushvalue(L, arg2_idx);
-THCudaTensor_geometric(arg1->rngState,arg2,arg3);
+THCudaTensor_geometric(NULL,arg2,arg3);
 return 1;
 }
-*/
+
 static int wrapper_bernoulli(lua_State *L)
 {
 int narg = lua_gettop(L);
@@ -5940,7 +5940,7 @@ static const struct luaL_Reg m_cutorch_CudaTensorMath__ [] = {
 {"ge", wrapper_ge},
 {"eq", wrapper_eq},
 {"ne", wrapper_ne},
-//{"geometric", wrapper_geometric},
+{"geometric", wrapper_geometric},
 {"bernoulli", wrapper_bernoulli},
 //{"uniform", wrapper_uniform},
 //{"normal", wrapper_normal},
@@ -6011,7 +6011,7 @@ static const struct luaL_Reg cutorch_CudaTensorMath__ [] = {
 {"ge", cutorch_CudaTensor_ge},
 {"eq", cutorch_CudaTensor_eq},
 {"ne", cutorch_CudaTensor_ne},
-//{"geometric", cutorch_CudaTensor_geometric},
+{"geometric", cutorch_CudaTensor_geometric},
 {"bernoulli", cutorch_CudaTensor_bernoulli},
 /*{"uniform", cutorch_CudaTensor_uniform},
 {"normal", cutorch_CudaTensor_normal},
