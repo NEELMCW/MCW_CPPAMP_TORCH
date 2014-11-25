@@ -919,7 +919,7 @@ end
    mytester:assertlt(berror:abs():max(), precision_backward, 'error on bias (backward) ')
 end]]--
 
-function cunntest.SpatialConvolutionMM_BHWD_forward_batch()
+--[[function cunntest.SpatialConvolutionMM_BHWD_forward_batch()
    local bs = math.random(1,4) * 4
    local from = math.random(1,32)
    local to = math.random(1,8) * 8
@@ -961,7 +961,7 @@ function cunntest.SpatialConvolutionMM_BHWD_forward_batch()
 
    local error = rescuda:float() - groundtruth
    mytester:assertlt(error:abs():max(), precision_forward, 'error on state (forward) ')
-end
+end]]--
 
 --[[function cunntest.SpatialConvolutionCUDA_forward_batch()
    local bs = 32
@@ -1126,7 +1126,7 @@ function cunntest.SpatialSubSampling_forward()
    mytester:assertlt(error:abs():max(), precision_forward, 'error on state (forward) ')
 end
 
-function cunntest.SpatialSubSampling_forward_batch()
+--[[function cunntest.SpatialSubSampling_forward_batch()
    local bs = math.random(4,10)
    local from = math.random(1,64)
    local to = from
@@ -1167,7 +1167,7 @@ function cunntest.SpatialSubSampling_forward_batch()
 
    local error = rescuda:float() - groundtruth
    mytester:assertlt(error:abs():max(), precision_forward, 'error on state (forward) ')
-end
+end]]--
 
 --[[function cunntest.SpatialSubSampling_backward()
    local from = math.random(1,64)
