@@ -459,25 +459,28 @@ void THCudaTensor_kernel_transformReduceOuterDim(float *tgt, float *src_,
   const size_t reduce = 3;
   Concurrency::array_view<float, 1> avTgt(tgtSz, tgt);
   Concurrency::array_view<float, 1> avSrc(srcSz, src_);
+  Concurrency::array_view<unsigned int, 1> avSrc_stride(4, src_stride);
+  Concurrency::array_view<unsigned int, 1> avTgt_stride(4, tgt_stride);
+  Concurrency::array_view<unsigned int, 1> avSize(4, size);
   Concurrency::extent<3> grdExt(gridConf[2], gridConf[1], gridConf[0] * 256);
   Concurrency::tiled_extent<1, 1, 256> t_ext(grdExt);
 
   Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1, 1, 256> tidx) restrict(amp)
   {
-    for (unsigned z = tidx.tile[0]; z < size[2] ; z += t_ext[0])
+    for (unsigned z = tidx.tile[0]; z < avSize[2] ; z += t_ext[0])
     {
-      for (unsigned y = tidx.tile[1]; y < size[1] ; y += t_ext[1])  
+      for (unsigned y = tidx.tile[1]; y < avSize[1] ; y += t_ext[1])  
       {
-        for (unsigned col = tidx.global[2]; col < size[0]; col += t_ext.tile_dim2 * t_ext[2]) 
+        for (unsigned col = tidx.global[2]; col < avSize[0]; col += grdExt[2]) 
         {
           //float *src = src_ + z * src_stride[2] + y * src_stride[1] + col;
           float acc = init;
-          for (unsigned i = 0; i < size[reduce]; i++)
+          for (unsigned i = 0; i < avSize[reduce]; i++)
           {
-            acc = binary_op(acc, unary_op(avSrc[z * src_stride[2] + y * src_stride[1] + col + i * src_stride[reduce]]));
+            acc = binary_op(acc, unary_op(avSrc[z * avSrc_stride[2] + y * avSrc_stride[1] + col + i * avSrc_stride[reduce]]));
             //src += src_stride[reduce];
           }
-          avTgt[z * tgt_stride[2] + y * tgt_stride[1] + col] = float(acc);
+          avTgt[z * avTgt_stride[2] + y * avTgt_stride[1] + col] = float(acc);
         }
       }
     }
@@ -490,9 +493,9 @@ void THCudaTensor_transformReduceOuterDim(THCudaTensor *tgt, THCudaTensor *src, 
                                          UnaryFunction unary_op, float init, BinaryFunction binary_op)
 {
   const size_t reduce = 3;
-  unsigned int src_stride[4];
-  unsigned int tgt_stride[4];
-  unsigned int size[4];
+  unsigned int src_stride[4] = { 0, 0, 0, 0 };
+  unsigned int tgt_stride[4] = { 0, 0, 0, 0 };
+  unsigned int size[4] = { 1, 1, 1, 1 };
   unsigned int gridConfig[3];
   unsigned ndim = THCudaTensor_nDimension(src);
   for (unsigned idim = 0, o = ndim - 2; idim < ndim; idim++) 
