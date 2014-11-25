@@ -241,7 +241,7 @@ function test.ones()
 end
 
 
-function test.add()
+--[[function test.add()
    local sz1 = math.floor(torch.uniform(minsize,maxsize))
    local sz2 = math.floor(torch.uniform(minsize,maxsize))
    local x = torch.FloatTensor():rand(sz1, sz2)
@@ -252,7 +252,7 @@ function test.add()
    compareFloatAndCudaTensorArgs(x, 'add', z, v)
    compareFloatAndCudaTensorArgs(x, 'add', y, z)
    compareFloatAndCudaTensorArgs(x, 'add', y, v, z)
-end
+end]]--
 
 function test.cmul()
    local sz1 = math.floor(torch.uniform(minsize,maxsize))
@@ -279,7 +279,7 @@ function test.cdiv3()
    compareFloatAndCudaTensorArgs(z, 'cdiv', x, y)
 end
 
---[[function test.addcmul()
+function test.addcmul()
    local sz1 = math.floor(torch.uniform(minsize,maxsize))
    local sz2 = math.floor(torch.uniform(minsize,maxsize))
    local x = torch.FloatTensor():rand(sz1, sz2)
@@ -291,9 +291,9 @@ end
    local r = torch.zeros(sz1, sz2)
    compareFloatAndCudaTensorArgs(r, 'addcmul', x, y, z)
    compareFloatAndCudaTensorArgs(r, 'addcmul', x, torch.uniform(), y, z)
-end]]--
+end
 
---[[function test.addcdiv()
+function test.addcdiv()
    local sz1 = math.floor(torch.uniform(minsize,maxsize))
    local sz2 = math.floor(torch.uniform(minsize,maxsize))
    local x = torch.FloatTensor():rand(sz1, sz2)
@@ -305,7 +305,7 @@ end]]--
    local r = torch.zeros(sz1, sz2)
    compareFloatAndCudaTensorArgs(r, 'addcdiv', x, y, z)
    compareFloatAndCudaTensorArgs(r, 'addcdiv', x, torch.uniform(), y, z)
-end]]--
+end
 
 function test.logicalValue()
    local sz1 = math.floor(torch.uniform(minsize,maxsize))
@@ -352,7 +352,7 @@ function test.min()
    --compareFloatAndCuda(x, 'min', 2)
 end
 
---[[function test.sum()
+function test.sum()
    local minsize = 10
    local maxsize = 20
    local sz1 = math.floor(torch.uniform(minsize,maxsize))
@@ -363,7 +363,7 @@ end
    --compareFloatAndCuda(x, 'sum', 2)
 end
 
-function test.prod()
+--[[function test.prod()
    local minsize = 10
    local maxsize = 20
    local sz1 = math.floor(torch.uniform(minsize,maxsize))
@@ -622,15 +622,15 @@ end]]--
    tester:assertTensorEq(groundtruth, rescuda, 0.00001, "Error in indexSelect")
 end]]--
 
-function test.addmv()
+--[[function test.addmv()
    local sizes = {
       {2,1}
-      --[[{1,2},
+      {1,2},
       {1,1},
       {3,4},
       {3,3},
       {15,18},
-      {19,15}]]--
+      {19,15}
    }
    for _, size in pairs(sizes) do
       local n, m = unpack(size)
@@ -639,7 +639,7 @@ function test.addmv()
       local b = torch.randn(m)
       compareFloatAndCudaTensorArgs(c, 'addmv', torch.normal(), torch.normal(), a, b)
    end
-end
+end]]--
 
 --[[function test.mv()
    local sizes = {
@@ -660,7 +660,7 @@ end
    end
 end]]--
 
-function test.addr()
+--[[function test.addr()
    local sizes = {
       {2,1},
       {1,2},
@@ -696,7 +696,7 @@ function test.addmm()
       local b = torch.randn(k, m)
       compareFloatAndCudaTensorArgs(c, 'addmm', torch.normal(), torch.normal(), a, b)
    end
-end
+end]]--
 
 --[[function test.mm()
    local sizes = {

@@ -73,9 +73,9 @@ struct addvalue_functor
 {
   const float value;
 
-  addvalue_functor(float value_) : value(value_) {}
+  addvalue_functor(float value_) restrict(cpu,amp) : value(value_) {}
 
-  float operator()(const float& x) const 
+  float operator()(const float& x) const restrict(cpu,amp) 
   {
     return (x+value);
   }
@@ -88,7 +88,7 @@ void THCudaTensor_add(THCudaTensor *self_, THCudaTensor *src_, float value)
   THCudaTensor *src = THCudaTensor_newContiguous(src_);
   bolt::amp::device_vector<float> Dself_data(THCudaTensor_data(self), THCudaTensor_data(self)+THCudaTensor_nElement(self));
   bolt::amp::device_vector<float> Dsrc_data(THCudaTensor_data(src), THCudaTensor_data(src)+THCudaTensor_nElement(src));
-  std::transform(Dsrc_data.begin(), Dsrc_data.end(), Dself_data.begin(), addvalue_functor(value));
+  bolt::amp::transform(Dsrc_data.begin(), Dsrc_data.end(), Dself_data.begin(), addvalue_functor(value));
   THCudaTensor_free(src);
   THCudaTensor_freeCopyTo(self, self_);
 }
@@ -96,8 +96,8 @@ void THCudaTensor_add(THCudaTensor *self_, THCudaTensor *src_, float value)
 struct mulvalue_functor
 {
   const float value;
-  mulvalue_functor(float value_) : value(value_) {}
-  float operator()(const float& x) const
+  mulvalue_functor(float value_)restrict(cpu,amp) : value(value_) {}
+  float operator()(const float& x) const restrict(cpu,amp)
   {
     return (x*value);
   }
@@ -110,7 +110,7 @@ void THCudaTensor_mul(THCudaTensor *self_, THCudaTensor *src_, float value)
   THCudaTensor *src = THCudaTensor_newContiguous(src_);
   bolt::amp::device_vector<float> Dself_data(THCudaTensor_data(self), THCudaTensor_data(self)+THCudaTensor_nElement(self));
   bolt::amp::device_vector<float> Dsrc_data(THCudaTensor_data(src), THCudaTensor_data(src)+THCudaTensor_nElement(src));
-  std::transform(Dsrc_data.begin(), Dsrc_data.end(), Dself_data.begin(), mulvalue_functor(value));
+  bolt::amp::transform(Dsrc_data.begin(), Dsrc_data.end(), Dself_data.begin(), mulvalue_functor(value));
   THCudaTensor_free(src);
   THCudaTensor_freeCopyTo(self, self_);
 }
@@ -118,8 +118,8 @@ void THCudaTensor_mul(THCudaTensor *self_, THCudaTensor *src_, float value)
 struct divvalue_functor
 {
   const float value;
-  divvalue_functor(float value_) : value(value_) {}
-  float operator()(const float& x) const
+  divvalue_functor(float value_)restrict(amp,cpu) : value(value_) {}
+  float operator()(const float& x) const restrict(amp,cpu)
   {
     return (x/value);
   }
@@ -132,7 +132,7 @@ void THCudaTensor_div(THCudaTensor *self_, THCudaTensor *src_, float value)
   THCudaTensor *src = THCudaTensor_newContiguous(src_);
   bolt::amp::device_vector<float> Dself_data(THCudaTensor_data(self), THCudaTensor_data(self)+THCudaTensor_nElement(self));
   bolt::amp::device_vector<float> Dsrc_data(THCudaTensor_data(src), THCudaTensor_data(src)+THCudaTensor_nElement(src));
-  std::transform(Dsrc_data.begin(), Dsrc_data.end(), Dself_data.begin(), divvalue_functor(value));
+  bolt::amp::transform(Dsrc_data.begin(), Dsrc_data.end(), Dself_data.begin(), divvalue_functor(value));
   long size = THCudaTensor_nElement(self);
   THCudaTensor_free(src);
   THCudaTensor_freeCopyTo(self, self_);
@@ -175,7 +175,7 @@ void THCudaTensor_cmul(THCudaTensor *self_, THCudaTensor *src1, THCudaTensor *sr
     bolt::amp::device_vector<float> Dsrc1_data(THCudaTensor_data(src1), THCudaTensor_data(src1)+THCudaTensor_nElement(src1));
     bolt::amp::device_vector<float> Dsrc2_data(THCudaTensor_data(src2), THCudaTensor_data(src2)+THCudaTensor_nElement(src2));
 
-    std::transform(Dsrc2_data.begin(), Dsrc2_data.end(), Dsrc1_data.begin(), Dself_data.begin(), bolt::amp::multiplies<float>());
+    bolt::amp::transform(Dsrc2_data.begin(), Dsrc2_data.end(), Dsrc1_data.begin(), Dself_data.begin(), bolt::amp::multiplies<float>());
 
     THCudaTensor_free(src1);
     THCudaTensor_free(src2);
@@ -212,10 +212,12 @@ void THCudaTensor_kernel_addcmul(float *data, float value, float *src1, float *s
     Concurrency::array_view<float,1> src1Data(Concurrency::extent<1>(size),src1);
     Concurrency::array_view<float,1> src2Data(Concurrency::extent<1>(size),src2);
     Concurrency::array_view<float,1> Data(Concurrency::extent<1>(size),data);
-    Concurrency::extent<2> gridExt(nBlockPerColumn,nBlockPerRow);
     const int nthreads = 256;
+    nBlockPerRow = (nBlockPerRow + (nthreads -1)) & ~(nthreads -1);
+    Concurrency::extent<2> gridExt(nBlockPerColumn,nBlockPerRow);
+   
     Concurrency::tiled_extent<1,nthreads> t_ext(gridExt);
-
+ 
     Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1,nthreads>tidx) restrict(amp)
     {
         long k = (((tidx.tile[0] * t_ext[1]/t_ext.tile_dim1) + tidx.tile[1]) * t_ext.tile_dim1) + tidx.local[1];
@@ -281,18 +283,24 @@ void THCudaTensor_kernel_addcdiv(float *data, float value, float *src1, float *s
     Concurrency::array_view<float,1> src2Data(Concurrency::extent<1>(size),src2);
     Concurrency::array_view<float,1> Data(Concurrency::extent<1>(size),data);
 
-    Concurrency::extent<2> gridExt(nBlockPerColumn,nBlockPerRow);
-    //cout<<"nBRow: "<<nBlockPerRow<<" nBColumn: "<<nBlockPerColumn<<endl;
     const int nthreads = 256;
+    nBlockPerRow = (nBlockPerRow + (nthreads -1)) & ~(nthreads -1);
+    Concurrency::extent<2> gridExt(nBlockPerColumn,nBlockPerRow);
     Concurrency::tiled_extent<1,nthreads> t_ext(gridExt);
+
+    bolt::amp::device_vector<float> divided_data(size);
+    bolt::amp::device_vector<float> Dsrc1_data(src1, src1+ size);
+    bolt::amp::device_vector<float> Dsrc2_data(src2, src2+ size);
+
+    bolt::amp::transform(Dsrc1_data.begin(), Dsrc1_data.end(), Dsrc2_data.begin(), divided_data.begin(), bolt::amp::divides<float>());
 
     Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1,nthreads>tidx) restrict(amp)
     {
-        //long k = (((blockIdx.y * gridDim.x) + blockIdx.x) * blockDim.x) + threadIdx.x;
         long k = (((tidx.tile[0] * t_ext[1]/t_ext.tile_dim1) + tidx.tile[1]) * t_ext.tile_dim1) + tidx.local[1];
         if(k < size)
         {
-            Data[Concurrency::index<1>(k)] += (float)value* (float)(src1Data[Concurrency::index<1>(k)]/src2Data[Concurrency::index<1>(k)]);
+            //Data[Concurrency::index<1>(k)] += value* (src1Data[Concurrency::index<1>(k)]/src2Data[Concurrency::index<1>(k)]);
+            Data[Concurrency::index<1>(k)] += value * divided_data[k]; 
         }
       
     });
@@ -582,9 +590,8 @@ void THCudaTensor_transformReduceInnermostDim(THCudaTensor *tgt, THCudaTensor *s
     tgt_stride[odim] = THCudaTensor_stride(tgt, dim);
     size[odim] = THCudaTensor_size(src, dim);
   }
-  //dim3 threads(32, 16);
   unsigned nBlockPerRow = (size[1] + 16 - 1) / 16;
-  unsigned maxGridDim = 1024; // anything < 64k is fine. The choice has no impact on performance.
+  unsigned maxGridDim = 256; // anything < 64k is fine. The choice has no impact on performance.
   gridConfig[0]= std::min(maxGridDim, size[2]);
   gridConfig[1]= std::min(maxGridDim, nBlockPerRow);
   gridConfig[2] = std::min(maxGridDim, size[3]);
@@ -897,11 +904,11 @@ struct pow_functor
 {
   const float value;
 
-  pow_functor(float value_) : value(value_) {}
+  pow_functor(float value_) restrict(amp,cpu) : value(value_) {}
 
-  float operator()(const float& x) const
+  float operator()(const float& x) const restrict(amp,cpu)
   {
-      return pow(x, value);
+      return Concurrency::fast_math::pow(x, value);
       return 0;
   }
 };
@@ -913,16 +920,16 @@ void THCudaTensor_pow(THCudaTensor *self_, THCudaTensor *src, float value)
   src = THCudaTensor_newContiguous(src);
   bolt::amp::device_vector<float> Dself_data(THCudaTensor_data(self), THCudaTensor_data(self)+THCudaTensor_nElement(self));
   bolt::amp::device_vector<float> Dsrc_data(THCudaTensor_data(src), THCudaTensor_data(src)+THCudaTensor_nElement(src));
-  std::transform(Dsrc_data.begin(), Dsrc_data.end(), Dself_data.begin(), pow_functor(value));
+  bolt::amp::transform(Dsrc_data.begin(), Dsrc_data.end(), Dself_data.begin(), pow_functor(value));
   THCudaTensor_free(src);
   THCudaTensor_freeCopyTo(self, self_);
 }
 
 struct atan2_functor
 {
-  float operator()(const float& x, const float& y) const
+  float operator()(const float& x, const float& y) const restrict(amp,cpu)
   {
-    return atan2f(x, y);
+    return Concurrency::fast_math::atan2f(x, y);
   }
 };
 void THCudaTensor_atan2(THCudaTensor *self_, THCudaTensor *tx, THCudaTensor *ty)
@@ -935,7 +942,7 @@ void THCudaTensor_atan2(THCudaTensor *self_, THCudaTensor *tx, THCudaTensor *ty)
   bolt::amp::device_vector<float> self_data(THCudaTensor_data(self), THCudaTensor_data(self)+THCudaTensor_nElement(self));
   bolt::amp::device_vector<float> tx_data(THCudaTensor_data(tx), THCudaTensor_data(tx)+THCudaTensor_nElement(tx));
   bolt::amp::device_vector<float> ty_data(THCudaTensor_data(ty), THCudaTensor_data(ty)+THCudaTensor_nElement(ty));
-  std::transform(tx_data.begin(), tx_data.end(), ty_data.begin(), self_data.begin(), atan2_functor());
+  bolt::amp::transform(tx_data.begin(), tx_data.end(), ty_data.begin(), self_data.begin(), atan2_functor());
 
   THCudaTensor_free(tx);
   THCudaTensor_free(ty);
@@ -947,9 +954,9 @@ struct clamp_functor
   const float min_value;
   const float max_value;
 
-  clamp_functor(float min_value_, float max_value_) : min_value(min_value_), max_value(max_value_) {}
+  clamp_functor(float min_value_, float max_value_) restrict(amp,cpu): min_value(min_value_), max_value(max_value_) {}
 
-  float operator()(const float& x) const
+  float operator()(const float& x) const restrict(amp,cpu)
   {
     if (x < min_value) {
       return min_value;
@@ -969,7 +976,7 @@ void THCudaTensor_clamp(THCudaTensor *self_, THCudaTensor *src, float min_value,
   src = THCudaTensor_newContiguous(src);
   bolt::amp::device_vector<float> Dself_data(THCudaTensor_data(self), THCudaTensor_data(self)+THCudaTensor_nElement(self));
   bolt::amp::device_vector<float> Dsrc_data(THCudaTensor_data(src), THCudaTensor_data(src)+THCudaTensor_nElement(src));
-  std::transform(Dsrc_data.begin(), Dsrc_data.end(), Dself_data.begin(), clamp_functor(min_value,max_value));
+  bolt::amp::transform(Dsrc_data.begin(), Dsrc_data.end(), Dself_data.begin(), clamp_functor(min_value,max_value));
   THCudaTensor_free(src);
   THCudaTensor_freeCopyTo(self, self_);
 }
@@ -977,7 +984,7 @@ void THCudaTensor_clamp(THCudaTensor *self_, THCudaTensor *src, float min_value,
 
 struct sign_functor
 {
-    float operator()(const float &v) const {
+    float operator()(const float &v) const restrict(amp,cpu) {
     return (v > 0) - (v < 0);
   }
 };
@@ -990,7 +997,7 @@ void THCudaTensor_sign(THCudaTensor *self_, THCudaTensor *src)
   src = THCudaTensor_newContiguous(src);
   bolt::amp::device_vector<float> Dself_data(THCudaTensor_data(self), THCudaTensor_data(self)+THCudaTensor_nElement(self));
   bolt::amp::device_vector<float> Dsrc_data(THCudaTensor_data(src), THCudaTensor_data(src)+THCudaTensor_nElement(src));
-  std::transform(Dsrc_data.begin(), Dsrc_data.end(), Dself_data.begin(), sign_functor());
+  bolt::amp::transform(Dsrc_data.begin(), Dsrc_data.end(), Dself_data.begin(), sign_functor());
   THCudaTensor_free(src);
   THCudaTensor_freeCopyTo(self, self_);
 }
@@ -1012,9 +1019,9 @@ struct square_functor
 {
   const float mean;
 
-  square_functor(float mean_) : mean(mean_) {}
+  square_functor(float mean_) restrict(amp,cpu): mean(mean_) {}
 
-  float operator()(const float& x) const
+  float operator()(const float& x) const restrict(amp,cpu)
   {
     return (x-mean)*(x-mean);
   }
@@ -1029,7 +1036,7 @@ float THCudaTensor_varall(THCudaTensor *self)
   float mean = THCudaTensor_meanall(self);
 
   bolt::amp::device_vector<float> diff(self_data.size());
-  std::transform(self_data.begin(), self_data.end(), diff.begin(),std::bind2nd(bolt::amp::minus<float>(), mean));
+  bolt::amp::transform(self_data.begin(), self_data.end(), diff.begin(),std::bind2nd(bolt::amp::minus<float>(), mean));
    
   float result = bolt::amp::inner_product(diff.begin(), diff.end(), diff.begin(), 0.0);
 
@@ -1057,11 +1064,8 @@ void THCudaTensor_logicalValue(THCudaTensor *self_, THCudaTensor *src, Op op)
   long size = THCudaTensor_nElement(self);
   src = THCudaTensor_newContiguous(src);
   bolt::amp::device_vector<float> self_data(THCudaTensor_data(self), THCudaTensor_data(self)+THCudaTensor_nElement(self));
-   // thrust::device_ptr<float> src1_data(THCudaTensor_data(src1));  
   bolt::amp::device_vector<float> src_data(THCudaTensor_data(src), THCudaTensor_data(src)+THCudaTensor_nElement(src));
-
-  std::transform(src_data.begin(), src_data.end(), self_data.begin(), op);
-
+  bolt::amp::transform(src_data.begin(), src_data.end(), self_data.begin(), op);
   THCudaTensor_free(src);
   THCudaTensor_freeCopyTo(self, self_);
 }
@@ -1070,8 +1074,8 @@ void THCudaTensor_logicalValue(THCudaTensor *self_, THCudaTensor *src, Op op)
 struct partial_less_functor
 {
   const float rhs;
-  partial_less_functor(float rhs) : rhs(rhs) {}
-  float operator()(const float &lhs) const {return lhs < rhs;}
+  partial_less_functor(float rhs) restrict(amp,cpu): rhs(rhs) {}
+  float operator()(const float &lhs) const restrict(amp,cpu) {return lhs < rhs;}
 };
 
 
@@ -1084,8 +1088,8 @@ void THCudaTensor_ltValue(THCudaTensor *self_, THCudaTensor *src, float value)
 struct partial_greater_functor
 {
   const float rhs;
-  partial_greater_functor(float rhs) : rhs(rhs) {}
-  bool operator()(const float &lhs) const {return lhs > rhs;}
+  partial_greater_functor(float rhs) restrict(amp,cpu) : rhs(rhs) {}
+  bool operator()(const float &lhs) const restrict(amp,cpu) {return lhs > rhs;}
 };
 
 
@@ -1098,8 +1102,8 @@ void THCudaTensor_gtValue(THCudaTensor *self_, THCudaTensor *src, float value)
 struct partial_less_equal_functor
 {
   const float rhs;
-  partial_less_equal_functor(float rhs) : rhs(rhs) {}
-  bool operator()(const float &lhs) const {return lhs <= rhs;}
+  partial_less_equal_functor(float rhs) restrict(amp,cpu): rhs(rhs) {}
+  bool operator()(const float &lhs) const restrict(amp,cpu) {return lhs <= rhs;}
 };
 
 
@@ -1112,8 +1116,8 @@ void THCudaTensor_leValue(THCudaTensor *self_, THCudaTensor *src, float value)
 struct partial_greater_equal_functor
 {
   const float rhs;
-  partial_greater_equal_functor(float rhs) : rhs(rhs) {}
-  bool operator()(const float &lhs) const {return lhs >= rhs;}
+  partial_greater_equal_functor(float rhs) restrict(amp,cpu) : rhs(rhs) {}
+  bool operator()(const float &lhs) const restrict(amp,cpu) {return lhs >= rhs;}
 };
 
 
@@ -1126,8 +1130,8 @@ void THCudaTensor_geValue(THCudaTensor *self_, THCudaTensor *src, float value)
 struct partial_equal_functor
 {
   const float rhs;
-  partial_equal_functor(float rhs) : rhs(rhs) {}
-  bool operator()(const float &lhs) const {return lhs == rhs;}
+  partial_equal_functor(float rhs) restrict(amp,cpu): rhs(rhs) {}
+  bool operator()(const float &lhs) const restrict(amp,cpu){return lhs == rhs;}
 };
 
 
@@ -1140,8 +1144,8 @@ void THCudaTensor_eqValue(THCudaTensor *self_, THCudaTensor *src, float value)
 struct partial_not_equal_functor
 {
   const float rhs;
-  partial_not_equal_functor(float rhs) : rhs(rhs) {}
-  bool operator()(const float &lhs) const restrict(amp) {return lhs != rhs;}
+  partial_not_equal_functor(float rhs) restrict(cpu,amp) : rhs(rhs) {}
+  bool operator()(const float &lhs) const restrict(cpu,amp) {return lhs != rhs;}
 };
 
 
@@ -1162,13 +1166,9 @@ void THCudaTensor_logicalTensor(THCudaTensor *self_, THCudaTensor *src1, THCudaT
   src1 = THCudaTensor_newContiguous(src1);
   src2 = THCudaTensor_newContiguous(src2);
   bolt::amp::device_vector<float> self_data(THCudaTensor_data(self), THCudaTensor_data(self)+THCudaTensor_nElement(self));
-   // thrust::device_ptr<float> src1_data(THCudaTensor_data(src1));  
   bolt::amp::device_vector<float> src1_data(THCudaTensor_data(src1), THCudaTensor_data(src1)+THCudaTensor_nElement(src1));
-   // thrust::device_ptr<float> src2_data(THCudaTensor_data(src2));
   bolt::amp::device_vector<float> src2_data(THCudaTensor_data(src2), THCudaTensor_data(src2)+THCudaTensor_nElement(src2));
-
-  std::transform(src1_data.begin(), src1_data.end(), src2_data.begin(), self_data.begin(), op);
-
+  bolt::amp::transform(src1_data.begin(), src1_data.end(), src2_data.begin(), self_data.begin(), op);
 
   THCudaTensor_free(src1);
   THCudaTensor_free(src2);
@@ -1178,37 +1178,37 @@ void THCudaTensor_logicalTensor(THCudaTensor *self_, THCudaTensor *src1, THCudaT
 
 void THCudaTensor_ltTensor(THCudaTensor *self_, THCudaTensor *src1, THCudaTensor *src2)
 {
-  THCudaTensor_logicalTensor(self_, src1, src2, std::less<float>());
+  THCudaTensor_logicalTensor(self_, src1, src2, bolt::amp::less<float>());
 }
 
 
 void THCudaTensor_gtTensor(THCudaTensor *self_, THCudaTensor *src1, THCudaTensor *src2)
 {
-  THCudaTensor_logicalTensor(self_, src1, src2, std::greater<float>());
+  THCudaTensor_logicalTensor(self_, src1, src2, bolt::amp::greater<float>());
 }
 
 
 void THCudaTensor_leTensor(THCudaTensor *self_, THCudaTensor *src1, THCudaTensor *src2)
 {
-  THCudaTensor_logicalTensor(self_, src1, src2, std::less_equal<float>());
+  THCudaTensor_logicalTensor(self_, src1, src2, bolt::amp::less_equal<float>());
 }
 
 
 void THCudaTensor_geTensor(THCudaTensor *self_, THCudaTensor *src1, THCudaTensor *src2)
 {
-  THCudaTensor_logicalTensor(self_, src1, src2, std::greater_equal<float>());
+  THCudaTensor_logicalTensor(self_, src1, src2, bolt::amp::greater_equal<float>());
 }
 
 
 void THCudaTensor_eqTensor(THCudaTensor *self_, THCudaTensor *src1, THCudaTensor *src2)
 {
-  THCudaTensor_logicalTensor(self_, src1, src2, std::equal_to<float>());
+  THCudaTensor_logicalTensor(self_, src1, src2, bolt::amp::equal_to<float>());
 }
 
 
 void THCudaTensor_neTensor(THCudaTensor *self_, THCudaTensor *src1, THCudaTensor *src2)
 {
-  THCudaTensor_logicalTensor(self_, src1, src2, std::not_equal_to<float>());
+  THCudaTensor_logicalTensor(self_, src1, src2, bolt::amp::not_equal_to<float>());
 }
 
 
@@ -1216,11 +1216,11 @@ struct norm_functor
 {
   const float exponent;
 
-  norm_functor(float exponent_) : exponent(exponent_) {}
+  norm_functor(float exponent_)restrict(cpu,amp) : exponent(exponent_) {}
 
-  float operator()(const float& x) const
+  float operator()(const float& x) const restrict(cpu,amp)
   {
-    return pow(fabs(x), exponent);
+    return Concurrency::fast_math::pow(Concurrency::fast_math::fabs(x), exponent);
   }
 };
 
@@ -1233,24 +1233,23 @@ float THCudaTensor_normall(THCudaTensor *self, float value)
 
   float result;
   if(value == 0.0f) {
-//    result = bolt::amp::transform_reduce(self_data.begin(), self_data.begin()+size, partial_not_equal_functor(0.0f), (float)0, bolt::amp::plus<float>());
+    result = bolt::amp::transform_reduce(self_data.begin(), self_data.begin()+size, partial_not_equal_functor(0.0f), (float)0, bolt::amp::plus<float>());
 
   } else {
-//    result = bolt::amp::transform_reduce(self_data.begin(), self_data.begin()+size, norm_functor(value), (float)0, bolt::amp::plus<float>());
+    result = bolt::amp::transform_reduce(self_data.begin(), self_data.begin()+size, norm_functor(value), (float)0, bolt::amp::plus<float>());
     result = pow(result, (float)1.0/value);
   }
 
   THCudaTensor_free(self);
   return result;
-  return 0;
 }
 
 void THCudaTensor_norm(THCudaTensor* self, THCudaTensor* src, float value, long dimension)
 {
   if(value == 0.0f) {
-   // THCudaTensor_transformReduceDim(self, src, dimension, partial_not_equal_functor(0.0f), (float)0, bolt::amp::plus<float>());
+    THCudaTensor_transformReduceDim(self, src, dimension, partial_not_equal_functor(0.0f), (float)0, bolt::amp::plus<float>());
   } else {
-    //THCudaTensor_transformReduceDim(self, src, dimension, norm_functor(value), (float)0, bolt::amp::plus<float>());
+    THCudaTensor_transformReduceDim(self, src, dimension, norm_functor(value), (float)0, bolt::amp::plus<float>());
     THCudaTensor_pow(self, self, 1/value);
   }
 }
@@ -1324,11 +1323,11 @@ struct dist_functor
 {
   const float exponent;
 
-  dist_functor(float exponent_) : exponent(exponent_) {}
+  dist_functor(float exponent_) restrict(amp,cpu) : exponent(exponent_) {}
 
-  float operator()(const float& x, const float& y) const
+  float operator()(const float& x, const float& y) const restrict(amp,cpu)
   {
-    return pow(fabs(x-y), exponent);
+    return Concurrency::fast_math::pow(Concurrency::fast_math::fabs(x-y), exponent);
   }
 };
 
@@ -1338,15 +1337,13 @@ float THCudaTensor_dist(THCudaTensor *self, THCudaTensor *src, float value)
   long size = THCudaTensor_nElement(self);
   src = THCudaTensor_newContiguous(src);
   bolt::amp::device_vector<float> self_data(THCudaTensor_data(self), THCudaTensor_data(self)+THCudaTensor_nElement(self));
-   // thrust::device_ptr<float> src1_data(THCudaTensor_data(src1));  
   bolt::amp::device_vector<float> src_data(THCudaTensor_data(src), THCudaTensor_data(src)+THCudaTensor_nElement(src));
-
-  //float result = bolt::amp::inner_product(self_data.begin(), self_data.end(), src_data.begin(), (float) 0,std::plus<float>(), dist_functor(value));
+  float result = bolt::amp::inner_product(self_data.begin(), self_data.end(), src_data.begin(), (float) 0,bolt::amp::plus<float>(), dist_functor(value));
 
   THCudaTensor_free(src);
   THCudaTensor_free(self);
   
-//  return pow(result, (float)1.0/value);
+  return pow(result, (float)1.0/value);
 }
 
 void THCudaTensor_rand(THCudaTensor *r_, THLongStorage *size)
