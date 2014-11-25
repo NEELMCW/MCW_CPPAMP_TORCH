@@ -821,7 +821,7 @@ function test.geometric()
    checkIfUniformlyDistributed(u, 0, 1)
 end
 
---[[function test.exponential()
+function test.exponential()
    local sz1 = math.floor(torch.uniform(minsize,maxsize))
    local sz2 = math.floor(torch.uniform(minsize,maxsize))
    local lambda = torch.uniform()
@@ -833,7 +833,7 @@ end
    checkIfUniformlyDistributed(u, 0, 1)
 end
 
-function test.cauchy()
+--[[function test.cauchy()
    local sz1 = math.floor(torch.uniform(minsize,maxsize))
    local sz2 = math.floor(torch.uniform(minsize,maxsize))
    local median, sigma = torch.uniform(), torch.uniform()
