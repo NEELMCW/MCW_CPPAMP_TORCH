@@ -2652,7 +2652,7 @@ THCudaTensor_uniform(NULL,arg2,arg3,arg4);
 return 1;
 }
 
-/*static int cutorch_CudaTensor_normal(lua_State *L)
+static int cutorch_CudaTensor_normal(lua_State *L)
 {
 int narg = lua_gettop(L);
 THCudaState *arg1 = NULL;
@@ -2696,10 +2696,10 @@ else
 luaL_error(L, "expected arguments: *CudaTensor* [float] [float]");
 lua_getglobal(L, "cutorch");
 lua_getfield(L, -1, "_state");
-arg1 = lua_touserdata(L, -1);
+arg1 = (THCudaState *)lua_touserdata(L, -1);
 lua_pop(L, 2);
 lua_pushvalue(L, arg2_idx);
-THCudaTensor_normal(arg1->rngState,arg2,arg3,arg4);
+THCudaTensor_normal(NULL,arg2,arg3,arg4);
 return 1;
 }
 
@@ -2747,14 +2747,14 @@ else
 luaL_error(L, "expected arguments: *CudaTensor* [float] [float]");
 lua_getglobal(L, "cutorch");
 lua_getfield(L, -1, "_state");
-arg1 = lua_touserdata(L, -1);
+arg1 = (THCudaState *)lua_touserdata(L, -1);
 lua_pop(L, 2);
 lua_pushvalue(L, arg2_idx);
-THCudaTensor_cauchy(arg1->rngState,arg2,arg3,arg4);
+THCudaTensor_cauchy(NULL,arg2,arg3,arg4);
 return 1;
 }
 
-static int cutorch_CudaTensor_logNormal(lua_State *L)
+/*static int cutorch_CudaTensor_logNormal(lua_State *L)
 {
 int narg = lua_gettop(L);
 THCudaState *arg1 = NULL;
@@ -5406,7 +5406,7 @@ THCudaTensor_uniform(NULL,arg2,arg3,arg4);
 return 1;
 }
 
-/*static int wrapper_normal(lua_State *L)
+static int wrapper_normal(lua_State *L)
 {
 int narg = lua_gettop(L);
 THCudaState *arg1 = NULL;
@@ -5450,10 +5450,10 @@ else
 luaL_error(L, "expected arguments: *CudaTensor* [float] [float]");
 lua_getglobal(L, "cutorch");
 lua_getfield(L, -1, "_state");
-arg1 = lua_touserdata(L, -1);
+arg1 = (THCudaState *)lua_touserdata(L, -1);
 lua_pop(L, 2);
 lua_pushvalue(L, arg2_idx);
-THCudaTensor_normal(arg1->rngState,arg2,arg3,arg4);
+THCudaTensor_normal(NULL,arg2,arg3,arg4);
 return 1;
 }
 
@@ -5501,14 +5501,14 @@ else
 luaL_error(L, "expected arguments: *CudaTensor* [float] [float]");
 lua_getglobal(L, "cutorch");
 lua_getfield(L, -1, "_state");
-arg1 = lua_touserdata(L, -1);
+arg1 = (THCudaState *)lua_touserdata(L, -1);
 lua_pop(L, 2);
 lua_pushvalue(L, arg2_idx);
-THCudaTensor_cauchy(arg1->rngState,arg2,arg3,arg4);
+THCudaTensor_cauchy(NULL,arg2,arg3,arg4);
 return 1;
 }
 
-static int wrapper_logNormal(lua_State *L)
+/*static int wrapper_logNormal(lua_State *L)
 {
 int narg = lua_gettop(L);
 THCudaState *arg1 = NULL;
@@ -5943,8 +5943,8 @@ static const struct luaL_Reg m_cutorch_CudaTensorMath__ [] = {
 {"geometric", wrapper_geometric},
 {"bernoulli", wrapper_bernoulli},
 {"uniform", wrapper_uniform},
-//{"normal", wrapper_normal},
-//{"cauchy", wrapper_cauchy},
+{"normal", wrapper_normal},
+{"cauchy", wrapper_cauchy},
 //{"logNormal", wrapper_logNormal},
 {"exponential", wrapper_exponential},
 {"mean", wrapper_mean},
@@ -6014,9 +6014,9 @@ static const struct luaL_Reg cutorch_CudaTensorMath__ [] = {
 {"geometric", cutorch_CudaTensor_geometric},
 {"bernoulli", cutorch_CudaTensor_bernoulli},
 {"uniform", cutorch_CudaTensor_uniform},
-/*{"normal", cutorch_CudaTensor_normal},
+{"normal", cutorch_CudaTensor_normal},
 {"cauchy", cutorch_CudaTensor_cauchy},
-{"logNormal", cutorch_CudaTensor_logNormal},*/
+/*{"logNormal", cutorch_CudaTensor_logNormal},*/
 {"exponential", cutorch_CudaTensor_exponential},
 {"mean", cutorch_CudaTensor_mean},
 {"var", cutorch_CudaTensor_var},

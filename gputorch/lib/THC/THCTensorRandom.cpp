@@ -204,10 +204,10 @@ void NAME(int size, THCudaTensor *result, ARG1, ARG2)                           
 
 GENERATE_KERNEL2(generate_uniform, double a, double b, uniform_real_distribution, x * (b-a) + a)
 GENERATE_KERNEL1(generate_bernoulli, double p, uniform_real_distribution, (float)x <= p)
-//GENERATE_KERNEL2(generate_normal, double mean, double stdv, curand_normal, (x * stdv) + mean)
+GENERATE_KERNEL2(generate_normal, double mean, double stdv, normal_distribution, (x * stdv) + mean)
 GENERATE_KERNEL1(generate_geometric, double p, uniform_real_distribution, (log(1-x) / log(p)) + 1)
 GENERATE_KERNEL1(generate_exponential, double lambda, uniform_real_distribution, (float)(-1. / lambda * log(1-x)))
-//GENERATE_KERNEL2(generate_cauchy, double median, double sigma, curand_uniform, (float)(median + sigma * tan(M_PI*(x-0.5))))
+GENERATE_KERNEL2(generate_cauchy, double median, double sigma, uniform_real_distribution, (float)(median + sigma * tan(M_PI*(x-0.5))))
 
 #undef GENERATE_KERNEL1
 #undef GENERATE_KERNEL2
@@ -248,16 +248,12 @@ void THCudaTensor_bernoulli(THCudaRNGState* state, THCudaTensor *self_, double p
 
 void THCudaTensor_normal(THCudaRNGState* state, THCudaTensor *self_, double mean, double stdv)
 {
-  if (state->current_gen == NULL)
-  {
-    THError("Random number generators have not been initialized.");
-  }
   THCudaTensor *self = THCudaTensor_newContiguous(self_);
   long size = THCudaTensor_nElement(self);
   float *data = THCudaTensor_data(self);
 
-  /*generate_normal<<<NUM_BLOCKS, BLOCK_SIZE>>>(
-      state->current_gen->gen_states, size, data, mean, stdv);*/
+  generate_normal(
+       size, self, mean, stdv);
 
   THCudaTensor_freeCopyTo(self, self_);
 };
@@ -304,16 +300,12 @@ void THCudaTensor_exponential(THCudaRNGState* state, THCudaTensor *self_, double
 
 void THCudaTensor_cauchy(THCudaRNGState* state, THCudaTensor *self_, double median, double sigma)
 {
-  if (state->current_gen == NULL)
-  {
-    THError("Random number generators have not been initialized.");
-  }
   THCudaTensor *self = THCudaTensor_newContiguous(self_);
   long size = THCudaTensor_nElement(self);
   float *data = THCudaTensor_data(self);
 
-  /*  generate_cauchy<<<NUM_BLOCKS, BLOCK_SIZE>>>(
-      state->current_gen->gen_states, size, data, median, sigma);*/
+  generate_cauchy(
+       size, self, median, sigma);
 
   THCudaTensor_freeCopyTo(self, self_);
 };

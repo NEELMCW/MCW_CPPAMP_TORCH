@@ -784,7 +784,7 @@ function test.bernoulli()
                          "each value must be either 0 or 1")
 end
 
---[[function test.normal()
+function test.normal()
    local sz1 = math.floor(torch.uniform(minsize,maxsize))
    local sz2 = math.floor(torch.uniform(minsize,maxsize))
    local mean, std = torch.uniform(), torch.uniform()
@@ -794,7 +794,7 @@ end
    t:normal(mean, std)
    tester:assertalmosteq(t:mean(), mean, tolerance, "mean is wrong")
    tester:assertalmosteq(t:std(), std, tolerance, "standard deviation is wrong")
-end]]--
+end
 
 --[[function test.logNormal()
    local sz1 = math.floor(torch.uniform(minsize,maxsize))
@@ -833,7 +833,7 @@ function test.exponential()
    checkIfUniformlyDistributed(u, 0, 1)
 end
 
---[[function test.cauchy()
+function test.cauchy()
    local sz1 = math.floor(torch.uniform(minsize,maxsize))
    local sz2 = math.floor(torch.uniform(minsize,maxsize))
    local median, sigma = torch.uniform(), torch.uniform()
