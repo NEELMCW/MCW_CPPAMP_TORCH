@@ -1264,12 +1264,13 @@ void THCudaTensor_norm(THCudaTensor* self, THCudaTensor* src, float value, long 
 void THCudaTensor_kernel_renorm(float *data, const float value, const long size, const float maxnorm, long gridSz)
 {
     Concurrency::array_view<float,1> avData(Concurrency::extent<1>(size),data);
-    Concurrency::extent<1> grdExt(gridSz*32);
-    Concurrency::tiled_extent<32> t_ext(grdExt);
+    gridSz = (gridSz + 63 ) & ~63;
+    Concurrency::extent<1> grdExt(gridSz);
+    Concurrency::tiled_extent<64> t_ext(grdExt);
 
-    Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<32>tidx) restrict(amp)
+    Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<64>tidx) restrict(amp)
     {
-        tile_static float buffer[32];
+        tile_static float buffer[64];
         unsigned long tx = tidx.local[0];
         long bx = tidx.tile[0];
         long step = t_ext.tile_dim0;
@@ -1278,7 +1279,7 @@ void THCudaTensor_kernel_renorm(float *data, const float value, const long size,
         // get norm of axis
         for (long i=tx; i<size; i+=step)
         {
-            buffer[tx] += Concurrency::precise_math::pow(Concurrency::precise_math::fabs(avData[size*bx + i]), value);
+            buffer[tx] += Concurrency::fast_math::pow(Concurrency::fast_math::fabs(avData[size*bx + i]), value);
         }
         // add (reduce)
         for (unsigned int stride = t_ext.tile_dim0 >> 1; stride > 0; stride >>= 1)
@@ -1289,10 +1290,10 @@ void THCudaTensor_kernel_renorm(float *data, const float value, const long size,
         }
         // clip norms
         tidx.barrier.wait();
-        float norm = Concurrency::precise_math::pow(buffer[0], 1/value);
+        float norm = Concurrency::fast_math::pow(buffer[0], 1.0/value);
         if (norm > maxnorm)
         {
-            norm = (float) maxnorm / (norm + (float)1e-7);
+            norm = (float) maxnorm / (float)(norm + (float)1e-7);
             // renormalize
             for (long i=tx; i<size; i+=step)
             {
@@ -1315,15 +1316,13 @@ void THCudaTensor_renorm(THCudaTensor* self, THCudaTensor* src, float value, lon
   THArgCheck(THCudaTensor_nDimension(src) > 1, 1, "need at least 2 dimensions");
   long gridSize = data->size[0];
 
-   THCudaTensor_kernel_renorm(THCudaTensor_data(data), value, size, maxnorm, gridSize);
+  THCudaTensor_kernel_renorm(THCudaTensor_data(data), value, size, maxnorm, gridSize);
 
-    self_ = THCudaTensor_newTranspose(data, dimension, 0);
-    THCudaTensor_resizeAs(self, self_);
-    THCudaTensor_copy(self, self_);
-    THCudaStorage_free(data->storage);
-    THCudaTensor_free(data);
-    THCudaTensor_free(src_);
-    THCudaTensor_free(self_);
+  THCudaTensor_free(src_);
+  self_ = THCudaTensor_newTranspose(data, dimension, 0);
+  THCudaTensor_resizeAs(self, self_);
+  THCudaTensor_freeCopyTo(self_, self);
+  THCudaTensor_free(data);
 }
 
 struct dist_functor
