@@ -1,12 +1,20 @@
+#include "bolt/amp/functional.h"
+#include "bolt/amp/fill.h"
+#include "bolt/amp/device_vector.h"
+#include "bolt/amp/transform.h"
+#include "bolt/amp/transform_reduce.h"
+#include "bolt/amp/reduce.h"
+#include "bolt/amp/inner_product.h"
+#include "amp_math.h"
 struct sqrtupdateOutput_functor
 {
   const double bias;
 
-  sqrtupdateOutput_functor(double bias_) : bias(bias_) {}
+  sqrtupdateOutput_functor(double bias_) restrict(amp,cpu): bias(bias_) {}
 
-  float operator()(const float& input) const
+  float operator()(const float& input) const restrict(amp,cpu)
   {
-    return sqrt(input + bias);
+    return Concurrency::fast_math::sqrt(input + bias);
   }
 };
 
@@ -16,18 +24,12 @@ static int cunn_Sqrt_updateOutput(lua_State *L)
   THCudaTensor *input = (THCudaTensor*)luaT_checkudata(L, 2, "torch.CudaTensor");
   THCudaTensor *output = (THCudaTensor*)luaT_getfieldcheckudata(L, 1, "output", "torch.CudaTensor");
   long size = THCudaTensor_nElement(input);
-
   input = THCudaTensor_newContiguous(input);
-
   THCudaTensor_resizeAs(output, input);
 
-  std::vector<float> output_data(THCudaTensor_data(output), THCudaTensor_data(output) + THCudaTensor_nElement(output));
-  //thrust::device_ptr<float> input_data(THCudaTensor_data(input));
-  std::vector<float> input_data(THCudaTensor_data(input), THCudaTensor_data(input) + THCudaTensor_nElement(input));
- // thrust::transform(input_data, input_data+size, output_data, absupdateOutput_functor());
-  std::transform(input_data.begin(), input_data.end(), output_data.begin(), sqrtupdateOutput_functor(bias));
- 
-  std::copy(output_data.begin(), output_data.end(),output->storage->data);
+  bolt::amp::device_vector<float> output_data(THCudaTensor_data(output), THCudaTensor_data(output) + THCudaTensor_nElement(output));
+  bolt::amp::device_vector<float> input_data(THCudaTensor_data(input), THCudaTensor_data(input) + THCudaTensor_nElement(input));
+  bolt::amp::transform(input_data.begin(), input_data.end(), output_data.begin(), sqrtupdateOutput_functor(bias));
 
   THCudaTensor_free(input);
   return 1;
@@ -37,9 +39,9 @@ struct sqrtupdateGradInput_functor
 {
   const double bias;
 
-  sqrtupdateGradInput_functor(double bias_) : bias(bias_) {}
+  sqrtupdateGradInput_functor(double bias_) restrict(amp,cpu) : bias(bias_) {}
 
-  float operator()(const float& output, const float& gradOutput) const
+  float operator()(const float& output, const float& gradOutput) const restrict(amp,cpu)
   {
     return 0.5 * gradOutput / output;
   }
@@ -56,20 +58,11 @@ static int cunn_Sqrt_updateGradInput(lua_State *L)
   gradOutput = THCudaTensor_newContiguous(gradOutput);
   THCudaTensor_resizeAs(gradInput, output);
 
-  /*thrust::device_ptr<float> output_data(THCudaTensor_data(output));
-  thrust::device_ptr<float> gradOutput_data(THCudaTensor_data(gradOutput));
-  thrust::device_ptr<float> gradInput_data(THCudaTensor_data(gradInput));
-  thrust::transform(output_data, output_data+size, gradOutput_data, gradInput_data, sqrtupdateGradInput_functor(bias));*/
+  bolt::amp::device_vector<float> output_data(THCudaTensor_data(output), THCudaTensor_data(output) + THCudaTensor_nElement(output));
+  bolt::amp::device_vector<float> gradOutput_data(THCudaTensor_data(gradOutput), THCudaTensor_data(gradOutput) + THCudaTensor_nElement(gradOutput));
+  bolt::amp::device_vector<float> gradInput_data(THCudaTensor_data(gradInput), THCudaTensor_data(gradInput) + THCudaTensor_nElement(gradInput));
+  bolt::amp::transform(output_data.begin(), output_data.end(), gradOutput_data.begin(),gradInput_data.begin(), sqrtupdateGradInput_functor(bias));
 
-  std::vector<float> output_data(THCudaTensor_data(output), THCudaTensor_data(output) + THCudaTensor_nElement(output));
-  //thrust::device_ptr<float> gradOutput_data(THCudaTensor_data(gradOutput));
-  std::vector<float> gradOutput_data(THCudaTensor_data(gradOutput), THCudaTensor_data(gradOutput) + THCudaTensor_nElement(gradOutput));
-  //thrust::device_ptr<float> gradInput_data(THCudaTensor_data(gradInput));
-  std::vector<float> gradInput_data(THCudaTensor_data(gradInput), THCudaTensor_data(gradInput) + THCudaTensor_nElement(gradInput));
-  //thrust::transform(input_data, input_data+size, gradOutput_data, gradInput_data, absupdateGradInput_functor());
-  std::transform(output_data.begin(), output_data.end(), gradOutput_data.begin(),gradInput_data.begin(), sqrtupdateGradInput_functor(bias));
-
-  std::copy(gradInput_data.begin(), gradInput_data.end(),gradInput->storage->data);
   THCudaTensor_free(gradOutput);
   return 1;
 }

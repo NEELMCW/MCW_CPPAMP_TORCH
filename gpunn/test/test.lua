@@ -6,7 +6,7 @@ local times = {}
 
 --e.g.: th -lcunn -e "nn.testcuda{'copies'}"
 --NW
---[[function cunntest.copies()
+function cunntest.copies()
    -- test vector
    local t = torch.CudaTensor(100,10)
 
@@ -34,7 +34,7 @@ local times = {}
    tc = tc:transpose(1,2)
    local t2 = tc:float()
    mytester:asserteq(t:transpose(1,2):add(-1,t2):abs():max(), 0, 'host copy, plus transpoe')
-end]]--
+end
 
 function cunntest.Tanh_forward()
    local size = math.random(1,100)
@@ -101,7 +101,7 @@ function cunntest.Tanh_backward()
 end
 
 --NW
---[[function cunntest.Abs_forward()
+function cunntest.Abs_forward()
    local size = math.random(1,100)
 
    local tm = {}
@@ -129,7 +129,7 @@ end
 
    local error = rescuda:float() - groundtruth
    mytester:assertlt(error:abs():max(), precision_forward, 'error on state (forward) ')
-end]]--
+end
 
 --W
 function cunntest.Abs_backward()
@@ -1707,7 +1707,7 @@ end
 
    mytester:assertlt(error:abs():max(), precision_backward, 'error on state (backward) ')
 end
-
+]]--
 function cunntest.mse()
    for sizeAverage = 0, 1 do
       local size = math.random(3000,5000)
@@ -1750,11 +1750,11 @@ function cunntest.mse()
       local gerr = cgin:float() - fgin
       mytester:assertlt(gerr:abs():max(), precision_forward, 'error  on gradInput')
 
-      mytester:assertlt(math.abs(fout-cout2), precision_forward, 'error  on output - 2')
+     --[[ mytester:assertlt(math.abs(fout-cout2), precision_forward, 'error  on output - 2')
       local gerr2 = cgin2:float() - fgin
-      mytester:assertlt(gerr2:abs():max(), precision_forward, 'error  on gradInput -2')
+      mytester:assertlt(gerr2:abs():max(), precision_forward, 'error  on gradInput -2')]]--
    end
-end]]--
+end
 
 function cunntest.distkldiv()
    for sizeAverage = 0, 1 do

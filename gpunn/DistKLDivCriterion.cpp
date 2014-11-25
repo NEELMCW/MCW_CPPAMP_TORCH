@@ -1,16 +1,20 @@
-/*#include <thrust/fill.h>
-#include <thrust/functional.h>
-#include <thrust/reduce.h>
-#include <thrust/inner_product.h>*/
 #include <numeric>
+#include "bolt/amp/functional.h"
+#include "bolt/amp/fill.h"
+#include "bolt/amp/device_vector.h"
+#include "bolt/amp/transform.h"
+#include "bolt/amp/transform_reduce.h"
+#include "bolt/amp/reduce.h"
+#include "bolt/amp/inner_product.h"
+#include "amp_math.h"
 
 struct kl_functor
 {
   kl_functor() {}
 
-  float operator()(const float& x, const float& y) const
+  float operator()(const float& x, const float& y) const restrict(amp,cpu)
   {
-    return y > 0 ? y * (log(y) - x) : 0;
+    return y > 0 ? y * (Concurrency::fast_math::log(y) - x) : 0;
   }
 };
 
@@ -27,9 +31,9 @@ static int cunn_DistKLDivCriterion_updateOutput(lua_State *L)
   input = THCudaTensor_newContiguous(input);
   target = THCudaTensor_newContiguous(target);
 
-  std::vector<float> input_data(THCudaTensor_data(input), THCudaTensor_data(input) + THCudaTensor_nElement(input));
-  std::vector<float> target_data(THCudaTensor_data(target), THCudaTensor_data(target) + THCudaTensor_nElement(target));
-  sum = std::inner_product(input_data.begin(), input_data.end(), target_data.begin(), (float) 0, std::plus<float>(), kl_functor());
+  bolt::amp::device_vector<float> input_data(THCudaTensor_data(input), THCudaTensor_data(input) + THCudaTensor_nElement(input));
+  bolt::amp::device_vector<float> target_data(THCudaTensor_data(target), THCudaTensor_data(target) + THCudaTensor_nElement(target));
+  sum = bolt::amp::inner_product(input_data.begin(), input_data.end(), target_data.begin(), (float) 0, bolt::amp::plus<float>(), kl_functor());
   if (sizeAverage)
     sum /= size;
 
@@ -47,9 +51,9 @@ struct kl_updateGradInput_functor
 {
   const float norm;
 
-  kl_updateGradInput_functor(float norm_) : norm(norm_) {}
+  kl_updateGradInput_functor(float norm_) restrict(amp,cpu) : norm(norm_) {}
 
-  float operator()(const float& x, const float& y) const
+  float operator()(const float& x, const float& y) const restrict(amp,cpu)
   {
     return y > 0 ? norm * (-y) : 0;
   }
@@ -70,18 +74,12 @@ static int cunn_DistKLDivCriterion_updateGradInput(lua_State *L)
 
   THCudaTensor_resizeAs(gradInput, input);
 
-  /*thrust::device_ptr<float> input_data(THCudaTensor_data(input));
-  thrust::device_ptr<float> target_data(THCudaTensor_data(target));
-  thrust::device_ptr<float> gradInput_data(THCudaTensor_data(gradInput));
+  bolt::amp::device_vector<float> input_data(THCudaTensor_data(input), THCudaTensor_data(input) + THCudaTensor_nElement(input));
+  bolt::amp::device_vector<float> target_data(THCudaTensor_data(target), THCudaTensor_data(target) + THCudaTensor_nElement(target));
+  bolt::amp::device_vector<float> gradInput_data(THCudaTensor_data(gradInput), THCudaTensor_data(gradInput) + THCudaTensor_nElement(gradInput));
 
-  thrust::transform(input_data, input_data+size, target_data, gradInput_data, kl_updateGradInput_functor(norm));*/
-  std::vector<float> input_data(THCudaTensor_data(input), THCudaTensor_data(input) + THCudaTensor_nElement(input));
-  std::vector<float> target_data(THCudaTensor_data(target), THCudaTensor_data(target) + THCudaTensor_nElement(target));
-  std::vector<float> gradInput_data(THCudaTensor_data(gradInput), THCudaTensor_data(gradInput) + THCudaTensor_nElement(gradInput));
+  bolt::amp::transform(input_data.begin(), input_data.end(), target_data.begin(), gradInput_data.begin(), kl_updateGradInput_functor(norm));
 
-  std::transform(input_data.begin(), input_data.end(), target_data.begin(), gradInput_data.begin(), kl_updateGradInput_functor(norm));
-
-  std::copy(gradInput_data.begin(), gradInput_data.end(),gradInput->storage->data);
   THCudaTensor_free(input);
   THCudaTensor_free(target);
   return 1;

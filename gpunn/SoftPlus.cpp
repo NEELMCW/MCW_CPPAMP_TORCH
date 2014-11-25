@@ -1,14 +1,22 @@
+#include "bolt/amp/functional.h"
+#include "bolt/amp/fill.h"
+#include "bolt/amp/device_vector.h"
+#include "bolt/amp/transform.h"
+#include "bolt/amp/transform_reduce.h"
+#include "bolt/amp/reduce.h"
+#include "bolt/amp/inner_product.h"
+#include "amp_math.h"
 struct softPlusupdateOutput_functor
 {
   const float threshold;
   const float beta;
 
-  softPlusupdateOutput_functor(float threshold_, float beta_) : threshold(threshold_), beta(beta_) {}
+  softPlusupdateOutput_functor(float threshold_, float beta_) restrict(amp,cpu) : threshold(threshold_), beta(beta_) {}
 
-  float operator()(const float& input) const
+  float operator()(const float& input) const restrict(amp,cpu)
   {
     float betain = beta * input;
-    return ((betain) > threshold) ? input : (1/beta) * log1p(exp(betain));
+    return ((betain) > threshold) ? input : (1/beta) * Concurrency::precise_math::log1p(Concurrency::fast_math::exp(betain));
   }
 };
 
@@ -24,18 +32,10 @@ static int cunn_SoftPlus_updateOutput(lua_State *L)
 
   THCudaTensor_resizeAs(output, input);
 
-  //thrust::device_ptr<float> output_data(THCudaTensor_data(output));
- // thrust::device_ptr<float> input_data(THCudaTensor_data(input));
- // thrust::transform(input_data, input_data+size, output_data, 
-  //                  softPlusupdateOutput_functor(threshold, beta));
+   bolt::amp::device_vector<float> output_data(THCudaTensor_data(output), THCudaTensor_data(output)+THCudaTensor_nElement(output));
+   bolt::amp::device_vector<float> input_data(THCudaTensor_data(input), THCudaTensor_data(input)+THCudaTensor_nElement(input));
+   bolt::amp::transform(input_data.begin(), input_data.end(), output_data.begin(), softPlusupdateOutput_functor(threshold, beta));
 
-   std::vector<float> output_data(THCudaTensor_data(output), THCudaTensor_data(output)+THCudaTensor_nElement(output));
-  //thrust::device_ptr<float> input_data(THCudaTensor_data(input));
-   std::vector<float> input_data(THCudaTensor_data(input), THCudaTensor_data(input)+THCudaTensor_nElement(input));
- // thrust::transform(input_data, input_data+size, output_data, absupdateOutput_functor());
-   std::transform(input_data.begin(), input_data.end(), output_data.begin(), softPlusupdateOutput_functor(threshold, beta));
-
-   std::copy(output_data.begin(), output_data.end(), output->storage->data);
   THCudaTensor_free(input);
   return 1;
 }
@@ -45,12 +45,12 @@ struct softPlusupdateGradInput_functor
   const float threshold;
   const float beta;
 
-  softPlusupdateGradInput_functor(float threshold_, float beta_) : threshold(threshold_), beta(beta_) {}
+  softPlusupdateGradInput_functor(float threshold_, float beta_) restrict(amp,cpu) : threshold(threshold_), beta(beta_) {}
 
-  float operator()(const float& output, const float& gradOutput) const
+  float operator()(const float& output, const float& gradOutput) const restrict(amp,cpu)
   {
     float betaout = beta * output;
-    float exp_bo = exp(betaout);
+    float exp_bo = Concurrency::fast_math::exp(betaout);
     return ((betaout) > threshold) ? gradOutput : gradOutput * (exp_bo - 1) / exp_bo;
   }
 };
@@ -68,22 +68,10 @@ static int cunn_SoftPlus_updateGradInput(lua_State *L)
   gradOutput = THCudaTensor_newContiguous(gradOutput);
   THCudaTensor_resizeAs(gradInput, output);
 
- // thrust::device_ptr<float> output_data(THCudaTensor_data(output));
- // thrust::device_ptr<float> gradOutput_data(THCudaTensor_data(gradOutput));
- // thrust::device_ptr<float> gradInput_data(THCudaTensor_data(gradInput));
- // thrust::transform(output_data, output_data+size, gradOutput_data, gradInput_data, 
-   //                 softPlusupdateGradInput_functor(threshold, beta));
-
-   std::vector<float> input_data(THCudaTensor_data(input), THCudaTensor_data(input)+THCudaTensor_nElement(input));
-  //thrust::device_ptr<float> gradOutput_data(THCudaTensor_data(gradOutput));
-   std::vector<float> gradOutput_data(THCudaTensor_data(gradOutput), THCudaTensor_data(gradOutput)+THCudaTensor_nElement(gradOutput));
-  //thrust::device_ptr<float> gradInput_data(THCudaTensor_data(gradInput));
-   std::vector<float> gradInput_data(THCudaTensor_data(gradInput), THCudaTensor_data(gradInput)+THCudaTensor_nElement(gradInput));
-  //thrust::transform(input_data, input_data+size, gradOutput_data, gradInput_data, absupdateGradInput_functor());
-   std::transform(input_data.begin(), input_data.end(), gradOutput_data.begin(),gradInput_data.begin(), softPlusupdateGradInput_functor(threshold,beta));
-
-   
-   std::copy(gradInput_data.begin(), gradInput_data.end(), gradInput->storage->data);
+   bolt::amp::device_vector<float> input_data(THCudaTensor_data(input), THCudaTensor_data(input)+THCudaTensor_nElement(input));
+   bolt::amp::device_vector<float> gradOutput_data(THCudaTensor_data(gradOutput), THCudaTensor_data(gradOutput)+THCudaTensor_nElement(gradOutput));
+   bolt::amp::device_vector<float> gradInput_data(THCudaTensor_data(gradInput), THCudaTensor_data(gradInput)+THCudaTensor_nElement(gradInput));
+   bolt::amp::transform(input_data.begin(), input_data.end(), gradOutput_data.begin(),gradInput_data.begin(), softPlusupdateGradInput_functor(threshold,beta));
 
   THCudaTensor_free(gradOutput);
   return 1;

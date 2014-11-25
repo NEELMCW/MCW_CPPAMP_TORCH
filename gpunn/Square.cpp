@@ -1,6 +1,15 @@
+#include "bolt/amp/functional.h"
+#include "bolt/amp/fill.h"
+#include "bolt/amp/device_vector.h"
+#include "bolt/amp/transform.h"
+#include "bolt/amp/transform_reduce.h"
+#include "bolt/amp/reduce.h"
+#include "bolt/amp/inner_product.h"
+#include "amp_math.h"
+
 struct squareupdateOutput_functor
 {
-  float operator()(const float& input) const
+  float operator()(const float& input) const restrict(amp,cpu)
   {
     return input * input;
   }
@@ -16,16 +25,9 @@ static int cunn_Square_updateOutput(lua_State *L)
 
   THCudaTensor_resizeAs(output, input);
 
-  /*thrust::device_ptr<float> output_data(THCudaTensor_data(output));
-  thrust::device_ptr<float> input_data(THCudaTensor_data(input));
-  thrust::transform(input_data, input_data+size, output_data, squareupdateOutput_functor());*/
-  std::vector<float> output_data(THCudaTensor_data(output), THCudaTensor_data(output) + THCudaTensor_nElement(output));
-  //thrust::device_ptr<float> input_data(THCudaTensor_data(input));
-  std::vector<float> input_data(THCudaTensor_data(input), THCudaTensor_data(input) + THCudaTensor_nElement(input));
- // thrust::transform(input_data, input_data+size, output_data, absupdateOutput_functor());
-  std::transform(input_data.begin(), input_data.end(), output_data.begin(), squareupdateOutput_functor());
- 
-  std::copy(output_data.begin(), output_data.end(),output->storage->data);
+  bolt::amp::device_vector<float> output_data(THCudaTensor_data(output), THCudaTensor_data(output) + THCudaTensor_nElement(output));
+  bolt::amp::device_vector<float> input_data(THCudaTensor_data(input), THCudaTensor_data(input) + THCudaTensor_nElement(input));
+  bolt::amp::transform(input_data.begin(), input_data.end(), output_data.begin(), squareupdateOutput_functor());
 
   THCudaTensor_free(input);
   return 1;
@@ -33,7 +35,7 @@ static int cunn_Square_updateOutput(lua_State *L)
 
 struct squareupdateGradInput_functor
 {
-  float operator()(const float& input, const float& gradOutput) const
+  float operator()(const float& input, const float& gradOutput) const restrict(amp,cpu)
   {
     return 2.0 * gradOutput * input;
   }
@@ -49,19 +51,10 @@ static int cunn_Square_updateGradInput(lua_State *L)
   gradOutput = THCudaTensor_newContiguous(gradOutput);
   THCudaTensor_resizeAs(gradInput, input);
 
-/*  thrust::device_ptr<float> input_data(THCudaTensor_data(input));
-  thrust::device_ptr<float> gradOutput_data(THCudaTensor_data(gradOutput));
-  thrust::device_ptr<float> gradInput_data(THCudaTensor_data(gradInput));
-  thrust::transform(input_data, input_data+size, gradOutput_data, gradInput_data, squareupdateGradInput_functor());*/
-  std::vector<float> input_data(THCudaTensor_data(input), THCudaTensor_data(input) + THCudaTensor_nElement(input));
-  //thrust::device_ptr<float> gradOutput_data(THCudaTensor_data(gradOutput));
-  std::vector<float> gradOutput_data(THCudaTensor_data(gradOutput), THCudaTensor_data(gradOutput) + THCudaTensor_nElement(gradOutput));
-  //thrust::device_ptr<float> gradInput_data(THCudaTensor_data(gradInput));
-  std::vector<float> gradInput_data(THCudaTensor_data(gradInput), THCudaTensor_data(gradInput) + THCudaTensor_nElement(gradInput));
-  //thrust::transform(input_data, input_data+size, gradOutput_data, gradInput_data, absupdateGradInput_functor());
-  std::transform(input_data.begin(), input_data.end(), gradOutput_data.begin(),gradInput_data.begin(), squareupdateGradInput_functor());
-
-  std::copy(gradInput_data.begin(), gradInput_data.end(),gradInput->storage->data);
+  bolt::amp::device_vector<float> input_data(THCudaTensor_data(input), THCudaTensor_data(input) + THCudaTensor_nElement(input));
+  bolt::amp::device_vector<float> gradOutput_data(THCudaTensor_data(gradOutput), THCudaTensor_data(gradOutput) + THCudaTensor_nElement(gradOutput));
+  bolt::amp::device_vector<float> gradInput_data(THCudaTensor_data(gradInput), THCudaTensor_data(gradInput) + THCudaTensor_nElement(gradInput));
+  bolt::amp::transform(input_data.begin(), input_data.end(), gradOutput_data.begin(),gradInput_data.begin(), squareupdateGradInput_functor());
 
   THCudaTensor_free(gradOutput);
   return 1;

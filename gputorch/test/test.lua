@@ -788,7 +788,7 @@ function test.normal()
    local sz1 = math.floor(torch.uniform(minsize,maxsize))
    local sz2 = math.floor(torch.uniform(minsize,maxsize))
    local mean, std = torch.uniform(), torch.uniform()
-   local tolerance = 0.01
+   local tolerance = 0.1
    local t = torch.CudaTensor(sz1, sz2)
 
    t:normal(mean, std)
