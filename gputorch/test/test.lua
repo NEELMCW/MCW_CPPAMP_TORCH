@@ -7,7 +7,7 @@ end
 local tester
 local test = {}
 local msize = 100
-local minsize = 100
+local minsize = 10
 local maxsize = 100
 local minvalue = 2
 local maxvalue = 20
@@ -23,6 +23,10 @@ local function isEqual(a, b, tolerance, ...)
    if torch.type(b) ~= torch.type(a) then
       b = b:typeAs(a) -- TODO: remove the need for this (a-b doesnt work for bytetensor, cudatensor pairs)
    end
+   print("A")
+   print(a)
+   print("B")
+   print(b)
    local diff = a-b
    tolerance = tolerance or 0.000001
    if type(a) == 'number' then
@@ -330,7 +334,7 @@ function test.mean()
    local sz2 = math.floor(torch.uniform(minsize,maxsize))
    local x = torch.FloatTensor():rand(sz1, sz2)
    compareFloatAndCuda(x, 'mean')
-   --compareFloatAndCuda(x, 'mean', 1)
+   compareFloatAndCuda(x, 'mean', 1)
    --compareFloatAndCuda(x, 'mean', 2)
 end
 
