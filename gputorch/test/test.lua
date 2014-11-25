@@ -759,7 +759,7 @@ local function checkIfUniformlyDistributed(t, min, max)
    tester:assertalmosteq(t:mean(), (min + max) / 2, 0.1, "mean is wrong")
 end
 
---[[function test.uniform()
+function test.uniform()
    local sz1 = math.floor(torch.uniform(minsize,maxsize))
    local sz2 = math.floor(torch.uniform(minsize,maxsize))
    local min = torch.uniform()
@@ -769,7 +769,7 @@ end
    t:uniform(min, max)
    checkIfUniformlyDistributed(t, min, max, tolerance)
 end
-]]--
+
 function test.bernoulli()
    local sz1 = math.floor(torch.uniform(minsize,maxsize))
    local sz2 = math.floor(torch.uniform(minsize,maxsize))

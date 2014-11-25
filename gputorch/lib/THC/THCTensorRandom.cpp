@@ -174,34 +174,35 @@ void THCRandom_setRNGState(THCudaRNGState* state, THByteTensor *rng_state)
   memcpy(&state->current_gen->initial_seed, THByteTensor_data(rng_state) + states_size, seed_size);*/
 }
 
-#define GENERATE_KERNEL1(NAME, ARG1, CURAND_FUNC, TRANSFORM)                   \
-void NAME(int size, THCudaTensor *result, ARG1)  \
-{                                              \
-  std::mt19937 gen;                                                                                \
-  Concurrency::array_view<float, 1> avResult(THCudaTensor_nElement(result), THCudaTensor_data(result));                         \
-  Concurrency::extent<1> grdExt(size);                                         \
-  Concurrency::tiled_extent<1> t_ext(grdExt);                                  \
-  for (int i = 0; i < size; i++) {              \
-    std::CURAND_FUNC<float> rand(0, 0.9);                              \
-    float x = rand(gen);                                 \
-    x = TRANSFORM; \
-    avResult[i] = x;                                                             \
-  }                                                                             \
-  avResult.synchronize();                                                            \
+#define GENERATE_KERNEL1(NAME, ARG1, CURAND_FUNC, TRANSFORM)                                               \
+void NAME(int size, THCudaTensor *result, ARG1)                                                            \
+{                                                                                                          \
+  std::mt19937 gen;                                                                                        \
+  Concurrency::array_view<float, 1> avResult(THCudaTensor_nElement(result), THCudaTensor_data(result));    \
+  for (int i = 0; i < size; i++) {                                                                         \
+    std::CURAND_FUNC<float> rand(0, 0.9);                                                                  \
+    float x = rand(gen);                                                                                   \
+    x = TRANSFORM;                                                                                         \
+    avResult[i] = x;                                                                                       \
+  }                                                                                                        \
+  avResult.synchronize();                                                                                  \
 }
 
-#define GENERATE_KERNEL2(NAME, ARG1, ARG2, CURAND_FUNC, TRANSFORM)                   \
-void NAME(int size, float *result, ARG1, ARG2)  \
-{                                                                                    \
-  int idx = blockIdx.x * BLOCK_SIZE + threadIdx.x;                                   \
-  for (int i = idx; i < size; i += BLOCK_SIZE * MAX_NUM_BLOCKS) {                    \
-    float x = CURAND_FUNC(&state[blockIdx.x]);                                       \
-    x = TRANSFORM;                                                                   \
-    result[i] = x;                                                                   \
-  }                                                                                  \
+#define GENERATE_KERNEL2(NAME, ARG1, ARG2, CURAND_FUNC, TRANSFORM)                                         \
+void NAME(int size, THCudaTensor *result, ARG1, ARG2)                                                      \
+{                                                                                                          \
+  std::mt19937 gen;                                                                                        \
+  Concurrency::array_view<float, 1> avResult(THCudaTensor_nElement(result), THCudaTensor_data(result));    \
+  for (int i = 0; i < size; i++) {                                                                         \
+    std::CURAND_FUNC<float> rand(0, 0.9);                                                                  \
+    float x = rand(gen);                                                                                   \
+    x = TRANSFORM;                                                                                         \
+    avResult[i] = x;                                                                                       \
+  }                                                                                                        \
+  avResult.synchronize();                                                                                  \
 }
 
-//GENERATE_KERNEL2(generate_uniform, double a, double b, curand_uniform, x * (b-a) + a)
+GENERATE_KERNEL2(generate_uniform, double a, double b, uniform_real_distribution, x * (b-a) + a)
 GENERATE_KERNEL1(generate_bernoulli, double p, uniform_real_distribution, (float)x <= p)
 //GENERATE_KERNEL2(generate_normal, double mean, double stdv, curand_normal, (x * stdv) + mean)
 GENERATE_KERNEL1(generate_geometric, double p, uniform_real_distribution, (log(1-x) / log(p)) + 1)
@@ -223,16 +224,12 @@ GENERATE_KERNEL1(generate_exponential, double lambda, uniform_real_distribution,
 #define NUM_BLOCKS min((int)DIVUP(size, BLOCK_SIZE), MAX_NUM_BLOCKS)
 void THCudaTensor_uniform(THCudaRNGState* state, THCudaTensor *self_, double a, double b)
 {
-  if (state->current_gen == NULL)
-  {
-    THError("Random number generators have not been initialized.");
-  }
   THCudaTensor *self = THCudaTensor_newContiguous(self_);
   long size = THCudaTensor_nElement(self);
-  //float *data = THCudaTensor_data(self);
+  float *data = THCudaTensor_data(self);
 
-  /*generate_uniform(
-      state->current_gen->gen_states, size, self, a, b);*/
+  generate_uniform(
+      size, self, a, b);
 
   THCudaTensor_freeCopyTo(self, self_);
 };
