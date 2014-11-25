@@ -7,8 +7,8 @@ end
 local tester
 local test = {}
 local msize = 100
-local minsize = 100
-local maxsize = 100
+local minsize = 10
+local maxsize = 10
 local minvalue = 2
 local maxvalue = 20
 local nloop = 100
@@ -769,13 +769,12 @@ function test.uniform()
    t:uniform(min, max)
    checkIfUniformlyDistributed(t, min, max, tolerance)
 end
-
+]]--
 function test.bernoulli()
    local sz1 = math.floor(torch.uniform(minsize,maxsize))
    local sz2 = math.floor(torch.uniform(minsize,maxsize))
    local p = torch.uniform()
    local t = torch.CudaTensor(sz1, sz2)
-
    t:bernoulli(p)
    tester:assertalmosteq(t:mean(), p, 0.1, "mean is not equal to p")
    local f = t:float()
@@ -784,7 +783,7 @@ function test.bernoulli()
                          1e-6,
                          "each value must be either 0 or 1")
 end
-]]--
+
 --[[function test.normal()
    local sz1 = math.floor(torch.uniform(minsize,maxsize))
    local sz2 = math.floor(torch.uniform(minsize,maxsize))

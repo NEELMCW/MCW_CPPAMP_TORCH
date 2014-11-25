@@ -175,18 +175,23 @@ void THCRandom_setRNGState(THCudaRNGState* state, THByteTensor *rng_state)
 }
 
 #define GENERATE_KERNEL1(NAME, ARG1, CURAND_FUNC, TRANSFORM)                   \
-__global__ void NAME(curandStateMtgp32 *state, int size, float *result, ARG1)  \
-{                                                                              \
-  int idx = blockIdx.x * BLOCK_SIZE + threadIdx.x;                             \
-  for (int i = idx; i < size; i += BLOCK_SIZE * MAX_NUM_BLOCKS) {              \
-    float x = CURAND_FUNC(&state[blockIdx.x]);                                 \
-    x = TRANSFORM;                                                             \
-    result[i] = x;                                                             \
-  }                                                                            \
+void NAME(int size, THCudaTensor *result, ARG1)  \
+{                                              \
+  std::mt19937 gen;                                                                                \
+  Concurrency::array_view<float, 1> avResult(THCudaTensor_nElement(result), THCudaTensor_data(result));                         \
+  Concurrency::extent<1> grdExt(size);                                         \
+  Concurrency::tiled_extent<1> t_ext(grdExt);                                  \
+  for (int i = 0; i < size; i++) {              \
+    std::CURAND_FUNC<float> rand(0, 0.9);                              \
+    float x = rand(gen);                                 \
+    x = TRANSFORM; \
+    avResult[i] = x;                                                             \
+  }                                                                             \
+  avResult.synchronize();                                                            \
 }
 
 #define GENERATE_KERNEL2(NAME, ARG1, ARG2, CURAND_FUNC, TRANSFORM)                   \
-__global__ void NAME(curandStateMtgp32 *state, int size, float *result, ARG1, ARG2)  \
+void NAME(int size, float *result, ARG1, ARG2)  \
 {                                                                                    \
   int idx = blockIdx.x * BLOCK_SIZE + threadIdx.x;                                   \
   for (int i = idx; i < size; i += BLOCK_SIZE * MAX_NUM_BLOCKS) {                    \
@@ -196,12 +201,12 @@ __global__ void NAME(curandStateMtgp32 *state, int size, float *result, ARG1, AR
   }                                                                                  \
 }
 
-/*GENERATE_KERNEL2(generate_uniform, double a, double b, curand_uniform, x * (b-a) + a)
-GENERATE_KERNEL1(generate_bernoulli, double p, curand_uniform, (float)x <= p)
-GENERATE_KERNEL2(generate_normal, double mean, double stdv, curand_normal, (x * stdv) + mean)
-GENERATE_KERNEL1(generate_geometric, double p, curand_uniform, (log(1-x) / log(p)) + 1)
-GENERATE_KERNEL1(generate_exponential, double lambda, curand_uniform, (float)(-1. / lambda * log(1-x)))
-GENERATE_KERNEL2(generate_cauchy, double median, double sigma, curand_uniform, (float)(median + sigma * tan(M_PI*(x-0.5))))*/
+//GENERATE_KERNEL2(generate_uniform, double a, double b, curand_uniform, x * (b-a) + a)
+GENERATE_KERNEL1(generate_bernoulli, double p, uniform_real_distribution, (float)x <= p)
+//GENERATE_KERNEL2(generate_normal, double mean, double stdv, curand_normal, (x * stdv) + mean)
+//GENERATE_KERNEL1(generate_geometric, double p, curand_uniform, (log(1-x) / log(p)) + 1)
+//GENERATE_KERNEL1(generate_exponential, double lambda, curand_uniform, (float)(-1. / lambda * log(1-x)))
+//GENERATE_KERNEL2(generate_cauchy, double median, double sigma, curand_uniform, (float)(median + sigma * tan(M_PI*(x-0.5))))
 
 #undef GENERATE_KERNEL1
 #undef GENERATE_KERNEL2
@@ -216,7 +221,7 @@ GENERATE_KERNEL2(generate_cauchy, double median, double sigma, curand_uniform, (
 }*/
 
 #define NUM_BLOCKS min((int)DIVUP(size, BLOCK_SIZE), MAX_NUM_BLOCKS)
-THC_API void THCudaTensor_uniform(THCudaRNGState* state, THCudaTensor *self_, double a, double b)
+void THCudaTensor_uniform(THCudaRNGState* state, THCudaTensor *self_, double a, double b)
 {
   if (state->current_gen == NULL)
   {
@@ -224,31 +229,27 @@ THC_API void THCudaTensor_uniform(THCudaRNGState* state, THCudaTensor *self_, do
   }
   THCudaTensor *self = THCudaTensor_newContiguous(self_);
   long size = THCudaTensor_nElement(self);
-  float *data = THCudaTensor_data(self);
+  //float *data = THCudaTensor_data(self);
 
-/*  generate_uniform<<<NUM_BLOCKS, BLOCK_SIZE>>>(
-      state->current_gen->gen_states, size, data, a, b);*/
+  /*generate_uniform(
+      state->current_gen->gen_states, size, self, a, b);*/
 
   THCudaTensor_freeCopyTo(self, self_);
 };
 
-THC_API void THCudaTensor_bernoulli(THCudaRNGState* state, THCudaTensor *self_, double p)
+void THCudaTensor_bernoulli(THCudaRNGState* state, THCudaTensor *self_, double p)
 {
-  if (state->current_gen == NULL)
-  {
-    THError("Random number generators have not been initialized.");
-  }
   THCudaTensor *self = THCudaTensor_newContiguous(self_);
   long size = THCudaTensor_nElement(self);
   float *data = THCudaTensor_data(self);
 
-  /*generate_bernoulli<<<NUM_BLOCKS, BLOCK_SIZE>>>(
-      state->current_gen->gen_states, size, data, p);*/
+  generate_bernoulli(
+       size, self, p);
 
   THCudaTensor_freeCopyTo(self, self_);
 };
 
-THC_API void THCudaTensor_normal(THCudaRNGState* state, THCudaTensor *self_, double mean, double stdv)
+void THCudaTensor_normal(THCudaRNGState* state, THCudaTensor *self_, double mean, double stdv)
 {
   if (state->current_gen == NULL)
   {
@@ -264,7 +265,7 @@ THC_API void THCudaTensor_normal(THCudaRNGState* state, THCudaTensor *self_, dou
   THCudaTensor_freeCopyTo(self, self_);
 };
 
-THC_API void THCudaTensor_logNormal(THCudaRNGState* state, THCudaTensor *self_, double mean, double stdv)
+void THCudaTensor_logNormal(THCudaRNGState* state, THCudaTensor *self_, double mean, double stdv)
 {
   if (state->current_gen == NULL)
   {
@@ -280,7 +281,7 @@ THC_API void THCudaTensor_logNormal(THCudaRNGState* state, THCudaTensor *self_, 
   THCudaTensor_freeCopyTo(self, self_);
 };
 
-THC_API void THCudaTensor_geometric(THCudaRNGState* state, THCudaTensor *self_, double p)
+void THCudaTensor_geometric(THCudaRNGState* state, THCudaTensor *self_, double p)
 {
   if (state->current_gen == NULL)
   {
@@ -296,7 +297,7 @@ THC_API void THCudaTensor_geometric(THCudaRNGState* state, THCudaTensor *self_, 
   THCudaTensor_freeCopyTo(self, self_);
 };
 
-THC_API void THCudaTensor_exponential(THCudaRNGState* state, THCudaTensor *self_, double lambda)
+void THCudaTensor_exponential(THCudaRNGState* state, THCudaTensor *self_, double lambda)
 {
   if (state->current_gen == NULL)
   {
@@ -312,7 +313,7 @@ THC_API void THCudaTensor_exponential(THCudaRNGState* state, THCudaTensor *self_
   THCudaTensor_freeCopyTo(self, self_);
 };
 
-THC_API void THCudaTensor_cauchy(THCudaRNGState* state, THCudaTensor *self_, double median, double sigma)
+void THCudaTensor_cauchy(THCudaRNGState* state, THCudaTensor *self_, double median, double sigma)
 {
   if (state->current_gen == NULL)
   {

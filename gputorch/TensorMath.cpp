@@ -4,6 +4,10 @@
 #include "luaT.h"
 #include "utils.h"
 
+struct THCudaState
+{
+  THCudaRNGState* rngState;
+};
 
 static int cutorch_CudaTensor_zero(lua_State *L)
 {
@@ -2045,7 +2049,7 @@ THCudaTensor_pow(arg1,arg2,arg3);
 return 1;
 }
 
-/*static int cutorch_CudaTensor_rand(lua_State *L)
+static int cutorch_CudaTensor_rand(lua_State *L)
 {
 int narg = lua_gettop(L);
 THCudaState *arg1 = NULL;
@@ -2071,7 +2075,7 @@ else
 luaL_error(L, "expected arguments: [*CudaTensor*] (LongStorage | dim1 [dim2...])");
 lua_getglobal(L, "cutorch");
 lua_getfield(L, -1, "_state");
-arg1 = lua_touserdata(L, -1);
+arg1 = (THCudaState *)lua_touserdata(L, -1);
 lua_pop(L, 2);
 if(arg2_idx)
 lua_pushvalue(L, arg2_idx);
@@ -2108,7 +2112,7 @@ else
 luaL_error(L, "expected arguments: [*CudaTensor*] (LongStorage | dim1 [dim2...])");
 lua_getglobal(L, "cutorch");
 lua_getfield(L, -1, "_state");
-arg1 = lua_touserdata(L, -1);
+arg1 =(THCudaState *) lua_touserdata(L, -1);
 lua_pop(L, 2);
 if(arg2_idx)
 lua_pushvalue(L, arg2_idx);
@@ -2118,7 +2122,7 @@ THCudaTensor_randn(arg1->rngState,arg2,arg3);
 THLongStorage_free(arg3);
 return 1;
 }
-*/
+
 static int cutorch_CudaTensor_clamp(lua_State *L)
 {
 int narg = lua_gettop(L);
@@ -2563,7 +2567,7 @@ lua_pop(L, 2);
 lua_pushvalue(L, arg2_idx);
 THCudaTensor_geometric(arg1->rngState,arg2,arg3);
 return 1;
-}
+}*/
 
 static int cutorch_CudaTensor_bernoulli(lua_State *L)
 {
@@ -2590,14 +2594,14 @@ else
 luaL_error(L, "expected arguments: *CudaTensor* [float]");
 lua_getglobal(L, "cutorch");
 lua_getfield(L, -1, "_state");
-arg1 = lua_touserdata(L, -1);
+arg1 = (THCudaState *)lua_touserdata(L, -1);
 lua_pop(L, 2);
 lua_pushvalue(L, arg2_idx);
 THCudaTensor_bernoulli(arg1->rngState,arg2,arg3);
 return 1;
 }
 
-static int cutorch_CudaTensor_uniform(lua_State *L)
+/*static int cutorch_CudaTensor_uniform(lua_State *L)
 {
 int narg = lua_gettop(L);
 THCudaState *arg1 = NULL;
@@ -4842,7 +4846,7 @@ THCudaTensor_pow(arg1,arg2,arg3);
 return 1;
 }
 
-/*static int wrapper_rand(lua_State *L)
+static int wrapper_rand(lua_State *L)
 {
 int narg = lua_gettop(L);
 THCudaState *arg1 = NULL;
@@ -4861,7 +4865,7 @@ else
 luaL_error(L, "expected arguments: *CudaTensor* (LongStorage | dim1 [dim2...])");
 lua_getglobal(L, "cutorch");
 lua_getfield(L, -1, "_state");
-arg1 = lua_touserdata(L, -1);
+arg1 = (THCudaState *)lua_touserdata(L, -1);
 lua_pop(L, 2);
 lua_pushvalue(L, arg2_idx);
 THCudaTensor_rand(arg1->rngState,arg2,arg3);
@@ -4888,14 +4892,14 @@ else
 luaL_error(L, "expected arguments: *CudaTensor* (LongStorage | dim1 [dim2...])");
 lua_getglobal(L, "cutorch");
 lua_getfield(L, -1, "_state");
-arg1 = lua_touserdata(L, -1);
+arg1 = (THCudaState *)lua_touserdata(L, -1);
 lua_pop(L, 2);
 lua_pushvalue(L, arg2_idx);
 THCudaTensor_randn(arg1->rngState,arg2,arg3);
 THLongStorage_free(arg3);
 return 1;
 }
-*/
+
 static int wrapper_clamp(lua_State *L)
 {
 int narg = lua_gettop(L);
@@ -5318,7 +5322,7 @@ lua_pushvalue(L, arg2_idx);
 THCudaTensor_geometric(arg1->rngState,arg2,arg3);
 return 1;
 }
-
+*/
 static int wrapper_bernoulli(lua_State *L)
 {
 int narg = lua_gettop(L);
@@ -5344,14 +5348,14 @@ else
 luaL_error(L, "expected arguments: *CudaTensor* [float]");
 lua_getglobal(L, "cutorch");
 lua_getfield(L, -1, "_state");
-arg1 = lua_touserdata(L, -1);
+arg1 = (THCudaState *)lua_touserdata(L, -1);
 lua_pop(L, 2);
 lua_pushvalue(L, arg2_idx);
-THCudaTensor_bernoulli(arg1->rngState,arg2,arg3);
+THCudaTensor_bernoulli(NULL,arg2,arg3);
 return 1;
 }
 
-static int wrapper_uniform(lua_State *L)
+/*static int wrapper_uniform(lua_State *L)
 {
 int narg = lua_gettop(L);
 THCudaState *arg1 = NULL;
@@ -5927,8 +5931,8 @@ static const struct luaL_Reg m_cutorch_CudaTensorMath__ [] = {
 {"round", wrapper_round},
 {"atan2", wrapper_atan2},
 {"pow", wrapper_pow},
-//{"rand", wrapper_rand},
-//{"randn", wrapper_randn},
+{"rand", wrapper_rand},
+{"randn", wrapper_randn},
 {"clamp", wrapper_clamp},
 {"lt", wrapper_lt},
 {"gt", wrapper_gt},
@@ -5937,7 +5941,7 @@ static const struct luaL_Reg m_cutorch_CudaTensorMath__ [] = {
 {"eq", wrapper_eq},
 {"ne", wrapper_ne},
 //{"geometric", wrapper_geometric},
-//{"bernoulli", wrapper_bernoulli},
+{"bernoulli", wrapper_bernoulli},
 //{"uniform", wrapper_uniform},
 //{"normal", wrapper_normal},
 //{"cauchy", wrapper_cauchy},
@@ -5998,8 +6002,8 @@ static const struct luaL_Reg cutorch_CudaTensorMath__ [] = {
 {"round", cutorch_CudaTensor_round},
 {"atan2", cutorch_CudaTensor_atan2},
 {"pow", cutorch_CudaTensor_pow},
-//{"rand", cutorch_CudaTensor_rand},
-//{"randn", cutorch_CudaTensor_randn},
+{"rand", cutorch_CudaTensor_rand},
+{"randn", cutorch_CudaTensor_randn},
 {"clamp", cutorch_CudaTensor_clamp},
 {"lt", cutorch_CudaTensor_lt},
 {"gt", cutorch_CudaTensor_gt},
@@ -6007,9 +6011,9 @@ static const struct luaL_Reg cutorch_CudaTensorMath__ [] = {
 {"ge", cutorch_CudaTensor_ge},
 {"eq", cutorch_CudaTensor_eq},
 {"ne", cutorch_CudaTensor_ne},
-/*{"geometric", cutorch_CudaTensor_geometric},
+//{"geometric", cutorch_CudaTensor_geometric},
 {"bernoulli", cutorch_CudaTensor_bernoulli},
-{"uniform", cutorch_CudaTensor_uniform},
+/*{"uniform", cutorch_CudaTensor_uniform},
 {"normal", cutorch_CudaTensor_normal},
 {"cauchy", cutorch_CudaTensor_cauchy},
 {"logNormal", cutorch_CudaTensor_logNormal},

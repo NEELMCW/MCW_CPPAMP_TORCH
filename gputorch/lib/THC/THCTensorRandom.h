@@ -2,12 +2,11 @@
 #define TH_CUDA_TENSOR_RANDOM_INC
 
 #include "THCTensor.h"
-#include "boost/random.hpp"
-#include "boost/generator_iterator.hpp"
+#include <random>
 
 /* Generator */
 typedef struct _Generator {
-  boost::mt19937* gen_states;
+  std::mt19937* gen_states;
   int initf;
   unsigned long initial_seed;
 } Generator;
