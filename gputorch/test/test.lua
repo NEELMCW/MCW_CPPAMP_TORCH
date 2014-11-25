@@ -7,8 +7,8 @@ end
 local tester
 local test = {}
 local msize = 100
-local minsize = 10
-local maxsize = 10
+local minsize = 100
+local maxsize = 100
 local minvalue = 2
 local maxvalue = 20
 local nloop = 100
@@ -335,7 +335,7 @@ function test.mean()
    local sz2 = math.floor(torch.uniform(minsize,maxsize))
    local x = torch.FloatTensor():rand(sz1, sz2)
    compareFloatAndCuda(x, 'mean')
-   compareFloatAndCuda(x, 'mean', 1)
+   --compareFloatAndCuda(x, 'mean', 1)
    --compareFloatAndCuda(x, 'mean', 2)
 end
 
@@ -572,7 +572,7 @@ function test.indexFill()
    compareFloatAndCuda(x, 'indexFill', index, longIndex, val)
 end
 
-function test.renorm()
+--[[function test.renorm()
    local x = torch.randn(10,5):float()
    local maxnorm = x:norm(2,1):mean()
 
@@ -589,7 +589,7 @@ function test.renorm()
 
    x = torch.randn(3,4,5,100)
    compareFloatAndCuda(x, 'renorm', 4, 2, maxnorm)
-end
+end]]--
 
 --[[function test.indexSelect()
    --  test for speed
@@ -629,7 +629,7 @@ end]]--
 
 --[[function test.addmv()
    local sizes = {
-      {2,1}
+      {2,1},
       {1,2},
       {1,1},
       {3,4},
@@ -682,7 +682,7 @@ end]]--
       local b = torch.randn(m)
       compareFloatAndCudaTensorArgs(c, 'addr', torch.normal(), a, b)
    end
-end
+end]]--
 
 function test.addmm()
    local sizes = {
@@ -701,7 +701,7 @@ function test.addmm()
       local b = torch.randn(k, m)
       compareFloatAndCudaTensorArgs(c, 'addmm', torch.normal(), torch.normal(), a, b)
    end
-end]]--
+end
 
 --[[function test.mm()
    local sizes = {
@@ -739,8 +739,8 @@ end]]--
       local b = torch.randn(m)
       compareFloatAndCudaTensorArgs(c, 'ger', a, b)
    end
-end
-]]--
+end]]--
+
 function test.isSameSizeAs()
    local t1 = torch.CudaTensor(3, 4, 9, 10)
    local t2 = torch.CudaTensor(3, 4)
