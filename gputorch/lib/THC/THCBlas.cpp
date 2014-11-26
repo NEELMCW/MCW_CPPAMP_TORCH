@@ -278,26 +278,30 @@ void THCudaBlas_gemv(char trans, long m, long n, float alpha, float *a, long lda
  std::cout<<"\n CodeN"<<n<<std::endl;
  std::cout<<"\n CodeM"<<m<<std::endl;
 
-  if(transa_)
-  {
-   
-    if(m == 1)
-      lda = n;
-  }
-  else
-  {
-    if(n == 1)
-      lda = m;
-  }
-
+ if(n == 1)
+   lda = m;
 
 
   //cublasOperation_t op;
   clblasTranspose op;
-  if (trans == 't') op = clblasTrans;
-  else if (trans == 'n') op = clblasNoTrans;
-  else if (trans == 'c') op = clblasConjTrans;
+  if (trans == 't')
+  {
+     std::cout<<"Trans"<<std::endl;
+     op = clblasTrans;
+  }
+  else if (trans == 'n') 
+  {
+     std::cout<<"NoTrans"<<std::endl;
+     op = clblasNoTrans;
+  }
+  else if (trans == 'c') 
+  {
+     std::cout<<"ConjTrans"<<std::endl;
+     op = clblasConjTrans;
+  }
   clblasOrder order = clblasColumnMajor;
+
+
 
   if( (m <= INT_MAX) && (n <= INT_MAX) &&
       (lda > 0) && (lda <= INT_MAX) &&

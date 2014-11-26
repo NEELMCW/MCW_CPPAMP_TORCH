@@ -1258,25 +1258,26 @@ void THCudaTensor_norm(THCudaTensor* self, THCudaTensor* src, float value, long 
   }
 }
 
-void THCudaTensor_kernel_renorm(float *data, const float value, const long size, const float maxnorm, long gridSz)
+void THCudaTensor_kernel_renorm(THCudaTensor *data, const float value, const long size, const float maxnorm, long gridSz)
 {
-    Concurrency::array_view<float,1> avData(Concurrency::extent<1>(size),data);
-    gridSz = (gridSz + 63 ) & ~63;
+    Concurrency::array_view<float,1> avData(THCudaTensor_nElement(data),THCudaTensor_data(data));
+    //gridSz = (gridSz + 31 ) & ~31;
     Concurrency::extent<1> grdExt(gridSz);
-    Concurrency::tiled_extent<64> t_ext(grdExt);
+    Concurrency::tiled_extent<32> t_ext(grdExt);
 
-    Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<64>tidx) restrict(amp)
+    Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<32>tidx) restrict(amp)
     {
-        tile_static float buffer[64];
+        tile_static float buffer[32];
         unsigned long tx = tidx.local[0];
         long bx = tidx.tile[0];
         long step = t_ext.tile_dim0;
-        //float *row = data + size*bx;
+        float* dat = avData.data();
+        float *row = dat + size*bx;
         buffer[tx] = 0;
         // get norm of axis
         for (long i=tx; i<size; i+=step)
         {
-            buffer[tx] += Concurrency::fast_math::pow(Concurrency::fast_math::fabs(avData[size*bx + i]), value);
+            buffer[tx] += Concurrency::fast_math::pow(Concurrency::fast_math::fabs(row[i]), value);
         }
         // add (reduce)
         for (unsigned int stride = t_ext.tile_dim0 >> 1; stride > 0; stride >>= 1)
@@ -1290,11 +1291,11 @@ void THCudaTensor_kernel_renorm(float *data, const float value, const long size,
         float norm = Concurrency::fast_math::pow(buffer[0], 1.0/value);
         if (norm > maxnorm)
         {
-            norm = (float) maxnorm / (float)(norm + (float)1e-7);
+            norm = maxnorm / (norm + 1e-7);
             // renormalize
             for (long i=tx; i<size; i+=step)
             {
-                avData[size*bx+i] *= norm;
+                row[i] *= norm;
             }
         }
     });
@@ -1311,9 +1312,9 @@ void THCudaTensor_renorm(THCudaTensor* self, THCudaTensor* src, float value, lon
   THArgCheck(dimension >= 0 && dimension < THCudaTensor_nDimension(src), 3, "invalid dimension");
   THArgCheck(value > 0, 2, "non-positive-norm not supported");
   THArgCheck(THCudaTensor_nDimension(src) > 1, 1, "need at least 2 dimensions");
-  long gridSize = data->size[0];
+  long gridSize = data->size[0] * 32;
 
-  THCudaTensor_kernel_renorm(THCudaTensor_data(data), value, size, maxnorm, gridSize);
+  THCudaTensor_kernel_renorm(data, value, size, maxnorm, gridSize);
 
   THCudaTensor_free(src_);
   self_ = THCudaTensor_newTranspose(data, dimension, 0);

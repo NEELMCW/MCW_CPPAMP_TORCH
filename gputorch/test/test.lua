@@ -8,7 +8,7 @@ local tester
 local test = {}
 local msize = 100
 local minsize = 100
-local maxsize = 800
+local maxsize = 400
 local minvalue = 2
 local maxvalue = 20
 local nloop = 100
@@ -23,14 +23,10 @@ local function isEqual(a, b, tolerance, ...)
    if torch.type(b) ~= torch.type(a) then
       b = b:typeAs(a) -- TODO: remove the need for this (a-b doesnt work for bytetensor, cudatensor pairs)
    end
-   --print("A")
-   --print(a)
-   --print("B")
-   --print(b)
    local diff = a-b
    --print(diff)
    --tolerance = tolerance or 0.000001
-   tolerance = 0.001
+   tolerance = 0.01
    if type(a) == 'number' then
       return math.abs(diff) < tolerance
    else
@@ -377,7 +373,7 @@ function test.prod()
    local x = torch.FloatTensor():rand(sz1, sz2)
    --compareFloatAndCuda(x, 'prod')
    compareFloatAndCuda(x, 'prod', 1)
-   compareFloatAndCuda(x, 'prod', 2)
+   --compareFloatAndCuda(x, 'prod', 2)
 end
 
 function test.round()
@@ -499,30 +495,6 @@ function test.clamp2()
    compareFloatAndCudaTensorArgs(y, 'clamp', x, min_val, max_val)
 end
 
---[[function test.index()
-   local sz1 = math.floor(torch.uniform(minsize,maxsize))
-   local sz2 = math.floor(torch.uniform(minsize,maxsize))
-   local sz3 = math.floor(torch.uniform(10,20))
-   local x = torch.FloatTensor():rand(sz1, sz2)
-
-   local longIndex = torch.LongTensor{math.floor(torch.uniform(1, sz1)), math.floor(torch.uniform(1, sz1))}
-   local index = 1
-   compareFloatAndCuda(x, 'index', index, longIndex)
-
-   index = 2
-   longIndex =  torch.LongTensor{math.floor(torch.uniform(1, sz2)), math.floor(torch.uniform(1, sz2))}
-   compareFloatAndCuda(x, 'index', index, longIndex)
-
-   x = torch.FloatTensor():rand(sz1)
-   index = 1
-   longIndex = torch.LongTensor{math.floor(torch.uniform(1, sz1)), math.floor(torch.uniform(1, sz1))}
-   compareFloatAndCuda(x, 'index', index, longIndex)
-
-   x = torch.FloatTensor():rand(sz1,sz2,sz3)
-   index = 3
-   longIndex = torch.randperm(sz3):long()
-   compareFloatAndCuda(x, 'index', index, longIndex)
-end]]--
 
 function test.indexCopy()
    local sz1 = math.floor(torch.uniform(minsize,maxsize)) -- dim1
@@ -573,14 +545,14 @@ function test.indexFill()
    compareFloatAndCuda(x, 'indexFill', index, longIndex, val)
 end
 
---[[function test.renorm()
+function test.renorm()
    local x = torch.randn(10,5):float()
    local maxnorm = x:norm(2,1):mean()
 
- --  compareFloatAndCuda(x, 'renorm', 2, 2, maxnorm)
+   compareFloatAndCuda(x, 'renorm', 2, 2, maxnorm)
 
-  -- x = torch.randn(3,4,5)
-  -- compareFloatAndCuda(x, 'renorm', 2, 2, maxnorm)
+   x = torch.randn(3,4,5)
+   compareFloatAndCuda(x, 'renorm', 2, 2, maxnorm)
 
    x = torch.randn(3,4,5)
    compareFloatAndCuda(x, 'renorm', 3, 2, maxnorm)
@@ -590,7 +562,7 @@ end
 
    x = torch.randn(3,4,5,100)
    compareFloatAndCuda(x, 'renorm', 4, 2, maxnorm)
-end]]--
+end
 
 --[[function test.indexSelect()
    --  test for speed
@@ -628,15 +600,15 @@ end]]--
    tester:assertTensorEq(groundtruth, rescuda, 0.00001, "Error in indexSelect")
 end]]--
 
---[[function test.addmv()
+function test.addmv()
    local sizes = {
       {2,1},
-      {1,2},
+     --[[ {1,2},
       {1,1},
       {3,4},
       {3,3},
       {15,18},
-      {19,15}
+      {19,15}]]--
    }
    for _, size in pairs(sizes) do
       local n, m = unpack(size)
@@ -645,7 +617,7 @@ end]]--
       local b = torch.randn(m)
       compareFloatAndCudaTensorArgs(c, 'addmv', torch.normal(), torch.normal(), a, b)
    end
-end]]--
+end
 
 --[[function test.mv()
    local sizes = {
