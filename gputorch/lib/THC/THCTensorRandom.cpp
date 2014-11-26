@@ -180,7 +180,7 @@ void NAME(int size, THCudaTensor *result, ARG1)                                 
   std::mt19937 gen;                                                                                        \
   Concurrency::array_view<float, 1> avResult(THCudaTensor_nElement(result), THCudaTensor_data(result));    \
   for (int i = 0; i < size; i++) {                                                                         \
-    std::CURAND_FUNC<float> rand(0, 0.9);                                                                  \
+    std::CURAND_FUNC<float> rand(0.0, 0.9);                                                                  \
     float x = rand(gen);                                                                                   \
     x = TRANSFORM;                                                                                         \
     avResult[i] = x;                                                                                       \
@@ -204,7 +204,7 @@ void NAME(int size, THCudaTensor *result, ARG1, ARG2)                           
 
 GENERATE_KERNEL2(generate_uniform, double a, double b, uniform_real_distribution, x * (b-a) + a)
 GENERATE_KERNEL1(generate_bernoulli, double p, uniform_real_distribution, (float)x <= p)
-GENERATE_KERNEL2(generate_normal, double mean, double stdv, normal_distribution, (x * stdv) + mean)
+GENERATE_KERNEL2(generate_normal, double mean, double stdv, normal_distribution,(float)((x * stdv) + mean))
 GENERATE_KERNEL1(generate_geometric, double p, uniform_real_distribution, (log(1-x) / log(p)) + 1)
 GENERATE_KERNEL1(generate_exponential, double lambda, uniform_real_distribution, (float)(-1. / lambda * log(1-x)))
 GENERATE_KERNEL2(generate_cauchy, double median, double sigma, uniform_real_distribution, (float)(median + sigma * tan(M_PI*(x-0.5))))
@@ -213,13 +213,17 @@ GENERATE_KERNEL2(generate_cauchy, double median, double sigma, uniform_real_dist
 #undef GENERATE_KERNEL2
 
 /* Separate kernel because curand_log_normal gets extra parameters. */
-/*__global__ void generate_log_normal(curandStateMtgp32 *state, int size, float *result, float mean, float stddev)
+void generate_log_normal(int size, THCudaTensor *result, float mean, float stddev)
 {
-  int idx = blockIdx.x * BLOCK_SIZE + threadIdx.x;
-  for (int i = idx; i < size; i += BLOCK_SIZE * MAX_NUM_BLOCKS) {
-    result[i] = curand_log_normal(&state[blockIdx.x], mean, stddev);
+  std::mt19937 gen;
+  Concurrency::array_view<float, 1> avResult(THCudaTensor_nElement(result), THCudaTensor_data(result));
+  for (int i = 0; i < size; i++) {
+    std::lognormal_distribution<float> rand(mean, stddev);
+    float x = rand(gen);
+    avResult[i] = x;
   }
-}*/
+  avResult.synchronize();
+}
 
 #define NUM_BLOCKS min((int)DIVUP(size, BLOCK_SIZE), MAX_NUM_BLOCKS)
 void THCudaTensor_uniform(THCudaRNGState* state, THCudaTensor *self_, double a, double b)
@@ -260,16 +264,12 @@ void THCudaTensor_normal(THCudaRNGState* state, THCudaTensor *self_, double mean
 
 void THCudaTensor_logNormal(THCudaRNGState* state, THCudaTensor *self_, double mean, double stdv)
 {
-  if (state->current_gen == NULL)
-  {
-    THError("Random number generators have not been initialized.");
-  }
   THCudaTensor *self = THCudaTensor_newContiguous(self_);
   long size = THCudaTensor_nElement(self);
   float *data = THCudaTensor_data(self);
 
-  /*generate_log_normal<<<NUM_BLOCKS, BLOCK_SIZE>>>(
-      state->current_gen->gen_states, size, data, mean, stdv);*/
+  generate_log_normal(
+      size, self, mean, stdv);
 
   THCudaTensor_freeCopyTo(self, self_);
 };

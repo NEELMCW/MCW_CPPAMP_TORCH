@@ -2754,7 +2754,7 @@ THCudaTensor_cauchy(NULL,arg2,arg3,arg4);
 return 1;
 }
 
-/*static int cutorch_CudaTensor_logNormal(lua_State *L)
+static int cutorch_CudaTensor_logNormal(lua_State *L)
 {
 int narg = lua_gettop(L);
 THCudaState *arg1 = NULL;
@@ -2798,13 +2798,13 @@ else
 luaL_error(L, "expected arguments: *CudaTensor* [float] [float]");
 lua_getglobal(L, "cutorch");
 lua_getfield(L, -1, "_state");
-arg1 = lua_touserdata(L, -1);
+arg1 =(THCudaState *) lua_touserdata(L, -1);
 lua_pop(L, 2);
 lua_pushvalue(L, arg2_idx);
-THCudaTensor_logNormal(arg1->rngState,arg2,arg3,arg4);
+THCudaTensor_logNormal(NULL,arg2,arg3,arg4);
 return 1;
 }
-*/
+
 static int cutorch_CudaTensor_exponential(lua_State *L)
 {
 int narg = lua_gettop(L);
@@ -5508,7 +5508,7 @@ THCudaTensor_cauchy(NULL,arg2,arg3,arg4);
 return 1;
 }
 
-/*static int wrapper_logNormal(lua_State *L)
+static int wrapper_logNormal(lua_State *L)
 {
 int narg = lua_gettop(L);
 THCudaState *arg1 = NULL;
@@ -5552,13 +5552,13 @@ else
 luaL_error(L, "expected arguments: *CudaTensor* [float] [float]");
 lua_getglobal(L, "cutorch");
 lua_getfield(L, -1, "_state");
-arg1 = lua_touserdata(L, -1);
+arg1 =(THCudaState *) lua_touserdata(L, -1);
 lua_pop(L, 2);
 lua_pushvalue(L, arg2_idx);
-THCudaTensor_logNormal(arg1->rngState,arg2,arg3,arg4);
+THCudaTensor_logNormal(NULL,arg2,arg3,arg4);
 return 1;
 }
-*/
+
 static int wrapper_exponential(lua_State *L)
 {
 int narg = lua_gettop(L);
@@ -5945,7 +5945,7 @@ static const struct luaL_Reg m_cutorch_CudaTensorMath__ [] = {
 {"uniform", wrapper_uniform},
 {"normal", wrapper_normal},
 {"cauchy", wrapper_cauchy},
-//{"logNormal", wrapper_logNormal},
+{"logNormal", wrapper_logNormal},
 {"exponential", wrapper_exponential},
 {"mean", wrapper_mean},
 {"var", wrapper_var},
@@ -6016,7 +6016,7 @@ static const struct luaL_Reg cutorch_CudaTensorMath__ [] = {
 {"uniform", cutorch_CudaTensor_uniform},
 {"normal", cutorch_CudaTensor_normal},
 {"cauchy", cutorch_CudaTensor_cauchy},
-/*{"logNormal", cutorch_CudaTensor_logNormal},*/
+{"logNormal", cutorch_CudaTensor_logNormal},
 {"exponential", cutorch_CudaTensor_exponential},
 {"mean", cutorch_CudaTensor_mean},
 {"var", cutorch_CudaTensor_var},

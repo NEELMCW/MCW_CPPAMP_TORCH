@@ -796,18 +796,18 @@ function test.normal()
    tester:assertalmosteq(t:std(), std, tolerance, "standard deviation is wrong")
 end
 
---[[function test.logNormal()
+function test.logNormal()
    local sz1 = math.floor(torch.uniform(minsize,maxsize))
    local sz2 = math.floor(torch.uniform(minsize,maxsize))
    local mean, std = torch.uniform(), torch.uniform()
-   local tolerance = 0.01
+   local tolerance = 0.1
    local t = torch.CudaTensor(sz1, sz2)
 
    t:logNormal(mean, std)
    local logt = t:log()
    tester:assertalmosteq(logt:mean(), mean, tolerance, "mean is wrong")
    tester:assertalmosteq(logt:std(), std, tolerance, "standard deviation is wrong")
-end]]--
+end
 
 function test.geometric()
    local sz1 = math.floor(torch.uniform(minsize,maxsize))
