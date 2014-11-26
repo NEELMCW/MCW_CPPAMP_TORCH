@@ -7,8 +7,8 @@ end
 local tester
 local test = {}
 local msize = 100
-local minsize = 10
-local maxsize = 10
+local minsize = 100
+local maxsize = 800
 local minvalue = 2
 local maxvalue = 20
 local nloop = 100
@@ -23,11 +23,12 @@ local function isEqual(a, b, tolerance, ...)
    if torch.type(b) ~= torch.type(a) then
       b = b:typeAs(a) -- TODO: remove the need for this (a-b doesnt work for bytetensor, cudatensor pairs)
    end
-   --[[print("A")
-   print(a)
-   print("B")
-   print(b)]]--
+   --print("A")
+   --print(a)
+   --print("B")
+   --print(b)
    local diff = a-b
+   --print(diff)
    --tolerance = tolerance or 0.000001
    tolerance = 0.001
    if type(a) == 'number' then
@@ -196,7 +197,7 @@ end
 
 function test.largeNoncontiguous()
    local x = torch.FloatTensor():randn(20, 1, 60, 60)
-   local sz = math.floor(torch.uniform(maxsize, 2*maxsize))
+   local sz = math.floor(torch.uniform(maxsize, maxsize))
    local f = function(src)
       return src.new(20, sz, 60, 60):copy(src:expand(20, sz, 60, 60))
    end
@@ -246,7 +247,7 @@ function test.ones()
 end
 
 
---[[function test.add()
+function test.add()
    local sz1 = math.floor(torch.uniform(minsize,maxsize))
    local sz2 = math.floor(torch.uniform(minsize,maxsize))
    local x = torch.FloatTensor():rand(sz1, sz2)
@@ -257,7 +258,7 @@ end
    compareFloatAndCudaTensorArgs(x, 'add', z, v)
    compareFloatAndCudaTensorArgs(x, 'add', y, z)
    compareFloatAndCudaTensorArgs(x, 'add', y, v, z)
-end]]--
+end
 
 function test.cmul()
    local sz1 = math.floor(torch.uniform(minsize,maxsize))
@@ -335,7 +336,7 @@ function test.mean()
    local sz2 = math.floor(torch.uniform(minsize,maxsize))
    local x = torch.FloatTensor():rand(sz1, sz2)
    compareFloatAndCuda(x, 'mean')
-   --compareFloatAndCuda(x, 'mean', 1)
+   compareFloatAndCuda(x, 'mean', 1)
    --compareFloatAndCuda(x, 'mean', 2)
 end
 
@@ -353,7 +354,7 @@ function test.min()
    local sz2 = math.floor(torch.uniform(minsize,maxsize))
    local x = torch.FloatTensor():rand(sz1, sz2)
    compareFloatAndCuda(x, 'min')
-   -- compareFloatAndCuda(x, 'min', 1)
+   --compareFloatAndCuda(x, 'min', 1)
    --compareFloatAndCuda(x, 'min', 2)
 end
 
@@ -364,20 +365,20 @@ function test.sum()
    local sz2 = math.floor(torch.uniform(minsize,maxsize))
    local x = torch.FloatTensor():rand(sz1, sz2)
    compareFloatAndCuda(x, 'sum')
-   --compareFloatAndCuda(x, 'sum', 1)
+   compareFloatAndCuda(x, 'sum', 1)
    --compareFloatAndCuda(x, 'sum', 2)
 end
 
---[[function test.prod()
+function test.prod()
    local minsize = 10
    local maxsize = 20
    local sz1 = math.floor(torch.uniform(minsize,maxsize))
    local sz2 = math.floor(torch.uniform(minsize,maxsize))
    local x = torch.FloatTensor():rand(sz1, sz2)
-   compareFloatAndCuda(x, 'prod')
-  -- compareFloatAndCuda(x, 'prod', 1)
-  -- compareFloatAndCuda(x, 'prod', 2)
-end]]--
+   --compareFloatAndCuda(x, 'prod')
+   compareFloatAndCuda(x, 'prod', 1)
+   compareFloatAndCuda(x, 'prod', 2)
+end
 
 function test.round()
    local sz1 = math.floor(torch.uniform(minsize,maxsize))

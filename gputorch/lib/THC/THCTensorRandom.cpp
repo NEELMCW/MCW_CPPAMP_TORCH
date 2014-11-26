@@ -225,6 +225,7 @@ void generate_log_normal(int size, THCudaTensor *result, float mean, float stdde
   avResult.synchronize();
 }
 
+
 #define NUM_BLOCKS min((int)DIVUP(size, BLOCK_SIZE), MAX_NUM_BLOCKS)
 void THCudaTensor_uniform(THCudaRNGState* state, THCudaTensor *self_, double a, double b)
 {

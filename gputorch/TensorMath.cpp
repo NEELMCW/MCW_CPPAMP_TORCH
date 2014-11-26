@@ -11,41 +11,39 @@ struct THCudaState
 
 static int cutorch_CudaTensor_zero(lua_State *L)
 {
-int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
-int arg1_idx = 0;
-if(narg == 1
-&& (arg1 = (THCudaTensor *)(THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-)
-{
-arg1_idx = 1;
-}
-else
-luaL_error(L, "expected arguments: *CudaTensor*");
-lua_pushvalue(L, arg1_idx);
-THCudaTensor_zero(arg1);
-return 1;
+  int narg = lua_gettop(L);
+  THCudaTensor *arg1 = NULL;
+  int arg1_idx = 0;
+
+  if(narg == 1 && (arg1 = (THCudaTensor *)(THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor")))
+  {
+    arg1_idx = 1;
+  }
+  else
+    luaL_error(L, "expected arguments: *CudaTensor*");
+  
+  lua_pushvalue(L, arg1_idx);
+  THCudaTensor_zero(arg1);
+  return 1;
 }
 
 static int cutorch_CudaTensor_fill(lua_State *L)
 {
-int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
-int arg1_idx = 0;
-float arg2 = 0;
-if(narg == 2
-&& (arg1 = (THCudaTensor *)(THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& lua_isnumber(L, 2)
-)
-{
-arg1_idx = 1;
-arg2 = (float)lua_tonumber(L, 2);
-}
-else
-luaL_error(L, "expected arguments: *CudaTensor* float");
-lua_pushvalue(L, arg1_idx);
-THCudaTensor_fill(arg1,arg2);
-return 1;
+  int narg = lua_gettop(L);
+  THCudaTensor *arg1 = NULL;
+  int arg1_idx = 0;
+  float arg2 = 0;
+  if(narg == 2 && (arg1 = (THCudaTensor *)(THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor")) && lua_isnumber(L, 2))
+  {
+    arg1_idx = 1;
+    arg2 = (float)lua_tonumber(L, 2);
+  }
+  else
+    luaL_error(L, "expected arguments: *CudaTensor* float");
+    
+  lua_pushvalue(L, arg1_idx);
+  THCudaTensor_fill(arg1,arg2);
+  return 1;
 }
 
 static int cutorch_CudaTensor_zeros(lua_State *L)
