@@ -1363,13 +1363,13 @@ void THCudaTensor_randn(THCudaRNGState* rng_state, THCudaTensor *r_, THLongStora
 }
 
 void THCudaTensor_kernel_indexFill(
-   float *tensor, Concurrency::array<long>* stride, float *index, long src_nDim, 
+   THCudaTensor *tensor, Concurrency::array<long>* stride, THCudaTensor *index, long src_nDim, 
    int dim, long idx_size, long tensor_size, long size_dim, float val, long nblockx
 )
 {
-    Concurrency::array_view<float,1> srcTensor(Concurrency::extent<1>(tensor_size),tensor);
+    Concurrency::array_view<float,1> srcTensor(THCudaTensor_nElement(tensor),THCudaTensor_data(tensor));
     Concurrency::array_view<long,1> srcStride(*stride);
-    Concurrency::array_view<float,1> indx(Concurrency::extent<1>(idx_size),index);
+    Concurrency::array_view<float,1> indx(THCudaTensor_nElement(index),THCudaTensor_data(index));
     Concurrency::extent<2> gridExt(16,nblockx*16);
     Concurrency::tiled_extent<16,16> t_ext(gridExt);
 
@@ -1402,7 +1402,7 @@ void THCudaTensor_kernel_indexFill(
                         srcIdx += coeff * srcStride[Concurrency::index<1>(d)];
                     } 
                 }
-                srcTensor[Concurrency::index<1>(srcIdx + (int)((indx[Concurrency::index<1>(i)])-1)*srcStride[Concurrency::index<1>(dim)])] = val;        
+                srcTensor[(srcIdx + (int)((indx[i])-1)*srcStride[dim])] = val;        
             }
         }
     });
@@ -1514,10 +1514,10 @@ void THCudaTensor_indexFill(THCudaTensor *res_, int dim, THLongTensor *indices, 
       stride_ =  new Concurrency::array<long,1>(Concurrency::extent<1>(res_->nDimension),res_->stride);
 
   
-      /*THCudaTensor_kernel_indexFill(
-        THCudaTensor_data(res_), stride_, THCudaTensor_data(indices_), 
+      THCudaTensor_kernel_indexFill(
+        res_, stride_, indices_, 
         res_->nDimension, dim, nIndex, nRes, res_->size[dim], val, nblockx
-      );*/
+      );
 
      delete stride_;
      THCudaStorage_free(indices_->storage);
@@ -1526,16 +1526,16 @@ void THCudaTensor_indexFill(THCudaTensor *res_, int dim, THLongTensor *indices, 
 }
 
 void THCudaTensor_kernel_indexSelect(
-   float *tensor, float *src, Concurrency::array<long>* src_stride, float *index, 
+   THCudaTensor *tensor, THCudaTensor *src, Concurrency::array<long>* src_stride, THCudaTensor *index, 
    long src_nDim, int dim, long idx_size, long tensor_size, long src_size, long size_dim, long nblockx
 )
 {
-    Concurrency::array_view<float,1> resTensor(Concurrency::extent<1>(tensor_size),tensor);
-    Concurrency::array_view<float,1> srcTensor(Concurrency::extent<1>(src_size),src);
+    Concurrency::array_view<float,1> resTensor(THCudaTensor_nElement(tensor),THCudaTensor_data(tensor));
+    Concurrency::array_view<float,1> srcTensor(THCudaTensor_nElement(src),THCudaTensor_data(src));
     Concurrency::array_view<long,1> srcStride(*src_stride);
-    Concurrency::array_view<float,1> indx(Concurrency::extent<1>(idx_size),index);
+    Concurrency::array_view<float,1> indx(THCudaTensor_nElement(index),THCudaTensor_data(index));
 
-    Concurrency::extent<2> gridExt(16,nblockx*16);
+    Concurrency::extent<2> gridExt(16, nblockx * 16);
     Concurrency::tiled_extent<16,16> t_ext(gridExt);
 
     Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<16,16>tidx) restrict(amp)
@@ -1571,7 +1571,7 @@ void THCudaTensor_kernel_indexSelect(
 			            srcIdx += coeff * srcStride[Concurrency::index<1>(d)];
 			        } 
 		        }
-		        resTensor[Concurrency::index<1>(targetIdx + i*srcStride[Concurrency::index<1>(dim)])] = srcTensor[Concurrency::index<1>(srcIdx + ((int)(indx[Concurrency::index<1>(i)])-1)*srcStride[Concurrency::index<1>(dim)])];
+		        resTensor[targetIdx + i*srcStride[dim]] = srcTensor[srcIdx + ((int)(indx[i])-1)*srcStride[dim]];
 		    }
 	    }
 	});
@@ -1602,13 +1602,13 @@ void THCudaTensor_indexSelect(THCudaTensor *res_, THCudaTensor *src, int dim, TH
   THCudaTensor_copyLong(indices_, indices);
 
   nRes = THCudaTensor_nElement(res_);
-      long nblockx = (long)(ceil((float)nRes / nIndex / (16*16)));
+      long nblockx = (long)(ceil((float)nRes / nIndex/(16 * 16)));
   
-      stride_ =  new Concurrency::array<long,1>(Concurrency::extent<1>(res_->nDimension),res_->stride);
+      stride_ =  new Concurrency::array<long,1>(Concurrency::extent<1>(src->nDimension),src->stride);
   
       THCudaTensor_kernel_indexSelect(
-        THCudaTensor_data(res_), THCudaTensor_data(src), 
-        stride_, THCudaTensor_data(indices_), 
+        res_, src, 
+        stride_, indices_, 
         src->nDimension, dim, indices->size[0], nRes,THCudaTensor_nElement(src), src->size[dim],nblockx
       );
     

@@ -564,7 +564,7 @@ function test.renorm()
    compareFloatAndCuda(x, 'renorm', 4, 2, maxnorm)
 end
 
---[[function test.indexSelect()
+function test.indexSelect()
    --  test for speed
    local n_row = math.random(minsize,maxsize)
    local n_col = math.random(minsize,maxsize)
@@ -596,19 +596,18 @@ end
       z:index(x, 2, indices)
    end
    tm.gpu = clock:time().real
-
    tester:assertTensorEq(groundtruth, rescuda, 0.00001, "Error in indexSelect")
-end]]--
+end
 
 function test.addmv()
    local sizes = {
-      {2,1},
-     --[[ {1,2},
+     -- {2,1},
+      {1,2},
       {1,1},
       {3,4},
       {3,3},
       {15,18},
-      {19,15}]]--
+      {19,15}
    }
    for _, size in pairs(sizes) do
       local n, m = unpack(size)
