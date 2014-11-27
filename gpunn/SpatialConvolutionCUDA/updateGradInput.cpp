@@ -33,24 +33,28 @@ void img_acts_color(THCudaTensor* hidActsTensor, THCudaTensor* filterTensor, THC
                     const int filterSize, const int imgSizeY, const int imgSizeX,
                     const int paddingStart, const int moduleStride,
                     const float scaleTargets, const float scaleOutputs,
-                    const int blockX, const int blockY, int numFilterColors)
+                    int blockX, int blockY, int numFilterColors)
 {
     Concurrency::array_view<float,1> avhidActs(Concurrency::extent<1>(hidActsTensor->storage->size), THCudaTensor_data(hidActsTensor));
     Concurrency::array_view<float,1> avFilters(Concurrency::extent<1>(filterTensor->storage->size), THCudaTensor_data(filterTensor));
     Concurrency::array_view<float,1> avTargets(Concurrency::extent<1>(targetTensor->storage->size), THCudaTensor_data(targetTensor));
 #if (numFilterColors % 8 == 0)
-    Concurrency::extent<3> grdExt(1, blockY * 4, blockX * 32);
+    blockX = (blockX + 31) &~31;
+    blockY = (blockY + 3) &~3;
+    Concurrency::extent<3> grdExt(1, blockY, blockX);
     Concurrency::tiled_extent<1, 4, 32> t_ext(grdExt);
     Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1, 4, 32> tidx) restrict(amp)
 #else
-    Concurrency::extent<3> grdExt(1, blockY * 16, blockX * 16);
+    blockX = (blockX + 15) &~15;
+    blockY = (blockY + 15) &~15;
+    Concurrency::extent<3> grdExt(1, blockY, blockX);
     Concurrency::tiled_extent<1, 16, 16> t_ext(grdExt);
     Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1, 16, 16> tidx) restrict(amp)
 #endif
     {
-        float *hidActs = avhidActs.data();
-        float *targets = avFilters.data();
-        float *filters = avTargets.data();
+        float hidActs = 0;//avhidActs.data();
+        float targets = 0;//avFilters.data();
+        float filters = 0;//avTargets.data();
 
         tile_static float shFilters[numColors*16][16 + 1];
         tile_static float shHidActs[16][16*imgsPerThread];
@@ -113,7 +117,7 @@ void img_acts_color(THCudaTensor* hidActsTensor, THCudaTensor* filterTensor, THC
                 for (int f = 0; f < numFilters; f += 16)
                 {   // multiply with 16 filters at a time
                     // Now the threads split up into half-warps, and each half-warp decides if it's interested.
-                    const float* hLoad = &hidActs[(moduleIdx + f * numModules) * numImages];
+                   // const float* hLoad = &avhidActs[hidActs + (moduleIdx + f * numModules) * numImages];
 
                     for (int i = 0; i < imgsPerThread * 16; i += 32)
                     {
@@ -121,7 +125,7 @@ void img_acts_color(THCudaTensor* hidActsTensor, THCudaTensor* filterTensor, THC
                         {
                             for (int j = 0; j < 16; j += 8)
                             {   // load 16 rows of imgsPerThread*16 cols, 8 * 32 elements at a time.
-                                shHidActLoad[j * 16 * imgsPerThread + i] = hLoad[j * numModules * numImages + i];
+                                shHidActLoad[j * 16 * imgsPerThread + i] = avhidActs[hidActs + (moduleIdx + f * numModules) * numImages + j * numModules * numImages + i];
                             }
                         }
                         else
@@ -138,12 +142,12 @@ void img_acts_color(THCudaTensor* hidActsTensor, THCudaTensor* filterTensor, THC
                         // This half-warp is interested, so it's going to load the weights from this module to its pixel.
                         // Not fully coalesced read :(
                         // But taking out this read entirely only reduces the runtime by ~2.8%, so it isn't costing me much.
-                        const float* fLoad = conv ? &filters[pxIdxInModule * numFilters + f]
-                                                  : &filters[(moduleIdx * numColors * filterPixels + pxIdxInModule) * numFilters + f];
+                        //const float* fLoad = conv ? &avFilters[filters + pxIdxInModule * numFilters + f]
+                        //                          : &avFilters[filters + (moduleIdx * numColors * filterPixels + pxIdxInModule) * numFilters + f];
 
                         for (int c = 0; c < numColors; c++)
                         {
-                            shilterLoad[c * 16 * (16 + 1)] = fLoad[c * filterPixels * numFilters];
+                            shilterLoad[c * 16 * (16 + 1)] = (conv ? avFilters[filters + pxIdxInModule * numFilters + f + c * filterPixels * numFilters]:avFilters[filters + (moduleIdx * numColors * filterPixels + pxIdxInModule) * numFilters + f + c * filterPixels * numFilters]);
                         }
                     }
 
@@ -179,7 +183,7 @@ void img_acts_color(THCudaTensor* hidActsTensor, THCudaTensor* filterTensor, THC
                     {
                         for (int c = 0; c < numColors; c++)
                         {
-                            targets[c * imgPixels * numImages + i * 16] = scaleTargets * targets[c * imgPixels * numImages + i * 16] + scaleOutputs * prod[c][i];
+                            avTargets[targets + c * imgPixels * numImages + i * 16] = scaleTargets * avTargets[ targets + c * imgPixels * numImages + i * 16] + scaleOutputs * prod[c][i];
                         }
                     }
                 }
@@ -192,13 +196,14 @@ void img_acts_color(THCudaTensor* hidActsTensor, THCudaTensor* filterTensor, THC
                     {
                         for (int c = 0; c < numColors; c++)
                         {
-                            targets[c * imgPixels * numImages + i * 16] = scaleOutputs * prod[c][i];
+                            avTargets[ targets + c * imgPixels * numImages + i * 16] = scaleOutputs * prod[c][i];
                         }
                     }
                 }
             }
         }
     });
+    avTargets.synchronize();
 }
 /*
  * Block size: 16x16.
