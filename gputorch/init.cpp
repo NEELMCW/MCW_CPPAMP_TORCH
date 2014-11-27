@@ -134,5 +134,6 @@ int luaopen_libcutorch(lua_State *L)
   cutorch_CudaTensor_init(L);
   cutorch_CudaTensorMath_init(L);
 
+
   return 1;
 }

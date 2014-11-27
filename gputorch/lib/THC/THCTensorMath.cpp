@@ -155,7 +155,7 @@ void THCudaTensor_cadd(THCudaTensor *self_, THCudaTensor* src1, float value, THC
 
     src2 = THCudaTensor_newContiguous(src2);
 
-    THCudaBlas_axpy(THCudaTensor_nElement(self), value, THCudaTensor_data(src2), 1, THCudaTensor_data(self), 1);
+    THFloatBlas_axpy(THCudaTensor_nElement(self), value, THCudaTensor_data(src2), 1, THCudaTensor_data(self), 1);
 
     THCudaTensor_free(src2);
     THCudaTensor_freeCopyTo(self, self_);
@@ -354,7 +354,7 @@ float THCudaTensor_dot(THCudaTensor *self, THCudaTensor *src)
   {
     self = THCudaTensor_newContiguous(self);
     src = THCudaTensor_newContiguous(src);
-    float result = THCudaBlas_dot(THCudaTensor_nElement(self),
+    float result = THFloatBlas_dot(THCudaTensor_nElement(self),
                                   THCudaTensor_data(self), 1,
                                   THCudaTensor_data(src), 1);
     THCudaTensor_free(src);

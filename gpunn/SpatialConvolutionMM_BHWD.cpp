@@ -11,17 +11,21 @@ void imt2col_kernel(const int n, THCudaTensor* data_im,
         const int bidx, const int batch,
         THCudaTensor* data_col, unsigned int elt)
 {
-    Concurrency::array_view<float,1> avData_im(Concurrency::extent<1>(data_im->storage->size), THCudaTensor_data(data_im));
-    Concurrency::array_view<float,1> avData_col(Concurrency::extent<1>(data_col->storage->size), THCudaTensor_data(data_col));
-    Concurrency::extent<1> grdExt(((n + 256 - 1) / 256) * 256);
+    Concurrency::array_view<float,1> avData_im(THCudaTensor_nElement(data_im), THCudaTensor_data(data_im));
+    Concurrency::array_view<float,1> avData_col(THCudaTensor_nElement(data_col), THCudaTensor_data(data_col));
+    unsigned grdSz = (n + 255) & ~255;
+    Concurrency::extent<1> grdExt(grdSz);
     Concurrency::tiled_extent<256> t_ext(grdExt);
+    std::cout<<"imt2col"<<std::endl;
     Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<256> tidx) restrict(amp)
     {
+        int data_col=0;
+        int data_im=0;
+        data_im = elt * height * width * channels;
         for (int i = tidx.global[0]; i < (n); i += t_ext[0])
         {
-            float *data_col = avData_col.data();
-            float *data_im = avData_im.data();
-            data_im = data_im + elt * height * width * ksize;
+           // float *data_col = avData_col.data();
+           // float *data_im = avData_im.data();
             int w_out = i % width_col;
             i /= width_col;
             int h_out = i % height_col;
@@ -35,10 +39,10 @@ void imt2col_kernel(const int n, THCudaTensor* data_im,
             {
                 for (int j = 0; j < ksize; ++j)
                 {
-                    int h = h_in + i;
+                    int h = h_in + p;
                     int w = w_in + j;
-                    *data_col = (h >= 0 && w >= 0 && h < height && w < width) ?
-                        data_im[(p * width + j) * channels] : 0;
+                    avData_col[data_col] = (h >= 0 && w >= 0 && h < height && w < width) ?
+                        avData_im[data_im + ((p * width + j) * channels)] : 0;
                     data_col += batch * height_col * width_col;
                 }
             }
@@ -154,7 +158,7 @@ static int cunn_SpatialConvolutionMM_BHWD_updateOutput(lua_State *L) {
             long k = weight->size[1];
 
             // Do GEMM_BHWD (note: this is a bit confusing because gemm assumes column-major matrices)
-            THCudaBlas_gemm(
+            THFloatBlas_gemm(
                 't', 't',
                 m, n, k,
                 1,

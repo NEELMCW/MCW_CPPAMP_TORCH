@@ -17,8 +17,8 @@ void im2col_kernel(const int n, THCudaTensor* data_im, const int height, const i
                    const int ksize_w, const int pad_h, const int pad_w, const int stride_h, const int stride_w,
                    const int height_col, const int width_col, THCudaTensor* data_col)
 {
-    Concurrency::array_view<float,1> avData_im(Concurrency::extent<1>(data_im->storage->size), THCudaTensor_data(data_im));
-    Concurrency::array_view<float,1> avData_col(Concurrency::extent<1>(data_col->storage->size), THCudaTensor_data(data_col));
+    Concurrency::array_view<float,1> avData_im(THCudaTensor_nElement(data_im), THCudaTensor_data(data_im));
+    Concurrency::array_view<float,1> avData_col(THCudaTensor_nElement(data_col), THCudaTensor_data(data_col));
     unsigned grdSz = (n + 255) & ~255;
     Concurrency::extent<1> grdExt(grdSz);
     Concurrency::tiled_extent<256> t_ext(grdExt);
@@ -194,7 +194,7 @@ static int cunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
     long k_ = 1;
 
     // Do GEMM (note: this is a bit confusing because gemm assumes column-major matrices)
-    THCudaBlas_gemm(
+    THFloatBlas_gemm(
         't', 'n',
         n_, m_, k_,
         1,
@@ -218,7 +218,7 @@ static int cunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
     long k = weight->size[1];
 
     // Do GEMM (note: this is a bit confusing because gemm assumes column-major matrices)
-    THCudaBlas_gemm(
+    THFloatBlas_gemm(
         'n', 'n',
         n, m, k,
         1,
@@ -304,7 +304,7 @@ static int cunn_SpatialConvolutionMM_updateGradInput(lua_State *L) {
     long k = weight->size[0];
 
     // Do GEMM (note: this is a bit confusing because gemm assumes column-major matrices)
-    THCudaBlas_gemm(
+    THFloatBlas_gemm(
         'n', 't',
         n, m, k,
         1,
@@ -410,7 +410,7 @@ static int cunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
     long k = columns->size[1];
 
     // Do GEMM (note: this is a bit confusing because gemm assumes column-major matrices)
-    THCudaBlas_gemm(
+    THFloatBlas_gemm(
         't', 'n',
         n, m, k,
         scale,

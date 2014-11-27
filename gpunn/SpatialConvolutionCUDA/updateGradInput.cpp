@@ -445,7 +445,7 @@ void conv_img_acts_manycolor(THCudaTensor* hidActsTensor, THCudaTensor* filterTe
                              const int numModulesY, const int numModulesX, const int numImages, const int numFilters,
                              const int filterSize, const int imgSizeY, const int imgSizeX, const int paddingStart, const int moduleStride,
                              const int numImgColors, const int numGroups, const float scaleTargets, const float scaleOutputs,
-                             const int blockX, const int blockY)
+                             int blockX, int blockY)
 {
     const int numFilterColors = numImgColors / numGroups;
 
@@ -453,18 +453,22 @@ void conv_img_acts_manycolor(THCudaTensor* hidActsTensor, THCudaTensor* filterTe
     Concurrency::array_view<float,1> avFilters(Concurrency::extent<1>(filterTensor->storage->size), THCudaTensor_data(filterTensor));
     Concurrency::array_view<float,1> avTargets(Concurrency::extent<1>(targetTensor->storage->size), THCudaTensor_data(targetTensor));
 #if (numFilterColors % 8 == 0)
-    Concurrency::extent<3> grdExt(1, blockY * 4, blockX * 32);
+    blockX = (blockX + 31) &~31;
+    blockY = (blockY + 3) &~3;
+    Concurrency::extent<3> grdExt(1, blockY, blockX);
     Concurrency::tiled_extent<1, 4, 32> t_ext(grdExt);
     Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1, 4, 32> tidx) restrict(amp)
 #else
-    Concurrency::extent<3> grdExt(1, blockY * 16, blockX * 16);
+    blockX = (blockX + 15) &~15;
+    blockY = (blockY + 15) &~15;
+    Concurrency::extent<3> grdExt(1, blockY, blockX);
     Concurrency::tiled_extent<1, 16, 16> t_ext(grdExt);
     Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1, 16, 16> tidx) restrict(amp)
 #endif
     {
-        float *hidActs = avhidActs.data();
-        float *targets = avFilters.data();
-        float *filters = avTargets.data();
+        float hidActs = 0; //avhidActs.data();
+        float targets = 0; //avFilters.data();
+        float filters = 0; //avTargets.data();
 
         tile_static float shFilters[colorsPerThread*B_Y][16 + 1]; // TODO: perhaps reconsider this 16
         tile_static float shHidActs[16][B_X*imgsPerThread];
@@ -528,7 +532,7 @@ void conv_img_acts_manycolor(THCudaTensor* hidActsTensor, THCudaTensor* filterTe
                 for (int f = 0; f < numFiltersPerGroup; f += 16)
                 {
                     // multiply with 16 filters at a time
-                    const float* hLoad = &hidActs[(moduleIdx + f * numModules) * numImages];
+                    //const float* hLoad = &avhidActs[hidActs +(moduleIdx + f * numModules) * numImages];
                     for (int i = 0; i < imgsPerThread * B_X; i += 32)
                     {
                         if (!checkCaseBounds || blockCaseIdx + hidActLoadX + i < numImages)
@@ -536,7 +540,7 @@ void conv_img_acts_manycolor(THCudaTensor* hidActsTensor, THCudaTensor* filterTe
                             for (int j = 0; j < 16; j += B_X*B_Y/32)
                             {
                                 // load 16 rows of imgsPerThread*16 cols, 8 * 32 elements at a time.
-                                shHidActLoad[j * B_X * imgsPerThread + i] = hLoad[j * numModules * numImages + i];
+                                shHidActLoad[j * B_X * imgsPerThread + i] = avhidActs[hidActs +(moduleIdx + f * numModules) * numImages +j * numModules * numImages + i];
                             }
                         }
                         else
@@ -548,13 +552,13 @@ void conv_img_acts_manycolor(THCudaTensor* hidActsTensor, THCudaTensor* filterTe
                             }
                         }
                     }
-                    const float* fLoad = conv ? &filters[pxIdxInFilter * numFilters + f]
-                                              : &filters[moduleIdx * numFilterColors * filterPixels * numFilters + pxIdxInFilter * numFilters + f];
+                    //const float* fLoad = conv ? &avFilters[filters + pxIdxInFilter * numFilters + f]
+                    //                          : &avFilters[filters + moduleIdx * numFilterColors * filterPixels * numFilters + pxIdxInFilter * numFilters + f];
                     for (int i = 0; i < colorsPerThread*B_Y; i+= B_X*B_Y/16)
                     {
                         if ((colorsPerThread*B_Y) % (B_X*B_Y/16) == 0 || i + filtersLoadY < colorsPerThread*B_Y)
                         {
-                            shFilterLoad[i * (16 + 1)] = fLoad[i * filterPixels * numFilters];
+                            shFilterLoad[i * (16 + 1)] = (conv ? avFilters[filters + pxIdxInFilter * numFilters + f + i * filterPixels * numFilters]:avFilters[filters + moduleIdx * numFilterColors * filterPixels * numFilters + pxIdxInFilter * numFilters + f +  i * filterPixels * numFilters]);
                         }
                     }
                     //__syncthreads();
@@ -583,7 +587,7 @@ void conv_img_acts_manycolor(THCudaTensor* hidActsTensor, THCudaTensor* filterTe
                 {
                     for (int c = 0; c < colorsPerThread; c++)
                     {
-                        targets[c * B_Y * imgPixels * numImages + i * B_X] = scaleTargets * targets[c * B_Y * imgPixels * numImages + i * B_X] + scaleOutputs * prod[c][i];
+                        avTargets[targets + c * B_Y * imgPixels * numImages + i * B_X] = scaleTargets * avTargets[ targets + c * B_Y * imgPixels * numImages + i * B_X] + scaleOutputs * prod[c][i];
                     }
                 }
             }
@@ -596,12 +600,13 @@ void conv_img_acts_manycolor(THCudaTensor* hidActsTensor, THCudaTensor* filterTe
                 {
                     for (int c = 0; c < colorsPerThread; c++)
                     {
-                        targets[c * B_Y * imgPixels * numImages + i * B_X] = scaleOutputs * prod[c][i];
+                        avTargets[ targets + c * B_Y * imgPixels * numImages + i * B_X] = scaleOutputs * prod[c][i];
                     }
                 }
             }
         }
     });
+    avTargets.synchronize();
 }
 
 /*
