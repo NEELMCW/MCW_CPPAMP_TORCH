@@ -7,17 +7,15 @@ void cunn_LogSoftMax_updateOutput_kernel(THCudaTensor *output, THCudaTensor *inp
 {
     Concurrency::array_view<float,1> avInp(Concurrency::extent<1>(input->storage->size), THCudaTensor_data(input));
     Concurrency::array_view<float,1> avOutput(Concurrency::extent<1>(output->storage->size), THCudaTensor_data(output));
-    Concurrency::extent<1> grdExt(nframe * LOGSOFTMAX_THREADS);
+   // nframe = (nframe + (LOGSOFTMAX_THREADS -1)) &~(LOGSOFTMAX_THREADS-1);
+    Concurrency::extent<1> grdExt(nframe * 128);
     Concurrency::tiled_extent<LOGSOFTMAX_THREADS> t_ext(grdExt);
+    //std::cout<<"Update OutPut kernel invoked"<<std::endl;
     Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<LOGSOFTMAX_THREADS> tidx) restrict(amp) 
     {
         tile_static float buffer[LOGSOFTMAX_THREADS+1];
         //int k = blockIdx.x;
         int k = tidx.tile[0];
-        float *input_k = avInp.data();
-        input_k += k*dim;
-        float *output_k = avOutput.data();
-        output_k += k*dim;
 
         //int i_start = threadIdx.x;
         unsigned int i_start = tidx.local[0];
@@ -29,7 +27,7 @@ void cunn_LogSoftMax_updateOutput_kernel(THCudaTensor *output, THCudaTensor *inp
         buffer[i_start] = -FLT_MAX;
         for (int i=i_start; i<i_end; i+=i_step)
         {
-        float z = input_k[i];
+        float z = avInp[k * dim +i];
         if(buffer[i_start] < z)
             buffer[i_start] = z;
         }
@@ -57,7 +55,7 @@ void cunn_LogSoftMax_updateOutput_kernel(THCudaTensor *output, THCudaTensor *inp
         float max_k = buffer[LOGSOFTMAX_THREADS];
         buffer[i_start] = 0;
         for (int i=i_start; i<i_end; i+=i_step)
-            buffer[i_start] += Concurrency::fast_math::expf(input_k[i]-max_k);
+            buffer[i_start] += Concurrency::fast_math::expf(avInp[k*dim+i]-max_k);
 
         // reduce
         for (unsigned int stride = i_step >> 1; stride > 0; stride >>= 1)
@@ -75,8 +73,9 @@ void cunn_LogSoftMax_updateOutput_kernel(THCudaTensor *output, THCudaTensor *inp
         // logsoftmax
         float logsum_k = buffer[LOGSOFTMAX_THREADS];
         for (int i=i_start; i<i_end; i+=i_step)
-            output_k[i] = input_k[i] - logsum_k;
+            avOutput[k *dim + i] = avInp[k * dim +i] - logsum_k;
     });
+    avOutput.synchronize();
 }
 
 void cunn_LogSoftMax_updateGradInput_kernel(THCudaTensor *gradInput, THCudaTensor *output, THCudaTensor *gradOutput, int nframe, int dim)
@@ -86,6 +85,7 @@ void cunn_LogSoftMax_updateGradInput_kernel(THCudaTensor *gradInput, THCudaTenso
     Concurrency::array_view<float,1> avGradOutput(Concurrency::extent<1>(gradOutput->storage->size), THCudaTensor_data(gradOutput));
     Concurrency::extent<1> grdExt(nframe * LOGSOFTMAX_THREADS);
     Concurrency::tiled_extent<LOGSOFTMAX_THREADS> t_ext(grdExt);
+    //std::cout<<"UpdateGradInputkernel invoked"<<std::endl;
     Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<LOGSOFTMAX_THREADS> tidx) restrict(amp) 
     {
         tile_static float buffer[LOGSOFTMAX_THREADS];
@@ -135,6 +135,7 @@ static int cunn_LogSoftMax_updateOutput(lua_State *L)
 
   THCudaTensor *temp = input;
   input = THCudaTensor_newContiguous(input);
+  //std::cout<<"Before logSoft resize"<<std::endl;
   THCudaTensor_resizeAs(output, input);
 
   if(input->nDimension == 1)
@@ -147,6 +148,8 @@ static int cunn_LogSoftMax_updateOutput(lua_State *L)
   }
   else
   THError("vector or matrix expected");
+  //std::cout<<"LogSoftMax finished"<<std::endl;
+  
 
   if (input != temp)
   {
@@ -167,7 +170,7 @@ static int cunn_LogSoftMax_updateGradInput(lua_State *L)
   THCudaTensor *tempGradOutput = gradOutput;
   output = THCudaTensor_newContiguous(output);
   gradOutput = THCudaTensor_newContiguous(gradOutput);
-
+  //std::cout<<"inside logsoftmax input"<<std::endl;
   THCudaTensor_resizeAs(gradInput, output);
 
   if(gradInput->nDimension == 1)

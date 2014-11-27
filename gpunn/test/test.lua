@@ -757,8 +757,8 @@ function cunntest.SpatialConvolutionMM_forward_single()
    mytester:assertlt(error:abs():max(), precision_forward, 'error on state (forward) ')
 end
 
---[[function cunntest.SpatialConvolutionMM_forward_batch()
-   local bs = math.random(1,4) * 4
+function cunntest.SpatialConvolutionMM_forward_batch()
+   local bs = math.random(1,4) * 2 
    local from = math.random(1,32)
    local to = math.random(1,8) * 8
    local ki = math.random(3,15)
@@ -798,7 +798,7 @@ end
 
    local error = rescuda:float() - groundtruth
    mytester:assertlt(error:abs():max(), precision_forward, 'error on state (forward) ')
-end]]--
+end
 
 function cunntest.SpatialConvolutionMM_backward_single()
    local from = math.random(1,32)

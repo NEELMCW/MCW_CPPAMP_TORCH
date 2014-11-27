@@ -59,6 +59,7 @@ void THCudaTensor_ones(THCudaTensor *r_, THLongStorage *size)
 
 void THCudaTensor_reshape(THCudaTensor *r_, THCudaTensor *t, THLongStorage *size)
 {
+  std::cout<<"Inside Reshape"<<std::endl;
   THCudaTensor_resize(r_, size, NULL);
   THCudaTensor_copy(r_, t);
 }
@@ -514,7 +515,7 @@ void THCudaTensor_transformReduceOuterDim(THCudaTensor *tgt, THCudaTensor *src, 
 template<class UnaryFunction, class BinaryFunction>
 void THCudaTensor_kernel_transformReduceInnermostDim(THCudaTensor *tgt, THCudaTensor *src_,unsigned int tgtSz,
                                                     unsigned int srcSz, unsigned int src_stride[],
-                                                    unsigned int tgt_stride[], unsigned int size[4],
+                                                    unsigned int tgt_stride[], unsigned int size[],
                                                     UnaryFunction unary_op, float init,
                                                     BinaryFunction binary_op, unsigned int gridConf[])
 {
@@ -523,17 +524,17 @@ void THCudaTensor_kernel_transformReduceInnermostDim(THCudaTensor *tgt, THCudaTe
   Concurrency::array_view<unsigned int, 1> avSrc_stride(4, src_stride);
   Concurrency::array_view<unsigned int, 1> avTgt_stride(4, tgt_stride);
   Concurrency::array_view<unsigned int, 1> avSize(4, size);
-  Concurrency::extent<3> grdExt(gridConf[2], gridConf[1] * 16, gridConf[0] * 32);
-  Concurrency::tiled_extent<1, 16, 32> t_ext(grdExt);
+  Concurrency::extent<3> grdExt(gridConf[2], gridConf[1] * 16, gridConf[0] *16);
+  Concurrency::tiled_extent<1, 16, 16> t_ext(grdExt);
 
-  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1, 16, 32> tidx) restrict(amp)
+  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1, 16, 16> tidx) restrict(amp)
   {
-    tile_static float sbuf[16][32]; // 8kB
-    for (unsigned z = tidx.tile[0]; z < avSize[3] ; z += t_ext[0])
+    tile_static float sbuf[16][16]; // 8kB
+    for (unsigned z = tidx.tile[0]; z < avSize[3] ; z += t_ext[0]/tidx.tile_dim0)
     {
-      for (unsigned x = tidx.tile[2]; x < avSize[2] ; x += t_ext[2])
+      for (unsigned x = tidx.tile[2]; x < avSize[2] ; x += t_ext[2]/tidx.tile_dim2)
       {
-        for (unsigned bRow = tidx.tile_origin[1]; bRow < avSize[1]; bRow += grdExt[1]) 
+        for (unsigned bRow = tidx.tile_origin[1]; bRow < avSize[1]; bRow += t_ext[1]) 
         {
           float acc = init;
           unsigned row = bRow + tidx.local[1];
@@ -593,7 +594,7 @@ void THCudaTensor_transformReduceInnermostDim(THCudaTensor *tgt, THCudaTensor *s
     tgt_stride[odim] = THCudaTensor_stride(tgt, dim);
     size[odim] = THCudaTensor_size(src, dim);
   }
-  //std::cout<<"InnerDim kernel"<<std::endl;
+  std::cout<<"InnerDim kernel"<<std::endl;
   unsigned nBlockPerRow = (size[1] + 16 - 1) / 16;
   unsigned maxGridDim = 1024; // anything < 64k is fine. The choice has no impact on performance.
   gridConfig[0]= std::min(maxGridDim, size[2]);
@@ -686,14 +687,14 @@ void THCudaTensor_addmv(THCudaTensor *r_, float beta, THCudaTensor *t, float alp
 
   if(mat->stride[0] == 1)
   {
-    THCudaBlas_gemv('n', mat->size[0], mat->size[1],
+    THFloatBlas_gemv('n', mat->size[0], mat->size[1],
                     alpha, THCudaTensor_data(mat), mat->stride[1],
                     THCudaTensor_data(vec), vec->stride[0],
                   beta, THCudaTensor_data(r_), r_->stride[0]);
   }
   else if(mat->stride[1] == 1)
   {
-    THCudaBlas_gemv('t',  mat->size[1], mat->size[0],
+    THFloatBlas_gemv('t',  mat->size[1], mat->size[0],
                   alpha, THCudaTensor_data(mat), mat->stride[0],
                   THCudaTensor_data(vec), vec->stride[0],
                   beta, THCudaTensor_data(r_), r_->stride[0]);
@@ -702,7 +703,7 @@ void THCudaTensor_addmv(THCudaTensor *r_, float beta, THCudaTensor *t, float alp
   {
     THCudaTensor *cmat = THCudaTensor_newContiguous(mat);
 
-    THCudaBlas_gemv('t',  mat->size[1], mat->size[0],
+    THFloatBlas_gemv('t',  mat->size[1], mat->size[0],
                   alpha, THCudaTensor_data(cmat), cmat->stride[0],
                   THCudaTensor_data(vec), vec->stride[0],
                   beta, THCudaTensor_data(r_), r_->stride[0]);
@@ -789,7 +790,7 @@ void THCudaTensor_addmm(THCudaTensor *r_, float beta, THCudaTensor *t, float alp
   }
 
   /* do the operation */
-  THCudaBlas_gemm(transpose_m1,
+  THFloatBlas_gemm(transpose_m1,
                 transpose_m2,
                 r__->size[(transpose_r == 'n' ? 0 : 1)],
                 r__->size[(transpose_r == 'n' ? 1 : 0)],
@@ -836,14 +837,14 @@ void THCudaTensor_addr(THCudaTensor *r_, float beta, THCudaTensor *t, float alph
 
   if(r_->stride[0] == 1)
   {
-    THCudaBlas_ger(vec1->size[0], vec2->size[0],
+    THFloatBlas_ger(vec1->size[0], vec2->size[0],
                  alpha, THCudaTensor_data(vec1), vec1->stride[0],
                  THCudaTensor_data(vec2), vec2->stride[0],
                  THCudaTensor_data(r_), r_->stride[1]);
   }
   else if(r_->stride[1] == 1)
   {
-    THCudaBlas_ger(vec2->size[0], vec1->size[0],
+    THFloatBlas_ger(vec2->size[0], vec1->size[0],
                  alpha, THCudaTensor_data(vec2), vec2->stride[0],
                  THCudaTensor_data(vec1), vec1->stride[0],
                  THCudaTensor_data(r_), r_->stride[0]);
@@ -852,7 +853,7 @@ void THCudaTensor_addr(THCudaTensor *r_, float beta, THCudaTensor *t, float alph
   {
     THCudaTensor *cr = THCudaTensor_newClone(r_);
 
-    THCudaBlas_ger(vec2->size[0], vec1->size[0],
+    THFloatBlas_ger(vec2->size[0], vec1->size[0],
                  alpha, THCudaTensor_data(vec2), vec2->stride[0],
                  THCudaTensor_data(vec1), vec1->stride[0],
                  THCudaTensor_data(cr), cr->stride[0]);

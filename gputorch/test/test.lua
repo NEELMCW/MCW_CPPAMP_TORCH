@@ -373,7 +373,7 @@ function test.prod()
    local x = torch.FloatTensor():rand(sz1, sz2)
    --compareFloatAndCuda(x, 'prod')
    compareFloatAndCuda(x, 'prod', 1)
-   --compareFloatAndCuda(x, 'prod', 2)
+   compareFloatAndCuda(x, 'prod', 2)
 end
 
 function test.round()

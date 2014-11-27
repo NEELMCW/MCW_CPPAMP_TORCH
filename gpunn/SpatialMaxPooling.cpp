@@ -12,6 +12,7 @@ void maxpool(THCudaTensor *input, THCudaTensor *output, THCudaTensor *indices, i
                         int kH, int kW, int dH, int dW,
                         int xblocks, int yblocks)
 {
+  //std::cout<<"inside Spatial Max pooling"<<std::endl;
   Concurrency::extent<3> copyExt(1,yblocks*16,xblocks*16);
   Concurrency::tiled_extent<1,16,16> t_ext(copyExt);
 

@@ -1,11 +1,19 @@
+#include "bolt/amp/functional.h"
+#include "bolt/amp/fill.h"
+#include "bolt/amp/device_vector.h"
+#include "bolt/amp/transform.h"
+#include "bolt/amp/transform_reduce.h"
+#include "bolt/amp/reduce.h"
+#include "bolt/amp/inner_product.h"
+#include "amp_math.h"
 struct thresholdupdateOutput_functor
 {
   const double threshold;
   const double val;
 
-  thresholdupdateOutput_functor(double threshold_, double val_) : threshold(threshold_), val(val_) {}
+  thresholdupdateOutput_functor(double threshold_, double val_) restrict(amp,cpu): threshold(threshold_), val(val_) {}
 
- float operator()(const float& input) const
+ float operator()(const float& input) const restrict(amp,cpu)
   {
     return (input > threshold) ? input : val;
   }
@@ -23,10 +31,10 @@ static int cunn_Threshold_updateOutput(lua_State *L)
 
   THCudaTensor_resizeAs(output, input);
 
- /* thrust::device_ptr<float> output_data(THCudaTensor_data(output));
-  thrust::device_ptr<float> input_data(THCudaTensor_data(input));
-  thrust::transform(input_data, input_data+size, output_data, 
-                    thresholdupdateOutput_functor(threshold, val));*/
+  bolt::amp::device_vector<float> output_data(THCudaTensor_data(output), THCudaTensor_data(output) + THCudaTensor_nElement(output));
+  bolt::amp::device_vector<float> input_data(THCudaTensor_data(input), THCudaTensor_data(input)+ THCudaTensor_nElement(input));
+  bolt::amp::transform(input_data.begin(), input_data.end(), output_data.begin(), 
+                    thresholdupdateOutput_functor(threshold, val));
 
   THCudaTensor_free(input);
   return 1;
@@ -37,9 +45,9 @@ struct thresholdupdateGradInput_functor
   const double threshold;
   const double val;
 
-  thresholdupdateGradInput_functor(double threshold_, double val_) : threshold(threshold_), val(val_) {}
+  thresholdupdateGradInput_functor(double threshold_, double val_) restrict(amp,cpu) : threshold(threshold_), val(val_) {}
 
-  float operator()(const float& input, const float& gradOutput) const
+  float operator()(const float& input, const float& gradOutput) const restrict(amp,cpu)
   {
     return (input > threshold) ? gradOutput : 0;
   }
@@ -58,11 +66,10 @@ static int cunn_Threshold_updateGradInput(lua_State *L)
   gradOutput = THCudaTensor_newContiguous(gradOutput);
   THCudaTensor_resizeAs(gradInput, output);
 
- /* thrust::device_ptr<float> input_data(THCudaTensor_data(input));
-  thrust::device_ptr<float> gradOutput_data(THCudaTensor_data(gradOutput));
-  thrust::device_ptr<float> gradInput_data(THCudaTensor_data(gradInput));
-  thrust::transform(input_data, input_data+size, gradOutput_data, gradInput_data, 
-                    thresholdupdateGradInput_functor(threshold, val));*/
+  bolt::amp::device_vector<float> input_data(THCudaTensor_data(input),THCudaTensor_data(input) + THCudaTensor_nElement(input));
+  bolt::amp::device_vector<float> gradOutput_data(THCudaTensor_data(gradOutput), THCudaTensor_data(gradOutput) + THCudaTensor_nElement(gradOutput));
+  bolt::amp::device_vector<float> gradInput_data(THCudaTensor_data(gradInput), THCudaTensor_data(gradInput) + THCudaTensor_nElement(gradInput));
+  bolt::amp::transform(input_data.begin(), input_data.end(), gradOutput_data.begin(), gradInput_data.begin(), thresholdupdateGradInput_functor(threshold, val));
 
   THCudaTensor_free(gradOutput);
   return 1;
