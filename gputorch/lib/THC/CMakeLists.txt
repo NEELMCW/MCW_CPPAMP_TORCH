@@ -1,5 +1,5 @@
 
-#execute_process(COMMAND /home/neelakandan/Downloads/mcw_cppamp/build/compiler/bin/clamp-preprocess THCTensorMath.cpp THCTensorMath_bolt.cpp)
+#execute_process(COMMAND /home/mcw/Downloads/mcw_cppamp/build/compiler/bin/clamp-preprocess THCTensorMath.cpp THCTensorMath_bolt.cpp)
 
 
 SET(src 
@@ -13,8 +13,8 @@ INCLUDE_DIRECTORIES("/opt/clamp/include/c++/v1")
 SET (OPENCL_INC "/opt/AMDAPP/include/")
 SET (PREFIX "/opt/clamp")
 SET (CLANG_AMP "${PREFIX}/bin/clang++")
-SET(CLAMP_CXXFLAGS "-std=c++amp  -I//home/neelakandan/Downloads/mcw_cppamp/build3/Bolt/superbuild/external/boost/src/Boost/ -I/home/neelakandan/Downloads/mcw_cppamp/Bolt/include -I//home/neelakandan/Downloads/mcw_cppamp/build3/Bolt/superbuild/Bolt-build/include -I/home/neelakandan/Downloads/mcw_cppamp/cppamp-driver-ng/Bolt/include -I/home/neelakandan/Downloads/mcw_cppamp/build/Bolt/superbuild/Bolt-build/include/ -I/opt/AMDAPP/include -I/opt/AMDAPP/clBLAS/include -I/home/neelakandan/Downloads/mcw_cppamp/cppamp-driver-ng/include -I/home/neelakandan/Downloads/mcw_cppamp/cppamp-driver-ng/libc++/libcxx/include")
-SET(CLAMP_LDFLAGS  "-std=c++amp -fPIC  -L/opt/AMDAPP/clBLAS/lib64/ -L/home/neelakandan/Downloads/mcw_cppamp/build/build/lib -L/home/neelakandan/Downloads/mcw_cppamp/build/build/Release/lib -L/home/neelakandan/Downloads/mcw_cppamp/build/libc++/libcxx/lib -L/home/neelakandan/Downloads/mcw_cppamp/build/libc++/libcxxrt/lib -Wl,--rpath=/home/neelakandan/Downloads/mcw_cppamp/build/build/Release/lib:/home/neelakandan/Downloads/mcw_cppamp/build/libc++/libcxx/lib:/home/neelakandan/Downloads/mcw_cppamp/build/libc++/libcxxrt/lib -lOpenCL -lclBLAS -lc++ -lcxxrt -ldl -Wl,--whole-archive -lmcwamp -Wl,--no-whole-archive ")
+SET(CLAMP_CXXFLAGS "-std=c++amp -I/home/mcw/Documents/mcw_torch_clamp/Bolt/include/ -I//home/mcw/Downloads/mcw_cppamp/build3/Bolt/superbuild/external/boost/src/Boost/ -I/home/mcw/Downloads/mcw_cppamp/Bolt/include -I//home/mcw/Downloads/mcw_cppamp/build3/Bolt/superbuild/Bolt-build/include -I/home/mcw/Downloads/mcw_cppamp/cppamp-driver-ng/Bolt/include -I/home/mcw/Downloads/mcw_cppamp/build/Bolt/superbuild/Bolt-build/include/ -I/opt/AMDAPP/include -I/opt/AMDAPP/clBLAS/include -I/home/mcw/Downloads/mcw_cppamp/cppamp-driver-ng/include -I/home/mcw/Downloads/mcw_cppamp/cppamp-driver-ng/libc++/libcxx/include")
+SET(CLAMP_LDFLAGS  "-std=c++amp -fPIC -L/home/mcw/Downloads/mcw_cppamp/build/build/lib/ -L/opt/AMDAPP/lib/x86_64 -L/opt/AMDAPP/clBLAS/lib64/ -L/home/mcw/Downloads/mcw_cppamp/build/build/lib -L/home/mcw/Downloads/mcw_cppamp/build/build/Release/lib -L/home/mcw/Downloads/mcw_cppamp/build/libc++/libcxx/lib -L/home/mcw/Downloads/mcw_cppamp/build/libc++/libcxxrt/lib -Wl,--rpath=/home/mcw/Downloads/mcw_cppamp/build/build/Release/lib:/home/mcw/Downloads/mcw_cppamp/build/libc++/libcxx/lib:/home/mcw/Downloads/mcw_cppamp/build/libc++/libcxxrt/lib -lOpenCL -lclBLAS -lc++ -lcxxrt -ldl -Wl,--whole-archive -lmcwamp -Wl,--no-whole-archive ")
 SET(CLAMP_SHAREDFLAGS "-shared -fPIC -Wl,-Bsymbolic")
 
 

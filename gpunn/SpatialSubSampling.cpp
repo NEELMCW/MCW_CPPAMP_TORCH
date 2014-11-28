@@ -8,21 +8,24 @@
  */
 
 void subsample(THCudaTensor *inputTensor, THCudaTensor *outputTensor, THCudaTensor *weightTensor,
-               THCudaTensor *biasTensor ,int input_n, int input_h, int input_w, int kH, int kW, int dH, int dW)
+               THCudaTensor *biasTensor ,int input_n, int input_h, int input_w, int kH, int kW, int dH, int dW, int xBlocks)
 {
     // output size
+    std::cout<<"subSample"<<std::endl;
     int output_w = (input_w - kW) / dW + 1;
     int output_h = (input_h - kH) / dH + 1;
-    int xBlocks = input_n;
-    int yBlocks = (int)(16L / input_n);
+    //int xBlocks = input_n;
+    int yBlocks = (int)(16L / xBlocks);
     yBlocks = yBlocks < 1 ? 1 : yBlocks;
     Concurrency::array_view<float,1> avInput(Concurrency::extent<1>(inputTensor->storage->size), THCudaTensor_data(inputTensor));
     Concurrency::array_view<float,1> avOutput(Concurrency::extent<1>(outputTensor->storage->size), THCudaTensor_data(outputTensor));
     Concurrency::array_view<float,1> avWeight(Concurrency::extent<1>(weightTensor->storage->size), THCudaTensor_data(weightTensor));
     Concurrency::array_view<float,1> avBias(Concurrency::extent<1>(biasTensor->storage->size), THCudaTensor_data(biasTensor));
-    yBlocks = (yBlocks + 7) &~7;
-    xBlocks = (xBlocks + 31) &~31;
-    Concurrency::extent<3> grdExt(1, yBlocks , xBlocks);
+    //yBlocks = yBlocks * 8;
+    //xBlocks = xBlocks * 32;
+    //yBlocks = (yBlocks + 7) &~7;
+    //xBlocks = (xBlocks + 31) &~31;
+    Concurrency::extent<3> grdExt(1, yBlocks * 8 , xBlocks * 32);
     Concurrency::tiled_extent<1, 8, 32> t_ext(grdExt);
     Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1, 8, 32> tidx) restrict(amp)
     {
@@ -88,22 +91,22 @@ void subgradweight(THCudaTensor *inputTensor, THCudaTensor *gradOutputTensor, TH
                    int dH, int dW, float scale, long sl)
 {
     // output size
-    
+    std::cout<<"subgradweight"<<std::endl;
     int output_w = (input_w - kW) / dW + 1;
     int output_h = (input_h - kH) / dH + 1;
     int inputStride = sl * inputTensor->stride[0];
     int outputStride = sl * gradOutputTensor->stride[0];
 
     int xBlocks = input_n;
-    int yBlocks = (int)(16L / input_n);
-    yBlocks = yBlocks < 1 ? 1 : yBlocks;
+    //int yBlocks = (int)(16L / input_n);
+    //yBlocks = yBlocks < 1 ? 1 : yBlocks;
     Concurrency::array_view<float,1> avInput(Concurrency::extent<1>(inputTensor->storage->size), THCudaTensor_data(inputTensor));
     Concurrency::array_view<float,1> avGradOutput(Concurrency::extent<1>(gradOutputTensor->storage->size), THCudaTensor_data(gradOutputTensor));
     Concurrency::array_view<float,1> avGradWeight(Concurrency::extent<1>(gradWeightTensor->storage->size), THCudaTensor_data(gradWeightTensor));
     Concurrency::array_view<float,1> avGradBias(Concurrency::extent<1>(gradBiasTensor->storage->size), THCudaTensor_data(gradBiasTensor));
-    yBlocks = (yBlocks + 7) &~7;
-    xBlocks = (xBlocks + 31) &~31;
-    Concurrency::extent<3> grdExt(1, yBlocks , xBlocks);
+    //yBlocks = (yBlocks + 7) &~7;
+    //xBlocks = (xBlocks + 31) &~31;
+    Concurrency::extent<3> grdExt(1, 8 , xBlocks * 32);
     Concurrency::tiled_extent<1, 8, 32> t_ext(grdExt);
     Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1, 8, 32> tidx) restrict(amp)
     {
@@ -124,7 +127,7 @@ void subgradweight(THCudaTensor *inputTensor, THCudaTensor *gradOutputTensor, TH
         int xx_end = output_w;
         int xx_step = tidx.tile_dim2;
 
-        int yy_start = tidx.local[2];
+        int yy_start = tidx.local[1];
         int yy_end = output_h;
         int yy_step = tidx.tile_dim1;
 
@@ -186,9 +189,8 @@ void subgradweight(THCudaTensor *inputTensor, THCudaTensor *gradOutputTensor, TH
                 avGradBias[gradBias+k] += scale*sums[i];
         }
     });
-    avInput.synchronize();
     avGradBias.synchronize();
-    avGradOutput.synchronize();
+    avGradWeight.synchronize();
 }
 
 /*
@@ -196,21 +198,22 @@ void subgradweight(THCudaTensor *inputTensor, THCudaTensor *gradOutputTensor, TH
  *    this function computes the gradInput from weight and gradOutput
  */
 void subgradinput(THCudaTensor *gradInputTensor, THCudaTensor *gradOutputTensor, THCudaTensor *weightTensor,
-                  int input_n, int input_h, int input_w, int kH, int kW, int dH, int dW)
+                  int input_n, int input_h, int input_w, int kH, int kW, int dH, int dW, int xBlocks)
 {
     // output size
+    std::cout<<"subgradinput"<<std::endl;
     int output_w = (input_w - kW) / dW + 1;
     int output_h = (input_h - kH) / dH + 1;
 
-    int xBlocks = input_n;
+    //int xBlocks = input_n;
     int yBlocks = (int)(16L / input_n);
     yBlocks = yBlocks < 1 ? 1 : yBlocks;
     Concurrency::array_view<float,1> avGradInput(Concurrency::extent<1>(gradInputTensor->storage->size), THCudaTensor_data(gradInputTensor));
     Concurrency::array_view<float,1> avGradOutput(Concurrency::extent<1>(gradOutputTensor->storage->size), THCudaTensor_data(gradOutputTensor));
     Concurrency::array_view<float,1> avWeight(Concurrency::extent<1>(weightTensor->storage->size), THCudaTensor_data(weightTensor));
-    yBlocks = (yBlocks + 7) &~7;
-    xBlocks = (xBlocks + 31) &~31;
-    Concurrency::extent<3> grdExt(1, yBlocks , xBlocks);
+    //yBlocks = (yBlocks + 7) &~7;
+    //xBlocks = (xBlocks + 31) &~31;
+    Concurrency::extent<3> grdExt(1, yBlocks * 8 , xBlocks * 32);
     Concurrency::tiled_extent<1, 8, 32> t_ext(grdExt);
     Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1, 8, 32> tidx) restrict(amp)
     {
@@ -297,8 +300,8 @@ static int cunn_SpatialSubSampling_updateOutput(lua_State *L)
     THCudaTensor_resize3d(output, nInputPlane, nOutputRows, nOutputCols);
     output_data = THCudaTensor_data(output);
 
-
-    subsample (input, output, weight, bias, nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW);
+    int xBlocks = nInputPlane;
+    subsample (input, output, weight, bias, nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW, xBlocks);
   }
   else
   {
@@ -317,8 +320,8 @@ static int cunn_SpatialSubSampling_updateOutput(lua_State *L)
     THCudaTensor_resize4d(output, nbatch, nInputPlane, nOutputRows, nOutputCols);
     output_data = THCudaTensor_data(output);
 
-
-    subsample(input, output, weight, bias, nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW);
+    int xBlocks = nInputPlane * nbatch;
+    subsample(input, output, weight, bias, nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW, xBlocks);
   }
 
   // clean
@@ -357,7 +360,8 @@ static int cunn_SpatialSubSampling_updateGradInput(lua_State *L)
     THCudaTensor_zero(gradInput);
     gradInput_data = THCudaTensor_data(gradInput);
 
-    subgradinput (gradInput, gradOutput, weight, nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW);
+    int xBlocks = nInputPlane;
+    subgradinput (gradInput, gradOutput, weight, nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW, xBlocks);
 
   }
   else
@@ -374,7 +378,8 @@ static int cunn_SpatialSubSampling_updateGradInput(lua_State *L)
     THCudaTensor_zero(gradInput);
     gradInput_data = THCudaTensor_data(gradInput);
 
-    subgradinput (gradInput, gradOutput, weight, nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW);
+    int xBlocks = nInputPlane * nbatch;
+    subgradinput (gradInput, gradOutput, weight, nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW, xBlocks);
   }
   return 0;
 }
