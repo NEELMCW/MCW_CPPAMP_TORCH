@@ -37,6 +37,16 @@ Prepare a directory for work space.
    
    * git clone https://bitbucket.org/multicoreware/cppamp-driver-ng.git src
 
+   * git checkout gmac-exp (gmac-exp branch is tailor built for torch7 use case)
+
+Create a build directory and configure using CMake.
+
+  *  mkdir gmac_exp_build
+
+  * cd gmac_exp_build
+
+   * cmake ../src
+ 
 (iii)  Bolt Set up:
 
 (iv) CLBLAS setup:
