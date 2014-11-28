@@ -16,20 +16,23 @@ This repository hosts the C++ AMP backend implementation project for  [torch7](h
 * **clBLAS**: ver 2-2.0 from [here](https://github.com/clMathLibraries/clBLAS/releases)
 
 
-##Building and set up: ##
+##Building and set up:    
+######Need to be a super user
 
-(i) Torch7 install:
+(i) **Torch7 install**:
 
-      *  $ curl -sk https://raw.githubusercontent.com/torch/ezinstall/master/install-deps | bash
+      *  curl -sk https://raw.githubusercontent.com/torch/ezinstall/master/install-deps | bash
   
-      * $ curl -sk https://raw.githubusercontent.com/torch/ezinstall/master/install-luajit+torch | bash
+      *  curl -sk https://raw.githubusercontent.com/torch/ezinstall/master/install-luajit+torch | bash
       
 
 
-(ii)   C++ AMP Compiler installation:
+(ii)  ** C++ AMP Compiler installation**: Indepth details can be found [here](https://bitbucket.org/multicoreware/cppamp-driver-ng/overview)
+
+* Prepare a directory for 
 
 (iii)  Bolt Set up:
 
 (iv) CLBLAS setup:
 
-( 
+(
