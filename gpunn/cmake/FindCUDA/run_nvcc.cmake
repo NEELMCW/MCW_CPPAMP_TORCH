@@ -2,7 +2,7 @@
 #
 #  Copyright (c) 2008 - 2009 NVIDIA Corporation.  All rights reserved.
 #
-#  This code is licensed under the MIT License.  See the FindCUDA.cmake script
+#  This code is licensed under the MIT License.  See the FindGPU.cmake script
 #  for the text of the license.
 
 # The MIT License
@@ -40,7 +40,7 @@
 #
 # build_configuration:STRING=<> Typically one of Debug, MinSizeRel, Release, or
 #                               RelWithDebInfo, but it should match one of the
-#                               entries in CUDA_HOST_FLAGS. This is the build
+#                               entries in GPU_HOST_FLAGS. This is the build
 #                               configuration used when compiling the code.  If
 #                               blank or unspecified Debug is assumed as this is
 #                               what CMake does.
@@ -59,8 +59,8 @@ set(CMAKE_COMMAND "@CMAKE_COMMAND@") # path
 set(source_file "@source_file@") # path
 set(NVCC_generated_dependency_file "@NVCC_generated_dependency_file@") # path
 set(cmake_dependency_file "@cmake_dependency_file@") # path
-set(CUDA_make2cmake "@CUDA_make2cmake@") # path
-set(CUDA_parse_cubin "@CUDA_parse_cubin@") # path
+set(GPU_make2cmake "@GPU_make2cmake@") # path
+set(GPU_parse_cubin "@GPU_parse_cubin@") # path
 set(build_cubin @build_cubin@) # bool
 # We won't actually use these variables for now, but we need to set this, in
 # order to force this file to be run again if it changes.
@@ -68,11 +68,11 @@ set(generated_file_path "@generated_file_path@") # path
 set(generated_file_internal "@generated_file@") # path
 set(generated_cubin_file_internal "@generated_cubin_file@") # path
 
-set(CUDA_NVCC_EXECUTABLE "@CUDA_NVCC_EXECUTABLE@") # path
-set(CUDA_NVCC_FLAGS @CUDA_NVCC_FLAGS@ ;; @CUDA_WRAP_OPTION_NVCC_FLAGS@) # list
-@CUDA_NVCC_FLAGS_CONFIG@
+set(GPU_NVCC_EXECUTABLE "@GPU_NVCC_EXECUTABLE@") # path
+set(GPU_NVCC_FLAGS @GPU_NVCC_FLAGS@ ;; @GPU_WRAP_OPTION_NVCC_FLAGS@) # list
+@GPU_NVCC_FLAGS_CONFIG@
 set(nvcc_flags @nvcc_flags@) # list
-set(CUDA_NVCC_INCLUDE_ARGS "@CUDA_NVCC_INCLUDE_ARGS@") # list (needs to be in quotes to handle spaces properly).
+set(GPU_NVCC_INCLUDE_ARGS "@GPU_NVCC_INCLUDE_ARGS@") # list (needs to be in quotes to handle spaces properly).
 set(format_flag "@format_flag@") # string
 
 if(build_cubin AND NOT generated_cubin_file)
@@ -80,8 +80,8 @@ if(build_cubin AND NOT generated_cubin_file)
 endif()
 
 # This is the list of host compilation flags.  It C or CXX should already have
-# been chosen by FindCUDA.cmake.
-@CUDA_HOST_FLAGS@
+# been chosen by FindGPU.cmake.
+@GPU_HOST_FLAGS@
 
 # Take the compiler flags and package them up to be sent to the compiler via -Xcompiler
 set(nvcc_host_compiler_flags "")
@@ -90,7 +90,7 @@ if(NOT build_configuration)
   set(build_configuration Debug)
 endif()
 string(TOUPPER "${build_configuration}" build_configuration)
-#message("CUDA_NVCC_HOST_COMPILER_FLAGS = ${CUDA_NVCC_HOST_COMPILER_FLAGS}")
+#message("GPU_NVCC_HOST_COMPILER_FLAGS = ${GPU_NVCC_HOST_COMPILER_FLAGS}")
 foreach(flag ${CMAKE_HOST_FLAGS} ${CMAKE_HOST_FLAGS_${build_configuration}})
   # Extra quotes are added around each flag to help nvcc parse out flags with spaces.
   set(nvcc_host_compiler_flags "${nvcc_host_compiler_flags},\"${flag}\"")
@@ -100,93 +100,93 @@ if (nvcc_host_compiler_flags)
 endif()
 #message("nvcc_host_compiler_flags = \"${nvcc_host_compiler_flags}\"")
 # Add the build specific configuration flags
-list(APPEND CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS_${build_configuration}})
+list(APPEND GPU_NVCC_FLAGS ${GPU_NVCC_FLAGS_${build_configuration}})
 
 if(DEFINED CCBIN)
   set(CCBIN -ccbin "${CCBIN}")
 endif()
 
-# cuda_execute_process - Executes a command with optional command echo and status message.
+# gpu_execute_process - Executes a command with optional command echo and status message.
 #
 #   status  - Status message to print if verbose is true
 #   command - COMMAND argument from the usual execute_process argument structure
 #   ARGN    - Remaining arguments are the command with arguments
 #
-#   CUDA_result - return value from running the command
+#   GPU_result - return value from running the command
 #
 # Make this a macro instead of a function, so that things like RESULT_VARIABLE
 # and other return variables are present after executing the process.
-macro(cuda_execute_process status command)
+macro(gpu_execute_process status command)
   set(_command ${command})
   if(NOT _command STREQUAL "COMMAND")
-    message(FATAL_ERROR "Malformed call to cuda_execute_process.  Missing COMMAND as second argument. (command = ${command})")
+    message(FATAL_ERROR "Malformed call to gpu_execute_process.  Missing COMMAND as second argument. (command = ${command})")
   endif()
   if(verbose)
     execute_process(COMMAND "${CMAKE_COMMAND}" -E echo -- ${status})
     # Now we need to build up our command string.  We are accounting for quotes
     # and spaces, anything else is left up to the user to fix if they want to
     # copy and paste a runnable command line.
-    set(cuda_execute_process_string)
+    set(gpu_execute_process_string)
     foreach(arg ${ARGN})
       # If there are quotes, excape them, so they come through.
       string(REPLACE "\"" "\\\"" arg ${arg})
       # Args with spaces need quotes around them to get them to be parsed as a single argument.
       if(arg MATCHES " ")
-        list(APPEND cuda_execute_process_string "\"${arg}\"")
+        list(APPEND gpu_execute_process_string "\"${arg}\"")
       else()
-        list(APPEND cuda_execute_process_string ${arg})
+        list(APPEND gpu_execute_process_string ${arg})
       endif()
     endforeach()
     # Echo the command
-    execute_process(COMMAND ${CMAKE_COMMAND} -E echo ${cuda_execute_process_string})
+    execute_process(COMMAND ${CMAKE_COMMAND} -E echo ${gpu_execute_process_string})
   endif(verbose)
   # Run the command
-  execute_process(COMMAND ${ARGN} RESULT_VARIABLE CUDA_result )
+  execute_process(COMMAND ${ARGN} RESULT_VARIABLE GPU_result )
 endmacro()
 
 # Delete the target file
-cuda_execute_process(
+gpu_execute_process(
   "Removing ${generated_file}"
   COMMAND "${CMAKE_COMMAND}" -E remove "${generated_file}"
   )
 
-# For CUDA 2.3 and below, -G -M doesn't work, so remove the -G flag
+# For GPU 2.3 and below, -G -M doesn't work, so remove the -G flag
 # for dependency generation and hope for the best.
-set(depends_CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS}")
-set(CUDA_VERSION @CUDA_VERSION@)
-if(CUDA_VERSION VERSION_LESS "3.0")
+set(depends_GPU_NVCC_FLAGS "${GPU_NVCC_FLAGS}")
+set(GPU_VERSION @GPU_VERSION@)
+if(GPU_VERSION VERSION_LESS "3.0")
   cmake_policy(PUSH)
   # CMake policy 0007 NEW states that empty list elements are not
   # ignored.  I'm just setting it to avoid the warning that's printed.
   cmake_policy(SET CMP0007 NEW)
   # Note that this will remove all occurances of -G.
-  list(REMOVE_ITEM depends_CUDA_NVCC_FLAGS "-G")
+  list(REMOVE_ITEM depends_GPU_NVCC_FLAGS "-G")
   cmake_policy(POP)
 endif()
 
-# nvcc doesn't define __CUDACC__ for some reason when generating dependency files.  This
+# nvcc doesn't define __GPUCC__ for some reason when generating dependency files.  This
 # can cause incorrect dependencies when #including files based on this macro which is
 # defined in the generating passes of nvcc invokation.  We will go ahead and manually
 # define this for now until a future version fixes this bug.
-set(CUDACC_DEFINE -D__CUDACC__)
+set(GPUCC_DEFINE -D__GPUCC__)
 
 # Generate the dependency file
-cuda_execute_process(
+gpu_execute_process(
   "Generating dependency file: ${NVCC_generated_dependency_file}"
-  COMMAND "${CUDA_NVCC_EXECUTABLE}"
+  COMMAND "${GPU_NVCC_EXECUTABLE}"
   -M
-  ${CUDACC_DEFINE}
+  ${GPUCC_DEFINE}
   "${source_file}"
   -o "${NVCC_generated_dependency_file}"
   ${CCBIN}
   ${nvcc_flags}
   ${nvcc_host_compiler_flags}
-  ${depends_CUDA_NVCC_FLAGS}
+  ${depends_GPU_NVCC_FLAGS}
   -DNVCC
-  ${CUDA_NVCC_INCLUDE_ARGS}
+  ${GPU_NVCC_INCLUDE_ARGS}
   )
 
-if(CUDA_result)
+if(GPU_result)
   message(FATAL_ERROR "Error generating ${generated_file}")
 endif()
 
@@ -194,60 +194,60 @@ endif()
 # quotes just around the filenames for the input_file and output_file variables.
 # CMake will pass the quotes through and not be able to find the file.
 
-SET(cuda_include_dirs "cuda_include_dirs=${CUDA_NVCC_INCLUDE_ARGS}")
+SET(gpu_include_dirs "gpu_include_dirs=${GPU_NVCC_INCLUDE_ARGS}")
 
-FILE(WRITE "${NVCC_generated_dependency_file}.inc" "${CUDA_NVCC_INCLUDE_ARGS}")
+FILE(WRITE "${NVCC_generated_dependency_file}.inc" "${GPU_NVCC_INCLUDE_ARGS}")
 
-cuda_execute_process(
+gpu_execute_process(
   "Generating temporary cmake readable file: ${cmake_dependency_file}.tmp"
   COMMAND "${CMAKE_COMMAND}"
   -D "inc_file:FILEPATH=${NVCC_generated_dependency_file}.inc"
   -D "input_file:FILEPATH=${NVCC_generated_dependency_file}"
   -D "output_file:FILEPATH=${cmake_dependency_file}.tmp"
-  -P "${CUDA_make2cmake}"
+  -P "${GPU_make2cmake}"
   )
 
-if(CUDA_result)
+if(GPU_result)
   message(FATAL_ERROR "Error generating ${generated_file}")
 endif()
 
 # Copy the file if it is different
-cuda_execute_process(
+gpu_execute_process(
   "Copy if different ${cmake_dependency_file}.tmp to ${cmake_dependency_file}"
   COMMAND "${CMAKE_COMMAND}" -E copy_if_different "${cmake_dependency_file}.tmp" "${cmake_dependency_file}"
   )
 
-if(CUDA_result)
+if(GPU_result)
   message(FATAL_ERROR "Error generating ${generated_file}")
 endif()
 
 # Delete the temporary file
-cuda_execute_process(
+gpu_execute_process(
   "Removing ${cmake_dependency_file}.tmp and ${NVCC_generated_dependency_file}"
   COMMAND "${CMAKE_COMMAND}" -E remove "${cmake_dependency_file}.tmp" "${NVCC_generated_dependency_file}" "${NVCC_generated_dependency_file}.inc"
   )
 
-if(CUDA_result)
+if(GPU_result)
   message(FATAL_ERROR "Error generating ${generated_file}")
 endif()
 
 # Generate the code
-cuda_execute_process(
+gpu_execute_process(
   "Generating ${generated_file}"
-  COMMAND "${CUDA_NVCC_EXECUTABLE}"
+  COMMAND "${GPU_NVCC_EXECUTABLE}"
   "${source_file}"
   ${format_flag} -o "${generated_file}"
   ${CCBIN}
   ${nvcc_flags}
   ${nvcc_host_compiler_flags}
-  ${CUDA_NVCC_FLAGS}
+  ${GPU_NVCC_FLAGS}
   -DNVCC
-  ${CUDA_NVCC_INCLUDE_ARGS}
+  ${GPU_NVCC_INCLUDE_ARGS}
   )
 
-if(CUDA_result)
+if(GPU_result)
   # Since nvcc can sometimes leave half done files make sure that we delete the output file.
-  cuda_execute_process(
+  gpu_execute_process(
     "Removing ${generated_file}"
     COMMAND "${CMAKE_COMMAND}" -E remove "${generated_file}"
     )
@@ -261,26 +261,26 @@ endif()
 # Cubin resource report commands.
 if( build_cubin )
   # Run with -cubin to produce resource usage report.
-  cuda_execute_process(
+  gpu_execute_process(
     "Generating ${generated_cubin_file}"
-    COMMAND "${CUDA_NVCC_EXECUTABLE}"
+    COMMAND "${GPU_NVCC_EXECUTABLE}"
     "${source_file}"
-    ${CUDA_NVCC_FLAGS}
+    ${GPU_NVCC_FLAGS}
     ${nvcc_flags}
     ${CCBIN}
     ${nvcc_host_compiler_flags}
     -DNVCC
     -cubin
     -o "${generated_cubin_file}"
-    ${CUDA_NVCC_INCLUDE_ARGS}
+    ${GPU_NVCC_INCLUDE_ARGS}
     )
 
   # Execute the parser script.
-  cuda_execute_process(
+  gpu_execute_process(
     "Executing the parser script"
     COMMAND  "${CMAKE_COMMAND}"
     -D "input_file:STRING=${generated_cubin_file}"
-    -P "${CUDA_parse_cubin}"
+    -P "${GPU_parse_cubin}"
     )
 
 endif( build_cubin )

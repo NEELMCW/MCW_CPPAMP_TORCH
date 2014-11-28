@@ -96,13 +96,13 @@ for i,run in ipairs(runs) do
    print('')
    print('CONFIG: input = ' .. ni..'x'..iw..'x'..ih..' * ker = ' .. ni..'x'..no..'x'..kw..'x'..kh .. ' (bs = '..bs..', stride = ' .. dw .. ')')
 
-   n1 = nn.SpatialConvolutionCUDA(ni,no,kw,kh,dw,dh):cuda()
-   n2 = nn.SpatialConvolutionMM(ni,no,kw,kh,dw,dh):cuda()
-   -- n3 = nn.SpatialConvolutionMM_BHWD(ni,no,kw,kh,dw,dh):cuda()
+   n1 = nn.SpatialConvolutionGPU(ni,no,kw,kh,dw,dh):gpu()
+   n2 = nn.SpatialConvolutionMM(ni,no,kw,kh,dw,dh):gpu()
+   -- n3 = nn.SpatialConvolutionMM_BHWD(ni,no,kw,kh,dw,dh):gpu()
 
-   i1 = torch.randn(ni, ih, iw, bs):cuda()
-   i2 = torch.randn(bs, ni, ih, iw):cuda()
-   -- i3 = torch.randn(bs, ih, iw, ni):cuda()
+   i1 = torch.randn(ni, ih, iw, bs):gpu()
+   i2 = torch.randn(bs, ni, ih, iw):gpu()
+   -- i3 = torch.randn(bs, ih, iw, ni):gpu()
 
    o1 = n1:forward(i1)
    o2 = n2:forward(i2)

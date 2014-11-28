@@ -1612,7 +1612,7 @@ void THGPUTensor_indexSelect(THGPUTensor *res_, THGPUTensor *src, int dim, THLon
         src->nDimension, dim, indices->size[0], nRes,THGPUTensor_nElement(src), src->size[dim],nblockx
       );
     
-      //THGPUCheck(cudaFree(stride_));
+      //THGPUCheck(gpuFree(stride_));
       //THGPUTensor_free(indices_);
       delete stride_;
       THGPUStorage_free(indices_->storage);

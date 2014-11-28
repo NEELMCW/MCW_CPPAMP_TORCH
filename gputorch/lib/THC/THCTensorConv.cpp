@@ -414,7 +414,7 @@ void THGPUTensor_conv2Dmm(THGPUTensor *output, float beta, THGPUTensor *t_,
     THGPUTensor_mul(output,output, beta);
   }
 
-  // cuda blocks & threads:
+  // gpu blocks & threads:
   int yblocks = (int)(16L / nOutputPlane);
   yblocks = yblocks < 1 ? 1 : yblocks;
 
@@ -613,9 +613,9 @@ void THGPUTensor_conv2DRevger(THGPUTensor *output, float beta, float alpha,
   THGPUTensor_free(kernel);
 
   // check for errors
-  //cudaError_t err = cudaGetLastError();
-  //if (err != cudaSuccess) {
-  //  printf("error in conv2DRevger: %s\n", cudaGetErrorString(err));
+  //gpuError_t err = gpuGetLastError();
+  //if (err != gpuSuccess) {
+  //  printf("error in conv2DRevger: %s\n", gpuGetErrorString(err));
   //  THError("aborting");
   //}
 }
@@ -692,9 +692,9 @@ void THGPUTensor_conv2DRevgerm(THGPUTensor *output, float beta, float alpha,
   THGPUTensor_free(kernel);
 
   // check for errors
-  //cudaError_t err = cudaGetLastError();
-  //if (err != cudaSuccess) {
-  //  printf("error in conv2DRevger: %s\n", cudaGetErrorString(err));
+  //gpuError_t err = gpuGetLastError();
+  //if (err != gpuSuccess) {
+  //  printf("error in conv2DRevger: %s\n", gpuGetErrorString(err));
   //  THError("aborting");
   //}
 }
@@ -957,9 +957,9 @@ void THGPUTensor_conv2Dmap(THGPUTensor *output, THGPUTensor *input,
   THGPUTensor_free(table);
 
   // check for errors
-  //cudaError_t err = cudaGetLastError();
-  //if (err != cudaSuccess) {
-  //  printf("error in conv2Dmap: %s\n", cudaGetErrorString(err));
+  //gpuError_t err = gpuGetLastError();
+  //if (err != gpuSuccess) {
+  //  printf("error in conv2Dmap: %s\n", gpuGetErrorString(err));
   //  THError("aborting");
   //}
 }

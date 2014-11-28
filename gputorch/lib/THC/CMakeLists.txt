@@ -9,7 +9,7 @@ INCLUDE_DIRECTORIES("/opt/clamp/include")
 INCLUDE_DIRECTORIES("/opt/clamp/include/c++/v1")
 
 # MCW CLAMP Specific. Version >= 0.3 is Must
-#SET (OPENCL_INC "/usr/local/cuda/include")
+#SET (OPENCL_INC "/usr/local/gpu/include")
 SET (OPENCL_INC "/opt/AMDAPP/include/")
 SET (PREFIX "/opt/clamp")
 SET (CLANG_AMP "${PREFIX}/bin/clang++")
@@ -29,9 +29,9 @@ SET_PROPERTY(SOURCE THCGeneral.cpp APPEND_STRING PROPERTY COMPILE_FLAGS " ${CLAM
 
 
 
-#SET(src-cuda THC.cu)
+#SET(src-gpu THC.cu)
 
-#CUDA_ADD_LIBRARY(THC SHARED ${src} ${src-cuda})
+#CUDA_ADD_LIBRARY(THC SHARED ${src} ${src-gpu})
 ADD_LIBRARY(THC SHARED ${src})
 TARGET_LINK_LIBRARIES(THC TH)
 

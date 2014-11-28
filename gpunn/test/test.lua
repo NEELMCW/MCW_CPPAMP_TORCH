@@ -4,7 +4,7 @@ local precision_backward = 1e-2
 local nloop = 1
 local times = {}
 
---e.g.: th -lgpunn -e "nn.testcuda{'copies'}"
+--e.g.: th -lgpunn -e "nn.testgpu{'copies'}"
 --NW
 function gpunntest.copies()
    -- test vector
@@ -30,7 +30,7 @@ function gpunntest.copies()
    -- host copy
    t = torch.FloatTensor(100,10)
    t:normal()
-   local tc = t:cuda()
+   local tc = t:gpu()
    tc = tc:transpose(1,2)
    local t2 = tc:float()
    mytester:asserteq(t:transpose(1,2):add(-1,t2):abs():max(), 0, 'host copy, plus transpoe')
@@ -52,16 +52,16 @@ function gpunntest.Tanh_forward()
    end
    tm.cpu = a:time().real
 
-   input = input:cuda()
-   local gconv = nn.Tanh():cuda()
-   local rescuda = gconv:forward(input)
+   input = input:gpu()
+   local gconv = nn.Tanh():gpu()
+   local resgpu = gconv:forward(input)
    a:reset()
    for i = 1,nloop do
-      rescuda = gconv:forward(input)
+      resgpu = gconv:forward(input)
    end
    gputorch.synchronize()
    tm.gpu = a:time().real
-   local error = rescuda:float() - groundtruth
+   local error = resgpu:float() - groundtruth
    mytester:assertlt(error:abs():max(), precision_forward, 'error on state (forward) ')
 end
 
@@ -83,19 +83,19 @@ function gpunntest.Tanh_backward()
    end
    tm.cpu = a:time().real
 
-   input = input:cuda()
-   gradOutput = gradOutput:cuda()
-   local gconv = sconv:clone():cuda()
+   input = input:gpu()
+   gradOutput = gradOutput:gpu()
+   local gconv = sconv:clone():gpu()
    gconv:forward(input)
-   local rescuda = gconv:backward(input, gradOutput)
+   local resgpu = gconv:backward(input, gradOutput)
    a:reset()
    for i = 1,nloop do
-      rescuda = gconv:backward(input, gradOutput)
+      resgpu = gconv:backward(input, gradOutput)
    end
    gputorch.synchronize()
    tm.gpu = a:time().real
 
-   local error = rescuda:float() - groundgrad
+   local error = resgpu:float() - groundgrad
 
    mytester:assertlt(error:abs():max(), precision_backward, 'error on state (backward) ')
 end
@@ -117,17 +117,17 @@ function gpunntest.Abs_forward()
    end
    tm.cpu = a:time().real
 
-   input = input:cuda()
-   local gconv = nn.Abs():cuda()
-   local rescuda = gconv:forward(input)
+   input = input:gpu()
+   local gconv = nn.Abs():gpu()
+   local resgpu = gconv:forward(input)
    a:reset()
    for i = 1,nloop do
-      rescuda = gconv:forward(input)
+      resgpu = gconv:forward(input)
    end
    gputorch.synchronize()
    tm.gpu = a:time().real
 
-   local error = rescuda:float() - groundtruth
+   local error = resgpu:float() - groundtruth
    mytester:assertlt(error:abs():max(), precision_forward, 'error on state (forward) ')
 end
 
@@ -150,19 +150,19 @@ function gpunntest.Abs_backward()
    end
    tm.cpu = a:time().real
 
-   input = input:cuda()
-   gradOutput = gradOutput:cuda()
-   local gconv = nn.Abs():cuda()
+   input = input:gpu()
+   gradOutput = gradOutput:gpu()
+   local gconv = nn.Abs():gpu()
    gconv:forward(input)
-   local rescuda = gconv:backward(input, gradOutput)
+   local resgpu = gconv:backward(input, gradOutput)
    a:reset()
    for i = 1,nloop do
-      rescuda = gconv:backward(input, gradOutput)
+      resgpu = gconv:backward(input, gradOutput)
    end
    gputorch.synchronize()
    tm.gpu = a:time().real
 
-   local error = rescuda:float() - groundgrad
+   local error = resgpu:float() - groundgrad
 
    mytester:assertlt(error:abs():max(), precision_backward, 'error on state (backward) ')
 end
@@ -184,17 +184,17 @@ function gpunntest.Sigmoid_forward()
    end
    tm.cpu = a:time().real
 
-   input = input:cuda()
-   local gconv = nn.Sigmoid():cuda()
-   local rescuda = gconv:forward(input)
+   input = input:gpu()
+   local gconv = nn.Sigmoid():gpu()
+   local resgpu = gconv:forward(input)
    a:reset()
    for i = 1,nloop do
-      rescuda = gconv:forward(input)
+      resgpu = gconv:forward(input)
    end
    gputorch.synchronize()
    tm.gpu = a:time().real
 
-   local error = rescuda:float() - groundtruth
+   local error = resgpu:float() - groundtruth
    mytester:assertlt(error:abs():max(), precision_forward, 'error on state (forward) ')
 end
 
@@ -217,19 +217,19 @@ function gpunntest.Sigmoid_backward()
    end
    tm.cpu = a:time().real
 
-   input = input:cuda()
-   gradOutput = gradOutput:cuda()
-   local gconv = sconv:clone():cuda()
+   input = input:gpu()
+   gradOutput = gradOutput:gpu()
+   local gconv = sconv:clone():gpu()
    gconv:forward(input)
-   local rescuda = gconv:backward(input, gradOutput)
+   local resgpu = gconv:backward(input, gradOutput)
    a:reset()
    for i = 1,nloop do
-      rescuda = gconv:backward(input, gradOutput)
+      resgpu = gconv:backward(input, gradOutput)
    end
    gputorch.synchronize()
    tm.gpu = a:time().real
 
-   local error = rescuda:float() - groundgrad
+   local error = resgpu:float() - groundgrad
 
    mytester:assertlt(error:abs():max(), precision_backward, 'error on state (backward) ')
 end
@@ -253,17 +253,17 @@ function gpunntest.Threshold_forward()
    end
    tm.cpu = a:time().real
 
-   input = input:cuda()
-   local gconv = sconv:cuda()
-   local rescuda = gconv:forward(input)
+   input = input:gpu()
+   local gconv = sconv:gpu()
+   local resgpu = gconv:forward(input)
    a:reset()
    for i = 1,nloop do
-      rescuda = gconv:forward(input)
+      resgpu = gconv:forward(input)
    end
    gputorch.synchronize()
    tm.gpu = a:time().real
 
-   local error = rescuda:float() - groundtruth
+   local error = resgpu:float() - groundtruth
    mytester:assertlt(error:abs():max(), precision_forward, 'error on state (forward) ')
 end
 
@@ -286,19 +286,19 @@ function gpunntest.Threshold_backward()
    end
    tm.cpu = a:time().real
 
-   input = input:cuda()
-   gradOutput = gradOutput:cuda()
-   local gconv = sconv:clone():cuda()
+   input = input:gpu()
+   gradOutput = gradOutput:gpu()
+   local gconv = sconv:clone():gpu()
    gconv:forward(input)
-   local rescuda = gconv:backward(input, gradOutput)
+   local resgpu = gconv:backward(input, gradOutput)
    a:reset()
    for i = 1,nloop do
-      rescuda = gconv:backward(input, gradOutput)
+      resgpu = gconv:backward(input, gradOutput)
    end
    gputorch.synchronize()
    tm.gpu = a:time().real
 
-   local error = rescuda:float() - groundgrad
+   local error = resgpu:float() - groundgrad
 
    mytester:assertlt(error:abs():max(), precision_backward, 'error on state (backward) ')
 end
@@ -320,17 +320,17 @@ function gpunntest.Sqrt_forward()
    end
    tm.cpu = a:time().real
 
-   input = input:cuda()
-   local gconv = nn.Sqrt():cuda()
-   local rescuda = gconv:forward(input)
+   input = input:gpu()
+   local gconv = nn.Sqrt():gpu()
+   local resgpu = gconv:forward(input)
    a:reset()
    for i = 1,nloop do
-      rescuda = gconv:forward(input)
+      resgpu = gconv:forward(input)
    end
    gputorch.synchronize()
    tm.gpu = a:time().real
 
-   local error = rescuda:float() - groundtruth
+   local error = resgpu:float() - groundtruth
    mytester:assertlt(error:abs():max(), precision_forward, 'error on state (forward) ')
 end
 
@@ -353,19 +353,19 @@ function gpunntest.Sqrt_backward()
    end
    tm.cpu = a:time().real
 
-   input = input:cuda()
-   gradOutput = gradOutput:cuda()
-   local gconv = sconv:clone():cuda()
+   input = input:gpu()
+   gradOutput = gradOutput:gpu()
+   local gconv = sconv:clone():gpu()
    gconv:forward(input)
-   local rescuda = gconv:backward(input, gradOutput)
+   local resgpu = gconv:backward(input, gradOutput)
    a:reset()
    for i = 1,nloop do
-      rescuda = gconv:backward(input, gradOutput)
+      resgpu = gconv:backward(input, gradOutput)
    end
    gputorch.synchronize()
    tm.gpu = a:time().real
 
-   local error = rescuda:float() - groundgrad
+   local error = resgpu:float() - groundgrad
 
    mytester:assertlt(error:abs():max(), precision_backward, 'error on state (backward) ')
 end
@@ -387,17 +387,17 @@ function gpunntest.Square_forward()
    end
    tm.cpu = a:time().real
 
-   input = input:cuda()
-   local gconv = nn.Square():cuda()
-   local rescuda = gconv:forward(input)
+   input = input:gpu()
+   local gconv = nn.Square():gpu()
+   local resgpu = gconv:forward(input)
    a:reset()
    for i = 1,nloop do
-      rescuda = gconv:forward(input)
+      resgpu = gconv:forward(input)
    end
    gputorch.synchronize()
    tm.gpu = a:time().real
 
-   local error = rescuda:float() - groundtruth
+   local error = resgpu:float() - groundtruth
    mytester:assertlt(error:abs():max(), precision_forward, 'error on state (forward) ')
 end
 
@@ -420,19 +420,19 @@ function gpunntest.Square_backward()
    end
    tm.cpu = a:time().real
 
-   input = input:cuda()
-   gradOutput = gradOutput:cuda()
-   local gconv = sconv:clone():cuda()
+   input = input:gpu()
+   gradOutput = gradOutput:gpu()
+   local gconv = sconv:clone():gpu()
    gconv:forward(input)
-   local rescuda = gconv:backward(input, gradOutput)
+   local resgpu = gconv:backward(input, gradOutput)
    a:reset()
    for i = 1,nloop do
-      rescuda = gconv:backward(input, gradOutput)
+      resgpu = gconv:backward(input, gradOutput)
    end
    gputorch.synchronize()
    tm.gpu = a:time().real
 
-   local error = rescuda:float() - groundgrad
+   local error = resgpu:float() - groundgrad
 
    mytester:assertlt(error:abs():max(), precision_backward, 'error on state (backward) ')
 end
@@ -455,17 +455,17 @@ function gpunntest.Max_forward()
    end
    tm.cpu = a:time().real
 
-   input = input:cuda()
-   local gconv = nn.Max(2):cuda()
-   local rescuda = gconv:forward(input)
+   input = input:gpu()
+   local gconv = nn.Max(2):gpu()
+   local resgpu = gconv:forward(input)
    a:reset()
    for i = 1,nloop do
-      rescuda = gconv:forward(input)
+      resgpu = gconv:forward(input)
    end
    gputorch.synchronize()
    tm.gpu = a:time().real
 
-   local error = rescuda:float() - groundtruth
+   local error = resgpu:float() - groundtruth
    mytester:assertlt(error:abs():max(), precision_forward, 'error on state (forward) ')
 
    local error = gconv.indices:float() - sconv.indices
@@ -492,19 +492,19 @@ function gpunntest.Max_backward()
    end
    tm.cpu = a:time().real
 
-   input = input:cuda()
-   gradOutput = gradOutput:cuda()
-   local gconv = sconv:clone():cuda()
+   input = input:gpu()
+   gradOutput = gradOutput:gpu()
+   local gconv = sconv:clone():gpu()
    gconv:forward(input)
-   local rescuda = gconv:backward(input, gradOutput)
+   local resgpu = gconv:backward(input, gradOutput)
    a:reset()
    for i = 1,nloop do
-      rescuda = gconv:backward(input, gradOutput)
+      resgpu = gconv:backward(input, gradOutput)
    end
    gputorch.synchronize()
    tm.gpu = a:time().real
 
-   local error = rescuda:float() - groundgrad
+   local error = resgpu:float() - groundgrad
 
    mytester:assertlt(error:abs():max(), precision_backward, 'error on state (backward) ')
 end
@@ -527,17 +527,17 @@ function gpunntest.Min_forward()
    end
    tm.cpu = a:time().real
 
-   input = input:cuda()
-   local gconv = nn.Min(2):cuda()
-   local rescuda = gconv:forward(input)
+   input = input:gpu()
+   local gconv = nn.Min(2):gpu()
+   local resgpu = gconv:forward(input)
    a:reset()
    for i = 1,nloop do
-      rescuda = gconv:forward(input)
+      resgpu = gconv:forward(input)
    end
    gputorch.synchronize()
    tm.gpu = a:time().real
 
-   local error = rescuda:float() - groundtruth
+   local error = resgpu:float() - groundtruth
    mytester:assertlt(error:abs():max(), precision_forward, 'error on state (forward) ')
 
    local error = gconv.indices:float() - sconv.indices
@@ -564,19 +564,19 @@ function gpunntest.Min_backward()
    end
    tm.cpu = a:time().real
 
-   input = input:cuda()
-   gradOutput = gradOutput:cuda()
-   local gconv = sconv:clone():cuda()
+   input = input:gpu()
+   gradOutput = gradOutput:gpu()
+   local gconv = sconv:clone():gpu()
    gconv:forward(input)
-   local rescuda = gconv:backward(input, gradOutput)
+   local resgpu = gconv:backward(input, gradOutput)
    a:reset()
    for i = 1,nloop do
-      rescuda = gconv:backward(input, gradOutput)
+      resgpu = gconv:backward(input, gradOutput)
    end
    gputorch.synchronize()
    tm.gpu = a:time().real
 
-   local error = rescuda:float() - groundgrad
+   local error = resgpu:float() - groundgrad
 
    mytester:assertlt(error:abs():max(), precision_backward, 'error on state (backward) ')
 end
@@ -598,17 +598,17 @@ end
    end
    tm.cpu = a:time().real
 
-   input = input:cuda()
-   local gconv = nn.Sum(2):cuda()
-   local rescuda = gconv:forward(input)
+   input = input:gpu()
+   local gconv = nn.Sum(2):gpu()
+   local resgpu = gconv:forward(input)
    a:reset()
    for i = 1,nloop do
-      rescuda = gconv:forward(input)
+      resgpu = gconv:forward(input)
    end
    gputorch.synchronize()
    tm.gpu = a:time().real
 
-   local error = rescuda:float() - groundtruth
+   local error = resgpu:float() - groundtruth
    mytester:assertlt(error:abs():max(), precision_forward, 'error on state (forward) ')
 end]]--
 
@@ -631,19 +631,19 @@ function gpunntest.Sum_backward()
    end
    tm.cpu = a:time().real
 
-   input = input:cuda()
-   gradOutput = gradOutput:cuda()
-   local gconv = sconv:clone():cuda()
+   input = input:gpu()
+   gradOutput = gradOutput:gpu()
+   local gconv = sconv:clone():gpu()
    gconv:forward(input)
-   local rescuda = gconv:backward(input, gradOutput)
+   local resgpu = gconv:backward(input, gradOutput)
    a:reset()
    for i = 1,nloop do
-      rescuda = gconv:backward(input, gradOutput)
+      resgpu = gconv:backward(input, gradOutput)
    end
    gputorch.synchronize()
    tm.gpu = a:time().real
 
-   local error = rescuda:float() - groundgrad
+   local error = resgpu:float() - groundgrad
 
    mytester:assertlt(error:abs():max(), precision_backward, 'error on state (backward) ')
 end
@@ -665,17 +665,17 @@ end
    end
    tm.cpu = a:time().real
 
-   input = input:cuda()
-   local gconv = nn.Mean(2):cuda()
-   local rescuda = gconv:forward(input)
+   input = input:gpu()
+   local gconv = nn.Mean(2):gpu()
+   local resgpu = gconv:forward(input)
    a:reset()
    for i = 1,nloop do
-      rescuda = gconv:forward(input)
+      resgpu = gconv:forward(input)
    end
    gputorch.synchronize()
    tm.gpu = a:time().real
 
-   local error = rescuda:float() - groundtruth
+   local error = resgpu:float() - groundtruth
    mytester:assertlt(error:abs():max(), precision_forward, 'error on state (forward) ')
 end]]--
 
@@ -698,19 +698,19 @@ function gpunntest.Mean_backward()
    end
    tm.cpu = a:time().real
 
-   input = input:cuda()
-   gradOutput = gradOutput:cuda()
-   local gconv = sconv:clone():cuda()
+   input = input:gpu()
+   gradOutput = gradOutput:gpu()
+   local gconv = sconv:clone():gpu()
    gconv:forward(input)
-   local rescuda = gconv:backward(input, gradOutput)
+   local resgpu = gconv:backward(input, gradOutput)
    a:reset()
    for i = 1,nloop do
-      rescuda = gconv:backward(input, gradOutput)
+      resgpu = gconv:backward(input, gradOutput)
    end
    gputorch.synchronize()
    tm.gpu = a:time().real
 
-   local error = rescuda:float() - groundgrad
+   local error = resgpu:float() - groundgrad
 
    mytester:assertlt(error:abs():max(), precision_backward, 'error on state (backward) ')
 end
@@ -741,19 +741,19 @@ function gpunntest.SpatialConvolutionMM_forward_single()
    end
    tm.cpu = a:time().real
 
-   input = input:cuda()
-   local gconv = nn.SpatialConvolutionMM(from,to,ki,kj,si,sj):cuda()
-   gconv.weight = sconv.weight:cuda()
-   gconv.bias = sconv.bias:cuda()
-   local rescuda = gconv:forward(input)
+   input = input:gpu()
+   local gconv = nn.SpatialConvolutionMM(from,to,ki,kj,si,sj):gpu()
+   gconv.weight = sconv.weight:gpu()
+   gconv.bias = sconv.bias:gpu()
+   local resgpu = gconv:forward(input)
    a:reset()
    for i = 1,nloop do
-      rescuda = gconv:forward(input)
+      resgpu = gconv:forward(input)
    end
    gputorch.synchronize()
    tm.gpu = a:time().real
 
-   local error = rescuda:float() - groundtruth
+   local error = resgpu:float() - groundtruth
    mytester:assertlt(error:abs():max(), precision_forward, 'error on state (forward) ')
 end
 
@@ -784,19 +784,19 @@ function gpunntest.SpatialConvolutionMM_forward_batch()
    end
    tm.cpu = a:time().real
 
-   input = input:cuda()
-   local gconv = nn.SpatialConvolutionMM(from,to,ki,kj,si,sj):cuda()
-   gconv.weight = sconv.weight:cuda()
-   gconv.bias = sconv.bias:cuda()
-   local rescuda = gconv:forward(input)
+   input = input:gpu()
+   local gconv = nn.SpatialConvolutionMM(from,to,ki,kj,si,sj):gpu()
+   gconv.weight = sconv.weight:gpu()
+   gconv.bias = sconv.bias:gpu()
+   local resgpu = gconv:forward(input)
    a:reset()
    for i = 1,nloop do
-      rescuda = gconv:forward(input)
+      resgpu = gconv:forward(input)
    end
    gputorch.synchronize()
    tm.gpu = a:time().real
 
-   local error = rescuda:float() - groundtruth
+   local error = resgpu:float() - groundtruth
    mytester:assertlt(error:abs():max(), precision_forward, 'error on state (forward) ')
 end
 
@@ -832,27 +832,27 @@ function gpunntest.SpatialConvolutionMM_backward_single()
    local groundbias = sconv.gradBias
    tm.cpu = a:time().real
 
-   input = input:cuda()
-   gradOutput = gradOutput:cuda()
-   local gconv = nn.SpatialConvolutionMM(from,to,ki,kj,si,sj):cuda()
-   gconv.weight = sconv.weight:cuda()
-   gconv.bias = sconv.bias:cuda()
+   input = input:gpu()
+   gradOutput = gradOutput:gpu()
+   local gconv = nn.SpatialConvolutionMM(from,to,ki,kj,si,sj):gpu()
+   gconv.weight = sconv.weight:gpu()
+   gconv.bias = sconv.bias:gpu()
    gconv:forward(input)
    gconv:zeroGradParameters()
-   local rescuda = gconv:backward(input, gradOutput)
+   local resgpu = gconv:backward(input, gradOutput)
    a:reset()
    for i = 1,nloop do
       gconv:zeroGradParameters()
-      rescuda = gconv:backward(input, gradOutput)
+      resgpu = gconv:backward(input, gradOutput)
    end
-   local weightcuda = gconv.gradWeight
-   local biascuda = gconv.gradBias
+   local weightgpu = gconv.gradWeight
+   local biasgpu = gconv.gradBias
    gputorch.synchronize()
    tm.gpu = a:time().real
 
-   local error = rescuda:float() - groundgrad
-   local werror = weightcuda:float() - groundweight
-   local berror = biascuda:float() - groundbias
+   local error = resgpu:float() - groundgrad
+   local werror = weightgpu:float() - groundweight
+   local berror = biasgpu:float() - groundbias
 
    mytester:assertlt(error:abs():max(), precision_backward, 'error on state (backward) ')
    mytester:assertlt(werror:abs():max(), precision_backward, 'error on weight (backward) ')
@@ -892,27 +892,27 @@ function gpunntest.SpatialConvolutionMM_backward_batch()
    local groundbias = sconv.gradBias
    tm.cpu = a:time().real
 
-   input = input:cuda()
-   gradOutput = gradOutput:cuda()
-   local gconv = nn.SpatialConvolutionMM(from,to,ki,kj,si,sj):cuda()
-   gconv.weight = sconv.weight:cuda()
-   gconv.bias = sconv.bias:cuda()
+   input = input:gpu()
+   gradOutput = gradOutput:gpu()
+   local gconv = nn.SpatialConvolutionMM(from,to,ki,kj,si,sj):gpu()
+   gconv.weight = sconv.weight:gpu()
+   gconv.bias = sconv.bias:gpu()
    gconv:forward(input)
    gconv:zeroGradParameters()
-   local rescuda = gconv:backward(input, gradOutput)
+   local resgpu = gconv:backward(input, gradOutput)
    a:reset()
    for i = 1,nloop do
       gconv:zeroGradParameters()
-      rescuda = gconv:backward(input, gradOutput)
+      resgpu = gconv:backward(input, gradOutput)
    end
-   local weightcuda = gconv.gradWeight
-   local biascuda = gconv.gradBias
+   local weightgpu = gconv.gradWeight
+   local biasgpu = gconv.gradBias
    gputorch.synchronize()
    tm.gpu = a:time().real
 
-   local error = rescuda:float() - groundgrad
-   local werror = weightcuda:float() - groundweight
-   local berror = biascuda:float() - groundbias
+   local error = resgpu:float() - groundgrad
+   local werror = weightgpu:float() - groundweight
+   local berror = biasgpu:float() - groundbias
 
    mytester:assertlt(error:abs():max(), precision_backward, 'error on state (backward) ')
    mytester:assertlt(werror:abs():max(), precision_backward, 'error on weight (backward) ')
@@ -946,24 +946,24 @@ end
    end
    tm.cpu = a:time().real
 
-   input = input:cuda():transpose(2,3):transpose(3,4):contiguous()
-   local gconv = nn.SpatialConvolutionMM_BHWD(from,to,ki,kj,si,sj):cuda()
-   gconv.weight = sconv.weight:cuda()
-   gconv.bias = sconv.bias:cuda()
-   local rescuda = gconv:forward(input)
+   input = input:gpu():transpose(2,3):transpose(3,4):contiguous()
+   local gconv = nn.SpatialConvolutionMM_BHWD(from,to,ki,kj,si,sj):gpu()
+   gconv.weight = sconv.weight:gpu()
+   gconv.bias = sconv.bias:gpu()
+   local resgpu = gconv:forward(input)
    a:reset()
    for i = 1,nloop do
-      rescuda = gconv:forward(input)
+      resgpu = gconv:forward(input)
    end
    gputorch.synchronize()
    tm.gpu = a:time().real
-   rescuda = rescuda:transpose(4,3):transpose(3,2):contiguous()
+   resgpu = resgpu:transpose(4,3):transpose(3,2):contiguous()
 
-   local error = rescuda:float() - groundtruth
+   local error = resgpu:float() - groundtruth
    mytester:assertlt(error:abs():max(), precision_forward, 'error on state (forward) ')
 end]]--
 
---[[function gpunntest.SpatialConvolutionCUDA_forward_batch()
+--[[function gpunntest.SpatialConvolutionGPU_forward_batch()
    local bs = 32
    local from = 4 * math.random(1,4)
    local to = 32
@@ -977,7 +977,7 @@ end]]--
    local inj = (outj-1)*sj+kj
 
    local tm = {}
-   local title = string.format('SpatialConvolutionCUDA.forward %dx%dx%dx%d o %dx%d -> %dx%dx%dx%d [s: %dx%d]',
+   local title = string.format('SpatialConvolutionGPU.forward %dx%dx%dx%d o %dx%d -> %dx%dx%dx%d [s: %dx%d]',
                                bs, from, inj, ini, kj, ki, bs, to, outj, outi, sj, si)
    times[title] = tm
 
@@ -990,8 +990,8 @@ end]]--
    end
    tm.cpu = a:time().real
 
-   input = input:resize(bs,from*ini*inj):t():contiguous():resize(from,ini,inj,bs):cuda()
-   local gconv = nn.SpatialConvolutionCUDA(from,to,ki,kj,si,sj):cuda()
+   input = input:resize(bs,from*ini*inj):t():contiguous():resize(from,ini,inj,bs):gpu()
+   local gconv = nn.SpatialConvolutionGPU(from,to,ki,kj,si,sj):gpu()
 
    local weight = sconv.weight:clone()
    weight:resize(to, from*ki*kj)
@@ -1000,21 +1000,21 @@ end]]--
    gconv.weight:copy(weight)
    gconv.bias:copy(sconv.bias)
 
-   local rescuda = gconv:forward(input)
+   local resgpu = gconv:forward(input)
    a:reset()
    for i = 1,nloop do
-      rescuda = gconv:forward(input)
+      resgpu = gconv:forward(input)
    end
    gputorch.synchronize()
    tm.gpu = a:time().real
 
-   rescuda = rescuda:resize(to*outi*outj,bs):t():contiguous():resize(bs,to,outi,outj):float()
+   resgpu = resgpu:resize(to*outi*outj,bs):t():contiguous():resize(bs,to,outi,outj):float()
 
-   local error = rescuda - groundtruth
+   local error = resgpu - groundtruth
    mytester:assertlt(error:abs():max(), precision_forward, 'error on state (forward) ')
 end
 
-function gpunntest.SpatialConvolutionCUDA_backward_batch()
+function gpunntest.SpatialConvolutionGPU_backward_batch()
    local bs = 32
    local from = 4 * math.random(1,4)
    local to = 32
@@ -1047,9 +1047,9 @@ function gpunntest.SpatialConvolutionCUDA_backward_batch()
    local groundbias = sconv.gradBias
    tm.cpu = a:time().real
 
-   input = input:resize(bs,from*ini*inj):t():contiguous():resize(from,ini,inj,bs):cuda()
-   gradOutput = gradOutput:resize(bs,to*outi*outj):t():contiguous():resize(to,outi,outj,bs):cuda()
-   local gconv = nn.SpatialConvolutionCUDA(from,to,ki,kj,si,sj):cuda()
+   input = input:resize(bs,from*ini*inj):t():contiguous():resize(from,ini,inj,bs):gpu()
+   gradOutput = gradOutput:resize(bs,to*outi*outj):t():contiguous():resize(to,outi,outj,bs):gpu()
+   local gconv = nn.SpatialConvolutionGPU(from,to,ki,kj,si,sj):gpu()
 
    local weight = sconv.weight:clone()
    weight:resize(to, from*ki*kj)
@@ -1060,23 +1060,23 @@ function gpunntest.SpatialConvolutionCUDA_backward_batch()
 
    gconv:forward(input)
    gconv:zeroGradParameters()
-   local rescuda = gconv:backward(input, gradOutput)
+   local resgpu = gconv:backward(input, gradOutput)
    a:reset()
    for i = 1,nloop do
       gconv:zeroGradParameters()
-      rescuda = gconv:backward(input, gradOutput)
+      resgpu = gconv:backward(input, gradOutput)
    end
-   local weightcuda = gconv.gradWeight
-   local biascuda = gconv.gradBias
+   local weightgpu = gconv.gradWeight
+   local biasgpu = gconv.gradBias
    gputorch.synchronize()
    tm.gpu = a:time().real
 
-   rescuda = rescuda:resize(from*ini*inj,bs):t():contiguous():resize(bs,from,ini,inj)
-   weightcuda = weightcuda:resize(from*ki*kj, to):t():contiguous():resize(to, from, ki, kj)
+   resgpu = resgpu:resize(from*ini*inj,bs):t():contiguous():resize(bs,from,ini,inj)
+   weightgpu = weightgpu:resize(from*ki*kj, to):t():contiguous():resize(to, from, ki, kj)
 
-   local error = rescuda:float() - groundgrad
-   local werror = weightcuda:float() - groundweight
-   local berror = biascuda:float() - groundbias
+   local error = resgpu:float() - groundgrad
+   local werror = weightgpu:float() - groundweight
+   local berror = biasgpu:float() - groundbias
 
    mytester:assertlt(error:abs():max(), precision_backward, 'error on state (backward) ')
    mytester:assertlt(werror:abs():max(), precision_backward, 'error on weight (backward) ')
@@ -1109,19 +1109,19 @@ function gpunntest.SpatialSubSampling_forward()
    end
    tm.cpu = a:time().real
 
-   input = input:cuda()
-   local gconv = nn.SpatialSubSampling(from,ki,kj,si,sj):cuda()
-   gconv.weight = sconv.weight:cuda()
-   gconv.bias = sconv.bias:cuda()
-   local rescuda = gconv:forward(input)
+   input = input:gpu()
+   local gconv = nn.SpatialSubSampling(from,ki,kj,si,sj):gpu()
+   gconv.weight = sconv.weight:gpu()
+   gconv.bias = sconv.bias:gpu()
+   local resgpu = gconv:forward(input)
    a:reset()
    for i = 1,nloop do
-      rescuda = gconv:forward(input)
+      resgpu = gconv:forward(input)
    end
    gputorch.synchronize()
    tm.gpu = a:time().real
 
-   local error = rescuda:float() - groundtruth
+   local error = resgpu:float() - groundtruth
    mytester:assertlt(error:abs():max(), precision_forward, 'error on state (forward) ')
 end
 
@@ -1152,19 +1152,19 @@ end
    end
    tm.cpu = a:time().real
 
-   input = input:cuda()
-   local gconv = nn.SpatialSubSampling(from,ki,kj,si,sj):cuda()
-   gconv.weight = sconv.weight:cuda()
-   gconv.bias = sconv.bias:cuda()
-   local rescuda = gconv:forward(input)
+   input = input:gpu()
+   local gconv = nn.SpatialSubSampling(from,ki,kj,si,sj):gpu()
+   gconv.weight = sconv.weight:gpu()
+   gconv.bias = sconv.bias:gpu()
+   local resgpu = gconv:forward(input)
    a:reset()
    for i = 1,nloop do
-      rescuda = gconv:forward(input)
+      resgpu = gconv:forward(input)
    end
    gputorch.synchronize()
    tm.gpu = a:time().real
 
-   local error = rescuda:float() - groundtruth
+   local error = resgpu:float() - groundtruth
    mytester:assertlt(error:abs():max(), precision_forward, 'error on state (forward) ')
 end]]--
 
@@ -1200,27 +1200,27 @@ function gpunntest.SpatialSubSampling_backward()
    local groundbias = sconv.gradBias
    tm.cpu = a:time().real
 
-   input = input:cuda()
-   gradOutput = gradOutput:cuda()
-   local gconv = nn.SpatialSubSampling(from,ki,kj,si,sj):cuda()
-   gconv.weight = sconv.weight:cuda()
-   gconv.bias = sconv.bias:cuda()
+   input = input:gpu()
+   gradOutput = gradOutput:gpu()
+   local gconv = nn.SpatialSubSampling(from,ki,kj,si,sj):gpu()
+   gconv.weight = sconv.weight:gpu()
+   gconv.bias = sconv.bias:gpu()
    gconv:forward(input)
    gconv:zeroGradParameters()
-   local rescuda = gconv:backward(input, gradOutput)
+   local resgpu = gconv:backward(input, gradOutput)
    a:reset()
    for i = 1,nloop do
       gconv:zeroGradParameters()
-      rescuda = gconv:backward(input, gradOutput)
+      resgpu = gconv:backward(input, gradOutput)
    end
-   local weightcuda = gconv.gradWeight
-   local biascuda = gconv.gradBias
+   local weightgpu = gconv.gradWeight
+   local biasgpu = gconv.gradBias
    gputorch.synchronize()
    tm.gpu = a:time().real
 
-   local error = rescuda:float() - groundgrad
-   local werror = weightcuda:float() - groundweight
-   local berror = biascuda:float() - groundbias
+   local error = resgpu:float() - groundgrad
+   local werror = weightgpu:float() - groundweight
+   local berror = biasgpu:float() - groundbias
 
    mytester:assertlt(error:abs():max(), precision_backward, 'error on state (backward) ')
    mytester:assertlt(werror:abs():max(), precision_backward, 'error on weight (backward) ')
@@ -1260,27 +1260,27 @@ function gpunntest.SpatialSubSampling_backward_batch()
    local groundbias = sconv.gradBias
    tm.cpu = a:time().real
 
-   input = input:cuda()
-   gradOutput = gradOutput:cuda()
-   local gconv = nn.SpatialSubSampling(from,ki,kj,si,sj):cuda()
-   gconv.weight = sconv.weight:cuda()
-   gconv.bias = sconv.bias:cuda()
+   input = input:gpu()
+   gradOutput = gradOutput:gpu()
+   local gconv = nn.SpatialSubSampling(from,ki,kj,si,sj):gpu()
+   gconv.weight = sconv.weight:gpu()
+   gconv.bias = sconv.bias:gpu()
    gconv:forward(input)
    gconv:zeroGradParameters()
-   local rescuda = gconv:backward(input, gradOutput)
+   local resgpu = gconv:backward(input, gradOutput)
    a:reset()
    for i = 1,nloop do
       gconv:zeroGradParameters()
-      rescuda = gconv:backward(input, gradOutput)
+      resgpu = gconv:backward(input, gradOutput)
    end
-   local weightcuda = gconv.gradWeight
-   local biascuda = gconv.gradBias
+   local weightgpu = gconv.gradWeight
+   local biasgpu = gconv.gradBias
    gputorch.synchronize()
    tm.gpu = a:time().real
 
-   local error = rescuda:float() - groundgrad
-   local werror = weightcuda:float() - groundweight
-   local berror = biascuda:float() - groundbias
+   local error = resgpu:float() - groundgrad
+   local werror = weightgpu:float() - groundweight
+   local berror = biasgpu:float() - groundbias
 
    mytester:assertlt(error:abs():max(), precision_backward, 'error on state (backward) ')
    mytester:assertlt(werror:abs():max(), precision_backward, 'error on weight (backward) ')
@@ -1313,17 +1313,17 @@ function gpunntest.SpatialMaxPooling_forward()
    end
    tm.cpu = a:time().real
 
-   input = input:cuda()
-   local gconv = nn.SpatialMaxPooling(ki,kj,si,sj):cuda()
-   local rescuda = gconv:forward(input)
+   input = input:gpu()
+   local gconv = nn.SpatialMaxPooling(ki,kj,si,sj):gpu()
+   local resgpu = gconv:forward(input)
    a:reset()
    for i = 1,nloop do
-      rescuda = gconv:forward(input)
+      resgpu = gconv:forward(input)
    end
    gputorch.synchronize()
    tm.gpu = a:time().real
 
-   local error = rescuda:float() - groundtruth
+   local error = resgpu:float() - groundtruth
    mytester:assertlt(error:abs():max(), precision_forward, 'error on state (forward) ')
    local error_ind = gconv.indices:float() - sconv.indices
    mytester:asserteq(error_ind:max(), 0, 'error on indices (forward) ')
@@ -1356,17 +1356,17 @@ function gpunntest.SpatialMaxPooling_forward_batch()
    end
    tm.cpu = a:time().real
 
-   input = input:cuda()
-   local gconv = nn.SpatialMaxPooling(ki,kj,si,sj):cuda()
-   local rescuda = gconv:forward(input)
+   input = input:gpu()
+   local gconv = nn.SpatialMaxPooling(ki,kj,si,sj):gpu()
+   local resgpu = gconv:forward(input)
    a:reset()
    for i = 1,nloop do
-      rescuda = gconv:forward(input)
+      resgpu = gconv:forward(input)
    end
    gputorch.synchronize()
    tm.gpu = a:time().real
 
-   local error = rescuda:float() - groundtruth
+   local error = resgpu:float() - groundtruth
    mytester:assertlt(error:abs():max(), precision_forward, 'error on state (forward) ')
 end
 
@@ -1400,21 +1400,21 @@ end
    end
    tm.cpu = a:time().real
 
-   input = input:cuda()
-   gradOutput = gradOutput:cuda()
-   local gconv = nn.SpatialMaxPooling(ki,kj,si,sj):cuda()
+   input = input:gpu()
+   gradOutput = gradOutput:gpu()
+   local gconv = nn.SpatialMaxPooling(ki,kj,si,sj):gpu()
    gconv:forward(input)
    gconv:zeroGradParameters()
-   local rescuda = gconv:backward(input, gradOutput)
+   local resgpu = gconv:backward(input, gradOutput)
    a:reset()
    for i = 1,nloop do
       gconv:zeroGradParameters()
-      rescuda = gconv:backward(input, gradOutput)
+      resgpu = gconv:backward(input, gradOutput)
    end
    gputorch.synchronize()
    tm.gpu = a:time().real
 
-   local error = rescuda:float() - groundgrad
+   local error = resgpu:float() - groundgrad
 
    mytester:assertlt(error:abs():max(), precision_backward, 'error on state (backward) ')
 end]]--
@@ -1451,21 +1451,21 @@ function gpunntest.SpatialMaxPooling_backward_batch()
    end
    tm.cpu = a:time().real
 
-   input = input:cuda()
-   gradOutput = gradOutput:cuda()
-   local gconv = nn.SpatialMaxPooling(ki,kj,si,sj):cuda()
+   input = input:gpu()
+   gradOutput = gradOutput:gpu()
+   local gconv = nn.SpatialMaxPooling(ki,kj,si,sj):gpu()
    gconv:forward(input)
    gconv:zeroGradParameters()
-   local rescuda = gconv:backward(input, gradOutput)
+   local resgpu = gconv:backward(input, gradOutput)
    a:reset()
    for i = 1,nloop do
       gconv:zeroGradParameters()
-      rescuda = gconv:backward(input, gradOutput)
+      resgpu = gconv:backward(input, gradOutput)
    end
    gputorch.synchronize()
    tm.gpu = a:time().real
 
-   local error = rescuda:float() - groundgrad
+   local error = resgpu:float() - groundgrad
 
    mytester:assertlt(error:abs():max(), precision_backward, 'error on state (backward) ')
 end
@@ -1502,26 +1502,26 @@ end
    end
    tm.cpu = a:time().real
 
-   input = input:cuda()
-   gradOutput = gradOutput:cuda()
-   local gconv = nn.SpatialMaxPooling(ki,kj,si,sj):cuda()
+   input = input:gpu()
+   gradOutput = gradOutput:gpu()
+   local gconv = nn.SpatialMaxPooling(ki,kj,si,sj):gpu()
    gconv:forward(input)
    gconv:zeroGradParameters()
-   local rescuda = gconv:backward(input, gradOutput)
+   local resgpu = gconv:backward(input, gradOutput)
    a:reset()
    for i = 1,nloop do
       gconv:zeroGradParameters()
-      rescuda = gconv:backward(input, gradOutput)
+      resgpu = gconv:backward(input, gradOutput)
    end
    gputorch.synchronize()
    tm.gpu = a:time().real
 
-   local error = rescuda:float() - groundgrad
+   local error = resgpu:float() - groundgrad
 
    mytester:assertlt(error:abs():max(), precision_backward, 'error on state (backward) ')
 end]]--
 
---[[function gpunntest.SpatialMaxPoolingCUDA_forward_batch()
+--[[function gpunntest.SpatialMaxPoolingGPU_forward_batch()
    local bs = 32
    local from = 16 * math.random(1,3)
    local to = from
@@ -1535,7 +1535,7 @@ end]]--
    local inj = (outj-1)*sj+kj
 
    local tm = {}
-   local title = string.format('SpatialMaxPoolingCUDA.forward %dx%dx%dx%d o %dx%d -> %dx%dx%dx%d',
+   local title = string.format('SpatialMaxPoolingGPU.forward %dx%dx%dx%d o %dx%d -> %dx%dx%dx%d',
                                bs, from, inj, ini, kj, ki, bs, to, outj, outi)
    times[title] = tm
 
@@ -1548,23 +1548,23 @@ end]]--
    end
    tm.cpu = a:time().real
 
-   input = input:resize(bs,from*ini*inj):t():contiguous():resize(from,ini,inj,bs):cuda()
-   local gconv = nn.SpatialMaxPoolingCUDA(ki,kj,si,sj):cuda()
-   local rescuda = gconv:forward(input)
+   input = input:resize(bs,from*ini*inj):t():contiguous():resize(from,ini,inj,bs):gpu()
+   local gconv = nn.SpatialMaxPoolingGPU(ki,kj,si,sj):gpu()
+   local resgpu = gconv:forward(input)
    a:reset()
    for i = 1,nloop do
-      rescuda = gconv:forward(input)
+      resgpu = gconv:forward(input)
    end
    gputorch.synchronize()
    tm.gpu = a:time().real
 
-   rescuda = rescuda:resize(to*outi*outj,bs):t():contiguous():resize(bs,to,outi,outj):float()
+   resgpu = resgpu:resize(to*outi*outj,bs):t():contiguous():resize(bs,to,outi,outj):float()
 
-   local error = rescuda - groundtruth
+   local error = resgpu - groundtruth
    mytester:assertlt(error:abs():max(), precision_forward, 'error on state (forward) ')
 end]]--
 
-function gpunntest.SpatialMaxPoolingCUDA_backward_batch()
+function gpunntest.SpatialMaxPoolingGPU_backward_batch()
    local bs = 32
    local from = 16 * math.random(1,3)
    local to = from
@@ -1578,7 +1578,7 @@ function gpunntest.SpatialMaxPoolingCUDA_backward_batch()
    local inj = (outj-1)*sj+kj
 
    local tm = {}
-   local title = string.format('SpatialMaxPoolingCUDA.backward %dx%dx%dx%d o %dx%d -> %dx%dx%dx%d',
+   local title = string.format('SpatialMaxPoolingGPU.backward %dx%dx%dx%d o %dx%d -> %dx%dx%dx%d',
                                bs, from, inj, ini, kj, ki, bs, to, outj, outi)
    times[title] = tm
 
@@ -1595,23 +1595,23 @@ function gpunntest.SpatialMaxPoolingCUDA_backward_batch()
    end
    tm.cpu = a:time().real
 
-   input = input:resize(bs,from*ini*inj):t():contiguous():resize(from,ini,inj,bs):cuda()
-   gradOutput = gradOutput:resize(bs,to*outi*outj):t():contiguous():resize(to,outi,outj,bs):cuda()
-   local gconv = nn.SpatialMaxPoolingCUDA(ki,kj,si,sj):cuda()
+   input = input:resize(bs,from*ini*inj):t():contiguous():resize(from,ini,inj,bs):gpu()
+   gradOutput = gradOutput:resize(bs,to*outi*outj):t():contiguous():resize(to,outi,outj,bs):gpu()
+   local gconv = nn.SpatialMaxPoolingGPU(ki,kj,si,sj):gpu()
    gconv:forward(input)
    gconv:zeroGradParameters()
-   local rescuda = gconv:backward(input, gradOutput)
+   local resgpu = gconv:backward(input, gradOutput)
    a:reset()
    for i = 1,nloop do
       gconv:zeroGradParameters()
-      rescuda = gconv:backward(input, gradOutput)
+      resgpu = gconv:backward(input, gradOutput)
    end
    gputorch.synchronize()
    tm.gpu = a:time().real
 
-   rescuda = rescuda:resize(from*ini*inj,bs):t():contiguous():resize(bs,from,ini,inj)
+   resgpu = resgpu:resize(from*ini*inj,bs):t():contiguous():resize(bs,from,ini,inj)
 
-   local error = rescuda:float() - groundgrad
+   local error = resgpu:float() - groundgrad
 
    mytester:assertlt(error:abs():max(), precision_backward, 'error on state (backward) ')
 end
@@ -1643,17 +1643,17 @@ end
    end
    tm.cpu = a:time().real
 
-   input = input:cuda()
-   local gconv = nn.SpatialLPPooling(from,pnorm,ki,kj,si,sj):cuda()
-   local rescuda = gconv:forward(input)
+   input = input:gpu()
+   local gconv = nn.SpatialLPPooling(from,pnorm,ki,kj,si,sj):gpu()
+   local resgpu = gconv:forward(input)
    a:reset()
    for i = 1,nloop do
-      rescuda = gconv:forward(input)
+      resgpu = gconv:forward(input)
    end
    gputorch.synchronize()
    tm.gpu = a:time().real
 
-   local error = rescuda:float() - groundtruth
+   local error = resgpu:float() - groundtruth
    mytester:assertlt(error:abs():max(), precision_forward, 'error on state (forward) ')
 end
 
@@ -1688,21 +1688,21 @@ function gpunntest.SpatialLPPooling_backward()
    end
    tm.cpu = a:time().real
 
-   input = input:cuda()
-   gradOutput = gradOutput:cuda()
-   local gconv = sconv:clone():cuda()
+   input = input:gpu()
+   gradOutput = gradOutput:gpu()
+   local gconv = sconv:clone():gpu()
    gconv:forward(input)
    gconv:zeroGradParameters()
-   local rescuda = gconv:backward(input, gradOutput)
+   local resgpu = gconv:backward(input, gradOutput)
    a:reset()
    for i = 1,nloop do
       gconv:zeroGradParameters()
-      rescuda = gconv:backward(input, gradOutput)
+      resgpu = gconv:backward(input, gradOutput)
    end
    gputorch.synchronize()
    tm.gpu = a:time().real
 
-   local error = rescuda:float() - groundgrad
+   local error = resgpu:float() - groundgrad
 
    mytester:assertlt(error:abs():max(), precision_backward, 'error on state (backward) ')
 end]]--
@@ -1723,9 +1723,9 @@ function gpunntest.mse()
       local fgin = mod:backward(input,target):clone()
       tm.cpu = a:time().real
 
-      local cinput = input:cuda()
-      local ctarget = target:cuda()
-      local cmod = nn.MSECriterion(sizeAverage == 1):cuda()
+      local cinput = input:gpu()
+      local ctarget = target:gpu()
+      local cmod = nn.MSECriterion(sizeAverage == 1):gpu()
       a:reset()
       local cout = cmod:forward(cinput,ctarget)
       local cgin = cmod:backward(cinput,ctarget)
@@ -1736,9 +1736,9 @@ function gpunntest.mse()
       local title = string.format('MSECriterion2 sizeAverage %d, %d ',sizeAverage, size)
       times[title] = tm2
       tm2.cpu = tm.cpu
-      local cinput2 = input:cuda()
-      local ctarget2 = target:cuda()
-      local cmod2 = nn.MSECriterion(sizeAverage == 1):cuda()
+      local cinput2 = input:gpu()
+      local ctarget2 = target:gpu()
+      local cmod2 = nn.MSECriterion(sizeAverage == 1):gpu()
       a:reset()
       local cout2 = cinput2.nn.MSECriterion_updateOutput2(cmod,cinput2,ctarget2)
       local cgin2 = cinput2.nn.MSECriterion_updateGradInput2(cmod,cinput2,ctarget2)
@@ -1771,9 +1771,9 @@ function gpunntest.distkldiv()
       local fgin = mod:backward(input,target):clone()
       tm.cpu = a:time().real
 
-      local cinput = input:cuda()
-      local ctarget = target:cuda()
-      local cmod = nn.DistKLDivCriterion(sizeAverage == 1):cuda()
+      local cinput = input:gpu()
+      local ctarget = target:gpu()
+      local cmod = nn.DistKLDivCriterion(sizeAverage == 1):gpu()
       a:reset()
       local cout = cmod:forward(cinput,ctarget)
       local cgin = cmod:backward(cinput,ctarget)
@@ -1802,17 +1802,17 @@ function gpunntest.SoftMax_forward()
    end
    tm.cpu = a:time().real
 
-   input = input:cuda()
-   local gconv = nn.SoftMax():cuda()
-   local rescuda = gconv:forward(input)
+   input = input:gpu()
+   local gconv = nn.SoftMax():gpu()
+   local resgpu = gconv:forward(input)
    a:reset()
    for i = 1,nloop do
-      rescuda = gconv:forward(input)
+      resgpu = gconv:forward(input)
    end
    gputorch.synchronize()
    tm.gpu = a:time().real
 
-   local error = rescuda:float() - groundtruth
+   local error = resgpu:float() - groundtruth
    mytester:assertlt(error:abs():max(), precision_forward, 'error on state (forward) ')
 end
 
@@ -1834,19 +1834,19 @@ function gpunntest.SoftMax_backward()
    end
    tm.cpu = a:time().real
 
-   input = input:cuda()
-   gradOutput = gradOutput:cuda()
-   local gconv = sconv:clone():cuda()
+   input = input:gpu()
+   gradOutput = gradOutput:gpu()
+   local gconv = sconv:clone():gpu()
    gconv:forward(input)
-   local rescuda = gconv:backward(input, gradOutput)
+   local resgpu = gconv:backward(input, gradOutput)
    a:reset()
    for i = 1,nloop do
-      rescuda = gconv:backward(input, gradOutput)
+      resgpu = gconv:backward(input, gradOutput)
    end
    gputorch.synchronize()
    tm.gpu = a:time().real
 
-   local error = rescuda:float() - groundgrad
+   local error = resgpu:float() - groundgrad
 
    mytester:assertlt(error:abs():max(), precision_backward, 'error on state (backward) ')
 end
@@ -1867,17 +1867,17 @@ end
    end
    tm.cpu = a:time().real
 
-   input = input:cuda()
-   local gconv = nn.LogSoftMax():cuda()
-   local rescuda = gconv:forward(input)
+   input = input:gpu()
+   local gconv = nn.LogSoftMax():gpu()
+   local resgpu = gconv:forward(input)
    a:reset()
    for i = 1,nloop do
-      rescuda = gconv:forward(input)
+      resgpu = gconv:forward(input)
    end
    gputorch.synchronize()
    tm.gpu = a:time().real
 
-   local error = rescuda:float() - groundtruth
+   local error = resgpu:float() - groundtruth
    mytester:assertlt(error:abs():max(), precision_forward*10, 'error on state (forward) ')
 end]]--
 
@@ -1899,19 +1899,19 @@ function gpunntest.LogSoftMax_backward()
    end
    tm.cpu = a:time().real
 
-   input = input:cuda()
-   gradOutput = gradOutput:cuda()
-   local gconv = sconv:clone():cuda()
+   input = input:gpu()
+   gradOutput = gradOutput:gpu()
+   local gconv = sconv:clone():gpu()
    gconv:forward(input)
-   local rescuda = gconv:backward(input, gradOutput)
+   local resgpu = gconv:backward(input, gradOutput)
    a:reset()
    for i = 1,nloop do
-      rescuda = gconv:backward(input, gradOutput)
+      resgpu = gconv:backward(input, gradOutput)
    end
    gputorch.synchronize()
    tm.gpu = a:time().real
 
-   local error = rescuda:float() - groundgrad
+   local error = resgpu:float() - groundgrad
 
    mytester:assertlt(error:abs():max(), precision_backward, 'error on state (backward) ')
 end
@@ -1933,17 +1933,17 @@ function gpunntest.LogSoftMax_forward_batch()
    end
    tm.cpu = a:time().real
 
-   input = input:cuda()
-   local gconv = nn.LogSoftMax():cuda()
-   local rescuda = gconv:forward(input)
+   input = input:gpu()
+   local gconv = nn.LogSoftMax():gpu()
+   local resgpu = gconv:forward(input)
    a:reset()
    for i = 1,nloop do
-      rescuda = gconv:forward(input)
+      resgpu = gconv:forward(input)
    end
    gputorch.synchronize()
    tm.gpu = a:time().real
 
-   local error = rescuda:float() - groundtruth
+   local error = resgpu:float() - groundtruth
    mytester:assertlt(error:abs():max(), precision_forward*10, 'error on state (forward) ')
 end
 
@@ -1966,19 +1966,19 @@ function gpunntest.LogSoftMax_backward_batch()
    end
    tm.cpu = a:time().real
 
-   input = input:cuda()
-   gradOutput = gradOutput:cuda()
-   local gconv = sconv:clone():cuda()
+   input = input:gpu()
+   gradOutput = gradOutput:gpu()
+   local gconv = sconv:clone():gpu()
    gconv:forward(input)
-   local rescuda = gconv:backward(input, gradOutput)
+   local resgpu = gconv:backward(input, gradOutput)
    a:reset()
    for i = 1,nloop do
-      rescuda = gconv:backward(input, gradOutput)
+      resgpu = gconv:backward(input, gradOutput)
    end
    gputorch.synchronize()
    tm.gpu = a:time().real
 
-   local error = rescuda:float() - groundgrad
+   local error = resgpu:float() - groundgrad
 
    mytester:assertlt(error:abs():max(), precision_backward, 'error on state (backward) ')
 end
@@ -2005,19 +2005,19 @@ end
    end
    tm.cpu = a:time().real
 
-   input = input:cuda()
-   local gconv = nn.TemporalConvolution(from,to,ki,si):cuda()
-   gconv.weight = sconv.weight:cuda()
-   gconv.bias = sconv.bias:cuda()
-   local rescuda = gconv:forward(input)
+   input = input:gpu()
+   local gconv = nn.TemporalConvolution(from,to,ki,si):gpu()
+   gconv.weight = sconv.weight:gpu()
+   gconv.bias = sconv.bias:gpu()
+   local resgpu = gconv:forward(input)
    a:reset()
    for i = 1,nloop do
-      rescuda = gconv:forward(input)
+      resgpu = gconv:forward(input)
    end
    gputorch.synchronize()
    tm.gpu = a:time().real
 
-   local error = rescuda:float() - groundtruth
+   local error = resgpu:float() - groundtruth
    mytester:assertlt(error:abs():max(), precision_forward, 'error on state (forward) ')
 end
 
@@ -2045,19 +2045,19 @@ function gpunntest.TemporalConvolution_forward_batch()
    end
    tm.cpu = a:time().real
 
-   input = input:cuda()
-   local gconv = nn.TemporalConvolution(from,to,ki,si):cuda()
-   gconv.weight = sconv.weight:cuda()
-   gconv.bias = sconv.bias:cuda()
-   local rescuda = gconv:forward(input)
+   input = input:gpu()
+   local gconv = nn.TemporalConvolution(from,to,ki,si):gpu()
+   gconv.weight = sconv.weight:gpu()
+   gconv.bias = sconv.bias:gpu()
+   local resgpu = gconv:forward(input)
    a:reset()
    for i = 1,nloop do
-      rescuda = gconv:forward(input)
+      resgpu = gconv:forward(input)
    end
    gputorch.synchronize()
    tm.gpu = a:time().real
 
-   local error = rescuda:float() - groundtruth
+   local error = resgpu:float() - groundtruth
    mytester:assertlt(error:abs():max(), precision_forward, 'error on state (forward) ')
 end]]--
 
@@ -2090,27 +2090,27 @@ end]]--
    local groundbias = sconv.gradBias
    tm.cpu = a:time().real
 
-   input = input:cuda()
-   gradOutput = gradOutput:cuda()
-   local gconv = nn.TemporalConvolution(from,to,ki,si):cuda()
-   gconv.weight = sconv.weight:cuda()
-   gconv.bias = sconv.bias:cuda()
+   input = input:gpu()
+   gradOutput = gradOutput:gpu()
+   local gconv = nn.TemporalConvolution(from,to,ki,si):gpu()
+   gconv.weight = sconv.weight:gpu()
+   gconv.bias = sconv.bias:gpu()
    gconv:forward(input)
    gconv:zeroGradParameters()
-   local rescuda = gconv:backward(input, gradOutput)
+   local resgpu = gconv:backward(input, gradOutput)
    a:reset()
    for i = 1,nloop do
       gconv:zeroGradParameters()
-      rescuda = gconv:backward(input, gradOutput)
+      resgpu = gconv:backward(input, gradOutput)
    end
-   local weightcuda = gconv.gradWeight
-   local biascuda = gconv.gradBias
+   local weightgpu = gconv.gradWeight
+   local biasgpu = gconv.gradBias
    gputorch.synchronize()
    tm.gpu = a:time().real
 
-   local error = rescuda:float() - groundgrad
-   local werror = weightcuda:float() - groundweight
-   local berror = biascuda:float() - groundbias
+   local error = resgpu:float() - groundgrad
+   local werror = weightgpu:float() - groundweight
+   local berror = biasgpu:float() - groundbias
 
    mytester:assertlt(error:abs():max(), precision_backward, 'error on state (backward) ')
    mytester:assertlt(werror:abs():max(), precision_backward, 'error on weight (backward) ')
@@ -2146,27 +2146,27 @@ end]]--
    local groundbias = sconv.gradBias
    tm.cpu = a:time().real
 
-   input = input:cuda()
-   gradOutput = gradOutput:cuda()
-   local gconv = nn.TemporalConvolution(from,to,ki,si):cuda()
-   gconv.weight = sconv.weight:cuda()
-   gconv.bias = sconv.bias:cuda()
+   input = input:gpu()
+   gradOutput = gradOutput:gpu()
+   local gconv = nn.TemporalConvolution(from,to,ki,si):gpu()
+   gconv.weight = sconv.weight:gpu()
+   gconv.bias = sconv.bias:gpu()
    gconv:forward(input)
    gconv:zeroGradParameters()
-   local rescuda = gconv:backward(input, gradOutput)
+   local resgpu = gconv:backward(input, gradOutput)
    a:reset()
    for i = 1,nloop do
       gconv:zeroGradParameters()
-      rescuda = gconv:backward(input, gradOutput)
+      resgpu = gconv:backward(input, gradOutput)
    end
-   local weightcuda = gconv.gradWeight
-   local biascuda = gconv.gradBias
+   local weightgpu = gconv.gradWeight
+   local biasgpu = gconv.gradBias
    gputorch.synchronize()
    tm.gpu = a:time().real
 
-   local error = rescuda:float() - groundgrad
-   local werror = weightcuda:float() - groundweight
-   local berror = biascuda:float() - groundbias
+   local error = resgpu:float() - groundgrad
+   local werror = weightgpu:float() - groundweight
+   local berror = biasgpu:float() - groundbias
 
    mytester:assertlt(error:abs():max(), precision_backward, 'error on state (backward) ')
    mytester:assertlt(werror:abs():max(), precision_backward, 'error on weight (backward) ')
@@ -2189,17 +2189,17 @@ function gpunntest.Exp_forward()
    end
    tm.cpu = a:time().real
 
-   input = input:cuda()
-   local gconv = nn.Exp():cuda()
-   local rescuda = gconv:forward(input)
+   input = input:gpu()
+   local gconv = nn.Exp():gpu()
+   local resgpu = gconv:forward(input)
    a:reset()
    for i = 1,nloop do
-      rescuda = gconv:forward(input)
+      resgpu = gconv:forward(input)
    end
    gputorch.synchronize()
    tm.gpu = a:time().real
 
-   local error = rescuda:float() - groundtruth
+   local error = resgpu:float() - groundtruth
    mytester:assertlt(error:abs():max(), precision_forward, 'error on state (forward) ')
 end
 
@@ -2221,19 +2221,19 @@ function gpunntest.Exp_backward()
    end
    tm.cpu = a:time().real
 
-   input = input:cuda()
-   gradOutput = gradOutput:cuda()
-   local gconv = sconv:clone():cuda()
+   input = input:gpu()
+   gradOutput = gradOutput:gpu()
+   local gconv = sconv:clone():gpu()
    gconv:forward(input)
-   local rescuda = gconv:backward(input, gradOutput)
+   local resgpu = gconv:backward(input, gradOutput)
    a:reset()
    for i = 1,nloop do
-      rescuda = gconv:backward(input, gradOutput)
+      resgpu = gconv:backward(input, gradOutput)
    end
    gputorch.synchronize()
    tm.gpu = a:time().real
 
-   local error = rescuda:float() - groundgrad
+   local error = resgpu:float() - groundgrad
 
    mytester:assertlt(error:abs():max(), precision_backward, 'error on state (backward) ')
 end
@@ -2242,7 +2242,7 @@ end
    local p = 0.2 --prob of droping out a neuron
    local input = torch.GPUTensor(1000):fill((1-p))
    local module = nn.Dropout(p)
-   module:cuda()
+   module:gpu()
    -- version 2
    local output = module:forward(input)
    mytester:assert(math.abs(output:mean() - (1-p)) < 0.05, 'dropout output')
@@ -2251,7 +2251,7 @@ end
    -- version 1 (old nnx version)
    local input = input:fill(1)
    local module = nn.Dropout(p,true)
-   module:cuda()
+   module:gpu()
    local output = module:forward(input)
    mytester:assert(math.abs(output:mean() - (1-p)) < 0.05, 'dropout output')
    local gradInput = module:backward(input, input)
@@ -2274,12 +2274,12 @@ function gpunntest.Dropout_forward()
    end
    tm.cpu = a:time().real
 
-   input = input:cuda()
-   local gconv = nn.Dropout():cuda()
-   local rescuda = gconv:forward(input)
+   input = input:gpu()
+   local gconv = nn.Dropout():gpu()
+   local resgpu = gconv:forward(input)
    a:reset()
    for i = 1,nloop do
-      rescuda = gconv:forward(input)
+      resgpu = gconv:forward(input)
    end
    gputorch.synchronize()
    tm.gpu = a:time().real
@@ -2302,17 +2302,17 @@ function gpunntest.SoftPlus_forward()
    end
    tm.cpu = a:time().real
 
-   input = input:cuda()
-   local gconv = nn.SoftPlus():cuda()
-   local rescuda = gconv:forward(input)
+   input = input:gpu()
+   local gconv = nn.SoftPlus():gpu()
+   local resgpu = gconv:forward(input)
    a:reset()
    for i = 1,nloop do
-      rescuda = gconv:forward(input)
+      resgpu = gconv:forward(input)
    end
    gputorch.synchronize()
    tm.gpu = a:time().real
 
-   local error = rescuda:float() - groundtruth
+   local error = resgpu:float() - groundtruth
    mytester:assertlt(error:abs():max(), precision_forward, 'error on state (forward) ')
 end
 
@@ -2334,19 +2334,19 @@ end
    end
    tm.cpu = a:time().real
 
-   input = input:cuda()
-   gradOutput = gradOutput:cuda()
-   local gconv = sconv:clone():cuda()
+   input = input:gpu()
+   gradOutput = gradOutput:gpu()
+   local gconv = sconv:clone():gpu()
    gconv:forward(input)
-   local rescuda = gconv:backward(input, gradOutput)
+   local resgpu = gconv:backward(input, gradOutput)
    a:reset()
    for i = 1,nloop do
-      rescuda = gconv:backward(input, gradOutput)
+      resgpu = gconv:backward(input, gradOutput)
    end
    gputorch.synchronize()
    tm.gpu = a:time().real
 
-   local error = rescuda:float() - groundgrad
+   local error = resgpu:float() - groundgrad
 
    mytester:assertlt(error:abs():max(), precision_backward, 'error on state (backward) ')
 end]]--
@@ -2371,17 +2371,17 @@ function gpunntest.SpatialUpSamplingNearest_forward()
    end
    tm.cpu = a:time().real
 
-   input = input:cuda()
-   local gconv = sconv:clone():cuda()
-   local rescuda = gconv:forward(input)
+   input = input:gpu()
+   local gconv = sconv:clone():gpu()
+   local resgpu = gconv:forward(input)
    a:reset()
    for i = 1,nloop do
-      rescuda = gconv:forward(input)
+      resgpu = gconv:forward(input)
    end
    gputorch.synchronize()
    tm.gpu = a:time().real
 
-   local error = rescuda:float() - groundtruth
+   local error = resgpu:float() - groundtruth
    mytester:assertlt(error:abs():max(), precision_forward, 'error on state (forward) ')
 end
 
@@ -2406,17 +2406,17 @@ function gpunntest.SpatialUpSamplingNearest_forward_batch()
    end
    tm.cpu = a:time().real
 
-   input = input:cuda()
-   local gconv = sconv:clone():cuda()
-   local rescuda = gconv:forward(input)
+   input = input:gpu()
+   local gconv = sconv:clone():gpu()
+   local resgpu = gconv:forward(input)
    a:reset()
    for i = 1,nloop do
-      rescuda = gconv:forward(input)
+      resgpu = gconv:forward(input)
    end
    gputorch.synchronize()
    tm.gpu = a:time().real
 
-   local error = rescuda:float() - groundtruth
+   local error = resgpu:float() - groundtruth
    mytester:assertlt(error:abs():max(), precision_forward, 'error on state (forward) ')
 
 end
@@ -2445,21 +2445,21 @@ function gpunntest.SpatialUpSamplingNearest_backward()
    end
    tm.cpu = a:time().real
 
-   input = input:cuda()
-   gradOutput = gradOutput:cuda()
-   local gconv = sconv:clone():cuda()
+   input = input:gpu()
+   gradOutput = gradOutput:gpu()
+   local gconv = sconv:clone():gpu()
    gconv:forward(input)
    gconv:zeroGradParameters()
-   local rescuda = gconv:backward(input, gradOutput)
+   local resgpu = gconv:backward(input, gradOutput)
    a:reset()
    for i = 1,nloop do
       gconv:zeroGradParameters()
-      rescuda = gconv:backward(input, gradOutput)
+      resgpu = gconv:backward(input, gradOutput)
    end
    gputorch.synchronize()
    tm.gpu = a:time().real
 
-   local error = rescuda:float() - groundgrad
+   local error = resgpu:float() - groundgrad
 
    mytester:assertlt(error:abs():max(), precision_backward, 'error on state (backward) ')
 end
@@ -2489,26 +2489,26 @@ function gpunntest.SpatialUpSamplingNearest_backward_batch()
    end
    tm.cpu = a:time().real
 
-   input = input:cuda()
-   gradOutput = gradOutput:cuda()
-   local gconv = sconv:clone():cuda()
+   input = input:gpu()
+   gradOutput = gradOutput:gpu()
+   local gconv = sconv:clone():gpu()
    gconv:forward(input)
    gconv:zeroGradParameters()
-   local rescuda = gconv:backward(input, gradOutput)
+   local resgpu = gconv:backward(input, gradOutput)
    a:reset()
    for i = 1,nloop do
       gconv:zeroGradParameters()
-      rescuda = gconv:backward(input, gradOutput)
+      resgpu = gconv:backward(input, gradOutput)
    end
    gputorch.synchronize()
    tm.gpu = a:time().real
 
-   local error = rescuda:float() - groundgrad
+   local error = resgpu:float() - groundgrad
 
    mytester:assertlt(error:abs():max(), precision_backward, 'error on state (backward) ')
 end
 
-function nn.testcuda(tests)
+function nn.testgpu(tests)
    local oldtype = torch.getdefaulttensortype()
    torch.setdefaulttensortype('torch.FloatTensor')
    math.randomseed(os.time())

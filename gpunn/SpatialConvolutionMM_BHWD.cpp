@@ -153,7 +153,7 @@ static int gpunn_SpatialConvolutionMM_BHWD_updateOutput(lua_State *L) {
             THGPUTensor_narrow(output_n, output, 0, elt, stepBatchSize);
 
             // M,N,K are dims of matrix A and B
-            // (see http://docs.nvidia.com/cuda/cublas/#cublas-lt-t-gt-gemm)
+            // (see http://docs.nvidia.com/gpu/cublas/#cublas-lt-t-gt-gemm)
             long m = weight->size[0];
             long n = columns->size[1];
             long k = weight->size[1];

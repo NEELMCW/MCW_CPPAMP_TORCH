@@ -261,7 +261,7 @@ float THGPUBlas_dot(long n, float *x, long incx, float *y, long incy)
     clReleaseMemObject(scratchBuff);
 
     //THCublasCheck(cublasSdot(*current_handle, i_n, x, i_incx, y, i_incy, &result));
-    //cudaDeviceSynchronize();
+    //gpuDeviceSynchronize();
     return result;
   }
   THError("Cublas_dot only supports n, incx and incy "

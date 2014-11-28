@@ -1,6 +1,6 @@
-// CUDA: grid stride l oping
+// GPU: grid stride l oping
 
-#define CUDA_KERNEL_LOOP(i, n) \
+#define GPU_KERNEL_LOOP(i, n) \
 for (int i = tidx.tile_dim0 * tidx.tile[0] + tidx.local[0]; i < (n); i += t_ext[0])\
 
 #include "amp_math.h"
@@ -80,7 +80,7 @@ void col2im_kernel(const int n, THGPUTensor* data_col, const int height, const i
     Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<256> tidx) restrict(amp)
     {
        //for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < (n); i += blockDim.x * gridDim.x)
-        //CUDA_KERNEL_LOOP(i, n) {
+        //GPU_KERNEL_LOOP(i, n) {
         for (int i = tidx.global[0]; i < (n); i += t_ext[0])
         {
             float val = 0.0;
@@ -188,7 +188,7 @@ static int gpunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
 
     // Do Bias first:
     // M,N,K are dims of matrix A and B
-    // (see http://docs.nvidia.com/cuda/cublas/#cublas-lt-t-gt-gemm)
+    // (see http://docs.nvidia.com/gpu/cublas/#cublas-lt-t-gt-gemm)
     long m_ = nOutputPlane;
     long n_ = outputHeight * outputWidth;
     long k_ = 1;
@@ -212,7 +212,7 @@ static int gpunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
     );
 
     // M,N,K are dims of matrix A and B
-    // (see http://docs.nvidia.com/cuda/cublas/#cublas-lt-t-gt-gemm)
+    // (see http://docs.nvidia.com/gpu/cublas/#cublas-lt-t-gt-gemm)
     long m = weight->size[0];
     long n = columns->size[1];
     long k = weight->size[1];
@@ -298,7 +298,7 @@ static int gpunn_SpatialConvolutionMM_updateGradInput(lua_State *L) {
     THGPUTensor_select(gradOutput_n, gradOutput, 0, elt);
 
     // M,N,K are dims of matrix A and B
-    // (see http://docs.nvidia.com/cuda/cublas/#cublas-lt-t-gt-gemm)
+    // (see http://docs.nvidia.com/gpu/cublas/#cublas-lt-t-gt-gemm)
     long m = weight->size[1];
     long n = gradColumns->size[1];
     long k = weight->size[0];
@@ -404,7 +404,7 @@ static int gpunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
     );
 
     // M,N,K are dims of matrix A and B
-    // (see http://docs.nvidia.com/cuda/cublas/#cublas-lt-t-gt-gemm)
+    // (see http://docs.nvidia.com/gpu/cublas/#cublas-lt-t-gt-gemm)
     long m = gradWeight->size[0];
     long n = gradWeight->size[1];
     long k = columns->size[1];
@@ -422,7 +422,7 @@ static int gpunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
 
     // Do Bias:
     // M,N,K are dims of matrix A and B
-    // (see http://docs.nvidia.com/cuda/cublas/#cublas-lt-t-gt-gemm)
+    // (see http://docs.nvidia.com/gpu/cublas/#cublas-lt-t-gt-gemm)
     long m_ = nOutputPlane;
     long k_ = outputHeight * outputWidth;
 

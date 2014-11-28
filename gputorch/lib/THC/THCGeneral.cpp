@@ -9,10 +9,10 @@ cl_command_queue mqueue=0;
 void THGPUInit()
 {
   int count = 0;
-  //THGPUCheck(cudaGetDeviceCount(&count));
+  //THGPUCheck(gpuGetDeviceCount(&count));
 
   int device = 0;
-  //THGPUCheck(cudaGetDevice(&device));
+  //THGPUCheck(gpuGetDevice(&device));
 
   /*state->rngState = (THGPURNGState*)malloc(sizeof(THGPURNGState));
   THCRandom_init(state->rngState, count, device);
@@ -22,19 +22,19 @@ void THGPUInit()
   int i,j;
   for(i=0; i < count; ++i)
   {
-    THGPUCheck(cudaSetDevice(i));
+    THGPUCheck(gpuSetDevice(i));
     for (j=0; j < count; ++j)
     {
       if(i != j)
       {
         int can = 0;
-        THGPUCheck(cudaDeviceCanAccessPeer(&can, i, j));
+        THGPUCheck(gpuDeviceCanAccessPeer(&can, i, j));
         if(can)
-          THGPUCheck(cudaDeviceEnablePeerAccess(j, 0));
+          THGPUCheck(gpuDeviceEnablePeerAccess(j, 0));
       }
     }
   }
-  THGPUCheck(cudaSetDevice(device));*/
+  THGPUCheck(gpuSetDevice(device));*/
 	
     cl_int err;
     cl_platform_id platform = 0;

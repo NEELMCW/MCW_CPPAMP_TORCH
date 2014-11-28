@@ -8,14 +8,14 @@ extern void gputorch_GPUTensorMath_init(lua_State* L);
 
 static int gputorch_synchronize(lua_State *L)
 {
-/*  cudaDeviceSynchronize();  */
+/*  gpuDeviceSynchronize();  */
   return 0;
 }
 
 static int gputorch_getDevice(lua_State *L)
 {
 /*  int device;
-  THGPUCheck(cudaGetDevice(&device));
+  THGPUCheck(gpuGetDevice(&device));
   device++;
   lua_pushnumber(L, device);*/
   return 1;
@@ -23,14 +23,14 @@ static int gputorch_getDevice(lua_State *L)
 
 static int gputorch_deviceReset(lua_State *L)
 {
-/*  THGPUCheck(cudaDeviceReset());*/
+/*  THGPUCheck(gpuDeviceReset());*/
   return 0;
 }
 
 static int gputorch_getDeviceCount(lua_State *L)
 {
 /*  int ndevice;
-  THGPUCheck(cudaGetDeviceCount(&ndevice));
+  THGPUCheck(gpuGetDeviceCount(&ndevice));
   lua_pushnumber(L, ndevice);*/
   return 1;
 }
@@ -38,7 +38,7 @@ static int gputorch_getDeviceCount(lua_State *L)
 static int gputorch_setDevice(lua_State *L)
 {
 /*  int device = (int)luaL_checknumber(L, 1)-1;
-  THGPUCheck(cudaSetDevice(device));
+  THGPUCheck(gpuSetDevice(device));
   THCRandom_setGenerator(device);*/
   return 0;
 }
@@ -49,9 +49,9 @@ static int gputorch_setDevice(lua_State *L)
 
 static int gputorch_getDeviceProperties(lua_State *L)
 {
-  /*struct cudaDeviceProp prop;
+  /*struct gpuDeviceProp prop;
   int device = (int)luaL_checknumber(L, 1)-1;
-  THGPUCheck(cudaGetDeviceProperties(&prop, device));
+  THGPUCheck(gpuGetDeviceProperties(&prop, device));
   lua_newtable(L);
   SET_DEVN_PROP(canMapHostMemory);
   SET_DEVN_PROP(clockRate);
@@ -77,7 +77,7 @@ static int gputorch_getDeviceProperties(lua_State *L)
   SET_DEVN_PROP(maxTexture1DLinear);
   
   size_t freeMem;
-  THGPUCheck(cudaMemGetInfo (&freeMem, NULL));
+  THGPUCheck(gpuMemGetInfo (&freeMem, NULL));
   lua_pushnumber(L, freeMem);
   lua_setfield(L, -2, "freeGlobalMem");
 

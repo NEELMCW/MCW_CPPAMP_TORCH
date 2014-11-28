@@ -76,7 +76,7 @@ static int gpunn_Min_updateOutput(lua_State *L)
   THGPUTensor *output = (THGPUTensor *)luaT_getfieldcheckudata(L, 1, "output", "torch.GPUTensor");
 
   luaL_argcheck(L, dimension >= 0 && dimension < input->nDimension, 2, "dimension out of range");
-  luaL_argcheck(L, dimension == input->nDimension - 1, 2, "only supported dimension is innermost (CUDA kernel only)");
+  luaL_argcheck(L, dimension == input->nDimension - 1, 2, "only supported dimension is innermost (GPU kernel only)");
 
   input = THGPUTensor_newContiguous(input);
 
@@ -96,7 +96,7 @@ static int gpunn_Min_updateOutput(lua_State *L)
   long nrows = THGPUTensor_nElement(output);
   long ncols = input->size[dimension];
 
-  // cuda blocks & threads:
+  // gpu blocks & threads:
   long nthreads = 256;
   long nblocks = ceil((float)nrows / nthreads);
 
@@ -129,7 +129,7 @@ static int gpunn_Min_updateGradInput(lua_State *L)
   long nrows = THGPUTensor_nElement(gradOutput);
   long ncols = gradInput->size[dimension];
 
-  // cuda blocks & threads:
+  // gpu blocks & threads:
   long nthreads = 256;
   long nblocks = ceil((float)nrows / nthreads);
 

@@ -1,5 +1,5 @@
 
-#define CUDA_MAX_THREADS 256   // this is safe, in reality 256 is our limit
+#define GPU_MAX_THREADS 256   // this is safe, in reality 256 is our limit
 
 /*
  * Description:
@@ -256,7 +256,7 @@ static int gpunn_SpatialMaxPooling_updateOutput(lua_State *L)
     indices_data = THGPUTensor_data(indices);
     output_data = THGPUTensor_data(output);
 
-    // cuda blocks & threads:
+    // gpu blocks & threads:
     int yblocks = (int)(16L / nInputPlane);
     yblocks = yblocks < 1 ? 1 : yblocks;
     int xblocks = nInputPlane;
@@ -284,7 +284,7 @@ static int gpunn_SpatialMaxPooling_updateOutput(lua_State *L)
     indices_data = THGPUTensor_data(indices);
     output_data = THGPUTensor_data(output);
 
-    // cuda blocks & threads:
+    // gpu blocks & threads:
     int yblocks = (int)(16L / nInputPlane);
     yblocks = yblocks < 1 ? 1 : yblocks;
     int xblocks = nInputPlane * nbatch;
@@ -333,7 +333,7 @@ static int gpunn_SpatialMaxPooling_updateGradInput(lua_State *L)
     gradOutput_data = THGPUTensor_data(gradOutput);
     gradInput_data = THGPUTensor_data(gradInput);
 
-    // cuda blocks & threads:
+    // gpu blocks & threads:
     int yblocks = (int)(16L / nInputPlane);
     yblocks = yblocks < 1 ? 1 : yblocks;
     int xblocks = nInputPlane;
@@ -366,7 +366,7 @@ static int gpunn_SpatialMaxPooling_updateGradInput(lua_State *L)
     gradOutput_data = THGPUTensor_data(gradOutput);
     gradInput_data = THGPUTensor_data(gradInput);
 
-    // cuda blocks & threads:
+    // gpu blocks & threads:
     int yblocks = (int)(16L / nInputPlane);
     yblocks = yblocks < 1 ? 1 : yblocks;
     int xblocks = nInputPlane * nbatch;

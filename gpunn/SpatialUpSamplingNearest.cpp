@@ -100,9 +100,9 @@ static int gpunn_SpatialUpSamplingNearest_updateOutput(lua_State *L)
   float *input_data = THGPUTensor_data(input);
   float *output_data = THGPUTensor_data(output);
 
-  // cuda blocks & threads:
+  // gpu blocks & threads:
   long nthreads = 256;
-  // Max number of blocks: http://en.wikipedia.org/wiki/CUDA
+  // Max number of blocks: http://en.wikipedia.org/wiki/GPU
   // 65535 for SM 2.x, 2^32 -1 for >= 3.0
   // TODO: When we move to SM 3.5 we should update this
   long n_xblocks = fmin(fmax((int)ceil((float)no_elements / nthreads), 1), 65535);

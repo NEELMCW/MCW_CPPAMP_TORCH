@@ -17,8 +17,8 @@
 /* Sets up generator. Allocates but does not create the generator states. */
 void initializeGenerator(Generator* gen)
 {
-/*  THGPUCheck(cudaMalloc((void**)&gen->gen_states, MAX_NUM_BLOCKS * sizeof(curandStateMtgp32)));
-  THGPUCheck(cudaMalloc((void**)&gen->kernel_params, sizeof(mtgp32_kernel_params)));
+/*  THGPUCheck(gpuMalloc((void**)&gen->gen_states, MAX_NUM_BLOCKS * sizeof(curandStateMtgp32)));
+  THGPUCheck(gpuMalloc((void**)&gen->kernel_params, sizeof(mtgp32_kernel_params)));
   if (curandMakeMTGP32Constants(mtgp32dc_params_fast_11213, gen->kernel_params) != CURAND_STATUS_SUCCESS)
   {
     THError("Creating MTGP constants failed.");
@@ -30,12 +30,12 @@ void destroyGenerator(Generator* gen)
 {
 /*  if (gen->gen_states)
   {
-    THGPUCheck(cudaFree(gen->gen_states));
+    THGPUCheck(gpuFree(gen->gen_states));
     gen->gen_states = NULL;
   }
   if (gen->kernel_params)
   {
-    THGPUCheck(cudaFree(gen->kernel_params));
+    THGPUCheck(gpuFree(gen->kernel_params));
     gen->kernel_params = NULL;
   }*/
 }
@@ -132,13 +132,13 @@ void THCRandom_manualSeed(THGPURNGState* state, unsigned long seed)
 void THCRandom_manualSeedAll(THGPURNGState* state, unsigned long seed)
 {
   int currentDevice;
- // THGPUCheck(cudaGetDevice(&currentDevice));
+ // THGPUCheck(gpuGetDevice(&currentDevice));
   /*for (int i = 0; i < state->num_devices; ++i) {
-    THGPUCheck(cudaSetDevice(i));
+    THGPUCheck(gpuSetDevice(i));
     THCRandom_setGenerator(state, i);
     THCRandom_manualSeed(state, seed);
   }
-  THGPUCheck(cudaSetDevice(currentDevice));
+  THGPUCheck(gpuSetDevice(currentDevice));
   THCRandom_setGenerator(state, currentDevice);*/
 }
 
@@ -157,8 +157,8 @@ void THCRandom_getRNGState(THGPURNGState* state, THByteTensor *rng_state)
   THByteTensor_resize1d(rng_state, total_size);
   THArgCheck(THByteTensor_nElement(rng_state) == total_size, 1, "RNG state is wrong size");
   THArgCheck(THByteTensor_isContiguous(rng_state), 1, "RNG state must be contiguous");
-  THGPUCheck(cudaMemcpy(THByteTensor_data(rng_state), state->current_gen->gen_states,
-                         states_size, cudaMemcpyDeviceToHost));
+  THGPUCheck(gpuMemcpy(THByteTensor_data(rng_state), state->current_gen->gen_states,
+                         states_size, gpuMemcpyDeviceToHost));
   memcpy(THByteTensor_data(rng_state) + states_size, &state->current_gen->initial_seed, seed_size);*/
 }
 
@@ -169,8 +169,8 @@ void THCRandom_setRNGState(THGPURNGState* state, THByteTensor *rng_state)
   static const size_t total_size = states_size + seed_size;
   THArgCheck(THByteTensor_nElement(rng_state) == total_size, 1, "RNG state is wrong size");
   THArgCheck(THByteTensor_isContiguous(rng_state), 1, "RNG state must be contiguous");
-   THGPUCheck(cudaMemcpy(state->current_gen->gen_states, THByteTensor_data(rng_state),
-                         states_size, cudaMemcpyHostToDevice));
+   THGPUCheck(gpuMemcpy(state->current_gen->gen_states, THByteTensor_data(rng_state),
+                         states_size, gpuMemcpyHostToDevice));
   memcpy(&state->current_gen->initial_seed, THByteTensor_data(rng_state) + states_size, seed_size);*/
 }
 

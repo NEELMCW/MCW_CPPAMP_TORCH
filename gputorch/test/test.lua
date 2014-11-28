@@ -21,7 +21,7 @@ local function isEqual(a, b, tolerance, ...)
    if a == nil and b ~= nil then return false end
    if a ~= nil and b == nil then return false end
    if torch.type(b) ~= torch.type(a) then
-      b = b:typeAs(a) -- TODO: remove the need for this (a-b doesnt work for bytetensor, cudatensor pairs)
+      b = b:typeAs(a) -- TODO: remove the need for this (a-b doesnt work for bytetensor, gputensor pairs)
    end
    local diff = a-b
    --print(diff)
@@ -39,36 +39,36 @@ end
 
 local function compareFloatAndGPU(x, fn, ...)
    local x_cpu    = x:float()
-   local x_cuda   = x_cpu:cuda()
+   local x_gpu   = x_cpu:gpu()
    local res1_cpu, res2_cpu, res3_cpu, res4_cpu
-   local res1_cuda, res2_cuda, res3_cuda, res4_cuda
+   local res1_gpu, res2_gpu, res3_gpu, res4_gpu
    if type(fn) == 'string' then
-      tester:assertne(x_cuda[fn], nil,
+      tester:assertne(x_gpu[fn], nil,
          string.format("Missing function GPUTensor.%s", fn))
       res1_cpu, res2_cpu, res3_cpu, res4_cpu  = x_cpu[fn](x_cpu, ...)
-      res1_cuda, res2_cuda, res3_cuda, res4_cuda = x_cuda[fn](x_cuda, ...)
+      res1_gpu, res2_gpu, res3_gpu, res4_gpu = x_gpu[fn](x_gpu, ...)
    elseif type(fn) == 'function' then
       res1_cpu, res2_cpu, res3_cpu, res4_cpu  = fn(x_cpu, ...)
-      res1_cuda, res2_cuda, res3_cuda, res4_cuda = fn(x_cuda, ...)
+      res1_gpu, res2_gpu, res3_gpu, res4_gpu = fn(x_gpu, ...)
    else
       error("Incorrect function type")
    end
    local tolerance = 1e-5
-   tester:assert(isEqual(res1_cpu, res1_cuda, tolerance),
+   tester:assert(isEqual(res1_cpu, res1_gpu, tolerance),
       string.format("Divergent results between CPU and CUDA for function '%s'", tostring(fn)))
-   tester:assert(isEqual(res2_cpu, res2_cuda, tolerance),
+   tester:assert(isEqual(res2_cpu, res2_gpu, tolerance),
                  string.format("Divergent results between CPU and CUDA for function '%s'", tostring(fn)))
-   tester:assert(isEqual(res3_cpu, res3_cuda, tolerance),
+   tester:assert(isEqual(res3_cpu, res3_gpu, tolerance),
                  string.format("Divergent results between CPU and CUDA for function '%s'", tostring(fn)))
-   tester:assert(isEqual(res4_cpu, res4_cuda, tolerance),
+   tester:assert(isEqual(res4_cpu, res4_gpu, tolerance),
                  string.format("Divergent results between CPU and CUDA for function '%s'", tostring(fn)))
 end
 
 local function compareFloatAndGPUTensorArgs(x, fn, ...)
    local x_cpu = x:float()
-   local x_cuda = x_cpu:cuda()
+   local x_gpu = x_cpu:gpu()
    local res1_cpu, res2_cpu, res3_cpu, res4_cpu
-   local res1_cuda, res2_cuda, res3_cuda, res4_cuda
+   local res1_gpu, res2_gpu, res3_gpu, res4_gpu
    -- Transformation of args
    local tranform_args = function(t, type)
       for k,v in pairs(t) do
@@ -80,26 +80,26 @@ local function compareFloatAndGPUTensorArgs(x, fn, ...)
       return t
    end
    local cpu_args = tranform_args({...}, 'torch.FloatTensor')
-   local cuda_args = tranform_args({...}, 'torch.GPUTensor')
+   local gpu_args = tranform_args({...}, 'torch.GPUTensor')
    if type(fn) == 'string' then
-      tester:assertne(x_cuda[fn], nil,
+      tester:assertne(x_gpu[fn], nil,
          string.format("Missing function GPUTensor.%s", fn))
       res1_cpu, res2_cpu, res3_cpu, res4_cpu  = x_cpu[fn](x_cpu, unpack(cpu_args))
-      res1_cuda, res2_cuda, res3_cuda, res4_cuda = x_cuda[fn](x_cuda, unpack(cuda_args))
+      res1_gpu, res2_gpu, res3_gpu, res4_gpu = x_gpu[fn](x_gpu, unpack(gpu_args))
    elseif type(fn) == 'function' then
       res1_cpu, res2_cpu, res3_cpu, res4_cpu  = fn(x_cpu, unpack(cpu_args))
-      res1_cuda, res2_cuda, res3_cuda, res4_cuda = fn(x_cuda, unpack(cuda_args))
+      res1_gpu, res2_gpu, res3_gpu, res4_gpu = fn(x_gpu, unpack(gpu_args))
    else
       error("Incorrect function type")
    end
    local tolerance = 1e-5
-   tester:assert(isEqual(res1_cpu, res1_cuda, tolerance),
+   tester:assert(isEqual(res1_cpu, res1_gpu, tolerance),
                  string.format("Divergent results between CPU and CUDA for function '%s'", fn))
-   tester:assert(isEqual(res2_cpu, res2_cuda, tolerance),
+   tester:assert(isEqual(res2_cpu, res2_gpu, tolerance),
                  string.format("Divergent results between CPU and CUDA for function '%s'", fn))
-   tester:assert(isEqual(res3_cpu, res3_cuda, tolerance),
+   tester:assert(isEqual(res3_cpu, res3_gpu, tolerance),
                  string.format("Divergent results between CPU and CUDA for function '%s'", fn))
-   tester:assert(isEqual(res4_cpu, res4_cuda, tolerance),
+   tester:assert(isEqual(res4_cpu, res4_gpu, tolerance),
                  string.format("Divergent results between CPU and CUDA for function '%s'", fn))
 end
 
@@ -108,13 +108,13 @@ function test.squeeze()
    local x = torch.FloatTensor():rand(sz, 1, sz, 1)
    compareFloatAndGPU(x, 'squeeze')
 
-   local y = x:cuda():squeeze()
+   local y = x:gpu():squeeze()
    tester:assert(y:dim() == 2, "squeeze err")
 
    x = torch.FloatTensor():rand(sz, 1, 1, sz)
    compareFloatAndGPU(x, 'squeeze', 2)
 
-   local y = x:cuda():squeeze(2)
+   local y = x:gpu():squeeze(2)
    tester:assert(y:dim() == 3, "squeeze1d err")
 end
 
@@ -512,7 +512,7 @@ function test.indexCopy()
    -- Case 2: 2D tensor, indexCopy over second dimension, 2 indices
    index = 2
    longIndex =  torch.LongTensor{math.floor(torch.uniform(1, sz2)), math.floor(torch.uniform(1, sz2))}
-   src = torch.Tensor(sz1, 2):uniform():cuda()
+   src = torch.Tensor(sz1, 2):uniform():gpu()
    compareFloatAndGPUTensorArgs(x, 'indexCopy', index, longIndex, src)
 
    -- Case 3: 1D tensor, indexCopy over 1st dimension, 2 indices
@@ -586,17 +586,17 @@ function test.indexSelect()
    end
    tm.cpu = clock:time().real
 
-   x = x:cuda()
+   x = x:gpu()
    z = torch.GPUTensor()
 
    z:index(x, 2, indices)
-   local rescuda = z:clone():float()
+   local resgpu = z:clone():float()
    clock:reset()
    for i=1,nloop do
       z:index(x, 2, indices)
    end
    tm.gpu = clock:time().real
-   tester:assertTensorEq(groundtruth, rescuda, 0.00001, "Error in indexSelect")
+   tester:assertTensorEq(groundtruth, resgpu, 0.00001, "Error in indexSelect")
 end
 
 function test.addmv()

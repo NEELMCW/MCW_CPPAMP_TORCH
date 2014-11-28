@@ -20,7 +20,7 @@ end
 local function Tensor__typeAs(self,tensor)
    return self:type(tensor:type())
 end
-local function Tensor__cuda(self,type)
+local function Tensor__gpu(self,type)
    return self:type('torch.GPUTensor')
 end
 local function Tensor__double(self,type)
@@ -30,9 +30,9 @@ local function Tensor__float(self,type)
    return self:type('torch.FloatTensor')
 end
 
-rawset(torch.getmetatable('torch.DoubleTensor'), 'cuda', Tensor__cuda)
-rawset(torch.getmetatable('torch.FloatTensor'), 'cuda', Tensor__cuda)
-rawset(torch.getmetatable('torch.GPUTensor'), 'cuda', Tensor__cuda)
+rawset(torch.getmetatable('torch.DoubleTensor'), 'gpu', Tensor__gpu)
+rawset(torch.getmetatable('torch.FloatTensor'), 'gpu', Tensor__gpu)
+rawset(torch.getmetatable('torch.GPUTensor'), 'gpu', Tensor__gpu)
 
 rawset(torch.getmetatable('torch.GPUTensor'), 'type', Tensor__type)
 rawset(torch.getmetatable('torch.GPUTensor'), 'typeAs', Tensor__typeAs)

@@ -129,7 +129,7 @@ void THFloatTensor_kernel_copy(float *dst, long *dst_sz, long *dst_st, int dst_d
   }
 }
 
-static int cuda_FloatTensor_fakecopy(lua_State *L)
+static int gpu_FloatTensor_fakecopy(lua_State *L)
 {
   THFloatTensor *self = (THFloatTensor *)luaT_checkudata(L, 1, "torch.FloatTensor");
   THFloatTensor *src = (THFloatTensor *)luaT_checkudata(L, 2, "torch.FloatTensor");
@@ -163,7 +163,7 @@ void gputorch_GPUTensor_init(lua_State* L)
 
   /* additional methods */
   luaT_pushmetatable(L, "torch.FloatTensor");
-  lua_pushcfunction(L, cuda_FloatTensor_fakecopy);
+  lua_pushcfunction(L, gpu_FloatTensor_fakecopy);
   lua_setfield(L, -2, "fakecopy");
   lua_pop(L, 1);
 

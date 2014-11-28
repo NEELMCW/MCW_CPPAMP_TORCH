@@ -1,5 +1,5 @@
 
-#define CUDA_MAX_THREADS 256   // this is safe, in reality 256 is our limit
+#define GPU_MAX_THREADS 256   // this is safe, in reality 256 is our limit
 
 /*
  * Description:
@@ -139,7 +139,7 @@ void subgradweight(THGPUTensor *inputTensor, THGPUTensor *gradOutputTensor, THGP
         int tid = tidx.tile_dim2 * tidx.local[1] + tidx.local[2];
 
         // create array to hold partial sums
-        tile_static float sums[CUDA_MAX_THREADS];
+        tile_static float sums[GPU_MAX_THREADS];
         sums[tid] = 0;
 
         // compute partial sums
@@ -432,7 +432,7 @@ static int gpunn_SpatialSubSampling_accGradParameters(lua_State *L)
     input = THGPUTensor_newContiguous(input);
     input_data = THGPUTensor_data(input);
 
-    // cuda blocks & threads:
+    // gpu blocks & threads:
 
     // run gradweight kernel
     std::cout<<"subgradweight else case"<<std::endl;
