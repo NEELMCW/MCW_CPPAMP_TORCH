@@ -6,35 +6,35 @@ cl_device_id mdevice=0;
 cl_context mcontext=0;
 cl_command_queue mqueue=0;
 
-void THCudaInit()
+void THGPUInit()
 {
   int count = 0;
-  //THCudaCheck(cudaGetDeviceCount(&count));
+  //THGPUCheck(cudaGetDeviceCount(&count));
 
   int device = 0;
-  //THCudaCheck(cudaGetDevice(&device));
+  //THGPUCheck(cudaGetDevice(&device));
 
-  /*state->rngState = (THCudaRNGState*)malloc(sizeof(THCudaRNGState));
+  /*state->rngState = (THGPURNGState*)malloc(sizeof(THGPURNGState));
   THCRandom_init(state->rngState, count, device);
 
-  THCudaBlas_init(count, device);
+  THGPUBlas_init(count, device);
 
   int i,j;
   for(i=0; i < count; ++i)
   {
-    THCudaCheck(cudaSetDevice(i));
+    THGPUCheck(cudaSetDevice(i));
     for (j=0; j < count; ++j)
     {
       if(i != j)
       {
         int can = 0;
-        THCudaCheck(cudaDeviceCanAccessPeer(&can, i, j));
+        THGPUCheck(cudaDeviceCanAccessPeer(&can, i, j));
         if(can)
-          THCudaCheck(cudaDeviceEnablePeerAccess(j, 0));
+          THGPUCheck(cudaDeviceEnablePeerAccess(j, 0));
       }
     }
   }
-  THCudaCheck(cudaSetDevice(device));*/
+  THGPUCheck(cudaSetDevice(device));*/
 	
     cl_int err;
     cl_platform_id platform = 0;
@@ -63,18 +63,18 @@ void THCudaInit()
         clReleaseContext(mcontext);
         return;
     }
-    THCudaBlas_init(count, device);
+    THGPUBlas_init(count, device);
 }
 
-void THCudaShutdown()
+void THGPUShutdown()
 {
   //THCRandom_shutdown(state->rngState);
   //free(state->rngState);
-  THCudaBlas_shutdown();
+  THGPUBlas_shutdown();
 }
 
 
-void THCudaGetGridSize(int *nBlockPerColumn_, int *nBlockPerRow_, int *nThreadPerBlock_, long size)
+void THGPUGetGridSize(int *nBlockPerColumn_, int *nBlockPerRow_, int *nThreadPerBlock_, long size)
 {
   const int nThreadPerBlock = 256;
   long nBlockPerGrid = size / nThreadPerBlock;
@@ -98,7 +98,7 @@ void THCudaGetGridSize(int *nBlockPerColumn_, int *nBlockPerRow_, int *nThreadPe
       nBlockPerRow++;
   }
   else
-    THError("too large vector for Cuda, sorry");
+    THError("too large vector for GPU, sorry");
 
   *nBlockPerColumn_ = (int)nBlockPerColumn;
   *nBlockPerRow_ = (int)nBlockPerRow;

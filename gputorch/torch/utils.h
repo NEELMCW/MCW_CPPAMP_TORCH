@@ -21,7 +21,7 @@
 #endif
 
 
-TORCH_API THLongStorage* cutorch_checklongargs(lua_State *L, int index);
-TORCH_API int cutorch_islongargs(lua_State *L, int index);
+TORCH_API THLongStorage* gputorch_checklongargs(lua_State *L, int index);
+TORCH_API int gputorch_islongargs(lua_State *L, int index);
 
 #endif

@@ -7,7 +7,7 @@
 #undef TH_API
 #define TH_API THC_API
 #define real float
-#define Real Cuda
+#define Real GPU
 
 #define TH_GENERIC_FILE "generic/THTensor.h"
 #include "generic/THTensor.h"
@@ -26,16 +26,16 @@
 # define TH_API THC_EXTERNC
 #endif
 
-THC_API void THCudaTensor_fill(THCudaTensor *self, float value);
-THC_API void THCudaTensor_copy(THCudaTensor *self, THCudaTensor *src);
+THC_API void THGPUTensor_fill(THGPUTensor *self, float value);
+THC_API void THGPUTensor_copy(THGPUTensor *self, THGPUTensor *src);
 
-THC_API void THByteTensor_copyCuda(THByteTensor *self, THCudaTensor *src);
-THC_API void THCharTensor_copyCuda(THCharTensor *self, THCudaTensor *src);
-THC_API void THShortTensor_copyCuda(THShortTensor *self, THCudaTensor *src);
-THC_API void THIntTensor_copyCuda(THIntTensor *self, THCudaTensor *src);
-THC_API void THLongTensor_copyCuda(THLongTensor *self, THCudaTensor *src);
-THC_API void THFloatTensor_copyCuda(THFloatTensor *self, THCudaTensor *src);
-THC_API void THDoubleTensor_copyCuda(THDoubleTensor *self, THCudaTensor *src);
-THC_API void THCudaTensor_copyCuda(THCudaTensor *self, THCudaTensor *src);
+THC_API void THByteTensor_copyGPU(THByteTensor *self, THGPUTensor *src);
+THC_API void THCharTensor_copyGPU(THCharTensor *self, THGPUTensor *src);
+THC_API void THShortTensor_copyGPU(THShortTensor *self, THGPUTensor *src);
+THC_API void THIntTensor_copyGPU(THIntTensor *self, THGPUTensor *src);
+THC_API void THLongTensor_copyGPU(THLongTensor *self, THGPUTensor *src);
+THC_API void THFloatTensor_copyGPU(THFloatTensor *self, THGPUTensor *src);
+THC_API void THDoubleTensor_copyGPU(THDoubleTensor *self, THGPUTensor *src);
+THC_API void THGPUTensor_copyGPU(THGPUTensor *self, THGPUTensor *src);
 
 #endif

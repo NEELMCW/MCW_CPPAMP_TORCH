@@ -67,7 +67,7 @@ static int torch_Storage_(copy)(lua_State *L)
   THStorage *storage = (THStorage *)luaT_checkudata(L, 1, torch_Storage);
   void *src;
   if ( (src = luaT_toudata(L, 2, torch_Storage)) )
-    THStorage_(copy)(storage, (THCudaStorage *)src);
+    THStorage_(copy)(storage, (THGPUStorage *)src);
   else if ( (src = luaT_toudata(L, 2, "torch.ByteStorage")) )
     THStorage_(copyByte)(storage, (THByteStorage *)src);
   else if ( (src = luaT_toudata(L, 2, "torch.CharStorage")) )

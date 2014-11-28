@@ -25,14 +25,14 @@ extern cl_command_queue mqueue;
 # define THC_API THC_EXTERNC
 #endif
 
-THC_API void THCudaBlas_init(int numdevices, int current_device);
-THC_API void THCudaBlas_shutdown();
+THC_API void THGPUBlas_init(int numdevices, int current_device);
+THC_API void THGPUBlas_shutdown();
 
-THC_API void THCudaInit(void);
-THC_API void THCudaShutdown(void);
+THC_API void THGPUInit(void);
+THC_API void THGPUShutdown(void);
 
 
 
-THC_API void THCudaGetGridSize(int *nBlockPerColumn_, int *nBlockPerRow_, int *nThreadPerBlock_, long size);
+THC_API void THGPUGetGridSize(int *nBlockPerColumn_, int *nBlockPerRow_, int *nThreadPerBlock_, long size);
 
 #endif

@@ -13,12 +13,12 @@ for (int i = tidx.tile_dim0 * tidx.tile[0] + tidx.local[0]; i < (n); i += t_ext[
 // Kernel for fast unfold+copy
 // (borrowed from Caffe: https://github.com/BVLC/caffe/blob/master/src/caffe/layers/conv_layer.cu)
 
-void im2col_kernel(const int n, THCudaTensor* data_im, const int height, const int width, const int ksize_h,
+void im2col_kernel(const int n, THGPUTensor* data_im, const int height, const int width, const int ksize_h,
                    const int ksize_w, const int pad_h, const int pad_w, const int stride_h, const int stride_w,
-                   const int height_col, const int width_col, THCudaTensor* data_col)
+                   const int height_col, const int width_col, THGPUTensor* data_col)
 {
-    Concurrency::array_view<float,1> avData_im(THCudaTensor_nElement(data_im), THCudaTensor_data(data_im));
-    Concurrency::array_view<float,1> avData_col(THCudaTensor_nElement(data_col), THCudaTensor_data(data_col));
+    Concurrency::array_view<float,1> avData_im(THGPUTensor_nElement(data_im), THGPUTensor_data(data_im));
+    Concurrency::array_view<float,1> avData_col(THGPUTensor_nElement(data_col), THGPUTensor_data(data_col));
     unsigned grdSz = (n + 255) & ~255;
     Concurrency::extent<1> grdExt(grdSz);
     Concurrency::tiled_extent<256> t_ext(grdExt);
@@ -54,9 +54,9 @@ void im2col_kernel(const int n, THCudaTensor* data_im, const int height, const i
 
 }
 
-void im2col(THCudaTensor* data_im, const int channels, const int height, const int width,
+void im2col(THGPUTensor* data_im, const int channels, const int height, const int width,
             const int ksize_h, const int ksize_w, const int pad_h, const int pad_w,
-            const int stride_h, const int stride_w, THCudaTensor* data_col)
+            const int stride_h, const int stride_w, THGPUTensor* data_col)
 {
     // We are going to launch channels * height_col * width_col kernels, each
     // kernel responsible for copying a single-channel grid.
@@ -68,12 +68,12 @@ void im2col(THCudaTensor* data_im, const int channels, const int height, const i
     im2col_kernel(num_kernels, data_im, height, width, ksize_h, ksize_w, pad_h, pad_w, stride_h, stride_w, height_col, width_col, data_col);
 }
 
-void col2im_kernel(const int n, THCudaTensor* data_col, const int height, const int width, const int channels,
+void col2im_kernel(const int n, THGPUTensor* data_col, const int height, const int width, const int channels,
                    const int patch_h, const int patch_w, const int pad_h, const int pad_w, const int stride_h,
-                   const int stride_w, const int height_col, const int width_col, THCudaTensor* data_im)
+                   const int stride_w, const int height_col, const int width_col, THGPUTensor* data_im)
 {
-    Concurrency::array_view<float,1> avData_im(THCudaTensor_nElement(data_im), THCudaTensor_data(data_im));
-    Concurrency::array_view<float,1> avData_col(THCudaTensor_nElement(data_col), THCudaTensor_data(data_col));
+    Concurrency::array_view<float,1> avData_im(THGPUTensor_nElement(data_im), THGPUTensor_data(data_im));
+    Concurrency::array_view<float,1> avData_col(THGPUTensor_nElement(data_col), THGPUTensor_data(data_col));
     unsigned grdSz = (n + 255) & ~255;
     Concurrency::extent<1> grdExt(grdSz);
     Concurrency::tiled_extent<256> t_ext(grdExt);
@@ -110,9 +110,9 @@ void col2im_kernel(const int n, THCudaTensor* data_col, const int height, const 
     avData_im.synchronize();
 }
 
-void col2im(THCudaTensor* data_col, const int channels, const int height, const int width,
+void col2im(THGPUTensor* data_col, const int channels, const int height, const int width,
             const int patch_h, const int patch_w, const int pad_h, const int pad_w,
-            const int stride_h, const int stride_w, THCudaTensor* data_im)
+            const int stride_h, const int stride_w, THGPUTensor* data_im)
 {
     int height_col = (height + 2 * pad_h - patch_h) / stride_h + 1;
     int width_col = (width + 2 * pad_w - patch_w) / stride_w + 1;
@@ -124,9 +124,9 @@ void col2im(THCudaTensor* data_col, const int channels, const int height, const 
                   pad_h, pad_w, stride_h, stride_w, height_col, width_col, data_im);
 }
 
-static int cunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
+static int gpunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
   // Input
-  THCudaTensor *input = (THCudaTensor*)luaT_checkudata(L, 2, "torch.CudaTensor");
+  THGPUTensor *input = (THGPUTensor*)luaT_checkudata(L, 2, "torch.GPUTensor");
 
   // Params:
   int dW = luaT_getfieldcheckint(L, 1, "dW");
@@ -137,11 +137,11 @@ static int cunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
   int nOutputPlane = luaT_getfieldcheckint(L, 1, "nOutputPlane");
   int padding = luaT_getfieldcheckint(L, 1, "padding");
 
-  THCudaTensor *weight = (THCudaTensor*)luaT_getfieldcheckudata(L, 1, "weight", "torch.CudaTensor");
-  THCudaTensor *bias = (THCudaTensor*)luaT_getfieldcheckudata(L, 1, "bias", "torch.CudaTensor");
-  THCudaTensor *columns = (THCudaTensor*)luaT_getfieldcheckudata(L, 1, "finput", "torch.CudaTensor");
-  THCudaTensor *ones = (THCudaTensor*)luaT_getfieldcheckudata(L, 1, "fgradInput", "torch.CudaTensor");
-  THCudaTensor *output = (THCudaTensor*)luaT_getfieldcheckudata(L, 1, "output", "torch.CudaTensor");
+  THGPUTensor *weight = (THGPUTensor*)luaT_getfieldcheckudata(L, 1, "weight", "torch.GPUTensor");
+  THGPUTensor *bias = (THGPUTensor*)luaT_getfieldcheckudata(L, 1, "bias", "torch.GPUTensor");
+  THGPUTensor *columns = (THGPUTensor*)luaT_getfieldcheckudata(L, 1, "finput", "torch.GPUTensor");
+  THGPUTensor *ones = (THGPUTensor*)luaT_getfieldcheckudata(L, 1, "fgradInput", "torch.GPUTensor");
+  THGPUTensor *output = (THGPUTensor*)luaT_getfieldcheckudata(L, 1, "output", "torch.GPUTensor");
 
   luaL_argcheck(L, input->nDimension == 3 || input->nDimension == 4, 2, "3D or 4D (batch mode) tensor is expected");
 
@@ -149,7 +149,7 @@ static int cunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
   if (input->nDimension == 3) {
     // Force batch
     batch = 0;
-    THCudaTensor_resize4d(input, 1, input->size[0], input->size[1], input->size[2]);
+    THGPUTensor_resize4d(input, 1, input->size[0], input->size[1], input->size[2]);
   }
 
   long inputWidth   = input->size[3];
@@ -162,29 +162,29 @@ static int cunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
   long batchSize = input->size[0];
 
   // Resize output
-  THCudaTensor_resize4d(output, batchSize, nOutputPlane, outputHeight, outputWidth);
+  THGPUTensor_resize4d(output, batchSize, nOutputPlane, outputHeight, outputWidth);
 
   // Resize temporary columns
-  THCudaTensor_resize2d(columns, nInputPlane*kW*kH, outputHeight*outputWidth);
+  THGPUTensor_resize2d(columns, nInputPlane*kW*kH, outputHeight*outputWidth);
 
   // Define a buffer of ones, for bias accumulation
   // Note: this buffer can be shared with other modules, it only ever gets increased,
   // and always contains ones.
   if (ones->nDimension != 2 || ones->size[0]*ones->size[1] < outputHeight*outputWidth) {
     // Resize plane and fill with ones...
-    THCudaTensor_resize2d(ones, outputHeight, outputWidth);
-    THCudaTensor_fill(ones, 1);
+    THGPUTensor_resize2d(ones, outputHeight, outputWidth);
+    THGPUTensor_fill(ones, 1);
   }
 
   // Helpers
-  THCudaTensor *input_n = THCudaTensor_new();
-  THCudaTensor *output_n = THCudaTensor_new();
+  THGPUTensor *input_n = THGPUTensor_new();
+  THGPUTensor *output_n = THGPUTensor_new();
 
   // For each elt in batch, do:
   for (int elt = 0; elt < batchSize; elt ++) {
     // Matrix mulitply per output:
-    THCudaTensor_select(input_n, input, 0, elt);
-    THCudaTensor_select(output_n, output, 0, elt);
+    THGPUTensor_select(input_n, input, 0, elt);
+    THGPUTensor_select(output_n, output, 0, elt);
 
     // Do Bias first:
     // M,N,K are dims of matrix A and B
@@ -198,10 +198,10 @@ static int cunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
         't', 'n',
         n_, m_, k_,
         1,
-        THCudaTensor_data(ones), k_,
-        THCudaTensor_data(bias), k_,
+        THGPUTensor_data(ones), k_,
+        THGPUTensor_data(bias), k_,
         0,
-        THCudaTensor_data(output_n), n_
+        THGPUTensor_data(output_n), n_
     );
 
     // Extract columns:
@@ -222,31 +222,31 @@ static int cunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
         'n', 'n',
         n, m, k,
         1,
-        THCudaTensor_data(columns), n,
-        THCudaTensor_data(weight), k,
+        THGPUTensor_data(columns), n,
+        THGPUTensor_data(weight), k,
         1,
-        THCudaTensor_data(output_n), n
+        THGPUTensor_data(output_n), n
     );
   }
 
   // Free
-  THCudaTensor_free(input_n);
-  THCudaTensor_free(output_n);
+  THGPUTensor_free(input_n);
+  THGPUTensor_free(output_n);
 
   // Resize output
   if (batch == 0) {
-    THCudaTensor_resize3d(output, nOutputPlane, outputHeight, outputWidth);
-    THCudaTensor_resize3d(input, nInputPlane, inputHeight, inputWidth);
+    THGPUTensor_resize3d(output, nOutputPlane, outputHeight, outputWidth);
+    THGPUTensor_resize3d(input, nInputPlane, inputHeight, inputWidth);
   }
 
   // return output
   return 1;
 }
 
-static int cunn_SpatialConvolutionMM_updateGradInput(lua_State *L) {
+static int gpunn_SpatialConvolutionMM_updateGradInput(lua_State *L) {
   // Inputs
-  THCudaTensor *input = (THCudaTensor *)luaT_checkudata(L, 2, "torch.CudaTensor");
-  THCudaTensor *gradOutput = (THCudaTensor *)luaT_checkudata(L, 3, "torch.CudaTensor");
+  THGPUTensor *input = (THGPUTensor *)luaT_checkudata(L, 2, "torch.GPUTensor");
+  THGPUTensor *gradOutput = (THGPUTensor *)luaT_checkudata(L, 3, "torch.GPUTensor");
 
   // Params
   int dW = luaT_getfieldcheckint(L, 1, "dW");
@@ -257,9 +257,9 @@ static int cunn_SpatialConvolutionMM_updateGradInput(lua_State *L) {
   int nOutputPlane = luaT_getfieldcheckint(L, 1, "nOutputPlane");
   int padding = luaT_getfieldcheckint(L, 1, "padding");
 
-  THCudaTensor *weight = (THCudaTensor *)luaT_getfieldcheckudata(L, 1, "weight", "torch.CudaTensor");
-  THCudaTensor *gradColumns = (THCudaTensor*)luaT_getfieldcheckudata(L, 1, "finput", "torch.CudaTensor");
-  THCudaTensor *gradInput = (THCudaTensor *)luaT_getfieldcheckudata(L, 1, "gradInput", "torch.CudaTensor");
+  THGPUTensor *weight = (THGPUTensor *)luaT_getfieldcheckudata(L, 1, "weight", "torch.GPUTensor");
+  THGPUTensor *gradColumns = (THGPUTensor*)luaT_getfieldcheckudata(L, 1, "finput", "torch.GPUTensor");
+  THGPUTensor *gradInput = (THGPUTensor *)luaT_getfieldcheckudata(L, 1, "gradInput", "torch.GPUTensor");
 
   luaL_argcheck(L, input->nDimension == 3 || input->nDimension == 4, 2, "3D or 4D (batch mode) tensor is expected");
 
@@ -267,8 +267,8 @@ static int cunn_SpatialConvolutionMM_updateGradInput(lua_State *L) {
   if (input->nDimension == 3) {
     // Force batch
     batch = 0;
-    THCudaTensor_resize4d(input, 1, input->size[0], input->size[1], input->size[2]);
-    THCudaTensor_resize4d(gradOutput, 1, gradOutput->size[0], gradOutput->size[1], gradOutput->size[2]);
+    THGPUTensor_resize4d(input, 1, input->size[0], input->size[1], input->size[2]);
+    THGPUTensor_resize4d(gradOutput, 1, gradOutput->size[0], gradOutput->size[1], gradOutput->size[2]);
   }
 
   long inputWidth   = input->size[3];
@@ -280,22 +280,22 @@ static int cunn_SpatialConvolutionMM_updateGradInput(lua_State *L) {
   long batchSize = input->size[0];
 
   // Resize output
-  THCudaTensor_resize4d(gradInput, batchSize, nInputPlane, inputHeight, inputWidth);
+  THGPUTensor_resize4d(gradInput, batchSize, nInputPlane, inputHeight, inputWidth);
 
   // Resize temporary columns
-  THCudaTensor_resize2d(gradColumns, nInputPlane*kW*kH, outputHeight*outputWidth);
+  THGPUTensor_resize2d(gradColumns, nInputPlane*kW*kH, outputHeight*outputWidth);
 
   // Helpers
-  THCudaTensor *input_n = THCudaTensor_new();
-  THCudaTensor *gradInput_n = THCudaTensor_new();
-  THCudaTensor *gradOutput_n = THCudaTensor_new();
+  THGPUTensor *input_n = THGPUTensor_new();
+  THGPUTensor *gradInput_n = THGPUTensor_new();
+  THGPUTensor *gradOutput_n = THGPUTensor_new();
 
   // For each elt in batch, do:
   for (int elt = 0; elt < batchSize; elt ++) {
     // Matrix mulitply per sample:
-    THCudaTensor_select(input_n, input, 0, elt);
-    THCudaTensor_select(gradInput_n, gradInput, 0, elt);
-    THCudaTensor_select(gradOutput_n, gradOutput, 0, elt);
+    THGPUTensor_select(input_n, input, 0, elt);
+    THGPUTensor_select(gradInput_n, gradInput, 0, elt);
+    THGPUTensor_select(gradOutput_n, gradOutput, 0, elt);
 
     // M,N,K are dims of matrix A and B
     // (see http://docs.nvidia.com/cuda/cublas/#cublas-lt-t-gt-gemm)
@@ -308,10 +308,10 @@ static int cunn_SpatialConvolutionMM_updateGradInput(lua_State *L) {
         'n', 't',
         n, m, k,
         1,
-        THCudaTensor_data(gradOutput_n), n,
-        THCudaTensor_data(weight), m,
+        THGPUTensor_data(gradOutput_n), n,
+        THGPUTensor_data(weight), m,
         0,
-        THCudaTensor_data(gradColumns), n
+        THGPUTensor_data(gradColumns), n
     );
 
     // Unpack columns back into input:
@@ -323,25 +323,25 @@ static int cunn_SpatialConvolutionMM_updateGradInput(lua_State *L) {
   }
 
   // Free
-  THCudaTensor_free(input_n);
-  THCudaTensor_free(gradInput_n);
-  THCudaTensor_free(gradOutput_n);
+  THGPUTensor_free(input_n);
+  THGPUTensor_free(gradInput_n);
+  THGPUTensor_free(gradOutput_n);
 
   // Resize output
   if (batch == 0) {
-    THCudaTensor_resize3d(gradOutput, nOutputPlane, outputHeight, outputWidth);
-    THCudaTensor_resize3d(input, nInputPlane, inputHeight, inputWidth);
-    THCudaTensor_resize3d(gradInput, nInputPlane, inputHeight, inputWidth);
+    THGPUTensor_resize3d(gradOutput, nOutputPlane, outputHeight, outputWidth);
+    THGPUTensor_resize3d(input, nInputPlane, inputHeight, inputWidth);
+    THGPUTensor_resize3d(gradInput, nInputPlane, inputHeight, inputWidth);
   }
 
   // Return gradInput
   return 1;
 }
 
-static int cunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
+static int gpunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
   // Inputs
-  THCudaTensor *input = (THCudaTensor *)luaT_checkudata(L, 2, "torch.CudaTensor");
-  THCudaTensor *gradOutput = (THCudaTensor *)luaT_checkudata(L, 3, "torch.CudaTensor");
+  THGPUTensor *input = (THGPUTensor *)luaT_checkudata(L, 2, "torch.GPUTensor");
+  THGPUTensor *gradOutput = (THGPUTensor *)luaT_checkudata(L, 3, "torch.GPUTensor");
 
   // Params
   int dW = luaT_getfieldcheckint(L, 1, "dW");
@@ -353,10 +353,10 @@ static int cunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
   int padding = luaT_getfieldcheckint(L, 1, "padding");
   float scale = luaL_optnumber(L, 4, 1);
 
-  THCudaTensor *gradWeight = (THCudaTensor *)luaT_getfieldcheckudata(L, 1, "gradWeight", "torch.CudaTensor");
-  THCudaTensor *gradBias = (THCudaTensor *)luaT_getfieldcheckudata(L, 1, "gradBias", "torch.CudaTensor");
-  THCudaTensor *columns = (THCudaTensor*)luaT_getfieldcheckudata(L, 1, "finput", "torch.CudaTensor");
-  THCudaTensor *ones = (THCudaTensor*)luaT_getfieldcheckudata(L, 1, "fgradInput", "torch.CudaTensor");
+  THGPUTensor *gradWeight = (THGPUTensor *)luaT_getfieldcheckudata(L, 1, "gradWeight", "torch.GPUTensor");
+  THGPUTensor *gradBias = (THGPUTensor *)luaT_getfieldcheckudata(L, 1, "gradBias", "torch.GPUTensor");
+  THGPUTensor *columns = (THGPUTensor*)luaT_getfieldcheckudata(L, 1, "finput", "torch.GPUTensor");
+  THGPUTensor *ones = (THGPUTensor*)luaT_getfieldcheckudata(L, 1, "fgradInput", "torch.GPUTensor");
 
   luaL_argcheck(L, input->nDimension == 3 || input->nDimension == 4, 2, "3D or 4D (batch mode) tensor is expected");
 
@@ -364,8 +364,8 @@ static int cunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
   if (input->nDimension == 3) {
     // Force batch
     batch = 0;
-    THCudaTensor_resize4d(input, 1, input->size[0], input->size[1], input->size[2]);
-    THCudaTensor_resize4d(gradOutput, 1, gradOutput->size[0], gradOutput->size[1], gradOutput->size[2]);
+    THGPUTensor_resize4d(input, 1, input->size[0], input->size[1], input->size[2]);
+    THGPUTensor_resize4d(gradOutput, 1, gradOutput->size[0], gradOutput->size[1], gradOutput->size[2]);
   }
 
   long inputWidth   = input->size[3];
@@ -379,22 +379,22 @@ static int cunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
   // Define a buffer of ones, for bias accumulation
   if (ones->nDimension != 2 || ones->size[0]*ones->size[1] < outputHeight*outputWidth) {
     // Resize plane and fill with ones...
-    THCudaTensor_resize2d(ones, outputHeight, outputWidth);
-    THCudaTensor_fill(ones, 1);
+    THGPUTensor_resize2d(ones, outputHeight, outputWidth);
+    THGPUTensor_fill(ones, 1);
   }
 
   // Resize temporary columns
-  THCudaTensor_resize2d(columns, nInputPlane*kW*kH, outputHeight*outputWidth);
+  THGPUTensor_resize2d(columns, nInputPlane*kW*kH, outputHeight*outputWidth);
 
   // Helpers
-  THCudaTensor *input_n = THCudaTensor_new();
-  THCudaTensor *gradOutput_n = THCudaTensor_new();
+  THGPUTensor *input_n = THGPUTensor_new();
+  THGPUTensor *gradOutput_n = THGPUTensor_new();
 
   // For each elt in batch, do:
   for (int elt = 0; elt < batchSize; elt ++) {
     // Matrix mulitply per output:
-    THCudaTensor_select(input_n, input, 0, elt);
-    THCudaTensor_select(gradOutput_n, gradOutput, 0, elt);
+    THGPUTensor_select(input_n, input, 0, elt);
+    THGPUTensor_select(gradOutput_n, gradOutput, 0, elt);
 
     // Extract columns:
     im2col(
@@ -414,10 +414,10 @@ static int cunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
         't', 'n',
         n, m, k,
         scale,
-        THCudaTensor_data(columns), k,
-        THCudaTensor_data(gradOutput_n), k,
+        THGPUTensor_data(columns), k,
+        THGPUTensor_data(gradOutput_n), k,
         1,
-        THCudaTensor_data(gradWeight), n
+        THGPUTensor_data(gradWeight), n
     );
 
     // Do Bias:
@@ -431,37 +431,37 @@ static int cunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
         't',
         k_, m_,
         scale,
-        THCudaTensor_data(gradOutput_n), k_,
-        THCudaTensor_data(ones), 1,
+        THGPUTensor_data(gradOutput_n), k_,
+        THGPUTensor_data(ones), 1,
         1,
-        THCudaTensor_data(gradBias), 1
+        THGPUTensor_data(gradBias), 1
     );
   }
 
   // Free
-  THCudaTensor_free(input_n);
-  THCudaTensor_free(gradOutput_n);
+  THGPUTensor_free(input_n);
+  THGPUTensor_free(gradOutput_n);
 
   // Resize
   if (batch == 0) {
-    THCudaTensor_resize3d(gradOutput, nOutputPlane, outputHeight, outputWidth);
-    THCudaTensor_resize3d(input, nInputPlane, inputHeight, inputWidth);
+    THGPUTensor_resize3d(gradOutput, nOutputPlane, outputHeight, outputWidth);
+    THGPUTensor_resize3d(input, nInputPlane, inputHeight, inputWidth);
   }
 
   // Return nothing
   return 0;
 }
 
-static const struct luaL_Reg cunn_SpatialConvolutionMM__ [] = {
-  {"SpatialConvolutionMM_updateOutput", cunn_SpatialConvolutionMM_updateOutput},
-  {"SpatialConvolutionMM_updateGradInput", cunn_SpatialConvolutionMM_updateGradInput},
-  {"SpatialConvolutionMM_accGradParameters", cunn_SpatialConvolutionMM_accGradParameters},
+static const struct luaL_Reg gpunn_SpatialConvolutionMM__ [] = {
+  {"SpatialConvolutionMM_updateOutput", gpunn_SpatialConvolutionMM_updateOutput},
+  {"SpatialConvolutionMM_updateGradInput", gpunn_SpatialConvolutionMM_updateGradInput},
+  {"SpatialConvolutionMM_accGradParameters", gpunn_SpatialConvolutionMM_accGradParameters},
   {NULL, NULL}
 };
 
-static void cunn_SpatialConvolutionMM_init(lua_State *L)
+static void gpunn_SpatialConvolutionMM_init(lua_State *L)
 {
-  luaT_pushmetatable(L, "torch.CudaTensor");
-  luaT_registeratname(L, cunn_SpatialConvolutionMM__, "nn");
+  luaT_pushmetatable(L, "torch.GPUTensor");
+  luaT_registeratname(L, gpunn_SpatialConvolutionMM__, "nn");
   lua_pop(L,1);
 }

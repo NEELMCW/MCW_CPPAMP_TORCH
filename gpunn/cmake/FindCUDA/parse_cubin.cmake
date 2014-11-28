@@ -1,5 +1,5 @@
 #  James Bigler, NVIDIA Corp (nvidia.com - jbigler)
-#  Abe Stephens, SCI Institute -- http://www.sci.utah.edu/~abe/FindCuda.html
+#  Abe Stephens, SCI Institute -- http://www.sci.utah.edu/~abe/FindGPU.html
 #
 #  Copyright (c) 2008 - 2009 NVIDIA Corporation.  All rights reserved.
 #

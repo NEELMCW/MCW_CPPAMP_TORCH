@@ -1,4 +1,4 @@
-# Contributing to Torch7 Core (torch7, nn, cutorch, cunn)
+# Contributing to Torch7 Core (torch7, nn, gputorch, cunn)
 
 Thanks a lot! There are plenty of ways you can help!
 
@@ -13,7 +13,7 @@ patches and features.
 
 ## Using the issue tracker
 
-The [issue tracker](https://github.com/torch/cutorch/issues) is
+The [issue tracker](https://github.com/torch/gputorch/issues) is
 the preferred channel for [bug reports](#bugs), [features requests](#features)
 and [submitting pull requests](#pull-requests), but please respect the following
 restrictions:
@@ -23,7 +23,7 @@ restrictions:
 
 * Please **do not** open issues regarding the code in a torch package 
   outside the core. For example dont open issues about the 
-  REPL in the cutorch issue tracker, use the trepl issue tracker for that.
+  REPL in the gputorch issue tracker, use the trepl issue tracker for that.
 
 <a name="bugs"></a>
 ## Bug reports
@@ -80,11 +80,11 @@ included in the project:
 
    ```bash
    # Clone your fork of the repo into the current directory
-   git clone https://github.com/<your-username>/cutorch.git
+   git clone https://github.com/<your-username>/gputorch.git
    # Navigate to the newly cloned directory
-   cd cutorch
+   cd gputorch
    # Assign the original repo to a remote called "upstream"
-   git remote add upstream https://github.com/torch/cutorch.git
+   git remote add upstream https://github.com/torch/gputorch.git
    ```
 
 2. If you cloned a while ago, get the latest changes from upstream:

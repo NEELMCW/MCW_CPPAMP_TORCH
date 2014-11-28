@@ -4,189 +4,189 @@
 #include "luaT.h"
 #include "utils.h"
 
-struct THCudaState
+struct THGPUState
 {
-  THCudaRNGState* rngState;
+  THGPURNGState* rngState;
 };
 
-static int cutorch_CudaTensor_zero(lua_State *L)
+static int gputorch_GPUTensor_zero(lua_State *L)
 {
   int narg = lua_gettop(L);
-  THCudaTensor *arg1 = NULL;
+  THGPUTensor *arg1 = NULL;
   int arg1_idx = 0;
 
-  if(narg == 1 && (arg1 = (THCudaTensor *)(THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor")))
+  if(narg == 1 && (arg1 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor")))
   {
     arg1_idx = 1;
   }
   else
-    luaL_error(L, "expected arguments: *CudaTensor*");
+    luaL_error(L, "expected arguments: *GPUTensor*");
   
   lua_pushvalue(L, arg1_idx);
-  THCudaTensor_zero(arg1);
+  THGPUTensor_zero(arg1);
   return 1;
 }
 
-static int cutorch_CudaTensor_fill(lua_State *L)
+static int gputorch_GPUTensor_fill(lua_State *L)
 {
   int narg = lua_gettop(L);
-  THCudaTensor *arg1 = NULL;
+  THGPUTensor *arg1 = NULL;
   int arg1_idx = 0;
   float arg2 = 0;
-  if(narg == 2 && (arg1 = (THCudaTensor *)(THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor")) && lua_isnumber(L, 2))
+  if(narg == 2 && (arg1 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor")) && lua_isnumber(L, 2))
   {
     arg1_idx = 1;
     arg2 = (float)lua_tonumber(L, 2);
   }
   else
-    luaL_error(L, "expected arguments: *CudaTensor* float");
+    luaL_error(L, "expected arguments: *GPUTensor* float");
     
   lua_pushvalue(L, arg1_idx);
-  THCudaTensor_fill(arg1,arg2);
+  THGPUTensor_fill(arg1,arg2);
   return 1;
 }
 
-static int cutorch_CudaTensor_zeros(lua_State *L)
+static int gputorch_GPUTensor_zeros(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
 THLongStorage *arg2 = NULL;
 if(narg >= 1
-&& cutorch_islongargs(L, 1)
+&& gputorch_islongargs(L, 1)
 )
 {
-arg2 = cutorch_checklongargs(L, 1);
-arg1 = THCudaTensor_new();
+arg2 = gputorch_checklongargs(L, 1);
+arg1 = THGPUTensor_new();
 }
 else if(narg >= 2
-&& (arg1 = (THCudaTensor *)(THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& cutorch_islongargs(L, 2)
+&& (arg1 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& gputorch_islongargs(L, 2)
 )
 {
 arg1_idx = 1;
-arg2 = cutorch_checklongargs(L, 2);
+arg2 = gputorch_checklongargs(L, 2);
 }
 else
-luaL_error(L, "expected arguments: [*CudaTensor*] (LongStorage | dim1 [dim2...])");
+luaL_error(L, "expected arguments: [*GPUTensor*] (LongStorage | dim1 [dim2...])");
 if(arg1_idx)
 lua_pushvalue(L, arg1_idx);
 else
-luaT_pushudata(L, arg1, "torch.CudaTensor");
-THCudaTensor_zeros(arg1,arg2);
+luaT_pushudata(L, arg1, "torch.GPUTensor");
+THGPUTensor_zeros(arg1,arg2);
 THLongStorage_free(arg2);
 return 1;
 }
 
-static int cutorch_CudaTensor_ones(lua_State *L)
+static int gputorch_GPUTensor_ones(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
 THLongStorage *arg2 = NULL;
 if(narg >= 1
-&& cutorch_islongargs(L, 1)
+&& gputorch_islongargs(L, 1)
 )
 {
-arg2 = cutorch_checklongargs(L, 1);
-arg1 = THCudaTensor_new();
+arg2 = gputorch_checklongargs(L, 1);
+arg1 = THGPUTensor_new();
 }
 else if(narg >= 2
-&& (arg1 = (THCudaTensor *)(THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& cutorch_islongargs(L, 2)
+&& (arg1 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& gputorch_islongargs(L, 2)
 )
 {
 arg1_idx = 1;
-arg2 = cutorch_checklongargs(L, 2);
+arg2 = gputorch_checklongargs(L, 2);
 }
 else
-luaL_error(L, "expected arguments: [*CudaTensor*] (LongStorage | dim1 [dim2...])");
+luaL_error(L, "expected arguments: [*GPUTensor*] (LongStorage | dim1 [dim2...])");
 if(arg1_idx)
 lua_pushvalue(L, arg1_idx);
 else
-luaT_pushudata(L, arg1, "torch.CudaTensor");
-THCudaTensor_ones(arg1,arg2);
+luaT_pushudata(L, arg1, "torch.GPUTensor");
+THGPUTensor_ones(arg1,arg2);
 THLongStorage_free(arg2);
 return 1;
 }
 
-static int cutorch_CudaTensor_reshape(lua_State *L)
+static int gputorch_GPUTensor_reshape(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
-THCudaTensor *arg2 = NULL;
+THGPUTensor *arg2 = NULL;
 THLongStorage *arg3 = NULL;
 if(narg >= 2
-&& (arg2 = (THCudaTensor *)(THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& cutorch_islongargs(L, 2)
+&& (arg2 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& gputorch_islongargs(L, 2)
 )
 {
-arg3 = cutorch_checklongargs(L, 2);
-arg1 = THCudaTensor_new();
+arg3 = gputorch_checklongargs(L, 2);
+arg1 = THGPUTensor_new();
 }
 else if(narg >= 3
-&& (arg1 = (THCudaTensor *)(THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)(THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
-&& cutorch_islongargs(L, 3)
+&& (arg1 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
+&& gputorch_islongargs(L, 3)
 )
 {
 arg1_idx = 1;
-arg3 = cutorch_checklongargs(L, 3);
+arg3 = gputorch_checklongargs(L, 3);
 }
 else
-luaL_error(L, "expected arguments: [*CudaTensor*] CudaTensor (LongStorage | dim1 [dim2...])");
+luaL_error(L, "expected arguments: [*GPUTensor*] GPUTensor (LongStorage | dim1 [dim2...])");
 if(arg1_idx)
 lua_pushvalue(L, arg1_idx);
 else
-luaT_pushudata(L, arg1, "torch.CudaTensor");
-THCudaTensor_reshape(arg1,arg2,arg3);
+luaT_pushudata(L, arg1, "torch.GPUTensor");
+THGPUTensor_reshape(arg1,arg2,arg3);
 THLongStorage_free(arg3);
 return 1;
 }
 
-static int cutorch_CudaTensor_numel(lua_State *L)
+static int gputorch_GPUTensor_numel(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 long arg2 = 0;
 if(narg == 1
-&& (arg1 = (THCudaTensor *)(THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
 }
 else
-luaL_error(L, "expected arguments: CudaTensor");
-arg2 = THCudaTensor_numel(arg1);
+luaL_error(L, "expected arguments: GPUTensor");
+arg2 = THGPUTensor_numel(arg1);
 lua_pushnumber(L, (lua_Number)arg2);
 return 1;
 }
 
-static int cutorch_CudaTensor_add(lua_State *L)
+static int gputorch_GPUTensor_add(lua_State *L)
 {
 int narg = lua_gettop(L);
 int argset = 0;
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
-THCudaTensor *arg2 = NULL;
+THGPUTensor *arg2 = NULL;
 float arg3 = 0;
-THCudaTensor *arg4 = NULL;
+THGPUTensor *arg4 = NULL;
 int arg4_idx = 0;
-THCudaTensor *arg5 = NULL;
+THGPUTensor *arg5 = NULL;
 float arg6 = 1;
-THCudaTensor *arg7 = NULL;
+THGPUTensor *arg7 = NULL;
 if(narg == 2
-&& (arg2 = (THCudaTensor *)(THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
 )
 {
 argset = 1;
 arg3 = (float)lua_tonumber(L, 2);
-arg1 = THCudaTensor_new();
+arg1 = THGPUTensor_new();
 }
 else if(narg == 3
-&& (arg1 = (THCudaTensor *)(THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)(THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 && lua_isnumber(L, 3)
 )
 {
@@ -195,37 +195,37 @@ arg1_idx = 1;
 arg3 = (float)lua_tonumber(L, 3);
 }
 else if(narg == 2
-&& (arg5 = (THCudaTensor *)(THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg7 = (THCudaTensor *)(THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg5 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg7 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 )
 {
 argset = 2;
-arg4 = THCudaTensor_new();
+arg4 = THGPUTensor_new();
 }
 else if(narg == 3
-&& (arg4 = (THCudaTensor *)(THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg5 = (THCudaTensor *)(THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
-&& (arg7 = (THCudaTensor *)(THCudaTensor *)luaT_toudata(L, 3, "torch.CudaTensor"))
+&& (arg4 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg5 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
+&& (arg7 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor"))
 )
 {
 argset = 2;
 arg4_idx = 1;
 }
 else if(narg == 3
-&& (arg5 = (THCudaTensor *)(THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg5 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
-&& (arg7 = (THCudaTensor *)(THCudaTensor *)luaT_toudata(L, 3, "torch.CudaTensor"))
+&& (arg7 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor"))
 )
 {
 argset = 2;
 arg6 = (float)lua_tonumber(L, 2);
-arg4 = THCudaTensor_new();
+arg4 = THGPUTensor_new();
 }
 else if(narg == 4
-&& (arg4 = (THCudaTensor *)(THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg5 = (THCudaTensor *)(THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg4 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg5 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 && lua_isnumber(L, 3)
-&& (arg7 = (THCudaTensor *)(THCudaTensor *)luaT_toudata(L, 4, "torch.CudaTensor"))
+&& (arg7 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 4, "torch.GPUTensor"))
 )
 {
 argset = 2;
@@ -233,14 +233,14 @@ arg4_idx = 1;
 arg6 = (float)lua_tonumber(L, 3);
 }
 else
-luaL_error(L, "expected arguments: [*CudaTensor*] CudaTensor float | [*CudaTensor*] CudaTensor [float] CudaTensor");
+luaL_error(L, "expected arguments: [*GPUTensor*] GPUTensor float | [*GPUTensor*] GPUTensor [float] GPUTensor");
 if(argset == 1)
 {
 if(arg1_idx)
 lua_pushvalue(L, arg1_idx);
 else
-luaT_pushudata(L, arg1, "torch.CudaTensor");
-THCudaTensor_add(arg1,arg2,arg3);
+luaT_pushudata(L, arg1, "torch.GPUTensor");
+THGPUTensor_add(arg1,arg2,arg3);
 return 1;
 }
 else if(argset == 2)
@@ -248,31 +248,31 @@ else if(argset == 2)
 if(arg4_idx)
 lua_pushvalue(L, arg4_idx);
 else
-luaT_pushudata(L, arg4, "torch.CudaTensor");
-THCudaTensor_cadd(arg4,arg5,arg6,arg7);
+luaT_pushudata(L, arg4, "torch.GPUTensor");
+THGPUTensor_cadd(arg4,arg5,arg6,arg7);
 return 1;
 }
 return 0;
 }
 
-static int cutorch_CudaTensor_mul(lua_State *L)
+static int gputorch_GPUTensor_mul(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
-THCudaTensor *arg2 = NULL;
+THGPUTensor *arg2 = NULL;
 float arg3 = 0;
 if(narg == 2
-&& (arg2 = (THCudaTensor *)(THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
 )
 {
 arg3 = (float)lua_tonumber(L, 2);
-arg1 = THCudaTensor_new();
+arg1 = THGPUTensor_new();
 }
 else if(narg == 3
-&& (arg1 = (THCudaTensor *)(THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)(THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 && lua_isnumber(L, 3)
 )
 {
@@ -280,33 +280,33 @@ arg1_idx = 1;
 arg3 = (float)lua_tonumber(L, 3);
 }
 else
-luaL_error(L, "expected arguments: [*CudaTensor*] CudaTensor float");
+luaL_error(L, "expected arguments: [*GPUTensor*] GPUTensor float");
 if(arg1_idx)
 lua_pushvalue(L, arg1_idx);
 else
-luaT_pushudata(L, arg1, "torch.CudaTensor");
-THCudaTensor_mul(arg1,arg2,arg3);
+luaT_pushudata(L, arg1, "torch.GPUTensor");
+THGPUTensor_mul(arg1,arg2,arg3);
 return 1;
 }
 
-static int cutorch_CudaTensor_div(lua_State *L)
+static int gputorch_GPUTensor_div(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
-THCudaTensor *arg2 = NULL;
+THGPUTensor *arg2 = NULL;
 float arg3 = 0;
 if(narg == 2
-&& (arg2 = (THCudaTensor *)(THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
 )
 {
 arg3 = (float)lua_tonumber(L, 2);
-arg1 = THCudaTensor_new();
+arg1 = THGPUTensor_new();
 }
 else if(narg == 3
-&& (arg1 = (THCudaTensor *)(THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)(THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 && lua_isnumber(L, 3)
 )
 {
@@ -314,370 +314,370 @@ arg1_idx = 1;
 arg3 = (float)lua_tonumber(L, 3);
 }
 else
-luaL_error(L, "expected arguments: [*CudaTensor*] CudaTensor float");
+luaL_error(L, "expected arguments: [*GPUTensor*] GPUTensor float");
 if(arg1_idx)
 lua_pushvalue(L, arg1_idx);
 else
-luaT_pushudata(L, arg1, "torch.CudaTensor");
-THCudaTensor_div(arg1,arg2,arg3);
+luaT_pushudata(L, arg1, "torch.GPUTensor");
+THGPUTensor_div(arg1,arg2,arg3);
 return 1;
 }
 
-static int cutorch_CudaTensor_cmul(lua_State *L)
+static int gputorch_GPUTensor_cmul(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
-THCudaTensor *arg2 = NULL;
-THCudaTensor *arg3 = NULL;
+THGPUTensor *arg2 = NULL;
+THGPUTensor *arg3 = NULL;
 if(narg == 2
-&& (arg1 = (THCudaTensor *)(THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg3 = (THCudaTensor *)(THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg3 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 arg2 = arg1;
 }
 else if(narg == 3
-&& (arg1 = (THCudaTensor *)(THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)(THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
-&& (arg3 = (THCudaTensor *)(THCudaTensor *)luaT_toudata(L, 3, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
+&& (arg3 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 }
 else
-luaL_error(L, "expected arguments: *CudaTensor* [CudaTensor] CudaTensor");
+luaL_error(L, "expected arguments: *GPUTensor* [GPUTensor] GPUTensor");
 lua_pushvalue(L, arg1_idx);
-THCudaTensor_cmul(arg1,arg2,arg3);
+THGPUTensor_cmul(arg1,arg2,arg3);
 return 1;
 }
 
-static int cutorch_CudaTensor_cdiv(lua_State *L)
+static int gputorch_GPUTensor_cdiv(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
-THCudaTensor *arg2 = NULL;
-THCudaTensor *arg3 = NULL;
+THGPUTensor *arg2 = NULL;
+THGPUTensor *arg3 = NULL;
 if(narg == 2
-&& (arg1 = (THCudaTensor *)(THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg3 = (THCudaTensor *)(THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg3 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 arg2 = arg1;
 }
 else if(narg == 3
-&& (arg1 = (THCudaTensor *)(THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)(THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
-&& (arg3 = (THCudaTensor *)(THCudaTensor *)luaT_toudata(L, 3, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
+&& (arg3 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 }
 else
-luaL_error(L, "expected arguments: *CudaTensor* [CudaTensor] CudaTensor");
+luaL_error(L, "expected arguments: *GPUTensor* [GPUTensor] GPUTensor");
 lua_pushvalue(L, arg1_idx);
-THCudaTensor_cdiv(arg1,arg2,arg3);
+THGPUTensor_cdiv(arg1,arg2,arg3);
 return 1;
 }
 
-static int cutorch_CudaTensor_addcmul(lua_State *L)
+static int gputorch_GPUTensor_addcmul(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
-THCudaTensor *arg2 = NULL;
+THGPUTensor *arg2 = NULL;
 float arg3 = 1;
-THCudaTensor *arg4 = NULL;
-THCudaTensor *arg5 = NULL;
+THGPUTensor *arg4 = NULL;
+THGPUTensor *arg5 = NULL;
 if(narg == 3
-&& (arg2 = (THCudaTensor *)(THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg4 = (THCudaTensor *)(THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
-&& (arg5 = (THCudaTensor *)(THCudaTensor *)luaT_toudata(L, 3, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg4 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
+&& (arg5 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor"))
 )
 {
-arg1 = THCudaTensor_new();
+arg1 = THGPUTensor_new();
 }
 else if(narg == 4
-&& (arg1 = (THCudaTensor *)(THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)(THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
-&& (arg4 = (THCudaTensor *)(THCudaTensor *)luaT_toudata(L, 3, "torch.CudaTensor"))
-&& (arg5 = (THCudaTensor *)(THCudaTensor *)luaT_toudata(L, 4, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
+&& (arg4 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor"))
+&& (arg5 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 4, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 }
 else if(narg == 4
-&& (arg2 = (THCudaTensor *)(THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
-&& (arg4 = (THCudaTensor *)(THCudaTensor *)luaT_toudata(L, 3, "torch.CudaTensor"))
-&& (arg5 = (THCudaTensor *)(THCudaTensor *)luaT_toudata(L, 4, "torch.CudaTensor"))
+&& (arg4 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor"))
+&& (arg5 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 4, "torch.GPUTensor"))
 )
 {
 arg3 = (float)lua_tonumber(L, 2);
-arg1 = THCudaTensor_new();
+arg1 = THGPUTensor_new();
 }
 else if(narg == 5
-&& (arg1 = (THCudaTensor *)(THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)(THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 && lua_isnumber(L, 3)
-&& (arg4 = (THCudaTensor *)(THCudaTensor *)luaT_toudata(L, 4, "torch.CudaTensor"))
-&& (arg5 = (THCudaTensor *)(THCudaTensor *)luaT_toudata(L, 5, "torch.CudaTensor"))
+&& (arg4 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 4, "torch.GPUTensor"))
+&& (arg5 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 5, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 arg3 = (float)lua_tonumber(L, 3);
 }
 else
-luaL_error(L, "expected arguments: [*CudaTensor*] CudaTensor [float] CudaTensor CudaTensor");
+luaL_error(L, "expected arguments: [*GPUTensor*] GPUTensor [float] GPUTensor GPUTensor");
 if(arg1_idx)
 lua_pushvalue(L, arg1_idx);
 else
-luaT_pushudata(L, arg1, "torch.CudaTensor");
-THCudaTensor_addcmul(arg1,arg2,arg3,arg4,arg5);
+luaT_pushudata(L, arg1, "torch.GPUTensor");
+THGPUTensor_addcmul(arg1,arg2,arg3,arg4,arg5);
 return 1;
 }
 
-static int cutorch_CudaTensor_addcdiv(lua_State *L)
+static int gputorch_GPUTensor_addcdiv(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
-THCudaTensor *arg2 = NULL;
+THGPUTensor *arg2 = NULL;
 float arg3 = 1;
-THCudaTensor *arg4 = NULL;
-THCudaTensor *arg5 = NULL;
+THGPUTensor *arg4 = NULL;
+THGPUTensor *arg5 = NULL;
 if(narg == 3
-&& (arg2 = (THCudaTensor *)(THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg4 = (THCudaTensor *)(THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
-&& (arg5 = (THCudaTensor *)(THCudaTensor *)luaT_toudata(L, 3, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg4 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
+&& (arg5 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor"))
 )
 {
-arg1 = THCudaTensor_new();
+arg1 = THGPUTensor_new();
 }
 else if(narg == 4
-&& (arg1 = (THCudaTensor *)(THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)(THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
-&& (arg4 = (THCudaTensor *)(THCudaTensor *)luaT_toudata(L, 3, "torch.CudaTensor"))
-&& (arg5 = (THCudaTensor *)(THCudaTensor *)luaT_toudata(L, 4, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
+&& (arg4 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor"))
+&& (arg5 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 4, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 }
 else if(narg == 4
-&& (arg2 = (THCudaTensor *)(THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
-&& (arg4 = (THCudaTensor *)(THCudaTensor *)luaT_toudata(L, 3, "torch.CudaTensor"))
-&& (arg5 = (THCudaTensor *)(THCudaTensor *)luaT_toudata(L, 4, "torch.CudaTensor"))
+&& (arg4 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor"))
+&& (arg5 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 4, "torch.GPUTensor"))
 )
 {
 arg3 = (float)lua_tonumber(L, 2);
-arg1 = THCudaTensor_new();
+arg1 = THGPUTensor_new();
 }
 else if(narg == 5
-&& (arg1 = (THCudaTensor *)(THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)(THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 && lua_isnumber(L, 3)
-&& (arg4 = (THCudaTensor *)(THCudaTensor *)luaT_toudata(L, 4, "torch.CudaTensor"))
-&& (arg5 = (THCudaTensor *)(THCudaTensor *)luaT_toudata(L, 5, "torch.CudaTensor"))
+&& (arg4 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 4, "torch.GPUTensor"))
+&& (arg5 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 5, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 arg3 = (float)lua_tonumber(L, 3);
 }
 else
-luaL_error(L, "expected arguments: [*CudaTensor*] CudaTensor [float] CudaTensor CudaTensor");
+luaL_error(L, "expected arguments: [*GPUTensor*] GPUTensor [float] GPUTensor GPUTensor");
 if(arg1_idx)
 lua_pushvalue(L, arg1_idx);
 else
-luaT_pushudata(L, arg1, "torch.CudaTensor");
-THCudaTensor_addcdiv(arg1,arg2,arg3,arg4,arg5);
+luaT_pushudata(L, arg1, "torch.GPUTensor");
+THGPUTensor_addcdiv(arg1,arg2,arg3,arg4,arg5);
 return 1;
 }
 
-static int cutorch_CudaTensor_mv(lua_State *L)
+static int gputorch_GPUTensor_mv(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
 float arg2 = 1;
-THCudaTensor *arg3 = NULL;
+THGPUTensor *arg3 = NULL;
 float arg4 = 1;
-THCudaTensor *arg5 = NULL;
-THCudaTensor *arg6 = NULL;
+THGPUTensor *arg5 = NULL;
+THGPUTensor *arg6 = NULL;
 if(narg == 2
-&& (arg5 = (THCudaTensor *)(THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor")) && (arg5->nDimension == 2)
-&& (arg6 = (THCudaTensor *)(THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor")) && (arg6->nDimension == 1)
+&& (arg5 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor")) && (arg5->nDimension == 2)
+&& (arg6 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor")) && (arg6->nDimension == 1)
 )
 {
-arg1 = THCudaTensor_new();
-THCudaTensor_resize1d(arg1, arg5->size[0]);
+arg1 = THGPUTensor_new();
+THGPUTensor_resize1d(arg1, arg5->size[0]);
 arg3 = arg1;
 }
 else if(narg == 3
-&& (arg1 = (THCudaTensor *)(THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg5 = (THCudaTensor *)(THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor")) && (arg5->nDimension == 2)
-&& (arg6 = (THCudaTensor *)(THCudaTensor *)luaT_toudata(L, 3, "torch.CudaTensor")) && (arg6->nDimension == 1)
+&& (arg1 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg5 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor")) && (arg5->nDimension == 2)
+&& (arg6 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor")) && (arg6->nDimension == 1)
 )
 {
 arg1_idx = 1;
 arg3 = arg1;
 }
 else
-luaL_error(L, "expected arguments: [*CudaTensor*] CudaTensor~2D CudaTensor~1D");
-THCudaTensor_zero(arg1);
+luaL_error(L, "expected arguments: [*GPUTensor*] GPUTensor~2D GPUTensor~1D");
+THGPUTensor_zero(arg1);
 if(arg1_idx)
 lua_pushvalue(L, arg1_idx);
 else
-luaT_pushudata(L, arg1, "torch.CudaTensor");
-THCudaTensor_addmv(arg1,arg2,arg3,arg4,arg5,arg6);
+luaT_pushudata(L, arg1, "torch.GPUTensor");
+THGPUTensor_addmv(arg1,arg2,arg3,arg4,arg5,arg6);
 return 1;
 }
 
-static int cutorch_CudaTensor_mm(lua_State *L)
+static int gputorch_GPUTensor_mm(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
 float arg2 = 1;
-THCudaTensor *arg3 = NULL;
+THGPUTensor *arg3 = NULL;
 float arg4 = 1;
-THCudaTensor *arg5 = NULL;
-THCudaTensor *arg6 = NULL;
+THGPUTensor *arg5 = NULL;
+THGPUTensor *arg6 = NULL;
 if(narg == 2
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor")) && (arg5->nDimension == 2)
-&& (arg6 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor")) && (arg6->nDimension == 2)
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor")) && (arg5->nDimension == 2)
+&& (arg6 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor")) && (arg6->nDimension == 2)
 )
 {
-arg1 = THCudaTensor_new();
-THCudaTensor_resize2d(arg1, arg5->size[0], arg6->size[1]);
+arg1 = THGPUTensor_new();
+THGPUTensor_resize2d(arg1, arg5->size[0], arg6->size[1]);
 arg3 = arg1;
 }
 else if(narg == 3
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor")) && (arg5->nDimension == 2)
-&& (arg6 = (THCudaTensor *)luaT_toudata(L, 3, "torch.CudaTensor")) && (arg6->nDimension == 2)
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor")) && (arg5->nDimension == 2)
+&& (arg6 = (THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor")) && (arg6->nDimension == 2)
 )
 {
 arg1_idx = 1;
 arg3 = arg1;
 }
 else
-luaL_error(L, "expected arguments: [*CudaTensor*] CudaTensor~2D CudaTensor~2D");
-THCudaTensor_zero(arg1);
+luaL_error(L, "expected arguments: [*GPUTensor*] GPUTensor~2D GPUTensor~2D");
+THGPUTensor_zero(arg1);
 if(arg1_idx)
 lua_pushvalue(L, arg1_idx);
 else
-luaT_pushudata(L, arg1, "torch.CudaTensor");
-THCudaTensor_addmm(arg1,arg2,arg3,arg4,arg5,arg6);
+luaT_pushudata(L, arg1, "torch.GPUTensor");
+THGPUTensor_addmm(arg1,arg2,arg3,arg4,arg5,arg6);
 return 1;
 }
 
-static int cutorch_CudaTensor_ger(lua_State *L)
+static int gputorch_GPUTensor_ger(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
 float arg2 = 1;
-THCudaTensor *arg3 = NULL;
+THGPUTensor *arg3 = NULL;
 float arg4 = 1;
-THCudaTensor *arg5 = NULL;
-THCudaTensor *arg6 = NULL;
+THGPUTensor *arg5 = NULL;
+THGPUTensor *arg6 = NULL;
 if(narg == 2
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor")) && (arg5->nDimension == 1)
-&& (arg6 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor")) && (arg6->nDimension == 1)
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor")) && (arg5->nDimension == 1)
+&& (arg6 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor")) && (arg6->nDimension == 1)
 )
 {
-arg1 = THCudaTensor_new();
-THCudaTensor_resize2d(arg1, arg5->size[0], arg6->size[0]);
+arg1 = THGPUTensor_new();
+THGPUTensor_resize2d(arg1, arg5->size[0], arg6->size[0]);
 arg3 = arg1;
 }
 else if(narg == 3
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor")) && (arg5->nDimension == 1)
-&& (arg6 = (THCudaTensor *)luaT_toudata(L, 3, "torch.CudaTensor")) && (arg6->nDimension == 1)
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor")) && (arg5->nDimension == 1)
+&& (arg6 = (THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor")) && (arg6->nDimension == 1)
 )
 {
 arg1_idx = 1;
 arg3 = arg1;
 }
 else
-luaL_error(L, "expected arguments: [*CudaTensor*] CudaTensor~1D CudaTensor~1D");
-THCudaTensor_zero(arg1);
+luaL_error(L, "expected arguments: [*GPUTensor*] GPUTensor~1D GPUTensor~1D");
+THGPUTensor_zero(arg1);
 if(arg1_idx)
 lua_pushvalue(L, arg1_idx);
 else
-luaT_pushudata(L, arg1, "torch.CudaTensor");
-THCudaTensor_addr(arg1,arg2,arg3,arg4,arg5,arg6);
+luaT_pushudata(L, arg1, "torch.GPUTensor");
+THGPUTensor_addr(arg1,arg2,arg3,arg4,arg5,arg6);
 return 1;
 }
 
-static int cutorch_CudaTensor_addmv(lua_State *L)
+static int gputorch_GPUTensor_addmv(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
 float arg2 = 1;
-THCudaTensor *arg3 = NULL;
+THGPUTensor *arg3 = NULL;
 float arg4 = 1;
-THCudaTensor *arg5 = NULL;
-THCudaTensor *arg6 = NULL;
+THGPUTensor *arg5 = NULL;
+THGPUTensor *arg6 = NULL;
 if(narg == 3
-&& (arg3 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor")) && (arg3->nDimension == 1)
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor")) && (arg5->nDimension == 2)
-&& (arg6 = (THCudaTensor *)luaT_toudata(L, 3, "torch.CudaTensor")) && (arg6->nDimension == 1)
+&& (arg3 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor")) && (arg3->nDimension == 1)
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor")) && (arg5->nDimension == 2)
+&& (arg6 = (THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor")) && (arg6->nDimension == 1)
 )
 {
-arg1 = THCudaTensor_new();
+arg1 = THGPUTensor_new();
 }
 else if(narg == 4
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg3 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor")) && (arg3->nDimension == 1)
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 3, "torch.CudaTensor")) && (arg5->nDimension == 2)
-&& (arg6 = (THCudaTensor *)luaT_toudata(L, 4, "torch.CudaTensor")) && (arg6->nDimension == 1)
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg3 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor")) && (arg3->nDimension == 1)
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor")) && (arg5->nDimension == 2)
+&& (arg6 = (THGPUTensor *)luaT_toudata(L, 4, "torch.GPUTensor")) && (arg6->nDimension == 1)
 )
 {
 arg1_idx = 1;
 }
 else if(narg == 4
 && lua_isnumber(L, 1)
-&& (arg3 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor")) && (arg3->nDimension == 1)
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 3, "torch.CudaTensor")) && (arg5->nDimension == 2)
-&& (arg6 = (THCudaTensor *)luaT_toudata(L, 4, "torch.CudaTensor")) && (arg6->nDimension == 1)
+&& (arg3 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor")) && (arg3->nDimension == 1)
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor")) && (arg5->nDimension == 2)
+&& (arg6 = (THGPUTensor *)luaT_toudata(L, 4, "torch.GPUTensor")) && (arg6->nDimension == 1)
 )
 {
 arg2 = (float)lua_tonumber(L, 1);
-arg1 = THCudaTensor_new();
+arg1 = THGPUTensor_new();
 }
 else if(narg == 5
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
-&& (arg3 = (THCudaTensor *)luaT_toudata(L, 3, "torch.CudaTensor")) && (arg3->nDimension == 1)
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 4, "torch.CudaTensor")) && (arg5->nDimension == 2)
-&& (arg6 = (THCudaTensor *)luaT_toudata(L, 5, "torch.CudaTensor")) && (arg6->nDimension == 1)
+&& (arg3 = (THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor")) && (arg3->nDimension == 1)
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 4, "torch.GPUTensor")) && (arg5->nDimension == 2)
+&& (arg6 = (THGPUTensor *)luaT_toudata(L, 5, "torch.GPUTensor")) && (arg6->nDimension == 1)
 )
 {
 arg1_idx = 1;
 arg2 = (float)lua_tonumber(L, 2);
 }
 else if(narg == 4
-&& (arg3 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor")) && (arg3->nDimension == 1)
+&& (arg3 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor")) && (arg3->nDimension == 1)
 && lua_isnumber(L, 2)
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 3, "torch.CudaTensor")) && (arg5->nDimension == 2)
-&& (arg6 = (THCudaTensor *)luaT_toudata(L, 4, "torch.CudaTensor")) && (arg6->nDimension == 1)
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor")) && (arg5->nDimension == 2)
+&& (arg6 = (THGPUTensor *)luaT_toudata(L, 4, "torch.GPUTensor")) && (arg6->nDimension == 1)
 )
 {
 arg4 = (float)lua_tonumber(L, 2);
-arg1 = THCudaTensor_new();
+arg1 = THGPUTensor_new();
 }
 else if(narg == 5
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg3 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor")) && (arg3->nDimension == 1)
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg3 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor")) && (arg3->nDimension == 1)
 && lua_isnumber(L, 3)
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 4, "torch.CudaTensor")) && (arg5->nDimension == 2)
-&& (arg6 = (THCudaTensor *)luaT_toudata(L, 5, "torch.CudaTensor")) && (arg6->nDimension == 1)
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 4, "torch.GPUTensor")) && (arg5->nDimension == 2)
+&& (arg6 = (THGPUTensor *)luaT_toudata(L, 5, "torch.GPUTensor")) && (arg6->nDimension == 1)
 )
 {
 arg1_idx = 1;
@@ -685,23 +685,23 @@ arg4 = (float)lua_tonumber(L, 3);
 }
 else if(narg == 5
 && lua_isnumber(L, 1)
-&& (arg3 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor")) && (arg3->nDimension == 1)
+&& (arg3 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor")) && (arg3->nDimension == 1)
 && lua_isnumber(L, 3)
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 4, "torch.CudaTensor")) && (arg5->nDimension == 2)
-&& (arg6 = (THCudaTensor *)luaT_toudata(L, 5, "torch.CudaTensor")) && (arg6->nDimension == 1)
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 4, "torch.GPUTensor")) && (arg5->nDimension == 2)
+&& (arg6 = (THGPUTensor *)luaT_toudata(L, 5, "torch.GPUTensor")) && (arg6->nDimension == 1)
 )
 {
 arg2 = (float)lua_tonumber(L, 1);
 arg4 = (float)lua_tonumber(L, 3);
-arg1 = THCudaTensor_new();
+arg1 = THGPUTensor_new();
 }
 else if(narg == 6
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
-&& (arg3 = (THCudaTensor *)luaT_toudata(L, 3, "torch.CudaTensor")) && (arg3->nDimension == 1)
+&& (arg3 = (THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor")) && (arg3->nDimension == 1)
 && lua_isnumber(L, 4)
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 5, "torch.CudaTensor")) && (arg5->nDimension == 2)
-&& (arg6 = (THCudaTensor *)luaT_toudata(L, 6, "torch.CudaTensor")) && (arg6->nDimension == 1)
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 5, "torch.GPUTensor")) && (arg5->nDimension == 2)
+&& (arg6 = (THGPUTensor *)luaT_toudata(L, 6, "torch.GPUTensor")) && (arg6->nDimension == 1)
 )
 {
 arg1_idx = 1;
@@ -709,79 +709,79 @@ arg2 = (float)lua_tonumber(L, 2);
 arg4 = (float)lua_tonumber(L, 4);
 }
 else
-luaL_error(L, "expected arguments: [*CudaTensor*] [float] CudaTensor~1D [float] CudaTensor~2D CudaTensor~1D");
+luaL_error(L, "expected arguments: [*GPUTensor*] [float] GPUTensor~1D [float] GPUTensor~2D GPUTensor~1D");
 if(arg1_idx)
 lua_pushvalue(L, arg1_idx);
 else
-luaT_pushudata(L, arg1, "torch.CudaTensor");
-THCudaTensor_addmv(arg1,arg2,arg3,arg4,arg5,arg6);
+luaT_pushudata(L, arg1, "torch.GPUTensor");
+THGPUTensor_addmv(arg1,arg2,arg3,arg4,arg5,arg6);
 return 1;
 }
 
-static int cutorch_CudaTensor_addmm(lua_State *L)
+static int gputorch_GPUTensor_addmm(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
 float arg2 = 1;
-THCudaTensor *arg3 = NULL;
+THGPUTensor *arg3 = NULL;
 float arg4 = 1;
-THCudaTensor *arg5 = NULL;
-THCudaTensor *arg6 = NULL;
+THGPUTensor *arg5 = NULL;
+THGPUTensor *arg6 = NULL;
 if(narg == 3
-&& (arg3 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor")) && (arg3->nDimension == 2)
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor")) && (arg5->nDimension == 2)
-&& (arg6 = (THCudaTensor *)luaT_toudata(L, 3, "torch.CudaTensor")) && (arg6->nDimension == 2)
+&& (arg3 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor")) && (arg3->nDimension == 2)
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor")) && (arg5->nDimension == 2)
+&& (arg6 = (THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor")) && (arg6->nDimension == 2)
 )
 {
-arg1 = THCudaTensor_new();
+arg1 = THGPUTensor_new();
 }
 else if(narg == 4
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg3 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor")) && (arg3->nDimension == 2)
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 3, "torch.CudaTensor")) && (arg5->nDimension == 2)
-&& (arg6 = (THCudaTensor *)luaT_toudata(L, 4, "torch.CudaTensor")) && (arg6->nDimension == 2)
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg3 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor")) && (arg3->nDimension == 2)
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor")) && (arg5->nDimension == 2)
+&& (arg6 = (THGPUTensor *)luaT_toudata(L, 4, "torch.GPUTensor")) && (arg6->nDimension == 2)
 )
 {
 arg1_idx = 1;
 }
 else if(narg == 4
 && lua_isnumber(L, 1)
-&& (arg3 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor")) && (arg3->nDimension == 2)
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 3, "torch.CudaTensor")) && (arg5->nDimension == 2)
-&& (arg6 = (THCudaTensor *)luaT_toudata(L, 4, "torch.CudaTensor")) && (arg6->nDimension == 2)
+&& (arg3 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor")) && (arg3->nDimension == 2)
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor")) && (arg5->nDimension == 2)
+&& (arg6 = (THGPUTensor *)luaT_toudata(L, 4, "torch.GPUTensor")) && (arg6->nDimension == 2)
 )
 {
 arg2 = (float)lua_tonumber(L, 1);
-arg1 = THCudaTensor_new();
+arg1 = THGPUTensor_new();
 }
 else if(narg == 5
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
-&& (arg3 = (THCudaTensor *)luaT_toudata(L, 3, "torch.CudaTensor")) && (arg3->nDimension == 2)
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 4, "torch.CudaTensor")) && (arg5->nDimension == 2)
-&& (arg6 = (THCudaTensor *)luaT_toudata(L, 5, "torch.CudaTensor")) && (arg6->nDimension == 2)
+&& (arg3 = (THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor")) && (arg3->nDimension == 2)
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 4, "torch.GPUTensor")) && (arg5->nDimension == 2)
+&& (arg6 = (THGPUTensor *)luaT_toudata(L, 5, "torch.GPUTensor")) && (arg6->nDimension == 2)
 )
 {
 arg1_idx = 1;
 arg2 = (float)lua_tonumber(L, 2);
 }
 else if(narg == 4
-&& (arg3 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor")) && (arg3->nDimension == 2)
+&& (arg3 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor")) && (arg3->nDimension == 2)
 && lua_isnumber(L, 2)
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 3, "torch.CudaTensor")) && (arg5->nDimension == 2)
-&& (arg6 = (THCudaTensor *)luaT_toudata(L, 4, "torch.CudaTensor")) && (arg6->nDimension == 2)
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor")) && (arg5->nDimension == 2)
+&& (arg6 = (THGPUTensor *)luaT_toudata(L, 4, "torch.GPUTensor")) && (arg6->nDimension == 2)
 )
 {
 arg4 = (float)lua_tonumber(L, 2);
-arg1 = THCudaTensor_new();
+arg1 = THGPUTensor_new();
 }
 else if(narg == 5
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg3 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor")) && (arg3->nDimension == 2)
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg3 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor")) && (arg3->nDimension == 2)
 && lua_isnumber(L, 3)
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 4, "torch.CudaTensor")) && (arg5->nDimension == 2)
-&& (arg6 = (THCudaTensor *)luaT_toudata(L, 5, "torch.CudaTensor")) && (arg6->nDimension == 2)
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 4, "torch.GPUTensor")) && (arg5->nDimension == 2)
+&& (arg6 = (THGPUTensor *)luaT_toudata(L, 5, "torch.GPUTensor")) && (arg6->nDimension == 2)
 )
 {
 arg1_idx = 1;
@@ -789,23 +789,23 @@ arg4 = (float)lua_tonumber(L, 3);
 }
 else if(narg == 5
 && lua_isnumber(L, 1)
-&& (arg3 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor")) && (arg3->nDimension == 2)
+&& (arg3 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor")) && (arg3->nDimension == 2)
 && lua_isnumber(L, 3)
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 4, "torch.CudaTensor")) && (arg5->nDimension == 2)
-&& (arg6 = (THCudaTensor *)luaT_toudata(L, 5, "torch.CudaTensor")) && (arg6->nDimension == 2)
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 4, "torch.GPUTensor")) && (arg5->nDimension == 2)
+&& (arg6 = (THGPUTensor *)luaT_toudata(L, 5, "torch.GPUTensor")) && (arg6->nDimension == 2)
 )
 {
 arg2 = (float)lua_tonumber(L, 1);
 arg4 = (float)lua_tonumber(L, 3);
-arg1 = THCudaTensor_new();
+arg1 = THGPUTensor_new();
 }
 else if(narg == 6
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
-&& (arg3 = (THCudaTensor *)luaT_toudata(L, 3, "torch.CudaTensor")) && (arg3->nDimension == 2)
+&& (arg3 = (THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor")) && (arg3->nDimension == 2)
 && lua_isnumber(L, 4)
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 5, "torch.CudaTensor")) && (arg5->nDimension == 2)
-&& (arg6 = (THCudaTensor *)luaT_toudata(L, 6, "torch.CudaTensor")) && (arg6->nDimension == 2)
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 5, "torch.GPUTensor")) && (arg5->nDimension == 2)
+&& (arg6 = (THGPUTensor *)luaT_toudata(L, 6, "torch.GPUTensor")) && (arg6->nDimension == 2)
 )
 {
 arg1_idx = 1;
@@ -813,79 +813,79 @@ arg2 = (float)lua_tonumber(L, 2);
 arg4 = (float)lua_tonumber(L, 4);
 }
 else
-luaL_error(L, "expected arguments: [*CudaTensor*] [float] CudaTensor~2D [float] CudaTensor~2D CudaTensor~2D");
+luaL_error(L, "expected arguments: [*GPUTensor*] [float] GPUTensor~2D [float] GPUTensor~2D GPUTensor~2D");
 if(arg1_idx)
 lua_pushvalue(L, arg1_idx);
 else
-luaT_pushudata(L, arg1, "torch.CudaTensor");
-THCudaTensor_addmm(arg1,arg2,arg3,arg4,arg5,arg6);
+luaT_pushudata(L, arg1, "torch.GPUTensor");
+THGPUTensor_addmm(arg1,arg2,arg3,arg4,arg5,arg6);
 return 1;
 }
 
-static int cutorch_CudaTensor_addr(lua_State *L)
+static int gputorch_GPUTensor_addr(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
 float arg2 = 1;
-THCudaTensor *arg3 = NULL;
+THGPUTensor *arg3 = NULL;
 float arg4 = 1;
-THCudaTensor *arg5 = NULL;
-THCudaTensor *arg6 = NULL;
+THGPUTensor *arg5 = NULL;
+THGPUTensor *arg6 = NULL;
 if(narg == 3
-&& (arg3 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor")) && (arg3->nDimension == 2)
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor")) && (arg5->nDimension == 1)
-&& (arg6 = (THCudaTensor *)luaT_toudata(L, 3, "torch.CudaTensor")) && (arg6->nDimension == 1)
+&& (arg3 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor")) && (arg3->nDimension == 2)
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor")) && (arg5->nDimension == 1)
+&& (arg6 = (THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor")) && (arg6->nDimension == 1)
 )
 {
-arg1 = THCudaTensor_new();
+arg1 = THGPUTensor_new();
 }
 else if(narg == 4
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg3 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor")) && (arg3->nDimension == 2)
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 3, "torch.CudaTensor")) && (arg5->nDimension == 1)
-&& (arg6 = (THCudaTensor *)luaT_toudata(L, 4, "torch.CudaTensor")) && (arg6->nDimension == 1)
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg3 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor")) && (arg3->nDimension == 2)
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor")) && (arg5->nDimension == 1)
+&& (arg6 = (THGPUTensor *)luaT_toudata(L, 4, "torch.GPUTensor")) && (arg6->nDimension == 1)
 )
 {
 arg1_idx = 1;
 }
 else if(narg == 4
 && lua_isnumber(L, 1)
-&& (arg3 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor")) && (arg3->nDimension == 2)
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 3, "torch.CudaTensor")) && (arg5->nDimension == 1)
-&& (arg6 = (THCudaTensor *)luaT_toudata(L, 4, "torch.CudaTensor")) && (arg6->nDimension == 1)
+&& (arg3 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor")) && (arg3->nDimension == 2)
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor")) && (arg5->nDimension == 1)
+&& (arg6 = (THGPUTensor *)luaT_toudata(L, 4, "torch.GPUTensor")) && (arg6->nDimension == 1)
 )
 {
 arg2 = (float)lua_tonumber(L, 1);
-arg1 = THCudaTensor_new();
+arg1 = THGPUTensor_new();
 }
 else if(narg == 5
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
-&& (arg3 = (THCudaTensor *)luaT_toudata(L, 3, "torch.CudaTensor")) && (arg3->nDimension == 2)
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 4, "torch.CudaTensor")) && (arg5->nDimension == 1)
-&& (arg6 = (THCudaTensor *)luaT_toudata(L, 5, "torch.CudaTensor")) && (arg6->nDimension == 1)
+&& (arg3 = (THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor")) && (arg3->nDimension == 2)
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 4, "torch.GPUTensor")) && (arg5->nDimension == 1)
+&& (arg6 = (THGPUTensor *)luaT_toudata(L, 5, "torch.GPUTensor")) && (arg6->nDimension == 1)
 )
 {
 arg1_idx = 1;
 arg2 = (float)lua_tonumber(L, 2);
 }
 else if(narg == 4
-&& (arg3 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor")) && (arg3->nDimension == 2)
+&& (arg3 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor")) && (arg3->nDimension == 2)
 && lua_isnumber(L, 2)
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 3, "torch.CudaTensor")) && (arg5->nDimension == 1)
-&& (arg6 = (THCudaTensor *)luaT_toudata(L, 4, "torch.CudaTensor")) && (arg6->nDimension == 1)
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor")) && (arg5->nDimension == 1)
+&& (arg6 = (THGPUTensor *)luaT_toudata(L, 4, "torch.GPUTensor")) && (arg6->nDimension == 1)
 )
 {
 arg4 = (float)lua_tonumber(L, 2);
-arg1 = THCudaTensor_new();
+arg1 = THGPUTensor_new();
 }
 else if(narg == 5
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg3 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor")) && (arg3->nDimension == 2)
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg3 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor")) && (arg3->nDimension == 2)
 && lua_isnumber(L, 3)
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 4, "torch.CudaTensor")) && (arg5->nDimension == 1)
-&& (arg6 = (THCudaTensor *)luaT_toudata(L, 5, "torch.CudaTensor")) && (arg6->nDimension == 1)
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 4, "torch.GPUTensor")) && (arg5->nDimension == 1)
+&& (arg6 = (THGPUTensor *)luaT_toudata(L, 5, "torch.GPUTensor")) && (arg6->nDimension == 1)
 )
 {
 arg1_idx = 1;
@@ -893,23 +893,23 @@ arg4 = (float)lua_tonumber(L, 3);
 }
 else if(narg == 5
 && lua_isnumber(L, 1)
-&& (arg3 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor")) && (arg3->nDimension == 2)
+&& (arg3 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor")) && (arg3->nDimension == 2)
 && lua_isnumber(L, 3)
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 4, "torch.CudaTensor")) && (arg5->nDimension == 1)
-&& (arg6 = (THCudaTensor *)luaT_toudata(L, 5, "torch.CudaTensor")) && (arg6->nDimension == 1)
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 4, "torch.GPUTensor")) && (arg5->nDimension == 1)
+&& (arg6 = (THGPUTensor *)luaT_toudata(L, 5, "torch.GPUTensor")) && (arg6->nDimension == 1)
 )
 {
 arg2 = (float)lua_tonumber(L, 1);
 arg4 = (float)lua_tonumber(L, 3);
-arg1 = THCudaTensor_new();
+arg1 = THGPUTensor_new();
 }
 else if(narg == 6
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
-&& (arg3 = (THCudaTensor *)luaT_toudata(L, 3, "torch.CudaTensor")) && (arg3->nDimension == 2)
+&& (arg3 = (THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor")) && (arg3->nDimension == 2)
 && lua_isnumber(L, 4)
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 5, "torch.CudaTensor")) && (arg5->nDimension == 1)
-&& (arg6 = (THCudaTensor *)luaT_toudata(L, 6, "torch.CudaTensor")) && (arg6->nDimension == 1)
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 5, "torch.GPUTensor")) && (arg5->nDimension == 1)
+&& (arg6 = (THGPUTensor *)luaT_toudata(L, 6, "torch.GPUTensor")) && (arg6->nDimension == 1)
 )
 {
 arg1_idx = 1;
@@ -917,62 +917,62 @@ arg2 = (float)lua_tonumber(L, 2);
 arg4 = (float)lua_tonumber(L, 4);
 }
 else
-luaL_error(L, "expected arguments: [*CudaTensor*] [float] CudaTensor~2D [float] CudaTensor~1D CudaTensor~1D");
+luaL_error(L, "expected arguments: [*GPUTensor*] [float] GPUTensor~2D [float] GPUTensor~1D GPUTensor~1D");
 if(arg1_idx)
 lua_pushvalue(L, arg1_idx);
 else
-luaT_pushudata(L, arg1, "torch.CudaTensor");
-THCudaTensor_addr(arg1,arg2,arg3,arg4,arg5,arg6);
+luaT_pushudata(L, arg1, "torch.GPUTensor");
+THGPUTensor_addr(arg1,arg2,arg3,arg4,arg5,arg6);
 return 1;
 }
 
-static int cutorch_CudaTensor_dot(lua_State *L)
+static int gputorch_GPUTensor_dot(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
-THCudaTensor *arg2 = NULL;
+THGPUTensor *arg1 = NULL;
+THGPUTensor *arg2 = NULL;
 float arg3 = 0;
 if(narg == 2
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 )
 {
 }
 else
-luaL_error(L, "expected arguments: CudaTensor CudaTensor");
-arg3 = THCudaTensor_dot(arg1,arg2);
+luaL_error(L, "expected arguments: GPUTensor GPUTensor");
+arg3 = THGPUTensor_dot(arg1,arg2);
 lua_pushnumber(L, (lua_Number)arg3);
 return 1;
 }
 
-static int cutorch_CudaTensor_sum(lua_State *L)
+static int gputorch_GPUTensor_sum(lua_State *L)
 {
 int narg = lua_gettop(L);
 int argset = 0;
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 float arg2 = 0;
-THCudaTensor *arg3 = NULL;
+THGPUTensor *arg3 = NULL;
 int arg3_idx = 0;
-THCudaTensor *arg4 = NULL;
+THGPUTensor *arg4 = NULL;
 long arg5 = 0;
 if(narg == 1
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
 argset = 1;
 }
 else if(narg == 2
-&& (arg4 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg4 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
 )
 {
 argset = 2;
 arg5 = (long)lua_tonumber(L, 2)-1;
-arg3 = THCudaTensor_new();
+arg3 = THGPUTensor_new();
 }
 else if(narg == 3
-&& (arg3 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg4 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg3 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg4 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 && lua_isnumber(L, 3)
 )
 {
@@ -981,10 +981,10 @@ arg3_idx = 1;
 arg5 = (long)lua_tonumber(L, 3)-1;
 }
 else
-luaL_error(L, "expected arguments: CudaTensor | [*CudaTensor*] CudaTensor index");
+luaL_error(L, "expected arguments: GPUTensor | [*GPUTensor*] GPUTensor index");
 if(argset == 1)
 {
-arg2 = THCudaTensor_sumall(arg1);
+arg2 = THGPUTensor_sumall(arg1);
 lua_pushnumber(L, (lua_Number)arg2);
 return 1;
 }
@@ -993,41 +993,41 @@ else if(argset == 2)
 if(arg3_idx)
 lua_pushvalue(L, arg3_idx);
 else
-luaT_pushudata(L, arg3, "torch.CudaTensor");
-THCudaTensor_sum(arg3,arg4,arg5);
+luaT_pushudata(L, arg3, "torch.GPUTensor");
+THGPUTensor_sum(arg3,arg4,arg5);
 return 1;
 }
 return 0;
 }
 
-static int cutorch_CudaTensor_prod(lua_State *L)
+static int gputorch_GPUTensor_prod(lua_State *L)
 {
 int narg = lua_gettop(L);
 int argset = 0;
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 float arg2 = 0;
-THCudaTensor *arg3 = NULL;
+THGPUTensor *arg3 = NULL;
 int arg3_idx = 0;
-THCudaTensor *arg4 = NULL;
+THGPUTensor *arg4 = NULL;
 long arg5 = 0;
 if(narg == 1
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
 argset = 1;
 }
 else if(narg == 2
-&& (arg4 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg4 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
 )
 {
 argset = 2;
 arg5 = (long)lua_tonumber(L, 2)-1;
-arg3 = THCudaTensor_new();
+arg3 = THGPUTensor_new();
 }
 else if(narg == 3
-&& (arg3 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg4 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg3 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg4 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 && lua_isnumber(L, 3)
 )
 {
@@ -1036,10 +1036,10 @@ arg3_idx = 1;
 arg5 = (long)lua_tonumber(L, 3)-1;
 }
 else
-luaL_error(L, "expected arguments: CudaTensor | [*CudaTensor*] CudaTensor index");
+luaL_error(L, "expected arguments: GPUTensor | [*GPUTensor*] GPUTensor index");
 if(argset == 1)
 {
-arg2 = THCudaTensor_prodall(arg1);
+arg2 = THGPUTensor_prodall(arg1);
 lua_pushnumber(L, (lua_Number)arg2);
 return 1;
 }
@@ -1048,67 +1048,67 @@ else if(argset == 2)
 if(arg3_idx)
 lua_pushvalue(L, arg3_idx);
 else
-luaT_pushudata(L, arg3, "torch.CudaTensor");
-THCudaTensor_prod(arg3,arg4,arg5);
+luaT_pushudata(L, arg3, "torch.GPUTensor");
+THGPUTensor_prod(arg3,arg4,arg5);
 return 1;
 }
 return 0;
 }
 
-static int cutorch_CudaTensor_min(lua_State *L)
+static int gputorch_GPUTensor_min(lua_State *L)
 {
 int narg = lua_gettop(L);
 int argset = 0;
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 float arg2 = 0;
-THCudaTensor *arg3 = NULL;
+THGPUTensor *arg3 = NULL;
 int arg3_idx = 0;
-THCudaTensor *arg4 = NULL;
+THGPUTensor *arg4 = NULL;
 int arg4_idx = 0;
-THCudaTensor *arg5 = NULL;
+THGPUTensor *arg5 = NULL;
 long arg6 = 0;
 if(narg == 1
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
 argset = 1;
 }
 else if(narg == 2
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
 )
 {
 argset = 2;
 arg6 = (long)lua_tonumber(L, 2)-1;
-arg3 = THCudaTensor_new();
-arg4 = THCudaTensor_new();
+arg3 = THGPUTensor_new();
+arg4 = THGPUTensor_new();
 }
 else if(narg == 3
-&& (arg3 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg3 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 && lua_isnumber(L, 3)
 )
 {
 argset = 2;
 arg3_idx = 1;
 arg6 = (long)lua_tonumber(L, 3)-1;
-arg4 = THCudaTensor_new();
+arg4 = THGPUTensor_new();
 }
 else if(narg == 3
-&& (arg4 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg4 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 && lua_isnumber(L, 3)
 )
 {
 argset = 2;
 arg4_idx = 1;
 arg6 = (long)lua_tonumber(L, 3)-1;
-arg3 = THCudaTensor_new();
+arg3 = THGPUTensor_new();
 }
 else if(narg == 4
-&& (arg3 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg4 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 3, "torch.CudaTensor"))
+&& (arg3 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg4 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor"))
 && lua_isnumber(L, 4)
 )
 {
@@ -1118,10 +1118,10 @@ arg4_idx = 2;
 arg6 = (long)lua_tonumber(L, 4)-1;
 }
 else
-luaL_error(L, "expected arguments: CudaTensor | [*CudaTensor*] [*CudaTensor*] CudaTensor index");
+luaL_error(L, "expected arguments: GPUTensor | [*GPUTensor*] [*GPUTensor*] GPUTensor index");
 if(argset == 1)
 {
-arg2 = THCudaTensor_minall(arg1);
+arg2 = THGPUTensor_minall(arg1);
 lua_pushnumber(L, (lua_Number)arg2);
 return 1;
 }
@@ -1130,71 +1130,71 @@ else if(argset == 2)
 if(arg3_idx)
 lua_pushvalue(L, arg3_idx);
 else
-luaT_pushudata(L, arg3, "torch.CudaTensor");
+luaT_pushudata(L, arg3, "torch.GPUTensor");
 if(arg4_idx)
 lua_pushvalue(L, arg4_idx);
 else
-luaT_pushudata(L, arg4, "torch.CudaTensor");
-THCudaTensor_min(arg3,arg4,arg5,arg6);
+luaT_pushudata(L, arg4, "torch.GPUTensor");
+THGPUTensor_min(arg3,arg4,arg5,arg6);
 return 2;
 }
 return 0;
 }
 
-static int cutorch_CudaTensor_max(lua_State *L)
+static int gputorch_GPUTensor_max(lua_State *L)
 {
 int narg = lua_gettop(L);
 int argset = 0;
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 float arg2 = 0;
-THCudaTensor *arg3 = NULL;
+THGPUTensor *arg3 = NULL;
 int arg3_idx = 0;
-THCudaTensor *arg4 = NULL;
+THGPUTensor *arg4 = NULL;
 int arg4_idx = 0;
-THCudaTensor *arg5 = NULL;
+THGPUTensor *arg5 = NULL;
 long arg6 = 0;
 if(narg == 1
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
 argset = 1;
 }
 else if(narg == 2
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
 )
 {
 argset = 2;
 arg6 = (long)lua_tonumber(L, 2)-1;
-arg3 = THCudaTensor_new();
-arg4 = THCudaTensor_new();
+arg3 = THGPUTensor_new();
+arg4 = THGPUTensor_new();
 }
 else if(narg == 3
-&& (arg3 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg3 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 && lua_isnumber(L, 3)
 )
 {
 argset = 2;
 arg3_idx = 1;
 arg6 = (long)lua_tonumber(L, 3)-1;
-arg4 = THCudaTensor_new();
+arg4 = THGPUTensor_new();
 }
 else if(narg == 3
-&& (arg4 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg4 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 && lua_isnumber(L, 3)
 )
 {
 argset = 2;
 arg4_idx = 1;
 arg6 = (long)lua_tonumber(L, 3)-1;
-arg3 = THCudaTensor_new();
+arg3 = THGPUTensor_new();
 }
 else if(narg == 4
-&& (arg3 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg4 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 3, "torch.CudaTensor"))
+&& (arg3 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg4 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor"))
 && lua_isnumber(L, 4)
 )
 {
@@ -1204,10 +1204,10 @@ arg4_idx = 2;
 arg6 = (long)lua_tonumber(L, 4)-1;
 }
 else
-luaL_error(L, "expected arguments: CudaTensor | [*CudaTensor*] [*CudaTensor*] CudaTensor index");
+luaL_error(L, "expected arguments: GPUTensor | [*GPUTensor*] [*GPUTensor*] GPUTensor index");
 if(argset == 1)
 {
-arg2 = THCudaTensor_maxall(arg1);
+arg2 = THGPUTensor_maxall(arg1);
 lua_pushnumber(L, (lua_Number)arg2);
 return 1;
 }
@@ -1216,814 +1216,814 @@ else if(argset == 2)
 if(arg3_idx)
 lua_pushvalue(L, arg3_idx);
 else
-luaT_pushudata(L, arg3, "torch.CudaTensor");
+luaT_pushudata(L, arg3, "torch.GPUTensor");
 if(arg4_idx)
 lua_pushvalue(L, arg4_idx);
 else
-luaT_pushudata(L, arg4, "torch.CudaTensor");
-THCudaTensor_max(arg3,arg4,arg5,arg6);
+luaT_pushudata(L, arg4, "torch.GPUTensor");
+THGPUTensor_max(arg3,arg4,arg5,arg6);
 return 2;
 }
 return 0;
 }
 
-static int cutorch_CudaTensor_log(lua_State *L)
+static int gputorch_GPUTensor_log(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
-THCudaTensor *arg2 = NULL;
+THGPUTensor *arg2 = NULL;
 if(narg == 0
 )
 {
-arg1 = THCudaTensor_new();
+arg1 = THGPUTensor_new();
 arg2 = arg1;
 }
 else if(narg == 1
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 arg2 = arg1;
 }
 else if(narg == 1
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
-arg1 = THCudaTensor_new();
+arg1 = THGPUTensor_new();
 }
 else if(narg == 2
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 }
 else
-luaL_error(L, "expected arguments: [*CudaTensor*] [CudaTensor]");
+luaL_error(L, "expected arguments: [*GPUTensor*] [GPUTensor]");
 if(arg1_idx)
 lua_pushvalue(L, arg1_idx);
 else
-luaT_pushudata(L, arg1, "torch.CudaTensor");
-THCudaTensor_log(arg1,arg2);
+luaT_pushudata(L, arg1, "torch.GPUTensor");
+THGPUTensor_log(arg1,arg2);
 return 1;
 }
 
-static int cutorch_CudaTensor_log1p(lua_State *L)
+static int gputorch_GPUTensor_log1p(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
-THCudaTensor *arg2 = NULL;
+THGPUTensor *arg2 = NULL;
 if(narg == 0
 )
 {
-arg1 = THCudaTensor_new();
+arg1 = THGPUTensor_new();
 arg2 = arg1;
 }
 else if(narg == 1
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 arg2 = arg1;
 }
 else if(narg == 1
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
-arg1 = THCudaTensor_new();
+arg1 = THGPUTensor_new();
 }
 else if(narg == 2
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 }
 else
-luaL_error(L, "expected arguments: [*CudaTensor*] [CudaTensor]");
+luaL_error(L, "expected arguments: [*GPUTensor*] [GPUTensor]");
 if(arg1_idx)
 lua_pushvalue(L, arg1_idx);
 else
-luaT_pushudata(L, arg1, "torch.CudaTensor");
-THCudaTensor_log1p(arg1,arg2);
+luaT_pushudata(L, arg1, "torch.GPUTensor");
+THGPUTensor_log1p(arg1,arg2);
 return 1;
 }
 
-static int cutorch_CudaTensor_exp(lua_State *L)
+static int gputorch_GPUTensor_exp(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
-THCudaTensor *arg2 = NULL;
+THGPUTensor *arg2 = NULL;
 if(narg == 0
 )
 {
-arg1 = THCudaTensor_new();
+arg1 = THGPUTensor_new();
 arg2 = arg1;
 }
 else if(narg == 1
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 arg2 = arg1;
 }
 else if(narg == 1
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
-arg1 = THCudaTensor_new();
+arg1 = THGPUTensor_new();
 }
 else if(narg == 2
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 }
 else
-luaL_error(L, "expected arguments: [*CudaTensor*] [CudaTensor]");
+luaL_error(L, "expected arguments: [*GPUTensor*] [GPUTensor]");
 if(arg1_idx)
 lua_pushvalue(L, arg1_idx);
 else
-luaT_pushudata(L, arg1, "torch.CudaTensor");
-THCudaTensor_exp(arg1,arg2);
+luaT_pushudata(L, arg1, "torch.GPUTensor");
+THGPUTensor_exp(arg1,arg2);
 return 1;
 }
 
-static int cutorch_CudaTensor_cos(lua_State *L)
+static int gputorch_GPUTensor_cos(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
-THCudaTensor *arg2 = NULL;
+THGPUTensor *arg2 = NULL;
 if(narg == 0
 )
 {
-arg1 = THCudaTensor_new();
+arg1 = THGPUTensor_new();
 arg2 = arg1;
 }
 else if(narg == 1
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 arg2 = arg1;
 }
 else if(narg == 1
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
-arg1 = THCudaTensor_new();
+arg1 = THGPUTensor_new();
 }
 else if(narg == 2
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 }
 else
-luaL_error(L, "expected arguments: [*CudaTensor*] [CudaTensor]");
+luaL_error(L, "expected arguments: [*GPUTensor*] [GPUTensor]");
 if(arg1_idx)
 lua_pushvalue(L, arg1_idx);
 else
-luaT_pushudata(L, arg1, "torch.CudaTensor");
-THCudaTensor_cos(arg1,arg2);
+luaT_pushudata(L, arg1, "torch.GPUTensor");
+THGPUTensor_cos(arg1,arg2);
 return 1;
 }
 
-static int cutorch_CudaTensor_acos(lua_State *L)
+static int gputorch_GPUTensor_acos(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
-THCudaTensor *arg2 = NULL;
+THGPUTensor *arg2 = NULL;
 if(narg == 0
 )
 {
-arg1 = THCudaTensor_new();
+arg1 = THGPUTensor_new();
 arg2 = arg1;
 }
 else if(narg == 1
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 arg2 = arg1;
 }
 else if(narg == 1
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
-arg1 = THCudaTensor_new();
+arg1 = THGPUTensor_new();
 }
 else if(narg == 2
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 }
 else
-luaL_error(L, "expected arguments: [*CudaTensor*] [CudaTensor]");
+luaL_error(L, "expected arguments: [*GPUTensor*] [GPUTensor]");
 if(arg1_idx)
 lua_pushvalue(L, arg1_idx);
 else
-luaT_pushudata(L, arg1, "torch.CudaTensor");
-THCudaTensor_acos(arg1,arg2);
+luaT_pushudata(L, arg1, "torch.GPUTensor");
+THGPUTensor_acos(arg1,arg2);
 return 1;
 }
 
-static int cutorch_CudaTensor_cosh(lua_State *L)
+static int gputorch_GPUTensor_cosh(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
-THCudaTensor *arg2 = NULL;
+THGPUTensor *arg2 = NULL;
 if(narg == 0
 )
 {
-arg1 = THCudaTensor_new();
+arg1 = THGPUTensor_new();
 arg2 = arg1;
 }
 else if(narg == 1
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 arg2 = arg1;
 }
 else if(narg == 1
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
-arg1 = THCudaTensor_new();
+arg1 = THGPUTensor_new();
 }
 else if(narg == 2
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 }
 else
-luaL_error(L, "expected arguments: [*CudaTensor*] [CudaTensor]");
+luaL_error(L, "expected arguments: [*GPUTensor*] [GPUTensor]");
 if(arg1_idx)
 lua_pushvalue(L, arg1_idx);
 else
-luaT_pushudata(L, arg1, "torch.CudaTensor");
-THCudaTensor_cosh(arg1,arg2);
+luaT_pushudata(L, arg1, "torch.GPUTensor");
+THGPUTensor_cosh(arg1,arg2);
 return 1;
 }
 
-static int cutorch_CudaTensor_sin(lua_State *L)
+static int gputorch_GPUTensor_sin(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
-THCudaTensor *arg2 = NULL;
+THGPUTensor *arg2 = NULL;
 if(narg == 0
 )
 {
-arg1 = THCudaTensor_new();
+arg1 = THGPUTensor_new();
 arg2 = arg1;
 }
 else if(narg == 1
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 arg2 = arg1;
 }
 else if(narg == 1
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
-arg1 = THCudaTensor_new();
+arg1 = THGPUTensor_new();
 }
 else if(narg == 2
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 }
 else
-luaL_error(L, "expected arguments: [*CudaTensor*] [CudaTensor]");
+luaL_error(L, "expected arguments: [*GPUTensor*] [GPUTensor]");
 if(arg1_idx)
 lua_pushvalue(L, arg1_idx);
 else
-luaT_pushudata(L, arg1, "torch.CudaTensor");
-THCudaTensor_sin(arg1,arg2);
+luaT_pushudata(L, arg1, "torch.GPUTensor");
+THGPUTensor_sin(arg1,arg2);
 return 1;
 }
 
-static int cutorch_CudaTensor_asin(lua_State *L)
+static int gputorch_GPUTensor_asin(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
-THCudaTensor *arg2 = NULL;
+THGPUTensor *arg2 = NULL;
 if(narg == 0
 )
 {
-arg1 = THCudaTensor_new();
+arg1 = THGPUTensor_new();
 arg2 = arg1;
 }
 else if(narg == 1
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 arg2 = arg1;
 }
 else if(narg == 1
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
-arg1 = THCudaTensor_new();
+arg1 = THGPUTensor_new();
 }
 else if(narg == 2
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 }
 else
-luaL_error(L, "expected arguments: [*CudaTensor*] [CudaTensor]");
+luaL_error(L, "expected arguments: [*GPUTensor*] [GPUTensor]");
 if(arg1_idx)
 lua_pushvalue(L, arg1_idx);
 else
-luaT_pushudata(L, arg1, "torch.CudaTensor");
-THCudaTensor_asin(arg1,arg2);
+luaT_pushudata(L, arg1, "torch.GPUTensor");
+THGPUTensor_asin(arg1,arg2);
 return 1;
 }
 
-static int cutorch_CudaTensor_sinh(lua_State *L)
+static int gputorch_GPUTensor_sinh(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
-THCudaTensor *arg2 = NULL;
+THGPUTensor *arg2 = NULL;
 if(narg == 0
 )
 {
-arg1 = THCudaTensor_new();
+arg1 = THGPUTensor_new();
 arg2 = arg1;
 }
 else if(narg == 1
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 arg2 = arg1;
 }
 else if(narg == 1
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
-arg1 = THCudaTensor_new();
+arg1 = THGPUTensor_new();
 }
 else if(narg == 2
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 }
 else
-luaL_error(L, "expected arguments: [*CudaTensor*] [CudaTensor]");
+luaL_error(L, "expected arguments: [*GPUTensor*] [GPUTensor]");
 if(arg1_idx)
 lua_pushvalue(L, arg1_idx);
 else
-luaT_pushudata(L, arg1, "torch.CudaTensor");
-THCudaTensor_sinh(arg1,arg2);
+luaT_pushudata(L, arg1, "torch.GPUTensor");
+THGPUTensor_sinh(arg1,arg2);
 return 1;
 }
 
-static int cutorch_CudaTensor_tan(lua_State *L)
+static int gputorch_GPUTensor_tan(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
-THCudaTensor *arg2 = NULL;
+THGPUTensor *arg2 = NULL;
 if(narg == 0
 )
 {
-arg1 = THCudaTensor_new();
+arg1 = THGPUTensor_new();
 arg2 = arg1;
 }
 else if(narg == 1
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 arg2 = arg1;
 }
 else if(narg == 1
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
-arg1 = THCudaTensor_new();
+arg1 = THGPUTensor_new();
 }
 else if(narg == 2
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 }
 else
-luaL_error(L, "expected arguments: [*CudaTensor*] [CudaTensor]");
+luaL_error(L, "expected arguments: [*GPUTensor*] [GPUTensor]");
 if(arg1_idx)
 lua_pushvalue(L, arg1_idx);
 else
-luaT_pushudata(L, arg1, "torch.CudaTensor");
-THCudaTensor_tan(arg1,arg2);
+luaT_pushudata(L, arg1, "torch.GPUTensor");
+THGPUTensor_tan(arg1,arg2);
 return 1;
 }
 
-static int cutorch_CudaTensor_atan(lua_State *L)
+static int gputorch_GPUTensor_atan(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
-THCudaTensor *arg2 = NULL;
+THGPUTensor *arg2 = NULL;
 if(narg == 0
 )
 {
-arg1 = THCudaTensor_new();
+arg1 = THGPUTensor_new();
 arg2 = arg1;
 }
 else if(narg == 1
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 arg2 = arg1;
 }
 else if(narg == 1
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
-arg1 = THCudaTensor_new();
+arg1 = THGPUTensor_new();
 }
 else if(narg == 2
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 }
 else
-luaL_error(L, "expected arguments: [*CudaTensor*] [CudaTensor]");
+luaL_error(L, "expected arguments: [*GPUTensor*] [GPUTensor]");
 if(arg1_idx)
 lua_pushvalue(L, arg1_idx);
 else
-luaT_pushudata(L, arg1, "torch.CudaTensor");
-THCudaTensor_atan(arg1,arg2);
+luaT_pushudata(L, arg1, "torch.GPUTensor");
+THGPUTensor_atan(arg1,arg2);
 return 1;
 }
 
-static int cutorch_CudaTensor_tanh(lua_State *L)
+static int gputorch_GPUTensor_tanh(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
-THCudaTensor *arg2 = NULL;
+THGPUTensor *arg2 = NULL;
 if(narg == 0
 )
 {
-arg1 = THCudaTensor_new();
+arg1 = THGPUTensor_new();
 arg2 = arg1;
 }
 else if(narg == 1
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 arg2 = arg1;
 }
 else if(narg == 1
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
-arg1 = THCudaTensor_new();
+arg1 = THGPUTensor_new();
 }
 else if(narg == 2
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 }
 else
-luaL_error(L, "expected arguments: [*CudaTensor*] [CudaTensor]");
+luaL_error(L, "expected arguments: [*GPUTensor*] [GPUTensor]");
 if(arg1_idx)
 lua_pushvalue(L, arg1_idx);
 else
-luaT_pushudata(L, arg1, "torch.CudaTensor");
-THCudaTensor_tanh(arg1,arg2);
+luaT_pushudata(L, arg1, "torch.GPUTensor");
+THGPUTensor_tanh(arg1,arg2);
 return 1;
 }
 
-static int cutorch_CudaTensor_sqrt(lua_State *L)
+static int gputorch_GPUTensor_sqrt(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
-THCudaTensor *arg2 = NULL;
+THGPUTensor *arg2 = NULL;
 if(narg == 0
 )
 {
-arg1 = THCudaTensor_new();
+arg1 = THGPUTensor_new();
 arg2 = arg1;
 }
 else if(narg == 1
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 arg2 = arg1;
 }
 else if(narg == 1
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
-arg1 = THCudaTensor_new();
+arg1 = THGPUTensor_new();
 }
 else if(narg == 2
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 }
 else
-luaL_error(L, "expected arguments: [*CudaTensor*] [CudaTensor]");
+luaL_error(L, "expected arguments: [*GPUTensor*] [GPUTensor]");
 if(arg1_idx)
 lua_pushvalue(L, arg1_idx);
 else
-luaT_pushudata(L, arg1, "torch.CudaTensor");
-THCudaTensor_sqrt(arg1,arg2);
+luaT_pushudata(L, arg1, "torch.GPUTensor");
+THGPUTensor_sqrt(arg1,arg2);
 return 1;
 }
 
-static int cutorch_CudaTensor_ceil(lua_State *L)
+static int gputorch_GPUTensor_ceil(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
-THCudaTensor *arg2 = NULL;
+THGPUTensor *arg2 = NULL;
 if(narg == 0
 )
 {
-arg1 = THCudaTensor_new();
+arg1 = THGPUTensor_new();
 arg2 = arg1;
 }
 else if(narg == 1
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 arg2 = arg1;
 }
 else if(narg == 1
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
-arg1 = THCudaTensor_new();
+arg1 = THGPUTensor_new();
 }
 else if(narg == 2
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 }
 else
-luaL_error(L, "expected arguments: [*CudaTensor*] [CudaTensor]");
+luaL_error(L, "expected arguments: [*GPUTensor*] [GPUTensor]");
 if(arg1_idx)
 lua_pushvalue(L, arg1_idx);
 else
-luaT_pushudata(L, arg1, "torch.CudaTensor");
-THCudaTensor_ceil(arg1,arg2);
+luaT_pushudata(L, arg1, "torch.GPUTensor");
+THGPUTensor_ceil(arg1,arg2);
 return 1;
 }
 
-static int cutorch_CudaTensor_floor(lua_State *L)
+static int gputorch_GPUTensor_floor(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
-THCudaTensor *arg2 = NULL;
+THGPUTensor *arg2 = NULL;
 if(narg == 0
 )
 {
-arg1 = THCudaTensor_new();
+arg1 = THGPUTensor_new();
 arg2 = arg1;
 }
 else if(narg == 1
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 arg2 = arg1;
 }
 else if(narg == 1
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
-arg1 = THCudaTensor_new();
+arg1 = THGPUTensor_new();
 }
 else if(narg == 2
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 }
 else
-luaL_error(L, "expected arguments: [*CudaTensor*] [CudaTensor]");
+luaL_error(L, "expected arguments: [*GPUTensor*] [GPUTensor]");
 if(arg1_idx)
 lua_pushvalue(L, arg1_idx);
 else
-luaT_pushudata(L, arg1, "torch.CudaTensor");
-THCudaTensor_floor(arg1,arg2);
+luaT_pushudata(L, arg1, "torch.GPUTensor");
+THGPUTensor_floor(arg1,arg2);
 return 1;
 }
 
-static int cutorch_CudaTensor_abs(lua_State *L)
+static int gputorch_GPUTensor_abs(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
-THCudaTensor *arg2 = NULL;
+THGPUTensor *arg2 = NULL;
 if(narg == 0
 )
 {
-arg1 = THCudaTensor_new();
+arg1 = THGPUTensor_new();
 arg2 = arg1;
 }
 else if(narg == 1
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 arg2 = arg1;
 }
 else if(narg == 1
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
-arg1 = THCudaTensor_new();
+arg1 = THGPUTensor_new();
 }
 else if(narg == 2
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 }
 else
-luaL_error(L, "expected arguments: [*CudaTensor*] [CudaTensor]");
+luaL_error(L, "expected arguments: [*GPUTensor*] [GPUTensor]");
 if(arg1_idx)
 lua_pushvalue(L, arg1_idx);
 else
-luaT_pushudata(L, arg1, "torch.CudaTensor");
-THCudaTensor_abs(arg1,arg2);
+luaT_pushudata(L, arg1, "torch.GPUTensor");
+THGPUTensor_abs(arg1,arg2);
 return 1;
 }
 
-static int cutorch_CudaTensor_sign(lua_State *L)
+static int gputorch_GPUTensor_sign(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
-THCudaTensor *arg2 = NULL;
+THGPUTensor *arg2 = NULL;
 if(narg == 0
 )
 {
-arg1 = THCudaTensor_new();
+arg1 = THGPUTensor_new();
 arg2 = arg1;
 }
 else if(narg == 1
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 arg2 = arg1;
 }
 else if(narg == 1
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
-arg1 = THCudaTensor_new();
+arg1 = THGPUTensor_new();
 }
 else if(narg == 2
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 }
 else
-luaL_error(L, "expected arguments: [*CudaTensor*] [CudaTensor]");
+luaL_error(L, "expected arguments: [*GPUTensor*] [GPUTensor]");
 if(arg1_idx)
 lua_pushvalue(L, arg1_idx);
 else
-luaT_pushudata(L, arg1, "torch.CudaTensor");
-THCudaTensor_sign(arg1,arg2);
+luaT_pushudata(L, arg1, "torch.GPUTensor");
+THGPUTensor_sign(arg1,arg2);
 return 1;
 }
 
-static int cutorch_CudaTensor_round(lua_State *L)
+static int gputorch_GPUTensor_round(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
-THCudaTensor *arg2 = NULL;
+THGPUTensor *arg2 = NULL;
 if(narg == 0
 )
 {
-arg1 = THCudaTensor_new();
+arg1 = THGPUTensor_new();
 arg2 = arg1;
 }
 else if(narg == 1
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 arg2 = arg1;
 }
 else if(narg == 1
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
-arg1 = THCudaTensor_new();
+arg1 = THGPUTensor_new();
 }
 else if(narg == 2
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 }
 else
-luaL_error(L, "expected arguments: [*CudaTensor*] [CudaTensor]");
+luaL_error(L, "expected arguments: [*GPUTensor*] [GPUTensor]");
 if(arg1_idx)
 lua_pushvalue(L, arg1_idx);
 else
-luaT_pushudata(L, arg1, "torch.CudaTensor");
-THCudaTensor_round(arg1,arg2);
+luaT_pushudata(L, arg1, "torch.GPUTensor");
+THGPUTensor_round(arg1,arg2);
 return 1;
 }
 
-static int cutorch_CudaTensor_atan2(lua_State *L)
+static int gputorch_GPUTensor_atan2(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
-THCudaTensor *arg2 = NULL;
-THCudaTensor *arg3 = NULL;
+THGPUTensor *arg2 = NULL;
+THGPUTensor *arg3 = NULL;
 if(narg == 2
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg3 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg3 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 )
 {
-arg1 = THCudaTensor_new();
+arg1 = THGPUTensor_new();
 }
 else if(narg == 3
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
-&& (arg3 = (THCudaTensor *)luaT_toudata(L, 3, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
+&& (arg3 = (THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 }
 else
-luaL_error(L, "expected arguments: [*CudaTensor*] CudaTensor CudaTensor");
+luaL_error(L, "expected arguments: [*GPUTensor*] GPUTensor GPUTensor");
 if(arg1_idx)
 lua_pushvalue(L, arg1_idx);
 else
-luaT_pushudata(L, arg1, "torch.CudaTensor");
-THCudaTensor_atan2(arg1,arg2,arg3);
+luaT_pushudata(L, arg1, "torch.GPUTensor");
+THGPUTensor_atan2(arg1,arg2,arg3);
 return 1;
 }
 
-static int cutorch_CudaTensor_pow(lua_State *L)
+static int gputorch_GPUTensor_pow(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
-THCudaTensor *arg2 = NULL;
+THGPUTensor *arg2 = NULL;
 float arg3 = 0;
 if(narg == 2
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
 )
 {
@@ -2032,8 +2032,8 @@ arg3 = (float)lua_tonumber(L, 2);
 arg2 = arg1;
 }
 else if(narg == 3
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 && lua_isnumber(L, 3)
 )
 {
@@ -2041,92 +2041,92 @@ arg1_idx = 1;
 arg3 = (float)lua_tonumber(L, 3);
 }
 else
-luaL_error(L, "expected arguments: *CudaTensor* [CudaTensor] float");
+luaL_error(L, "expected arguments: *GPUTensor* [GPUTensor] float");
 lua_pushvalue(L, arg1_idx);
-THCudaTensor_pow(arg1,arg2,arg3);
+THGPUTensor_pow(arg1,arg2,arg3);
 return 1;
 }
 
-static int cutorch_CudaTensor_rand(lua_State *L)
+static int gputorch_GPUTensor_rand(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaState *arg1 = NULL;
-THCudaTensor *arg2 = NULL;
+THGPUState *arg1 = NULL;
+THGPUTensor *arg2 = NULL;
 int arg2_idx = 0;
 THLongStorage *arg3 = NULL;
 if(narg >= 1
-&& cutorch_islongargs(L, 1)
+&& gputorch_islongargs(L, 1)
 )
 {
-arg3 = cutorch_checklongargs(L, 1);
-arg2 = THCudaTensor_new();
+arg3 = gputorch_checklongargs(L, 1);
+arg2 = THGPUTensor_new();
 }
 else if(narg >= 2
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& cutorch_islongargs(L, 2)
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& gputorch_islongargs(L, 2)
 )
 {
 arg2_idx = 1;
-arg3 = cutorch_checklongargs(L, 2);
+arg3 = gputorch_checklongargs(L, 2);
 }
 else
-luaL_error(L, "expected arguments: [*CudaTensor*] (LongStorage | dim1 [dim2...])");
-lua_getglobal(L, "cutorch");
+luaL_error(L, "expected arguments: [*GPUTensor*] (LongStorage | dim1 [dim2...])");
+lua_getglobal(L, "gputorch");
 lua_getfield(L, -1, "_state");
-arg1 = (THCudaState *)lua_touserdata(L, -1);
+arg1 = (THGPUState *)lua_touserdata(L, -1);
 lua_pop(L, 2);
 if(arg2_idx)
 lua_pushvalue(L, arg2_idx);
 else
-luaT_pushudata(L, arg2, "torch.CudaTensor");
-THCudaTensor_rand(arg1->rngState,arg2,arg3);
+luaT_pushudata(L, arg2, "torch.GPUTensor");
+THGPUTensor_rand(arg1->rngState,arg2,arg3);
 THLongStorage_free(arg3);
 return 1;
 }
 
-static int cutorch_CudaTensor_randn(lua_State *L)
+static int gputorch_GPUTensor_randn(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaState *arg1 = NULL;
-THCudaTensor *arg2 = NULL;
+THGPUState *arg1 = NULL;
+THGPUTensor *arg2 = NULL;
 int arg2_idx = 0;
 THLongStorage *arg3 = NULL;
 if(narg >= 1
-&& cutorch_islongargs(L, 1)
+&& gputorch_islongargs(L, 1)
 )
 {
-arg3 = cutorch_checklongargs(L, 1);
-arg2 = THCudaTensor_new();
+arg3 = gputorch_checklongargs(L, 1);
+arg2 = THGPUTensor_new();
 }
 else if(narg >= 2
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& cutorch_islongargs(L, 2)
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& gputorch_islongargs(L, 2)
 )
 {
 arg2_idx = 1;
-arg3 = cutorch_checklongargs(L, 2);
+arg3 = gputorch_checklongargs(L, 2);
 }
 else
-luaL_error(L, "expected arguments: [*CudaTensor*] (LongStorage | dim1 [dim2...])");
-lua_getglobal(L, "cutorch");
+luaL_error(L, "expected arguments: [*GPUTensor*] (LongStorage | dim1 [dim2...])");
+lua_getglobal(L, "gputorch");
 lua_getfield(L, -1, "_state");
-arg1 =(THCudaState *) lua_touserdata(L, -1);
+arg1 =(THGPUState *) lua_touserdata(L, -1);
 lua_pop(L, 2);
 if(arg2_idx)
 lua_pushvalue(L, arg2_idx);
 else
-luaT_pushudata(L, arg2, "torch.CudaTensor");
-THCudaTensor_randn(arg1->rngState,arg2,arg3);
+luaT_pushudata(L, arg2, "torch.GPUTensor");
+THGPUTensor_randn(arg1->rngState,arg2,arg3);
 THLongStorage_free(arg3);
 return 1;
 }
 
-static int cutorch_CudaTensor_clamp(lua_State *L)
+static int gputorch_GPUTensor_clamp(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
-THCudaTensor *arg2 = NULL;
+THGPUTensor *arg2 = NULL;
 float arg3 = 0;
 float arg4 = 0;
 if(narg == 2
@@ -2136,11 +2136,11 @@ if(narg == 2
 {
 arg3 = (float)lua_tonumber(L, 1);
 arg4 = (float)lua_tonumber(L, 2);
-arg1 = THCudaTensor_new();
+arg1 = THGPUTensor_new();
 arg2 = arg1;
 }
 else if(narg == 3
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
 && lua_isnumber(L, 3)
 )
@@ -2151,18 +2151,18 @@ arg4 = (float)lua_tonumber(L, 3);
 arg2 = arg1;
 }
 else if(narg == 3
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
 && lua_isnumber(L, 3)
 )
 {
 arg3 = (float)lua_tonumber(L, 2);
 arg4 = (float)lua_tonumber(L, 3);
-arg1 = THCudaTensor_new();
+arg1 = THGPUTensor_new();
 }
 else if(narg == 4
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 && lua_isnumber(L, 3)
 && lua_isnumber(L, 4)
 )
@@ -2172,39 +2172,39 @@ arg3 = (float)lua_tonumber(L, 3);
 arg4 = (float)lua_tonumber(L, 4);
 }
 else
-luaL_error(L, "expected arguments: [*CudaTensor*] [CudaTensor] float float");
+luaL_error(L, "expected arguments: [*GPUTensor*] [GPUTensor] float float");
 if(arg1_idx)
 lua_pushvalue(L, arg1_idx);
 else
-luaT_pushudata(L, arg1, "torch.CudaTensor");
-THCudaTensor_clamp(arg1,arg2,arg3,arg4);
+luaT_pushudata(L, arg1, "torch.GPUTensor");
+THGPUTensor_clamp(arg1,arg2,arg3,arg4);
 return 1;
 }
 
-static int cutorch_CudaTensor_lt(lua_State *L)
+static int gputorch_GPUTensor_lt(lua_State *L)
 {
 int narg = lua_gettop(L);
 int argset = 0;
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
-THCudaTensor *arg2 = NULL;
+THGPUTensor *arg2 = NULL;
 float arg3 = 0;
-THCudaTensor *arg4 = NULL;
+THGPUTensor *arg4 = NULL;
 int arg4_idx = 0;
-THCudaTensor *arg5 = NULL;
-THCudaTensor *arg6 = NULL;
+THGPUTensor *arg5 = NULL;
+THGPUTensor *arg6 = NULL;
 if(narg == 2
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
 )
 {
 argset = 1;
 arg3 = (float)lua_tonumber(L, 2);
-arg1 = THCudaTensor_new();
+arg1 = THGPUTensor_new();
 }
 else if(narg == 3
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 && lua_isnumber(L, 3)
 )
 {
@@ -2213,58 +2213,58 @@ arg1_idx = 1;
 arg3 = (float)lua_tonumber(L, 3);
 }
 else if(narg == 3
-&& (arg4 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
-&& (arg6 = (THCudaTensor *)luaT_toudata(L, 3, "torch.CudaTensor"))
+&& (arg4 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
+&& (arg6 = (THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor"))
 )
 {
 argset = 2;
 arg4_idx = 1;
 }
 else
-luaL_error(L, "expected arguments: [*CudaTensor*] CudaTensor float | *CudaTensor* CudaTensor CudaTensor");
+luaL_error(L, "expected arguments: [*GPUTensor*] GPUTensor float | *GPUTensor* GPUTensor GPUTensor");
 if(argset == 1)
 {
 if(arg1_idx)
 lua_pushvalue(L, arg1_idx);
 else
-luaT_pushudata(L, arg1, "torch.CudaTensor");
-THCudaTensor_ltValue(arg1,arg2,arg3);
+luaT_pushudata(L, arg1, "torch.GPUTensor");
+THGPUTensor_ltValue(arg1,arg2,arg3);
 return 1;
 }
 else if(argset == 2)
 {
 lua_pushvalue(L, arg4_idx);
-THCudaTensor_ltTensor(arg4,arg5,arg6);
+THGPUTensor_ltTensor(arg4,arg5,arg6);
 return 1;
 }
 return 0;
 }
 
-static int cutorch_CudaTensor_gt(lua_State *L)
+static int gputorch_GPUTensor_gt(lua_State *L)
 {
 int narg = lua_gettop(L);
 int argset = 0;
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
-THCudaTensor *arg2 = NULL;
+THGPUTensor *arg2 = NULL;
 float arg3 = 0;
-THCudaTensor *arg4 = NULL;
+THGPUTensor *arg4 = NULL;
 int arg4_idx = 0;
-THCudaTensor *arg5 = NULL;
-THCudaTensor *arg6 = NULL;
+THGPUTensor *arg5 = NULL;
+THGPUTensor *arg6 = NULL;
 if(narg == 2
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
 )
 {
 argset = 1;
 arg3 = (float)lua_tonumber(L, 2);
-arg1 = THCudaTensor_new();
+arg1 = THGPUTensor_new();
 }
 else if(narg == 3
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 && lua_isnumber(L, 3)
 )
 {
@@ -2273,58 +2273,58 @@ arg1_idx = 1;
 arg3 = (float)lua_tonumber(L, 3);
 }
 else if(narg == 3
-&& (arg4 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
-&& (arg6 = (THCudaTensor *)luaT_toudata(L, 3, "torch.CudaTensor"))
+&& (arg4 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
+&& (arg6 = (THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor"))
 )
 {
 argset = 2;
 arg4_idx = 1;
 }
 else
-luaL_error(L, "expected arguments: [*CudaTensor*] CudaTensor float | *CudaTensor* CudaTensor CudaTensor");
+luaL_error(L, "expected arguments: [*GPUTensor*] GPUTensor float | *GPUTensor* GPUTensor GPUTensor");
 if(argset == 1)
 {
 if(arg1_idx)
 lua_pushvalue(L, arg1_idx);
 else
-luaT_pushudata(L, arg1, "torch.CudaTensor");
-THCudaTensor_gtValue(arg1,arg2,arg3);
+luaT_pushudata(L, arg1, "torch.GPUTensor");
+THGPUTensor_gtValue(arg1,arg2,arg3);
 return 1;
 }
 else if(argset == 2)
 {
 lua_pushvalue(L, arg4_idx);
-THCudaTensor_gtTensor(arg4,arg5,arg6);
+THGPUTensor_gtTensor(arg4,arg5,arg6);
 return 1;
 }
 return 0;
 }
 
-static int cutorch_CudaTensor_le(lua_State *L)
+static int gputorch_GPUTensor_le(lua_State *L)
 {
 int narg = lua_gettop(L);
 int argset = 0;
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
-THCudaTensor *arg2 = NULL;
+THGPUTensor *arg2 = NULL;
 float arg3 = 0;
-THCudaTensor *arg4 = NULL;
+THGPUTensor *arg4 = NULL;
 int arg4_idx = 0;
-THCudaTensor *arg5 = NULL;
-THCudaTensor *arg6 = NULL;
+THGPUTensor *arg5 = NULL;
+THGPUTensor *arg6 = NULL;
 if(narg == 2
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
 )
 {
 argset = 1;
 arg3 = (float)lua_tonumber(L, 2);
-arg1 = THCudaTensor_new();
+arg1 = THGPUTensor_new();
 }
 else if(narg == 3
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 && lua_isnumber(L, 3)
 )
 {
@@ -2333,58 +2333,58 @@ arg1_idx = 1;
 arg3 = (float)lua_tonumber(L, 3);
 }
 else if(narg == 3
-&& (arg4 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
-&& (arg6 = (THCudaTensor *)luaT_toudata(L, 3, "torch.CudaTensor"))
+&& (arg4 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
+&& (arg6 = (THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor"))
 )
 {
 argset = 2;
 arg4_idx = 1;
 }
 else
-luaL_error(L, "expected arguments: [*CudaTensor*] CudaTensor float | *CudaTensor* CudaTensor CudaTensor");
+luaL_error(L, "expected arguments: [*GPUTensor*] GPUTensor float | *GPUTensor* GPUTensor GPUTensor");
 if(argset == 1)
 {
 if(arg1_idx)
 lua_pushvalue(L, arg1_idx);
 else
-luaT_pushudata(L, arg1, "torch.CudaTensor");
-THCudaTensor_leValue(arg1,arg2,arg3);
+luaT_pushudata(L, arg1, "torch.GPUTensor");
+THGPUTensor_leValue(arg1,arg2,arg3);
 return 1;
 }
 else if(argset == 2)
 {
 lua_pushvalue(L, arg4_idx);
-THCudaTensor_leTensor(arg4,arg5,arg6);
+THGPUTensor_leTensor(arg4,arg5,arg6);
 return 1;
 }
 return 0;
 }
 
-static int cutorch_CudaTensor_ge(lua_State *L)
+static int gputorch_GPUTensor_ge(lua_State *L)
 {
 int narg = lua_gettop(L);
 int argset = 0;
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
-THCudaTensor *arg2 = NULL;
+THGPUTensor *arg2 = NULL;
 float arg3 = 0;
-THCudaTensor *arg4 = NULL;
+THGPUTensor *arg4 = NULL;
 int arg4_idx = 0;
-THCudaTensor *arg5 = NULL;
-THCudaTensor *arg6 = NULL;
+THGPUTensor *arg5 = NULL;
+THGPUTensor *arg6 = NULL;
 if(narg == 2
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
 )
 {
 argset = 1;
 arg3 = (float)lua_tonumber(L, 2);
-arg1 = THCudaTensor_new();
+arg1 = THGPUTensor_new();
 }
 else if(narg == 3
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 && lua_isnumber(L, 3)
 )
 {
@@ -2393,58 +2393,58 @@ arg1_idx = 1;
 arg3 = (float)lua_tonumber(L, 3);
 }
 else if(narg == 3
-&& (arg4 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
-&& (arg6 = (THCudaTensor *)luaT_toudata(L, 3, "torch.CudaTensor"))
+&& (arg4 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
+&& (arg6 = (THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor"))
 )
 {
 argset = 2;
 arg4_idx = 1;
 }
 else
-luaL_error(L, "expected arguments: [*CudaTensor*] CudaTensor float | *CudaTensor* CudaTensor CudaTensor");
+luaL_error(L, "expected arguments: [*GPUTensor*] GPUTensor float | *GPUTensor* GPUTensor GPUTensor");
 if(argset == 1)
 {
 if(arg1_idx)
 lua_pushvalue(L, arg1_idx);
 else
-luaT_pushudata(L, arg1, "torch.CudaTensor");
-THCudaTensor_geValue(arg1,arg2,arg3);
+luaT_pushudata(L, arg1, "torch.GPUTensor");
+THGPUTensor_geValue(arg1,arg2,arg3);
 return 1;
 }
 else if(argset == 2)
 {
 lua_pushvalue(L, arg4_idx);
-THCudaTensor_geTensor(arg4,arg5,arg6);
+THGPUTensor_geTensor(arg4,arg5,arg6);
 return 1;
 }
 return 0;
 }
 
-static int cutorch_CudaTensor_eq(lua_State *L)
+static int gputorch_GPUTensor_eq(lua_State *L)
 {
 int narg = lua_gettop(L);
 int argset = 0;
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
-THCudaTensor *arg2 = NULL;
+THGPUTensor *arg2 = NULL;
 float arg3 = 0;
-THCudaTensor *arg4 = NULL;
+THGPUTensor *arg4 = NULL;
 int arg4_idx = 0;
-THCudaTensor *arg5 = NULL;
-THCudaTensor *arg6 = NULL;
+THGPUTensor *arg5 = NULL;
+THGPUTensor *arg6 = NULL;
 if(narg == 2
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
 )
 {
 argset = 1;
 arg3 = (float)lua_tonumber(L, 2);
-arg1 = THCudaTensor_new();
+arg1 = THGPUTensor_new();
 }
 else if(narg == 3
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 && lua_isnumber(L, 3)
 )
 {
@@ -2453,58 +2453,58 @@ arg1_idx = 1;
 arg3 = (float)lua_tonumber(L, 3);
 }
 else if(narg == 3
-&& (arg4 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
-&& (arg6 = (THCudaTensor *)luaT_toudata(L, 3, "torch.CudaTensor"))
+&& (arg4 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
+&& (arg6 = (THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor"))
 )
 {
 argset = 2;
 arg4_idx = 1;
 }
 else
-luaL_error(L, "expected arguments: [*CudaTensor*] CudaTensor float | *CudaTensor* CudaTensor CudaTensor");
+luaL_error(L, "expected arguments: [*GPUTensor*] GPUTensor float | *GPUTensor* GPUTensor GPUTensor");
 if(argset == 1)
 {
 if(arg1_idx)
 lua_pushvalue(L, arg1_idx);
 else
-luaT_pushudata(L, arg1, "torch.CudaTensor");
-THCudaTensor_eqValue(arg1,arg2,arg3);
+luaT_pushudata(L, arg1, "torch.GPUTensor");
+THGPUTensor_eqValue(arg1,arg2,arg3);
 return 1;
 }
 else if(argset == 2)
 {
 lua_pushvalue(L, arg4_idx);
-THCudaTensor_eqTensor(arg4,arg5,arg6);
+THGPUTensor_eqTensor(arg4,arg5,arg6);
 return 1;
 }
 return 0;
 }
 
-static int cutorch_CudaTensor_ne(lua_State *L)
+static int gputorch_GPUTensor_ne(lua_State *L)
 {
 int narg = lua_gettop(L);
 int argset = 0;
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
-THCudaTensor *arg2 = NULL;
+THGPUTensor *arg2 = NULL;
 float arg3 = 0;
-THCudaTensor *arg4 = NULL;
+THGPUTensor *arg4 = NULL;
 int arg4_idx = 0;
-THCudaTensor *arg5 = NULL;
-THCudaTensor *arg6 = NULL;
+THGPUTensor *arg5 = NULL;
+THGPUTensor *arg6 = NULL;
 if(narg == 2
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
 )
 {
 argset = 1;
 arg3 = (float)lua_tonumber(L, 2);
-arg1 = THCudaTensor_new();
+arg1 = THGPUTensor_new();
 }
 else if(narg == 3
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 && lua_isnumber(L, 3)
 )
 {
@@ -2513,43 +2513,43 @@ arg1_idx = 1;
 arg3 = (float)lua_tonumber(L, 3);
 }
 else if(narg == 3
-&& (arg4 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
-&& (arg6 = (THCudaTensor *)luaT_toudata(L, 3, "torch.CudaTensor"))
+&& (arg4 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
+&& (arg6 = (THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor"))
 )
 {
 argset = 2;
 arg4_idx = 1;
 }
 else
-luaL_error(L, "expected arguments: [*CudaTensor*] CudaTensor float | *CudaTensor* CudaTensor CudaTensor");
+luaL_error(L, "expected arguments: [*GPUTensor*] GPUTensor float | *GPUTensor* GPUTensor GPUTensor");
 if(argset == 1)
 {
 if(arg1_idx)
 lua_pushvalue(L, arg1_idx);
 else
-luaT_pushudata(L, arg1, "torch.CudaTensor");
-THCudaTensor_neValue(arg1,arg2,arg3);
+luaT_pushudata(L, arg1, "torch.GPUTensor");
+THGPUTensor_neValue(arg1,arg2,arg3);
 return 1;
 }
 else if(argset == 2)
 {
 lua_pushvalue(L, arg4_idx);
-THCudaTensor_neTensor(arg4,arg5,arg6);
+THGPUTensor_neTensor(arg4,arg5,arg6);
 return 1;
 }
 return 0;
 }
 
-static int cutorch_CudaTensor_geometric(lua_State *L)
+static int gputorch_GPUTensor_geometric(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaState *arg1 = NULL;
-THCudaTensor *arg2 = NULL;
+THGPUState *arg1 = NULL;
+THGPUTensor *arg2 = NULL;
 int arg2_idx = 0;
 float arg3 = 0;
 if(narg == 2
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
 )
 {
@@ -2557,31 +2557,31 @@ arg2_idx = 1;
 arg3 = (float)lua_tonumber(L, 2);
 }
 else
-luaL_error(L, "expected arguments: *CudaTensor* float");
-lua_getglobal(L, "cutorch");
+luaL_error(L, "expected arguments: *GPUTensor* float");
+lua_getglobal(L, "gputorch");
 lua_getfield(L, -1, "_state");
-arg1 = (THCudaState *)lua_touserdata(L, -1);
+arg1 = (THGPUState *)lua_touserdata(L, -1);
 lua_pop(L, 2);
 lua_pushvalue(L, arg2_idx);
-THCudaTensor_geometric(NULL,arg2,arg3);
+THGPUTensor_geometric(NULL,arg2,arg3);
 return 1;
 }
 
-static int cutorch_CudaTensor_bernoulli(lua_State *L)
+static int gputorch_GPUTensor_bernoulli(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaState *arg1 = NULL;
-THCudaTensor *arg2 = NULL;
+THGPUState *arg1 = NULL;
+THGPUTensor *arg2 = NULL;
 int arg2_idx = 0;
 float arg3 = 0;
 if(narg == 1
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
 arg2_idx = 1;
 }
 else if(narg == 2
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
 )
 {
@@ -2589,32 +2589,32 @@ arg2_idx = 1;
 arg3 = (float)lua_tonumber(L, 2);
 }
 else
-luaL_error(L, "expected arguments: *CudaTensor* [float]");
-lua_getglobal(L, "cutorch");
+luaL_error(L, "expected arguments: *GPUTensor* [float]");
+lua_getglobal(L, "gputorch");
 lua_getfield(L, -1, "_state");
-arg1 = (THCudaState *)lua_touserdata(L, -1);
+arg1 = (THGPUState *)lua_touserdata(L, -1);
 lua_pop(L, 2);
 lua_pushvalue(L, arg2_idx);
-THCudaTensor_bernoulli(arg1->rngState,arg2,arg3);
+THGPUTensor_bernoulli(arg1->rngState,arg2,arg3);
 return 1;
 }
 
-static int cutorch_CudaTensor_uniform(lua_State *L)
+static int gputorch_GPUTensor_uniform(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaState *arg1 = NULL;
-THCudaTensor *arg2 = NULL;
+THGPUState *arg1 = NULL;
+THGPUTensor *arg2 = NULL;
 int arg2_idx = 0;
 float arg3 = 0;
 float arg4 = 1;
 if(narg == 1
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
 arg2_idx = 1;
 }
 else if(narg == 2
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
 )
 {
@@ -2622,7 +2622,7 @@ arg2_idx = 1;
 arg3 = (float)lua_tonumber(L, 2);
 }
 else if(narg == 2
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
 )
 {
@@ -2630,7 +2630,7 @@ arg2_idx = 1;
 arg4 = (float)lua_tonumber(L, 2);
 }
 else if(narg == 3
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
 && lua_isnumber(L, 3)
 )
@@ -2640,32 +2640,32 @@ arg3 = (float)lua_tonumber(L, 2);
 arg4 = (float)lua_tonumber(L, 3);
 }
 else
-luaL_error(L, "expected arguments: *CudaTensor* [float] [float]");
-lua_getglobal(L, "cutorch");
+luaL_error(L, "expected arguments: *GPUTensor* [float] [float]");
+lua_getglobal(L, "gputorch");
 lua_getfield(L, -1, "_state");
-arg1 = (THCudaState *)lua_touserdata(L, -1);
+arg1 = (THGPUState *)lua_touserdata(L, -1);
 lua_pop(L, 2);
 lua_pushvalue(L, arg2_idx);
-THCudaTensor_uniform(NULL,arg2,arg3,arg4);
+THGPUTensor_uniform(NULL,arg2,arg3,arg4);
 return 1;
 }
 
-static int cutorch_CudaTensor_normal(lua_State *L)
+static int gputorch_GPUTensor_normal(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaState *arg1 = NULL;
-THCudaTensor *arg2 = NULL;
+THGPUState *arg1 = NULL;
+THGPUTensor *arg2 = NULL;
 int arg2_idx = 0;
 float arg3 = 0;
 float arg4 = 1;
 if(narg == 1
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
 arg2_idx = 1;
 }
 else if(narg == 2
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
 )
 {
@@ -2673,7 +2673,7 @@ arg2_idx = 1;
 arg3 = (float)lua_tonumber(L, 2);
 }
 else if(narg == 2
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
 )
 {
@@ -2681,7 +2681,7 @@ arg2_idx = 1;
 arg4 = (float)lua_tonumber(L, 2);
 }
 else if(narg == 3
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
 && lua_isnumber(L, 3)
 )
@@ -2691,32 +2691,32 @@ arg3 = (float)lua_tonumber(L, 2);
 arg4 = (float)lua_tonumber(L, 3);
 }
 else
-luaL_error(L, "expected arguments: *CudaTensor* [float] [float]");
-lua_getglobal(L, "cutorch");
+luaL_error(L, "expected arguments: *GPUTensor* [float] [float]");
+lua_getglobal(L, "gputorch");
 lua_getfield(L, -1, "_state");
-arg1 = (THCudaState *)lua_touserdata(L, -1);
+arg1 = (THGPUState *)lua_touserdata(L, -1);
 lua_pop(L, 2);
 lua_pushvalue(L, arg2_idx);
-THCudaTensor_normal(NULL,arg2,arg3,arg4);
+THGPUTensor_normal(NULL,arg2,arg3,arg4);
 return 1;
 }
 
-static int cutorch_CudaTensor_cauchy(lua_State *L)
+static int gputorch_GPUTensor_cauchy(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaState *arg1 = NULL;
-THCudaTensor *arg2 = NULL;
+THGPUState *arg1 = NULL;
+THGPUTensor *arg2 = NULL;
 int arg2_idx = 0;
 float arg3 = 0;
 float arg4 = 1;
 if(narg == 1
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
 arg2_idx = 1;
 }
 else if(narg == 2
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
 )
 {
@@ -2724,7 +2724,7 @@ arg2_idx = 1;
 arg3 = (float)lua_tonumber(L, 2);
 }
 else if(narg == 2
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
 )
 {
@@ -2732,7 +2732,7 @@ arg2_idx = 1;
 arg4 = (float)lua_tonumber(L, 2);
 }
 else if(narg == 3
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
 && lua_isnumber(L, 3)
 )
@@ -2742,32 +2742,32 @@ arg3 = (float)lua_tonumber(L, 2);
 arg4 = (float)lua_tonumber(L, 3);
 }
 else
-luaL_error(L, "expected arguments: *CudaTensor* [float] [float]");
-lua_getglobal(L, "cutorch");
+luaL_error(L, "expected arguments: *GPUTensor* [float] [float]");
+lua_getglobal(L, "gputorch");
 lua_getfield(L, -1, "_state");
-arg1 = (THCudaState *)lua_touserdata(L, -1);
+arg1 = (THGPUState *)lua_touserdata(L, -1);
 lua_pop(L, 2);
 lua_pushvalue(L, arg2_idx);
-THCudaTensor_cauchy(NULL,arg2,arg3,arg4);
+THGPUTensor_cauchy(NULL,arg2,arg3,arg4);
 return 1;
 }
 
-static int cutorch_CudaTensor_logNormal(lua_State *L)
+static int gputorch_GPUTensor_logNormal(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaState *arg1 = NULL;
-THCudaTensor *arg2 = NULL;
+THGPUState *arg1 = NULL;
+THGPUTensor *arg2 = NULL;
 int arg2_idx = 0;
 float arg3 = 1;
 float arg4 = 2;
 if(narg == 1
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
 arg2_idx = 1;
 }
 else if(narg == 2
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
 )
 {
@@ -2775,7 +2775,7 @@ arg2_idx = 1;
 arg3 = (float)lua_tonumber(L, 2);
 }
 else if(narg == 2
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
 )
 {
@@ -2783,7 +2783,7 @@ arg2_idx = 1;
 arg4 = (float)lua_tonumber(L, 2);
 }
 else if(narg == 3
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
 && lua_isnumber(L, 3)
 )
@@ -2793,25 +2793,25 @@ arg3 = (float)lua_tonumber(L, 2);
 arg4 = (float)lua_tonumber(L, 3);
 }
 else
-luaL_error(L, "expected arguments: *CudaTensor* [float] [float]");
-lua_getglobal(L, "cutorch");
+luaL_error(L, "expected arguments: *GPUTensor* [float] [float]");
+lua_getglobal(L, "gputorch");
 lua_getfield(L, -1, "_state");
-arg1 =(THCudaState *) lua_touserdata(L, -1);
+arg1 =(THGPUState *) lua_touserdata(L, -1);
 lua_pop(L, 2);
 lua_pushvalue(L, arg2_idx);
-THCudaTensor_logNormal(NULL,arg2,arg3,arg4);
+THGPUTensor_logNormal(NULL,arg2,arg3,arg4);
 return 1;
 }
 
-static int cutorch_CudaTensor_exponential(lua_State *L)
+static int gputorch_GPUTensor_exponential(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaState *arg1 = NULL;
-THCudaTensor *arg2 = NULL;
+THGPUState *arg1 = NULL;
+THGPUTensor *arg2 = NULL;
 int arg2_idx = 0;
 float arg3 = 0;
 if(narg == 2
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
 )
 {
@@ -2819,44 +2819,44 @@ arg2_idx = 1;
 arg3 = (float)lua_tonumber(L, 2);
 }
 else
-luaL_error(L, "expected arguments: *CudaTensor* float");
-lua_getglobal(L, "cutorch");
+luaL_error(L, "expected arguments: *GPUTensor* float");
+lua_getglobal(L, "gputorch");
 lua_getfield(L, -1, "_state");
-arg1 = (THCudaState *)lua_touserdata(L, -1);
+arg1 = (THGPUState *)lua_touserdata(L, -1);
 lua_pop(L, 2);
 lua_pushvalue(L, arg2_idx);
-THCudaTensor_exponential(NULL,arg2,arg3);
+THGPUTensor_exponential(NULL,arg2,arg3);
 return 1;
 }
 
-static int cutorch_CudaTensor_mean(lua_State *L)
+static int gputorch_GPUTensor_mean(lua_State *L)
 {
 int narg = lua_gettop(L);
 int argset = 0;
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 float arg2 = 0;
-THCudaTensor *arg3 = NULL;
+THGPUTensor *arg3 = NULL;
 int arg3_idx = 0;
-THCudaTensor *arg4 = NULL;
+THGPUTensor *arg4 = NULL;
 long arg5 = 0;
 if(narg == 1
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
 argset = 1;
 }
 else if(narg == 2
-&& (arg4 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg4 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
 )
 {
 argset = 2;
 arg5 = (long)lua_tonumber(L, 2)-1;
-arg3 = THCudaTensor_new();
+arg3 = THGPUTensor_new();
 }
 else if(narg == 3
-&& (arg3 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg4 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg3 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg4 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 && lua_isnumber(L, 3)
 )
 {
@@ -2865,10 +2865,10 @@ arg3_idx = 1;
 arg5 = (long)lua_tonumber(L, 3)-1;
 }
 else
-luaL_error(L, "expected arguments: CudaTensor | [*CudaTensor*] CudaTensor index");
+luaL_error(L, "expected arguments: GPUTensor | [*GPUTensor*] GPUTensor index");
 if(argset == 1)
 {
-arg2 = THCudaTensor_meanall(arg1);
+arg2 = THGPUTensor_meanall(arg1);
 lua_pushnumber(L, (lua_Number)arg2);
 return 1;
 }
@@ -2877,67 +2877,67 @@ else if(argset == 2)
 if(arg3_idx)
 lua_pushvalue(L, arg3_idx);
 else
-luaT_pushudata(L, arg3, "torch.CudaTensor");
-THCudaTensor_mean(arg3,arg4,arg5);
+luaT_pushudata(L, arg3, "torch.GPUTensor");
+THGPUTensor_mean(arg3,arg4,arg5);
 return 1;
 }
 return 0;
 }
 
-static int cutorch_CudaTensor_var(lua_State *L)
+static int gputorch_GPUTensor_var(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 float arg2 = 0;
 if(narg == 1
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
 }
 else
-luaL_error(L, "expected arguments: CudaTensor");
-arg2 = THCudaTensor_varall(arg1);
+luaL_error(L, "expected arguments: GPUTensor");
+arg2 = THGPUTensor_varall(arg1);
 lua_pushnumber(L, (lua_Number)arg2);
 return 1;
 }
 
-static int cutorch_CudaTensor_std(lua_State *L)
+static int gputorch_GPUTensor_std(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 float arg2 = 0;
 if(narg == 1
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
 }
 else
-luaL_error(L, "expected arguments: CudaTensor");
-arg2 = THCudaTensor_stdall(arg1);
+luaL_error(L, "expected arguments: GPUTensor");
+arg2 = THGPUTensor_stdall(arg1);
 lua_pushnumber(L, (lua_Number)arg2);
 return 1;
 }
 
-static int cutorch_CudaTensor_norm(lua_State *L)
+static int gputorch_GPUTensor_norm(lua_State *L)
 {
 int narg = lua_gettop(L);
 int argset = 0;
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 float arg2 = 2;
 float arg3 = 0;
-THCudaTensor *arg4 = NULL;
+THGPUTensor *arg4 = NULL;
 int arg4_idx = 0;
-THCudaTensor *arg5 = NULL;
+THGPUTensor *arg5 = NULL;
 float arg6 = 0;
 long arg7 = 0;
 if(narg == 1
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
 argset = 1;
 }
 else if(narg == 2
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
 )
 {
@@ -2945,7 +2945,7 @@ argset = 1;
 arg2 = (float)lua_tonumber(L, 2);
 }
 else if(narg == 3
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
 && lua_isnumber(L, 3)
 )
@@ -2953,11 +2953,11 @@ else if(narg == 3
 argset = 2;
 arg6 = (float)lua_tonumber(L, 2);
 arg7 = (long)lua_tonumber(L, 3)-1;
-arg4 = THCudaTensor_new();
+arg4 = THGPUTensor_new();
 }
 else if(narg == 4
-&& (arg4 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg4 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 && lua_isnumber(L, 3)
 && lua_isnumber(L, 4)
 )
@@ -2968,10 +2968,10 @@ arg6 = (float)lua_tonumber(L, 3);
 arg7 = (long)lua_tonumber(L, 4)-1;
 }
 else
-luaL_error(L, "expected arguments: CudaTensor [float] | [*CudaTensor*] CudaTensor float index");
+luaL_error(L, "expected arguments: GPUTensor [float] | [*GPUTensor*] GPUTensor float index");
 if(argset == 1)
 {
-arg3 = THCudaTensor_normall(arg1,arg2);
+arg3 = THGPUTensor_normall(arg1,arg2);
 lua_pushnumber(L, (lua_Number)arg3);
 return 1;
 }
@@ -2980,24 +2980,24 @@ else if(argset == 2)
 if(arg4_idx)
 lua_pushvalue(L, arg4_idx);
 else
-luaT_pushudata(L, arg4, "torch.CudaTensor");
-THCudaTensor_norm(arg4,arg5,arg6,arg7);
+luaT_pushudata(L, arg4, "torch.GPUTensor");
+THGPUTensor_norm(arg4,arg5,arg6,arg7);
 return 1;
 }
 return 0;
 }
 
-static int cutorch_CudaTensor_renorm(lua_State *L)
+static int gputorch_GPUTensor_renorm(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
-THCudaTensor *arg2 = NULL;
+THGPUTensor *arg2 = NULL;
 float arg3 = 0;
 long arg4 = 0;
 float arg5 = 0;
 if(narg == 4
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
 && lua_isnumber(L, 3)
 && lua_isnumber(L, 4)
@@ -3006,11 +3006,11 @@ if(narg == 4
 arg3 = (float)lua_tonumber(L, 2);
 arg4 = (long)lua_tonumber(L, 3)-1;
 arg5 = (float)lua_tonumber(L, 4);
-arg1 = THCudaTensor_new();
+arg1 = THGPUTensor_new();
 }
 else if(narg == 5
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 && lua_isnumber(L, 3)
 && lua_isnumber(L, 4)
 && lua_isnumber(L, 5)
@@ -3022,81 +3022,81 @@ arg4 = (long)lua_tonumber(L, 4)-1;
 arg5 = (float)lua_tonumber(L, 5);
 }
 else
-luaL_error(L, "expected arguments: [*CudaTensor*] CudaTensor float index float");
+luaL_error(L, "expected arguments: [*GPUTensor*] GPUTensor float index float");
 if(arg1_idx)
 lua_pushvalue(L, arg1_idx);
 else
-luaT_pushudata(L, arg1, "torch.CudaTensor");
-THCudaTensor_renorm(arg1,arg2,arg3,arg4,arg5);
+luaT_pushudata(L, arg1, "torch.GPUTensor");
+THGPUTensor_renorm(arg1,arg2,arg3,arg4,arg5);
 return 1;
 }
 
-static int cutorch_CudaTensor_dist(lua_State *L)
+static int gputorch_GPUTensor_dist(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
-THCudaTensor *arg2 = NULL;
+THGPUTensor *arg1 = NULL;
+THGPUTensor *arg2 = NULL;
 float arg3 = 2;
 float arg4 = 0;
 if(narg == 2
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 )
 {
 }
 else if(narg == 3
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 && lua_isnumber(L, 3)
 )
 {
 arg3 = (float)lua_tonumber(L, 3);
 }
 else
-luaL_error(L, "expected arguments: CudaTensor CudaTensor [float]");
-arg4 = THCudaTensor_dist(arg1,arg2,arg3);
+luaL_error(L, "expected arguments: GPUTensor GPUTensor [float]");
+arg4 = THGPUTensor_dist(arg1,arg2,arg3);
 lua_pushnumber(L, (lua_Number)arg4);
 return 1;
 }
 
-static int cutorch_CudaTensor_squeeze(lua_State *L)
+static int gputorch_GPUTensor_squeeze(lua_State *L)
 {
 int narg = lua_gettop(L);
 int argset = 0;
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
-THCudaTensor *arg2 = NULL;
-THCudaTensor *arg3 = NULL;
+THGPUTensor *arg2 = NULL;
+THGPUTensor *arg3 = NULL;
 int arg3_idx = 0;
-THCudaTensor *arg4 = NULL;
+THGPUTensor *arg4 = NULL;
 long arg5 = 0;
 if(narg == 1
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
 argset = 1;
-arg1 = THCudaTensor_new();
+arg1 = THGPUTensor_new();
 }
 else if(narg == 2
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 )
 {
 argset = 1;
 arg1_idx = 1;
 }
 else if(narg == 2
-&& (arg4 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg4 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
 )
 {
 argset = 2;
 arg5 = (long)lua_tonumber(L, 2)-1;
-arg3 = THCudaTensor_new();
+arg3 = THGPUTensor_new();
 }
 else if(narg == 3
-&& (arg3 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg4 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg3 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg4 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 && lua_isnumber(L, 3)
 )
 {
@@ -3105,16 +3105,16 @@ arg3_idx = 1;
 arg5 = (long)lua_tonumber(L, 3)-1;
 }
 else
-luaL_error(L, "expected arguments: [*CudaTensor*] CudaTensor | [*CudaTensor*] CudaTensor index");
+luaL_error(L, "expected arguments: [*GPUTensor*] GPUTensor | [*GPUTensor*] GPUTensor index");
 if(argset == 1)
 {
 if(arg1_idx)
 lua_pushvalue(L, arg1_idx);
 else
-luaT_pushudata(L, arg1, "torch.CudaTensor");
-THCudaTensor_squeeze(arg1,arg2);
+luaT_pushudata(L, arg1, "torch.GPUTensor");
+THGPUTensor_squeeze(arg1,arg2);
 if(arg1->nDimension == 1 && arg1->size[0] == 1)
-lua_pushnumber(L, (lua_Number)(*THCudaTensor_data(arg1)));
+lua_pushnumber(L, (lua_Number)(*THGPUTensor_data(arg1)));
 return 1;
 }
 else if(argset == 2)
@@ -3122,11 +3122,11 @@ else if(argset == 2)
 if(arg3_idx)
 lua_pushvalue(L, arg3_idx);
 else
-luaT_pushudata(L, arg3, "torch.CudaTensor");
+luaT_pushudata(L, arg3, "torch.GPUTensor");
 {int hasdims = arg4->nDimension > 1;
-THCudaTensor_squeeze1d(arg3,arg4,arg5);
+THGPUTensor_squeeze1d(arg3,arg4,arg5);
 if(!hasdims && arg3->nDimension == 1 && arg3->size[0] == 1)
-lua_pushnumber(L, (lua_Number)(*THCudaTensor_data(arg3)));}
+lua_pushnumber(L, (lua_Number)(*THGPUTensor_data(arg3)));}
 return 1;
 }
 return 0;
@@ -3135,29 +3135,29 @@ return 0;
 static int wrapper_zero(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
 if(narg == 1
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 }
 else
-luaL_error(L, "expected arguments: *CudaTensor*");
+luaL_error(L, "expected arguments: *GPUTensor*");
 lua_pushvalue(L, arg1_idx);
-THCudaTensor_zero(arg1);
+THGPUTensor_zero(arg1);
 return 1;
 }
 
 static int wrapper_fill(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
 float arg2 = 0;
 if(narg == 2
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
 )
 {
@@ -3165,30 +3165,30 @@ arg1_idx = 1;
 arg2 = (float)lua_tonumber(L, 2);
 }
 else
-luaL_error(L, "expected arguments: *CudaTensor* float");
+luaL_error(L, "expected arguments: *GPUTensor* float");
 lua_pushvalue(L, arg1_idx);
-THCudaTensor_fill(arg1,arg2);
+THGPUTensor_fill(arg1,arg2);
 return 1;
 }
 
 static int wrapper_zeros(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
 THLongStorage *arg2 = NULL;
 if(narg >= 2
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& cutorch_islongargs(L, 2)
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& gputorch_islongargs(L, 2)
 )
 {
 arg1_idx = 1;
-arg2 = cutorch_checklongargs(L, 2);
+arg2 = gputorch_checklongargs(L, 2);
 }
 else
-luaL_error(L, "expected arguments: *CudaTensor* (LongStorage | dim1 [dim2...])");
+luaL_error(L, "expected arguments: *GPUTensor* (LongStorage | dim1 [dim2...])");
 lua_pushvalue(L, arg1_idx);
-THCudaTensor_zeros(arg1,arg2);
+THGPUTensor_zeros(arg1,arg2);
 THLongStorage_free(arg2);
 return 1;
 }
@@ -3196,21 +3196,21 @@ return 1;
 static int wrapper_ones(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
 THLongStorage *arg2 = NULL;
 if(narg >= 2
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& cutorch_islongargs(L, 2)
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& gputorch_islongargs(L, 2)
 )
 {
 arg1_idx = 1;
-arg2 = cutorch_checklongargs(L, 2);
+arg2 = gputorch_checklongargs(L, 2);
 }
 else
-luaL_error(L, "expected arguments: *CudaTensor* (LongStorage | dim1 [dim2...])");
+luaL_error(L, "expected arguments: *GPUTensor* (LongStorage | dim1 [dim2...])");
 lua_pushvalue(L, arg1_idx);
-THCudaTensor_ones(arg1,arg2);
+THGPUTensor_ones(arg1,arg2);
 THLongStorage_free(arg2);
 return 1;
 }
@@ -3218,34 +3218,34 @@ return 1;
 static int wrapper_reshape(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
-THCudaTensor *arg2 = NULL;
+THGPUTensor *arg2 = NULL;
 THLongStorage *arg3 = NULL;
 if(narg >= 2
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& cutorch_islongargs(L, 2)
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& gputorch_islongargs(L, 2)
 )
 {
-arg3 = cutorch_checklongargs(L, 2);
-arg1 = THCudaTensor_new();
+arg3 = gputorch_checklongargs(L, 2);
+arg1 = THGPUTensor_new();
 }
 else if(narg >= 3
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
-&& cutorch_islongargs(L, 3)
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
+&& gputorch_islongargs(L, 3)
 )
 {
 arg1_idx = 1;
-arg3 = cutorch_checklongargs(L, 3);
+arg3 = gputorch_checklongargs(L, 3);
 }
 else
-luaL_error(L, "expected arguments: [*CudaTensor*] CudaTensor (LongStorage | dim1 [dim2...])");
+luaL_error(L, "expected arguments: [*GPUTensor*] GPUTensor (LongStorage | dim1 [dim2...])");
 if(arg1_idx)
 lua_pushvalue(L, arg1_idx);
 else
-luaT_pushudata(L, arg1, "torch.CudaTensor");
-THCudaTensor_reshape(arg1,arg2,arg3);
+luaT_pushudata(L, arg1, "torch.GPUTensor");
+THGPUTensor_reshape(arg1,arg2,arg3);
 THLongStorage_free(arg3);
 return 1;
 }
@@ -3253,16 +3253,16 @@ return 1;
 static int wrapper_numel(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 long arg2 = 0;
 if(narg == 1
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
 }
 else
-luaL_error(L, "expected arguments: CudaTensor");
-arg2 = THCudaTensor_numel(arg1);
+luaL_error(L, "expected arguments: GPUTensor");
+arg2 = THGPUTensor_numel(arg1);
 lua_pushnumber(L, (lua_Number)arg2);
 return 1;
 }
@@ -3271,17 +3271,17 @@ static int wrapper_add(lua_State *L)
 {
 int narg = lua_gettop(L);
 int argset = 0;
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
-THCudaTensor *arg2 = NULL;
+THGPUTensor *arg2 = NULL;
 float arg3 = 0;
-THCudaTensor *arg4 = NULL;
+THGPUTensor *arg4 = NULL;
 int arg4_idx = 0;
-THCudaTensor *arg5 = NULL;
+THGPUTensor *arg5 = NULL;
 float arg6 = 1;
-THCudaTensor *arg7 = NULL;
+THGPUTensor *arg7 = NULL;
 if(narg == 2
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
 )
 {
@@ -3291,8 +3291,8 @@ arg3 = (float)lua_tonumber(L, 2);
 arg2 = arg1;
 }
 else if(narg == 3
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 && lua_isnumber(L, 3)
 )
 {
@@ -3301,8 +3301,8 @@ arg1_idx = 1;
 arg3 = (float)lua_tonumber(L, 3);
 }
 else if(narg == 2
-&& (arg4 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg7 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg4 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg7 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 )
 {
 argset = 2;
@@ -3310,18 +3310,18 @@ arg4_idx = 1;
 arg5 = arg4;
 }
 else if(narg == 3
-&& (arg4 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
-&& (arg7 = (THCudaTensor *)luaT_toudata(L, 3, "torch.CudaTensor"))
+&& (arg4 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
+&& (arg7 = (THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor"))
 )
 {
 argset = 2;
 arg4_idx = 1;
 }
 else if(narg == 3
-&& (arg4 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg4 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
-&& (arg7 = (THCudaTensor *)luaT_toudata(L, 3, "torch.CudaTensor"))
+&& (arg7 = (THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor"))
 )
 {
 argset = 2;
@@ -3330,10 +3330,10 @@ arg6 = (float)lua_tonumber(L, 2);
 arg5 = arg4;
 }
 else if(narg == 4
-&& (arg4 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg4 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 && lua_isnumber(L, 3)
-&& (arg7 = (THCudaTensor *)luaT_toudata(L, 4, "torch.CudaTensor"))
+&& (arg7 = (THGPUTensor *)luaT_toudata(L, 4, "torch.GPUTensor"))
 )
 {
 argset = 2;
@@ -3341,17 +3341,17 @@ arg4_idx = 1;
 arg6 = (float)lua_tonumber(L, 3);
 }
 else
-luaL_error(L, "expected arguments: *CudaTensor* [CudaTensor] float | *CudaTensor* [CudaTensor] [float] CudaTensor");
+luaL_error(L, "expected arguments: *GPUTensor* [GPUTensor] float | *GPUTensor* [GPUTensor] [float] GPUTensor");
 if(argset == 1)
 {
 lua_pushvalue(L, arg1_idx);
-THCudaTensor_add(arg1,arg2,arg3);
+THGPUTensor_add(arg1,arg2,arg3);
 return 1;
 }
 else if(argset == 2)
 {
 lua_pushvalue(L, arg4_idx);
-THCudaTensor_cadd(arg4,arg5,arg6,arg7);
+THGPUTensor_cadd(arg4,arg5,arg6,arg7);
 return 1;
 }
 return 0;
@@ -3360,12 +3360,12 @@ return 0;
 static int wrapper_mul(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
-THCudaTensor *arg2 = NULL;
+THGPUTensor *arg2 = NULL;
 float arg3 = 0;
 if(narg == 2
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
 )
 {
@@ -3374,8 +3374,8 @@ arg3 = (float)lua_tonumber(L, 2);
 arg2 = arg1;
 }
 else if(narg == 3
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 && lua_isnumber(L, 3)
 )
 {
@@ -3383,21 +3383,21 @@ arg1_idx = 1;
 arg3 = (float)lua_tonumber(L, 3);
 }
 else
-luaL_error(L, "expected arguments: *CudaTensor* [CudaTensor] float");
+luaL_error(L, "expected arguments: *GPUTensor* [GPUTensor] float");
 lua_pushvalue(L, arg1_idx);
-THCudaTensor_mul(arg1,arg2,arg3);
+THGPUTensor_mul(arg1,arg2,arg3);
 return 1;
 }
 
 static int wrapper_div(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
-THCudaTensor *arg2 = NULL;
+THGPUTensor *arg2 = NULL;
 float arg3 = 0;
 if(narg == 2
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
 )
 {
@@ -3406,8 +3406,8 @@ arg3 = (float)lua_tonumber(L, 2);
 arg2 = arg1;
 }
 else if(narg == 3
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 && lua_isnumber(L, 3)
 )
 {
@@ -3415,104 +3415,104 @@ arg1_idx = 1;
 arg3 = (float)lua_tonumber(L, 3);
 }
 else
-luaL_error(L, "expected arguments: *CudaTensor* [CudaTensor] float");
+luaL_error(L, "expected arguments: *GPUTensor* [GPUTensor] float");
 lua_pushvalue(L, arg1_idx);
-THCudaTensor_div(arg1,arg2,arg3);
+THGPUTensor_div(arg1,arg2,arg3);
 return 1;
 }
 
 static int wrapper_cmul(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
-THCudaTensor *arg2 = NULL;
-THCudaTensor *arg3 = NULL;
+THGPUTensor *arg2 = NULL;
+THGPUTensor *arg3 = NULL;
 if(narg == 2
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg3 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg3 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 arg2 = arg1;
 }
 else if(narg == 3
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
-&& (arg3 = (THCudaTensor *)luaT_toudata(L, 3, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
+&& (arg3 = (THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 }
 else
-luaL_error(L, "expected arguments: *CudaTensor* [CudaTensor] CudaTensor");
+luaL_error(L, "expected arguments: *GPUTensor* [GPUTensor] GPUTensor");
 lua_pushvalue(L, arg1_idx);
-THCudaTensor_cmul(arg1,arg2,arg3);
+THGPUTensor_cmul(arg1,arg2,arg3);
 return 1;
 }
 
 static int wrapper_cdiv(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
-THCudaTensor *arg2 = NULL;
-THCudaTensor *arg3 = NULL;
+THGPUTensor *arg2 = NULL;
+THGPUTensor *arg3 = NULL;
 if(narg == 2
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg3 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg3 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 arg2 = arg1;
 }
 else if(narg == 3
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
-&& (arg3 = (THCudaTensor *)luaT_toudata(L, 3, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
+&& (arg3 = (THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 }
 else
-luaL_error(L, "expected arguments: *CudaTensor* [CudaTensor] CudaTensor");
+luaL_error(L, "expected arguments: *GPUTensor* [GPUTensor] GPUTensor");
 lua_pushvalue(L, arg1_idx);
-THCudaTensor_cdiv(arg1,arg2,arg3);
+THGPUTensor_cdiv(arg1,arg2,arg3);
 return 1;
 }
 
 static int wrapper_addcmul(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
-THCudaTensor *arg2 = NULL;
+THGPUTensor *arg2 = NULL;
 float arg3 = 1;
-THCudaTensor *arg4 = NULL;
-THCudaTensor *arg5 = NULL;
+THGPUTensor *arg4 = NULL;
+THGPUTensor *arg5 = NULL;
 if(narg == 3
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg4 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 3, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg4 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 arg2 = arg1;
 }
 else if(narg == 4
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
-&& (arg4 = (THCudaTensor *)luaT_toudata(L, 3, "torch.CudaTensor"))
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 4, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
+&& (arg4 = (THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor"))
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 4, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 }
 else if(narg == 4
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
-&& (arg4 = (THCudaTensor *)luaT_toudata(L, 3, "torch.CudaTensor"))
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 4, "torch.CudaTensor"))
+&& (arg4 = (THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor"))
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 4, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
@@ -3520,55 +3520,55 @@ arg3 = (float)lua_tonumber(L, 2);
 arg2 = arg1;
 }
 else if(narg == 5
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 && lua_isnumber(L, 3)
-&& (arg4 = (THCudaTensor *)luaT_toudata(L, 4, "torch.CudaTensor"))
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 5, "torch.CudaTensor"))
+&& (arg4 = (THGPUTensor *)luaT_toudata(L, 4, "torch.GPUTensor"))
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 5, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 arg3 = (float)lua_tonumber(L, 3);
 }
 else
-luaL_error(L, "expected arguments: *CudaTensor* [CudaTensor] [float] CudaTensor CudaTensor");
+luaL_error(L, "expected arguments: *GPUTensor* [GPUTensor] [float] GPUTensor GPUTensor");
 lua_pushvalue(L, arg1_idx);
-THCudaTensor_addcmul(arg1,arg2,arg3,arg4,arg5);
+THGPUTensor_addcmul(arg1,arg2,arg3,arg4,arg5);
 return 1;
 }
 
 static int wrapper_addcdiv(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
-THCudaTensor *arg2 = NULL;
+THGPUTensor *arg2 = NULL;
 float arg3 = 1;
-THCudaTensor *arg4 = NULL;
-THCudaTensor *arg5 = NULL;
+THGPUTensor *arg4 = NULL;
+THGPUTensor *arg5 = NULL;
 if(narg == 3
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg4 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 3, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg4 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 arg2 = arg1;
 }
 else if(narg == 4
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
-&& (arg4 = (THCudaTensor *)luaT_toudata(L, 3, "torch.CudaTensor"))
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 4, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
+&& (arg4 = (THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor"))
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 4, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 }
 else if(narg == 4
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
-&& (arg4 = (THCudaTensor *)luaT_toudata(L, 3, "torch.CudaTensor"))
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 4, "torch.CudaTensor"))
+&& (arg4 = (THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor"))
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 4, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
@@ -3576,101 +3576,101 @@ arg3 = (float)lua_tonumber(L, 2);
 arg2 = arg1;
 }
 else if(narg == 5
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 && lua_isnumber(L, 3)
-&& (arg4 = (THCudaTensor *)luaT_toudata(L, 4, "torch.CudaTensor"))
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 5, "torch.CudaTensor"))
+&& (arg4 = (THGPUTensor *)luaT_toudata(L, 4, "torch.GPUTensor"))
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 5, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 arg3 = (float)lua_tonumber(L, 3);
 }
 else
-luaL_error(L, "expected arguments: *CudaTensor* [CudaTensor] [float] CudaTensor CudaTensor");
+luaL_error(L, "expected arguments: *GPUTensor* [GPUTensor] [float] GPUTensor GPUTensor");
 lua_pushvalue(L, arg1_idx);
-THCudaTensor_addcdiv(arg1,arg2,arg3,arg4,arg5);
+THGPUTensor_addcdiv(arg1,arg2,arg3,arg4,arg5);
 return 1;
 }
 
 static int wrapper_mv(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
 float arg2 = 1;
-THCudaTensor *arg3 = NULL;
+THGPUTensor *arg3 = NULL;
 float arg4 = 1;
-THCudaTensor *arg5 = NULL;
-THCudaTensor *arg6 = NULL;
+THGPUTensor *arg5 = NULL;
+THGPUTensor *arg6 = NULL;
 if(narg == 3
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor")) && (arg5->nDimension == 2)
-&& (arg6 = (THCudaTensor *)luaT_toudata(L, 3, "torch.CudaTensor")) && (arg6->nDimension == 1)
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor")) && (arg5->nDimension == 2)
+&& (arg6 = (THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor")) && (arg6->nDimension == 1)
 )
 {
 arg1_idx = 1;
 arg3 = arg1;
 }
 else
-luaL_error(L, "expected arguments: *CudaTensor* CudaTensor~2D CudaTensor~1D");
-THCudaTensor_zero(arg1);
+luaL_error(L, "expected arguments: *GPUTensor* GPUTensor~2D GPUTensor~1D");
+THGPUTensor_zero(arg1);
 lua_pushvalue(L, arg1_idx);
-THCudaTensor_addmv(arg1,arg2,arg3,arg4,arg5,arg6);
+THGPUTensor_addmv(arg1,arg2,arg3,arg4,arg5,arg6);
 return 1;
 }
 
 static int wrapper_mm(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
 float arg2 = 1;
-THCudaTensor *arg3 = NULL;
+THGPUTensor *arg3 = NULL;
 float arg4 = 1;
-THCudaTensor *arg5 = NULL;
-THCudaTensor *arg6 = NULL;
+THGPUTensor *arg5 = NULL;
+THGPUTensor *arg6 = NULL;
 if(narg == 3
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor")) && (arg5->nDimension == 2)
-&& (arg6 = (THCudaTensor *)luaT_toudata(L, 3, "torch.CudaTensor")) && (arg6->nDimension == 2)
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor")) && (arg5->nDimension == 2)
+&& (arg6 = (THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor")) && (arg6->nDimension == 2)
 )
 {
 arg1_idx = 1;
 arg3 = arg1;
 }
 else
-luaL_error(L, "expected arguments: *CudaTensor* CudaTensor~2D CudaTensor~2D");
-THCudaTensor_zero(arg1);
+luaL_error(L, "expected arguments: *GPUTensor* GPUTensor~2D GPUTensor~2D");
+THGPUTensor_zero(arg1);
 lua_pushvalue(L, arg1_idx);
-THCudaTensor_addmm(arg1,arg2,arg3,arg4,arg5,arg6);
+THGPUTensor_addmm(arg1,arg2,arg3,arg4,arg5,arg6);
 return 1;
 }
 
 static int wrapper_ger(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
 float arg2 = 1;
-THCudaTensor *arg3 = NULL;
+THGPUTensor *arg3 = NULL;
 float arg4 = 1;
-THCudaTensor *arg5 = NULL;
-THCudaTensor *arg6 = NULL;
+THGPUTensor *arg5 = NULL;
+THGPUTensor *arg6 = NULL;
 if(narg == 3
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor")) && (arg5->nDimension == 1)
-&& (arg6 = (THCudaTensor *)luaT_toudata(L, 3, "torch.CudaTensor")) && (arg6->nDimension == 1)
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor")) && (arg5->nDimension == 1)
+&& (arg6 = (THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor")) && (arg6->nDimension == 1)
 )
 {
 arg1_idx = 1;
 arg3 = arg1;
 }
 else
-luaL_error(L, "expected arguments: *CudaTensor* CudaTensor~1D CudaTensor~1D");
-THCudaTensor_zero(arg1);
+luaL_error(L, "expected arguments: *GPUTensor* GPUTensor~1D GPUTensor~1D");
+THGPUTensor_zero(arg1);
 lua_pushvalue(L, arg1_idx);
-THCudaTensor_addr(arg1,arg2,arg3,arg4,arg5,arg6);
+THGPUTensor_addr(arg1,arg2,arg3,arg4,arg5,arg6);
 return 1;
 }
 
@@ -3678,24 +3678,24 @@ static int wrapper_addmv(lua_State *L)
 {
 int narg = lua_gettop(L);
 int argset = 0;
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
 float arg2 = 1;
-THCudaTensor *arg3 = NULL;
+THGPUTensor *arg3 = NULL;
 float arg4 = 1;
-THCudaTensor *arg5 = NULL;
-THCudaTensor *arg6 = NULL;
-THCudaTensor *arg7 = NULL;
+THGPUTensor *arg5 = NULL;
+THGPUTensor *arg6 = NULL;
+THGPUTensor *arg7 = NULL;
 int arg7_idx = 0;
 float arg8 = 0;
-THCudaTensor *arg9 = NULL;
+THGPUTensor *arg9 = NULL;
 float arg10 = 0;
-THCudaTensor *arg11 = NULL;
-THCudaTensor *arg12 = NULL;
+THGPUTensor *arg11 = NULL;
+THGPUTensor *arg12 = NULL;
 if(narg == 3
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor")) && (arg1->nDimension == 1)
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor")) && (arg5->nDimension == 2)
-&& (arg6 = (THCudaTensor *)luaT_toudata(L, 3, "torch.CudaTensor")) && (arg6->nDimension == 1)
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor")) && (arg1->nDimension == 1)
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor")) && (arg5->nDimension == 2)
+&& (arg6 = (THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor")) && (arg6->nDimension == 1)
 )
 {
 argset = 1;
@@ -3703,20 +3703,20 @@ arg1_idx = 1;
 arg3 = arg1;
 }
 else if(narg == 4
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor")) && (arg1->nDimension == 1)
-&& (arg3 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor")) && (arg3->nDimension == 1)
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 3, "torch.CudaTensor")) && (arg5->nDimension == 2)
-&& (arg6 = (THCudaTensor *)luaT_toudata(L, 4, "torch.CudaTensor")) && (arg6->nDimension == 1)
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor")) && (arg1->nDimension == 1)
+&& (arg3 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor")) && (arg3->nDimension == 1)
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor")) && (arg5->nDimension == 2)
+&& (arg6 = (THGPUTensor *)luaT_toudata(L, 4, "torch.GPUTensor")) && (arg6->nDimension == 1)
 )
 {
 argset = 1;
 arg1_idx = 1;
 }
 else if(narg == 4
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor")) && (arg1->nDimension == 1)
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor")) && (arg1->nDimension == 1)
 && lua_isnumber(L, 2)
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 3, "torch.CudaTensor")) && (arg5->nDimension == 2)
-&& (arg6 = (THCudaTensor *)luaT_toudata(L, 4, "torch.CudaTensor")) && (arg6->nDimension == 1)
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor")) && (arg5->nDimension == 2)
+&& (arg6 = (THGPUTensor *)luaT_toudata(L, 4, "torch.GPUTensor")) && (arg6->nDimension == 1)
 )
 {
 argset = 1;
@@ -3725,11 +3725,11 @@ arg4 = (float)lua_tonumber(L, 2);
 arg3 = arg1;
 }
 else if(narg == 5
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor")) && (arg1->nDimension == 1)
-&& (arg3 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor")) && (arg3->nDimension == 1)
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor")) && (arg1->nDimension == 1)
+&& (arg3 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor")) && (arg3->nDimension == 1)
 && lua_isnumber(L, 3)
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 4, "torch.CudaTensor")) && (arg5->nDimension == 2)
-&& (arg6 = (THCudaTensor *)luaT_toudata(L, 5, "torch.CudaTensor")) && (arg6->nDimension == 1)
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 4, "torch.GPUTensor")) && (arg5->nDimension == 2)
+&& (arg6 = (THGPUTensor *)luaT_toudata(L, 5, "torch.GPUTensor")) && (arg6->nDimension == 1)
 )
 {
 argset = 1;
@@ -3737,11 +3737,11 @@ arg1_idx = 1;
 arg4 = (float)lua_tonumber(L, 3);
 }
 else if(narg == 5
-&& (arg7 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor")) && (arg7->nDimension == 1)
+&& (arg7 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor")) && (arg7->nDimension == 1)
 && lua_isnumber(L, 2)
 && lua_isnumber(L, 3)
-&& (arg11 = (THCudaTensor *)luaT_toudata(L, 4, "torch.CudaTensor")) && (arg11->nDimension == 2)
-&& (arg12 = (THCudaTensor *)luaT_toudata(L, 5, "torch.CudaTensor")) && (arg12->nDimension == 1)
+&& (arg11 = (THGPUTensor *)luaT_toudata(L, 4, "torch.GPUTensor")) && (arg11->nDimension == 2)
+&& (arg12 = (THGPUTensor *)luaT_toudata(L, 5, "torch.GPUTensor")) && (arg12->nDimension == 1)
 )
 {
 argset = 2;
@@ -3751,12 +3751,12 @@ arg10 = (float)lua_tonumber(L, 3);
 arg9 = arg7;
 }
 else if(narg == 6
-&& (arg7 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor")) && (arg7->nDimension == 1)
+&& (arg7 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor")) && (arg7->nDimension == 1)
 && lua_isnumber(L, 2)
-&& (arg9 = (THCudaTensor *)luaT_toudata(L, 3, "torch.CudaTensor")) && (arg9->nDimension == 1)
+&& (arg9 = (THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor")) && (arg9->nDimension == 1)
 && lua_isnumber(L, 4)
-&& (arg11 = (THCudaTensor *)luaT_toudata(L, 5, "torch.CudaTensor")) && (arg11->nDimension == 2)
-&& (arg12 = (THCudaTensor *)luaT_toudata(L, 6, "torch.CudaTensor")) && (arg12->nDimension == 1)
+&& (arg11 = (THGPUTensor *)luaT_toudata(L, 5, "torch.GPUTensor")) && (arg11->nDimension == 2)
+&& (arg12 = (THGPUTensor *)luaT_toudata(L, 6, "torch.GPUTensor")) && (arg12->nDimension == 1)
 )
 {
 argset = 2;
@@ -3765,17 +3765,17 @@ arg8 = (float)lua_tonumber(L, 2);
 arg10 = (float)lua_tonumber(L, 4);
 }
 else
-luaL_error(L, "expected arguments: *CudaTensor~1D* [CudaTensor~1D] [float] CudaTensor~2D CudaTensor~1D | *CudaTensor~1D* float [CudaTensor~1D] float CudaTensor~2D CudaTensor~1D");
+luaL_error(L, "expected arguments: *GPUTensor~1D* [GPUTensor~1D] [float] GPUTensor~2D GPUTensor~1D | *GPUTensor~1D* float [GPUTensor~1D] float GPUTensor~2D GPUTensor~1D");
 if(argset == 1)
 {
 lua_pushvalue(L, arg1_idx);
-THCudaTensor_addmv(arg1,arg2,arg3,arg4,arg5,arg6);
+THGPUTensor_addmv(arg1,arg2,arg3,arg4,arg5,arg6);
 return 1;
 }
 else if(argset == 2)
 {
 lua_pushvalue(L, arg7_idx);
-THCudaTensor_addmv(arg7,arg8,arg9,arg10,arg11,arg12);
+THGPUTensor_addmv(arg7,arg8,arg9,arg10,arg11,arg12);
 return 1;
 }
 return 0;
@@ -3785,24 +3785,24 @@ static int wrapper_addmm(lua_State *L)
 {
 int narg = lua_gettop(L);
 int argset = 0;
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
 float arg2 = 1;
-THCudaTensor *arg3 = NULL;
+THGPUTensor *arg3 = NULL;
 float arg4 = 1;
-THCudaTensor *arg5 = NULL;
-THCudaTensor *arg6 = NULL;
-THCudaTensor *arg7 = NULL;
+THGPUTensor *arg5 = NULL;
+THGPUTensor *arg6 = NULL;
+THGPUTensor *arg7 = NULL;
 int arg7_idx = 0;
 float arg8 = 0;
-THCudaTensor *arg9 = NULL;
+THGPUTensor *arg9 = NULL;
 float arg10 = 0;
-THCudaTensor *arg11 = NULL;
-THCudaTensor *arg12 = NULL;
+THGPUTensor *arg11 = NULL;
+THGPUTensor *arg12 = NULL;
 if(narg == 3
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor")) && (arg1->nDimension == 2)
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor")) && (arg5->nDimension == 2)
-&& (arg6 = (THCudaTensor *)luaT_toudata(L, 3, "torch.CudaTensor")) && (arg6->nDimension == 2)
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor")) && (arg1->nDimension == 2)
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor")) && (arg5->nDimension == 2)
+&& (arg6 = (THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor")) && (arg6->nDimension == 2)
 )
 {
 argset = 1;
@@ -3810,20 +3810,20 @@ arg1_idx = 1;
 arg3 = arg1;
 }
 else if(narg == 4
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor")) && (arg1->nDimension == 2)
-&& (arg3 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor")) && (arg3->nDimension == 2)
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 3, "torch.CudaTensor")) && (arg5->nDimension == 2)
-&& (arg6 = (THCudaTensor *)luaT_toudata(L, 4, "torch.CudaTensor")) && (arg6->nDimension == 2)
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor")) && (arg1->nDimension == 2)
+&& (arg3 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor")) && (arg3->nDimension == 2)
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor")) && (arg5->nDimension == 2)
+&& (arg6 = (THGPUTensor *)luaT_toudata(L, 4, "torch.GPUTensor")) && (arg6->nDimension == 2)
 )
 {
 argset = 1;
 arg1_idx = 1;
 }
 else if(narg == 4
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor")) && (arg1->nDimension == 2)
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor")) && (arg1->nDimension == 2)
 && lua_isnumber(L, 2)
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 3, "torch.CudaTensor")) && (arg5->nDimension == 2)
-&& (arg6 = (THCudaTensor *)luaT_toudata(L, 4, "torch.CudaTensor")) && (arg6->nDimension == 2)
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor")) && (arg5->nDimension == 2)
+&& (arg6 = (THGPUTensor *)luaT_toudata(L, 4, "torch.GPUTensor")) && (arg6->nDimension == 2)
 )
 {
 argset = 1;
@@ -3832,11 +3832,11 @@ arg4 = (float)lua_tonumber(L, 2);
 arg3 = arg1;
 }
 else if(narg == 5
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor")) && (arg1->nDimension == 2)
-&& (arg3 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor")) && (arg3->nDimension == 2)
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor")) && (arg1->nDimension == 2)
+&& (arg3 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor")) && (arg3->nDimension == 2)
 && lua_isnumber(L, 3)
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 4, "torch.CudaTensor")) && (arg5->nDimension == 2)
-&& (arg6 = (THCudaTensor *)luaT_toudata(L, 5, "torch.CudaTensor")) && (arg6->nDimension == 2)
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 4, "torch.GPUTensor")) && (arg5->nDimension == 2)
+&& (arg6 = (THGPUTensor *)luaT_toudata(L, 5, "torch.GPUTensor")) && (arg6->nDimension == 2)
 )
 {
 argset = 1;
@@ -3844,11 +3844,11 @@ arg1_idx = 1;
 arg4 = (float)lua_tonumber(L, 3);
 }
 else if(narg == 5
-&& (arg7 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor")) && (arg7->nDimension == 2)
+&& (arg7 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor")) && (arg7->nDimension == 2)
 && lua_isnumber(L, 2)
 && lua_isnumber(L, 3)
-&& (arg11 = (THCudaTensor *)luaT_toudata(L, 4, "torch.CudaTensor")) && (arg11->nDimension == 2)
-&& (arg12 = (THCudaTensor *)luaT_toudata(L, 5, "torch.CudaTensor")) && (arg12->nDimension == 2)
+&& (arg11 = (THGPUTensor *)luaT_toudata(L, 4, "torch.GPUTensor")) && (arg11->nDimension == 2)
+&& (arg12 = (THGPUTensor *)luaT_toudata(L, 5, "torch.GPUTensor")) && (arg12->nDimension == 2)
 )
 {
 argset = 2;
@@ -3858,12 +3858,12 @@ arg10 = (float)lua_tonumber(L, 3);
 arg9 = arg7;
 }
 else if(narg == 6
-&& (arg7 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor")) && (arg7->nDimension == 2)
+&& (arg7 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor")) && (arg7->nDimension == 2)
 && lua_isnumber(L, 2)
-&& (arg9 = (THCudaTensor *)luaT_toudata(L, 3, "torch.CudaTensor")) && (arg9->nDimension == 2)
+&& (arg9 = (THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor")) && (arg9->nDimension == 2)
 && lua_isnumber(L, 4)
-&& (arg11 = (THCudaTensor *)luaT_toudata(L, 5, "torch.CudaTensor")) && (arg11->nDimension == 2)
-&& (arg12 = (THCudaTensor *)luaT_toudata(L, 6, "torch.CudaTensor")) && (arg12->nDimension == 2)
+&& (arg11 = (THGPUTensor *)luaT_toudata(L, 5, "torch.GPUTensor")) && (arg11->nDimension == 2)
+&& (arg12 = (THGPUTensor *)luaT_toudata(L, 6, "torch.GPUTensor")) && (arg12->nDimension == 2)
 )
 {
 argset = 2;
@@ -3872,17 +3872,17 @@ arg8 = (float)lua_tonumber(L, 2);
 arg10 = (float)lua_tonumber(L, 4);
 }
 else
-luaL_error(L, "expected arguments: *CudaTensor~2D* [CudaTensor~2D] [float] CudaTensor~2D CudaTensor~2D | *CudaTensor~2D* float [CudaTensor~2D] float CudaTensor~2D CudaTensor~2D");
+luaL_error(L, "expected arguments: *GPUTensor~2D* [GPUTensor~2D] [float] GPUTensor~2D GPUTensor~2D | *GPUTensor~2D* float [GPUTensor~2D] float GPUTensor~2D GPUTensor~2D");
 if(argset == 1)
 {
 lua_pushvalue(L, arg1_idx);
-THCudaTensor_addmm(arg1,arg2,arg3,arg4,arg5,arg6);
+THGPUTensor_addmm(arg1,arg2,arg3,arg4,arg5,arg6);
 return 1;
 }
 else if(argset == 2)
 {
 lua_pushvalue(L, arg7_idx);
-THCudaTensor_addmm(arg7,arg8,arg9,arg10,arg11,arg12);
+THGPUTensor_addmm(arg7,arg8,arg9,arg10,arg11,arg12);
 return 1;
 }
 return 0;
@@ -3892,24 +3892,24 @@ static int wrapper_addr(lua_State *L)
 {
 int narg = lua_gettop(L);
 int argset = 0;
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
 float arg2 = 1;
-THCudaTensor *arg3 = NULL;
+THGPUTensor *arg3 = NULL;
 float arg4 = 1;
-THCudaTensor *arg5 = NULL;
-THCudaTensor *arg6 = NULL;
-THCudaTensor *arg7 = NULL;
+THGPUTensor *arg5 = NULL;
+THGPUTensor *arg6 = NULL;
+THGPUTensor *arg7 = NULL;
 int arg7_idx = 0;
 float arg8 = 0;
-THCudaTensor *arg9 = NULL;
+THGPUTensor *arg9 = NULL;
 float arg10 = 0;
-THCudaTensor *arg11 = NULL;
-THCudaTensor *arg12 = NULL;
+THGPUTensor *arg11 = NULL;
+THGPUTensor *arg12 = NULL;
 if(narg == 3
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor")) && (arg1->nDimension == 2)
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor")) && (arg5->nDimension == 1)
-&& (arg6 = (THCudaTensor *)luaT_toudata(L, 3, "torch.CudaTensor")) && (arg6->nDimension == 1)
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor")) && (arg1->nDimension == 2)
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor")) && (arg5->nDimension == 1)
+&& (arg6 = (THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor")) && (arg6->nDimension == 1)
 )
 {
 argset = 1;
@@ -3917,20 +3917,20 @@ arg1_idx = 1;
 arg3 = arg1;
 }
 else if(narg == 4
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor")) && (arg1->nDimension == 2)
-&& (arg3 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor")) && (arg3->nDimension == 2)
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 3, "torch.CudaTensor")) && (arg5->nDimension == 1)
-&& (arg6 = (THCudaTensor *)luaT_toudata(L, 4, "torch.CudaTensor")) && (arg6->nDimension == 1)
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor")) && (arg1->nDimension == 2)
+&& (arg3 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor")) && (arg3->nDimension == 2)
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor")) && (arg5->nDimension == 1)
+&& (arg6 = (THGPUTensor *)luaT_toudata(L, 4, "torch.GPUTensor")) && (arg6->nDimension == 1)
 )
 {
 argset = 1;
 arg1_idx = 1;
 }
 else if(narg == 4
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor")) && (arg1->nDimension == 2)
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor")) && (arg1->nDimension == 2)
 && lua_isnumber(L, 2)
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 3, "torch.CudaTensor")) && (arg5->nDimension == 1)
-&& (arg6 = (THCudaTensor *)luaT_toudata(L, 4, "torch.CudaTensor")) && (arg6->nDimension == 1)
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor")) && (arg5->nDimension == 1)
+&& (arg6 = (THGPUTensor *)luaT_toudata(L, 4, "torch.GPUTensor")) && (arg6->nDimension == 1)
 )
 {
 argset = 1;
@@ -3939,11 +3939,11 @@ arg4 = (float)lua_tonumber(L, 2);
 arg3 = arg1;
 }
 else if(narg == 5
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor")) && (arg1->nDimension == 2)
-&& (arg3 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor")) && (arg3->nDimension == 2)
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor")) && (arg1->nDimension == 2)
+&& (arg3 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor")) && (arg3->nDimension == 2)
 && lua_isnumber(L, 3)
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 4, "torch.CudaTensor")) && (arg5->nDimension == 1)
-&& (arg6 = (THCudaTensor *)luaT_toudata(L, 5, "torch.CudaTensor")) && (arg6->nDimension == 1)
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 4, "torch.GPUTensor")) && (arg5->nDimension == 1)
+&& (arg6 = (THGPUTensor *)luaT_toudata(L, 5, "torch.GPUTensor")) && (arg6->nDimension == 1)
 )
 {
 argset = 1;
@@ -3951,11 +3951,11 @@ arg1_idx = 1;
 arg4 = (float)lua_tonumber(L, 3);
 }
 else if(narg == 5
-&& (arg7 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor")) && (arg7->nDimension == 2)
+&& (arg7 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor")) && (arg7->nDimension == 2)
 && lua_isnumber(L, 2)
 && lua_isnumber(L, 3)
-&& (arg11 = (THCudaTensor *)luaT_toudata(L, 4, "torch.CudaTensor")) && (arg11->nDimension == 1)
-&& (arg12 = (THCudaTensor *)luaT_toudata(L, 5, "torch.CudaTensor")) && (arg12->nDimension == 1)
+&& (arg11 = (THGPUTensor *)luaT_toudata(L, 4, "torch.GPUTensor")) && (arg11->nDimension == 1)
+&& (arg12 = (THGPUTensor *)luaT_toudata(L, 5, "torch.GPUTensor")) && (arg12->nDimension == 1)
 )
 {
 argset = 2;
@@ -3965,12 +3965,12 @@ arg10 = (float)lua_tonumber(L, 3);
 arg9 = arg7;
 }
 else if(narg == 6
-&& (arg7 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor")) && (arg7->nDimension == 2)
+&& (arg7 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor")) && (arg7->nDimension == 2)
 && lua_isnumber(L, 2)
-&& (arg9 = (THCudaTensor *)luaT_toudata(L, 3, "torch.CudaTensor")) && (arg9->nDimension == 2)
+&& (arg9 = (THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor")) && (arg9->nDimension == 2)
 && lua_isnumber(L, 4)
-&& (arg11 = (THCudaTensor *)luaT_toudata(L, 5, "torch.CudaTensor")) && (arg11->nDimension == 1)
-&& (arg12 = (THCudaTensor *)luaT_toudata(L, 6, "torch.CudaTensor")) && (arg12->nDimension == 1)
+&& (arg11 = (THGPUTensor *)luaT_toudata(L, 5, "torch.GPUTensor")) && (arg11->nDimension == 1)
+&& (arg12 = (THGPUTensor *)luaT_toudata(L, 6, "torch.GPUTensor")) && (arg12->nDimension == 1)
 )
 {
 argset = 2;
@@ -3979,17 +3979,17 @@ arg8 = (float)lua_tonumber(L, 2);
 arg10 = (float)lua_tonumber(L, 4);
 }
 else
-luaL_error(L, "expected arguments: *CudaTensor~2D* [CudaTensor~2D] [float] CudaTensor~1D CudaTensor~1D | *CudaTensor~2D* float [CudaTensor~2D] float CudaTensor~1D CudaTensor~1D");
+luaL_error(L, "expected arguments: *GPUTensor~2D* [GPUTensor~2D] [float] GPUTensor~1D GPUTensor~1D | *GPUTensor~2D* float [GPUTensor~2D] float GPUTensor~1D GPUTensor~1D");
 if(argset == 1)
 {
 lua_pushvalue(L, arg1_idx);
-THCudaTensor_addr(arg1,arg2,arg3,arg4,arg5,arg6);
+THGPUTensor_addr(arg1,arg2,arg3,arg4,arg5,arg6);
 return 1;
 }
 else if(argset == 2)
 {
 lua_pushvalue(L, arg7_idx);
-THCudaTensor_addr(arg7,arg8,arg9,arg10,arg11,arg12);
+THGPUTensor_addr(arg7,arg8,arg9,arg10,arg11,arg12);
 return 1;
 }
 return 0;
@@ -3998,18 +3998,18 @@ return 0;
 static int wrapper_dot(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
-THCudaTensor *arg2 = NULL;
+THGPUTensor *arg1 = NULL;
+THGPUTensor *arg2 = NULL;
 float arg3 = 0;
 if(narg == 2
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 )
 {
 }
 else
-luaL_error(L, "expected arguments: CudaTensor CudaTensor");
-arg3 = THCudaTensor_dot(arg1,arg2);
+luaL_error(L, "expected arguments: GPUTensor GPUTensor");
+arg3 = THGPUTensor_dot(arg1,arg2);
 lua_pushnumber(L, (lua_Number)arg3);
 return 1;
 }
@@ -4018,30 +4018,30 @@ static int wrapper_sum(lua_State *L)
 {
 int narg = lua_gettop(L);
 int argset = 0;
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 float arg2 = 0;
-THCudaTensor *arg3 = NULL;
+THGPUTensor *arg3 = NULL;
 int arg3_idx = 0;
-THCudaTensor *arg4 = NULL;
+THGPUTensor *arg4 = NULL;
 long arg5 = 0;
 if(narg == 1
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
 argset = 1;
 }
 else if(narg == 2
-&& (arg4 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg4 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
 )
 {
 argset = 2;
 arg5 = (long)lua_tonumber(L, 2)-1;
-arg3 = THCudaTensor_new();
+arg3 = THGPUTensor_new();
 }
 else if(narg == 3
-&& (arg3 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg4 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg3 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg4 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 && lua_isnumber(L, 3)
 )
 {
@@ -4050,10 +4050,10 @@ arg3_idx = 1;
 arg5 = (long)lua_tonumber(L, 3)-1;
 }
 else
-luaL_error(L, "expected arguments: CudaTensor | [*CudaTensor*] CudaTensor index");
+luaL_error(L, "expected arguments: GPUTensor | [*GPUTensor*] GPUTensor index");
 if(argset == 1)
 {
-arg2 = THCudaTensor_sumall(arg1);
+arg2 = THGPUTensor_sumall(arg1);
 lua_pushnumber(L, (lua_Number)arg2);
 return 1;
 }
@@ -4062,8 +4062,8 @@ else if(argset == 2)
 if(arg3_idx)
 lua_pushvalue(L, arg3_idx);
 else
-luaT_pushudata(L, arg3, "torch.CudaTensor");
-THCudaTensor_sum(arg3,arg4,arg5);
+luaT_pushudata(L, arg3, "torch.GPUTensor");
+THGPUTensor_sum(arg3,arg4,arg5);
 return 1;
 }
 return 0;
@@ -4073,30 +4073,30 @@ static int wrapper_prod(lua_State *L)
 {
 int narg = lua_gettop(L);
 int argset = 0;
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 float arg2 = 0;
-THCudaTensor *arg3 = NULL;
+THGPUTensor *arg3 = NULL;
 int arg3_idx = 0;
-THCudaTensor *arg4 = NULL;
+THGPUTensor *arg4 = NULL;
 long arg5 = 0;
 if(narg == 1
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
 argset = 1;
 }
 else if(narg == 2
-&& (arg4 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg4 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
 )
 {
 argset = 2;
 arg5 = (long)lua_tonumber(L, 2)-1;
-arg3 = THCudaTensor_new();
+arg3 = THGPUTensor_new();
 }
 else if(narg == 3
-&& (arg3 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg4 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg3 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg4 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 && lua_isnumber(L, 3)
 )
 {
@@ -4105,10 +4105,10 @@ arg3_idx = 1;
 arg5 = (long)lua_tonumber(L, 3)-1;
 }
 else
-luaL_error(L, "expected arguments: CudaTensor | [*CudaTensor*] CudaTensor index");
+luaL_error(L, "expected arguments: GPUTensor | [*GPUTensor*] GPUTensor index");
 if(argset == 1)
 {
-arg2 = THCudaTensor_prodall(arg1);
+arg2 = THGPUTensor_prodall(arg1);
 lua_pushnumber(L, (lua_Number)arg2);
 return 1;
 }
@@ -4117,8 +4117,8 @@ else if(argset == 2)
 if(arg3_idx)
 lua_pushvalue(L, arg3_idx);
 else
-luaT_pushudata(L, arg3, "torch.CudaTensor");
-THCudaTensor_prod(arg3,arg4,arg5);
+luaT_pushudata(L, arg3, "torch.GPUTensor");
+THGPUTensor_prod(arg3,arg4,arg5);
 return 1;
 }
 return 0;
@@ -4128,56 +4128,56 @@ static int wrapper_min(lua_State *L)
 {
 int narg = lua_gettop(L);
 int argset = 0;
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 float arg2 = 0;
-THCudaTensor *arg3 = NULL;
+THGPUTensor *arg3 = NULL;
 int arg3_idx = 0;
-THCudaTensor *arg4 = NULL;
+THGPUTensor *arg4 = NULL;
 int arg4_idx = 0;
-THCudaTensor *arg5 = NULL;
+THGPUTensor *arg5 = NULL;
 long arg6 = 0;
 if(narg == 1
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
 argset = 1;
 }
 else if(narg == 2
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
 )
 {
 argset = 2;
 arg6 = (long)lua_tonumber(L, 2)-1;
-arg3 = THCudaTensor_new();
-arg4 = THCudaTensor_new();
+arg3 = THGPUTensor_new();
+arg4 = THGPUTensor_new();
 }
 else if(narg == 3
-&& (arg3 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg3 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 && lua_isnumber(L, 3)
 )
 {
 argset = 2;
 arg3_idx = 1;
 arg6 = (long)lua_tonumber(L, 3)-1;
-arg4 = THCudaTensor_new();
+arg4 = THGPUTensor_new();
 }
 else if(narg == 3
-&& (arg4 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg4 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 && lua_isnumber(L, 3)
 )
 {
 argset = 2;
 arg4_idx = 1;
 arg6 = (long)lua_tonumber(L, 3)-1;
-arg3 = THCudaTensor_new();
+arg3 = THGPUTensor_new();
 }
 else if(narg == 4
-&& (arg3 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg4 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 3, "torch.CudaTensor"))
+&& (arg3 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg4 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor"))
 && lua_isnumber(L, 4)
 )
 {
@@ -4187,10 +4187,10 @@ arg4_idx = 2;
 arg6 = (long)lua_tonumber(L, 4)-1;
 }
 else
-luaL_error(L, "expected arguments: CudaTensor | [*CudaTensor*] [*CudaTensor*] CudaTensor index");
+luaL_error(L, "expected arguments: GPUTensor | [*GPUTensor*] [*GPUTensor*] GPUTensor index");
 if(argset == 1)
 {
-arg2 = THCudaTensor_minall(arg1);
+arg2 = THGPUTensor_minall(arg1);
 lua_pushnumber(L, (lua_Number)arg2);
 return 1;
 }
@@ -4199,12 +4199,12 @@ else if(argset == 2)
 if(arg3_idx)
 lua_pushvalue(L, arg3_idx);
 else
-luaT_pushudata(L, arg3, "torch.CudaTensor");
+luaT_pushudata(L, arg3, "torch.GPUTensor");
 if(arg4_idx)
 lua_pushvalue(L, arg4_idx);
 else
-luaT_pushudata(L, arg4, "torch.CudaTensor");
-THCudaTensor_min(arg3,arg4,arg5,arg6);
+luaT_pushudata(L, arg4, "torch.GPUTensor");
+THGPUTensor_min(arg3,arg4,arg5,arg6);
 return 2;
 }
 return 0;
@@ -4214,56 +4214,56 @@ static int wrapper_max(lua_State *L)
 {
 int narg = lua_gettop(L);
 int argset = 0;
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 float arg2 = 0;
-THCudaTensor *arg3 = NULL;
+THGPUTensor *arg3 = NULL;
 int arg3_idx = 0;
-THCudaTensor *arg4 = NULL;
+THGPUTensor *arg4 = NULL;
 int arg4_idx = 0;
-THCudaTensor *arg5 = NULL;
+THGPUTensor *arg5 = NULL;
 long arg6 = 0;
 if(narg == 1
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
 argset = 1;
 }
 else if(narg == 2
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
 )
 {
 argset = 2;
 arg6 = (long)lua_tonumber(L, 2)-1;
-arg3 = THCudaTensor_new();
-arg4 = THCudaTensor_new();
+arg3 = THGPUTensor_new();
+arg4 = THGPUTensor_new();
 }
 else if(narg == 3
-&& (arg3 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg3 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 && lua_isnumber(L, 3)
 )
 {
 argset = 2;
 arg3_idx = 1;
 arg6 = (long)lua_tonumber(L, 3)-1;
-arg4 = THCudaTensor_new();
+arg4 = THGPUTensor_new();
 }
 else if(narg == 3
-&& (arg4 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg4 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 && lua_isnumber(L, 3)
 )
 {
 argset = 2;
 arg4_idx = 1;
 arg6 = (long)lua_tonumber(L, 3)-1;
-arg3 = THCudaTensor_new();
+arg3 = THGPUTensor_new();
 }
 else if(narg == 4
-&& (arg3 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg4 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 3, "torch.CudaTensor"))
+&& (arg3 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg4 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor"))
 && lua_isnumber(L, 4)
 )
 {
@@ -4273,10 +4273,10 @@ arg4_idx = 2;
 arg6 = (long)lua_tonumber(L, 4)-1;
 }
 else
-luaL_error(L, "expected arguments: CudaTensor | [*CudaTensor*] [*CudaTensor*] CudaTensor index");
+luaL_error(L, "expected arguments: GPUTensor | [*GPUTensor*] [*GPUTensor*] GPUTensor index");
 if(argset == 1)
 {
-arg2 = THCudaTensor_maxall(arg1);
+arg2 = THGPUTensor_maxall(arg1);
 lua_pushnumber(L, (lua_Number)arg2);
 return 1;
 }
@@ -4285,12 +4285,12 @@ else if(argset == 2)
 if(arg3_idx)
 lua_pushvalue(L, arg3_idx);
 else
-luaT_pushudata(L, arg3, "torch.CudaTensor");
+luaT_pushudata(L, arg3, "torch.GPUTensor");
 if(arg4_idx)
 lua_pushvalue(L, arg4_idx);
 else
-luaT_pushudata(L, arg4, "torch.CudaTensor");
-THCudaTensor_max(arg3,arg4,arg5,arg6);
+luaT_pushudata(L, arg4, "torch.GPUTensor");
+THGPUTensor_max(arg3,arg4,arg5,arg6);
 return 2;
 }
 return 0;
@@ -4299,528 +4299,528 @@ return 0;
 static int wrapper_log(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
-THCudaTensor *arg2 = NULL;
+THGPUTensor *arg2 = NULL;
 if(narg == 1
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 arg2 = arg1;
 }
 else if(narg == 2
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 }
 else
-luaL_error(L, "expected arguments: *CudaTensor* [CudaTensor]");
+luaL_error(L, "expected arguments: *GPUTensor* [GPUTensor]");
 lua_pushvalue(L, arg1_idx);
-THCudaTensor_log(arg1,arg2);
+THGPUTensor_log(arg1,arg2);
 return 1;
 }
 
 static int wrapper_log1p(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
-THCudaTensor *arg2 = NULL;
+THGPUTensor *arg2 = NULL;
 if(narg == 1
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 arg2 = arg1;
 }
 else if(narg == 2
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 }
 else
-luaL_error(L, "expected arguments: *CudaTensor* [CudaTensor]");
+luaL_error(L, "expected arguments: *GPUTensor* [GPUTensor]");
 lua_pushvalue(L, arg1_idx);
-THCudaTensor_log1p(arg1,arg2);
+THGPUTensor_log1p(arg1,arg2);
 return 1;
 }
 
 static int wrapper_exp(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
-THCudaTensor *arg2 = NULL;
+THGPUTensor *arg2 = NULL;
 if(narg == 1
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 arg2 = arg1;
 }
 else if(narg == 2
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 }
 else
-luaL_error(L, "expected arguments: *CudaTensor* [CudaTensor]");
+luaL_error(L, "expected arguments: *GPUTensor* [GPUTensor]");
 lua_pushvalue(L, arg1_idx);
-THCudaTensor_exp(arg1,arg2);
+THGPUTensor_exp(arg1,arg2);
 return 1;
 }
 
 static int wrapper_cos(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
-THCudaTensor *arg2 = NULL;
+THGPUTensor *arg2 = NULL;
 if(narg == 1
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 arg2 = arg1;
 }
 else if(narg == 2
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 }
 else
-luaL_error(L, "expected arguments: *CudaTensor* [CudaTensor]");
+luaL_error(L, "expected arguments: *GPUTensor* [GPUTensor]");
 lua_pushvalue(L, arg1_idx);
-THCudaTensor_cos(arg1,arg2);
+THGPUTensor_cos(arg1,arg2);
 return 1;
 }
 
 static int wrapper_acos(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
-THCudaTensor *arg2 = NULL;
+THGPUTensor *arg2 = NULL;
 if(narg == 1
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 arg2 = arg1;
 }
 else if(narg == 2
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 }
 else
-luaL_error(L, "expected arguments: *CudaTensor* [CudaTensor]");
+luaL_error(L, "expected arguments: *GPUTensor* [GPUTensor]");
 lua_pushvalue(L, arg1_idx);
-THCudaTensor_acos(arg1,arg2);
+THGPUTensor_acos(arg1,arg2);
 return 1;
 }
 
 static int wrapper_cosh(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
-THCudaTensor *arg2 = NULL;
+THGPUTensor *arg2 = NULL;
 if(narg == 1
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 arg2 = arg1;
 }
 else if(narg == 2
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 }
 else
-luaL_error(L, "expected arguments: *CudaTensor* [CudaTensor]");
+luaL_error(L, "expected arguments: *GPUTensor* [GPUTensor]");
 lua_pushvalue(L, arg1_idx);
-THCudaTensor_cosh(arg1,arg2);
+THGPUTensor_cosh(arg1,arg2);
 return 1;
 }
 
 static int wrapper_sin(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
-THCudaTensor *arg2 = NULL;
+THGPUTensor *arg2 = NULL;
 if(narg == 1
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 arg2 = arg1;
 }
 else if(narg == 2
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 }
 else
-luaL_error(L, "expected arguments: *CudaTensor* [CudaTensor]");
+luaL_error(L, "expected arguments: *GPUTensor* [GPUTensor]");
 lua_pushvalue(L, arg1_idx);
-THCudaTensor_sin(arg1,arg2);
+THGPUTensor_sin(arg1,arg2);
 return 1;
 }
 
 static int wrapper_asin(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
-THCudaTensor *arg2 = NULL;
+THGPUTensor *arg2 = NULL;
 if(narg == 1
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 arg2 = arg1;
 }
 else if(narg == 2
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 }
 else
-luaL_error(L, "expected arguments: *CudaTensor* [CudaTensor]");
+luaL_error(L, "expected arguments: *GPUTensor* [GPUTensor]");
 lua_pushvalue(L, arg1_idx);
-THCudaTensor_asin(arg1,arg2);
+THGPUTensor_asin(arg1,arg2);
 return 1;
 }
 
 static int wrapper_sinh(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
-THCudaTensor *arg2 = NULL;
+THGPUTensor *arg2 = NULL;
 if(narg == 1
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 arg2 = arg1;
 }
 else if(narg == 2
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 }
 else
-luaL_error(L, "expected arguments: *CudaTensor* [CudaTensor]");
+luaL_error(L, "expected arguments: *GPUTensor* [GPUTensor]");
 lua_pushvalue(L, arg1_idx);
-THCudaTensor_sinh(arg1,arg2);
+THGPUTensor_sinh(arg1,arg2);
 return 1;
 }
 
 static int wrapper_tan(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
-THCudaTensor *arg2 = NULL;
+THGPUTensor *arg2 = NULL;
 if(narg == 1
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 arg2 = arg1;
 }
 else if(narg == 2
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 }
 else
-luaL_error(L, "expected arguments: *CudaTensor* [CudaTensor]");
+luaL_error(L, "expected arguments: *GPUTensor* [GPUTensor]");
 lua_pushvalue(L, arg1_idx);
-THCudaTensor_tan(arg1,arg2);
+THGPUTensor_tan(arg1,arg2);
 return 1;
 }
 
 static int wrapper_atan(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
-THCudaTensor *arg2 = NULL;
+THGPUTensor *arg2 = NULL;
 if(narg == 1
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 arg2 = arg1;
 }
 else if(narg == 2
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 }
 else
-luaL_error(L, "expected arguments: *CudaTensor* [CudaTensor]");
+luaL_error(L, "expected arguments: *GPUTensor* [GPUTensor]");
 lua_pushvalue(L, arg1_idx);
-THCudaTensor_atan(arg1,arg2);
+THGPUTensor_atan(arg1,arg2);
 return 1;
 }
 
 static int wrapper_tanh(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
-THCudaTensor *arg2 = NULL;
+THGPUTensor *arg2 = NULL;
 if(narg == 1
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 arg2 = arg1;
 }
 else if(narg == 2
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 }
 else
-luaL_error(L, "expected arguments: *CudaTensor* [CudaTensor]");
+luaL_error(L, "expected arguments: *GPUTensor* [GPUTensor]");
 lua_pushvalue(L, arg1_idx);
-THCudaTensor_tanh(arg1,arg2);
+THGPUTensor_tanh(arg1,arg2);
 return 1;
 }
 
 static int wrapper_sqrt(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
-THCudaTensor *arg2 = NULL;
+THGPUTensor *arg2 = NULL;
 if(narg == 1
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 arg2 = arg1;
 }
 else if(narg == 2
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 }
 else
-luaL_error(L, "expected arguments: *CudaTensor* [CudaTensor]");
+luaL_error(L, "expected arguments: *GPUTensor* [GPUTensor]");
 lua_pushvalue(L, arg1_idx);
-THCudaTensor_sqrt(arg1,arg2);
+THGPUTensor_sqrt(arg1,arg2);
 return 1;
 }
 
 static int wrapper_ceil(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
-THCudaTensor *arg2 = NULL;
+THGPUTensor *arg2 = NULL;
 if(narg == 1
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 arg2 = arg1;
 }
 else if(narg == 2
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 }
 else
-luaL_error(L, "expected arguments: *CudaTensor* [CudaTensor]");
+luaL_error(L, "expected arguments: *GPUTensor* [GPUTensor]");
 lua_pushvalue(L, arg1_idx);
-THCudaTensor_ceil(arg1,arg2);
+THGPUTensor_ceil(arg1,arg2);
 return 1;
 }
 
 static int wrapper_floor(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
-THCudaTensor *arg2 = NULL;
+THGPUTensor *arg2 = NULL;
 if(narg == 1
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 arg2 = arg1;
 }
 else if(narg == 2
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 }
 else
-luaL_error(L, "expected arguments: *CudaTensor* [CudaTensor]");
+luaL_error(L, "expected arguments: *GPUTensor* [GPUTensor]");
 lua_pushvalue(L, arg1_idx);
-THCudaTensor_floor(arg1,arg2);
+THGPUTensor_floor(arg1,arg2);
 return 1;
 }
 
 static int wrapper_abs(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
-THCudaTensor *arg2 = NULL;
+THGPUTensor *arg2 = NULL;
 if(narg == 1
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 arg2 = arg1;
 }
 else if(narg == 2
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 }
 else
-luaL_error(L, "expected arguments: *CudaTensor* [CudaTensor]");
+luaL_error(L, "expected arguments: *GPUTensor* [GPUTensor]");
 lua_pushvalue(L, arg1_idx);
-THCudaTensor_abs(arg1,arg2);
+THGPUTensor_abs(arg1,arg2);
 return 1;
 }
 
 static int wrapper_sign(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
-THCudaTensor *arg2 = NULL;
+THGPUTensor *arg2 = NULL;
 if(narg == 1
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 arg2 = arg1;
 }
 else if(narg == 2
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 }
 else
-luaL_error(L, "expected arguments: *CudaTensor* [CudaTensor]");
+luaL_error(L, "expected arguments: *GPUTensor* [GPUTensor]");
 lua_pushvalue(L, arg1_idx);
-THCudaTensor_sign(arg1,arg2);
+THGPUTensor_sign(arg1,arg2);
 return 1;
 }
 
 static int wrapper_round(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
-THCudaTensor *arg2 = NULL;
+THGPUTensor *arg2 = NULL;
 if(narg == 1
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 arg2 = arg1;
 }
 else if(narg == 2
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 }
 else
-luaL_error(L, "expected arguments: *CudaTensor* [CudaTensor]");
+luaL_error(L, "expected arguments: *GPUTensor* [GPUTensor]");
 lua_pushvalue(L, arg1_idx);
-THCudaTensor_round(arg1,arg2);
+THGPUTensor_round(arg1,arg2);
 return 1;
 }
 
 static int wrapper_atan2(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
-THCudaTensor *arg2 = NULL;
-THCudaTensor *arg3 = NULL;
+THGPUTensor *arg2 = NULL;
+THGPUTensor *arg3 = NULL;
 if(narg == 2
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg3 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg3 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 arg2 = arg1;
 }
 else if(narg == 3
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
-&& (arg3 = (THCudaTensor *)luaT_toudata(L, 3, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
+&& (arg3 = (THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 }
 else
-luaL_error(L, "expected arguments: *CudaTensor* [CudaTensor] CudaTensor");
+luaL_error(L, "expected arguments: *GPUTensor* [GPUTensor] GPUTensor");
 lua_pushvalue(L, arg1_idx);
-THCudaTensor_atan2(arg1,arg2,arg3);
+THGPUTensor_atan2(arg1,arg2,arg3);
 return 1;
 }
 
 static int wrapper_pow(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
-THCudaTensor *arg2 = NULL;
+THGPUTensor *arg2 = NULL;
 float arg3 = 0;
 if(narg == 2
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
 )
 {
@@ -4829,8 +4829,8 @@ arg3 = (float)lua_tonumber(L, 2);
 arg2 = arg1;
 }
 else if(narg == 3
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 && lua_isnumber(L, 3)
 )
 {
@@ -4838,35 +4838,35 @@ arg1_idx = 1;
 arg3 = (float)lua_tonumber(L, 3);
 }
 else
-luaL_error(L, "expected arguments: *CudaTensor* [CudaTensor] float");
+luaL_error(L, "expected arguments: *GPUTensor* [GPUTensor] float");
 lua_pushvalue(L, arg1_idx);
-THCudaTensor_pow(arg1,arg2,arg3);
+THGPUTensor_pow(arg1,arg2,arg3);
 return 1;
 }
 
 static int wrapper_rand(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaState *arg1 = NULL;
-THCudaTensor *arg2 = NULL;
+THGPUState *arg1 = NULL;
+THGPUTensor *arg2 = NULL;
 int arg2_idx = 0;
 THLongStorage *arg3 = NULL;
 if(narg >= 2
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& cutorch_islongargs(L, 2)
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& gputorch_islongargs(L, 2)
 )
 {
 arg2_idx = 1;
-arg3 = cutorch_checklongargs(L, 2);
+arg3 = gputorch_checklongargs(L, 2);
 }
 else
-luaL_error(L, "expected arguments: *CudaTensor* (LongStorage | dim1 [dim2...])");
-lua_getglobal(L, "cutorch");
+luaL_error(L, "expected arguments: *GPUTensor* (LongStorage | dim1 [dim2...])");
+lua_getglobal(L, "gputorch");
 lua_getfield(L, -1, "_state");
-arg1 = (THCudaState *)lua_touserdata(L, -1);
+arg1 = (THGPUState *)lua_touserdata(L, -1);
 lua_pop(L, 2);
 lua_pushvalue(L, arg2_idx);
-THCudaTensor_rand(arg1->rngState,arg2,arg3);
+THGPUTensor_rand(arg1->rngState,arg2,arg3);
 THLongStorage_free(arg3);
 return 1;
 }
@@ -4874,26 +4874,26 @@ return 1;
 static int wrapper_randn(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaState *arg1 = NULL;
-THCudaTensor *arg2 = NULL;
+THGPUState *arg1 = NULL;
+THGPUTensor *arg2 = NULL;
 int arg2_idx = 0;
 THLongStorage *arg3 = NULL;
 if(narg >= 2
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& cutorch_islongargs(L, 2)
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& gputorch_islongargs(L, 2)
 )
 {
 arg2_idx = 1;
-arg3 = cutorch_checklongargs(L, 2);
+arg3 = gputorch_checklongargs(L, 2);
 }
 else
-luaL_error(L, "expected arguments: *CudaTensor* (LongStorage | dim1 [dim2...])");
-lua_getglobal(L, "cutorch");
+luaL_error(L, "expected arguments: *GPUTensor* (LongStorage | dim1 [dim2...])");
+lua_getglobal(L, "gputorch");
 lua_getfield(L, -1, "_state");
-arg1 = (THCudaState *)lua_touserdata(L, -1);
+arg1 = (THGPUState *)lua_touserdata(L, -1);
 lua_pop(L, 2);
 lua_pushvalue(L, arg2_idx);
-THCudaTensor_randn(arg1->rngState,arg2,arg3);
+THGPUTensor_randn(arg1->rngState,arg2,arg3);
 THLongStorage_free(arg3);
 return 1;
 }
@@ -4901,13 +4901,13 @@ return 1;
 static int wrapper_clamp(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
-THCudaTensor *arg2 = NULL;
+THGPUTensor *arg2 = NULL;
 float arg3 = 0;
 float arg4 = 0;
 if(narg == 3
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
 && lua_isnumber(L, 3)
 )
@@ -4918,8 +4918,8 @@ arg4 = (float)lua_tonumber(L, 3);
 arg2 = arg1;
 }
 else if(narg == 4
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 && lua_isnumber(L, 3)
 && lua_isnumber(L, 4)
 )
@@ -4929,9 +4929,9 @@ arg3 = (float)lua_tonumber(L, 3);
 arg4 = (float)lua_tonumber(L, 4);
 }
 else
-luaL_error(L, "expected arguments: *CudaTensor* [CudaTensor] float float");
+luaL_error(L, "expected arguments: *GPUTensor* [GPUTensor] float float");
 lua_pushvalue(L, arg1_idx);
-THCudaTensor_clamp(arg1,arg2,arg3,arg4);
+THGPUTensor_clamp(arg1,arg2,arg3,arg4);
 return 1;
 }
 
@@ -4939,26 +4939,26 @@ static int wrapper_lt(lua_State *L)
 {
 int narg = lua_gettop(L);
 int argset = 0;
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
-THCudaTensor *arg2 = NULL;
+THGPUTensor *arg2 = NULL;
 float arg3 = 0;
-THCudaTensor *arg4 = NULL;
+THGPUTensor *arg4 = NULL;
 int arg4_idx = 0;
-THCudaTensor *arg5 = NULL;
-THCudaTensor *arg6 = NULL;
+THGPUTensor *arg5 = NULL;
+THGPUTensor *arg6 = NULL;
 if(narg == 2
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
 )
 {
 argset = 1;
 arg3 = (float)lua_tonumber(L, 2);
-arg1 = THCudaTensor_new();
+arg1 = THGPUTensor_new();
 }
 else if(narg == 3
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 && lua_isnumber(L, 3)
 )
 {
@@ -4967,29 +4967,29 @@ arg1_idx = 1;
 arg3 = (float)lua_tonumber(L, 3);
 }
 else if(narg == 3
-&& (arg4 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
-&& (arg6 = (THCudaTensor *)luaT_toudata(L, 3, "torch.CudaTensor"))
+&& (arg4 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
+&& (arg6 = (THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor"))
 )
 {
 argset = 2;
 arg4_idx = 1;
 }
 else
-luaL_error(L, "expected arguments: [*CudaTensor*] CudaTensor float | *CudaTensor* CudaTensor CudaTensor");
+luaL_error(L, "expected arguments: [*GPUTensor*] GPUTensor float | *GPUTensor* GPUTensor GPUTensor");
 if(argset == 1)
 {
 if(arg1_idx)
 lua_pushvalue(L, arg1_idx);
 else
-luaT_pushudata(L, arg1, "torch.CudaTensor");
-THCudaTensor_ltValue(arg1,arg2,arg3);
+luaT_pushudata(L, arg1, "torch.GPUTensor");
+THGPUTensor_ltValue(arg1,arg2,arg3);
 return 1;
 }
 else if(argset == 2)
 {
 lua_pushvalue(L, arg4_idx);
-THCudaTensor_ltTensor(arg4,arg5,arg6);
+THGPUTensor_ltTensor(arg4,arg5,arg6);
 return 1;
 }
 return 0;
@@ -4999,26 +4999,26 @@ static int wrapper_gt(lua_State *L)
 {
 int narg = lua_gettop(L);
 int argset = 0;
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
-THCudaTensor *arg2 = NULL;
+THGPUTensor *arg2 = NULL;
 float arg3 = 0;
-THCudaTensor *arg4 = NULL;
+THGPUTensor *arg4 = NULL;
 int arg4_idx = 0;
-THCudaTensor *arg5 = NULL;
-THCudaTensor *arg6 = NULL;
+THGPUTensor *arg5 = NULL;
+THGPUTensor *arg6 = NULL;
 if(narg == 2
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
 )
 {
 argset = 1;
 arg3 = (float)lua_tonumber(L, 2);
-arg1 = THCudaTensor_new();
+arg1 = THGPUTensor_new();
 }
 else if(narg == 3
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 && lua_isnumber(L, 3)
 )
 {
@@ -5027,29 +5027,29 @@ arg1_idx = 1;
 arg3 = (float)lua_tonumber(L, 3);
 }
 else if(narg == 3
-&& (arg4 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
-&& (arg6 = (THCudaTensor *)luaT_toudata(L, 3, "torch.CudaTensor"))
+&& (arg4 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
+&& (arg6 = (THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor"))
 )
 {
 argset = 2;
 arg4_idx = 1;
 }
 else
-luaL_error(L, "expected arguments: [*CudaTensor*] CudaTensor float | *CudaTensor* CudaTensor CudaTensor");
+luaL_error(L, "expected arguments: [*GPUTensor*] GPUTensor float | *GPUTensor* GPUTensor GPUTensor");
 if(argset == 1)
 {
 if(arg1_idx)
 lua_pushvalue(L, arg1_idx);
 else
-luaT_pushudata(L, arg1, "torch.CudaTensor");
-THCudaTensor_gtValue(arg1,arg2,arg3);
+luaT_pushudata(L, arg1, "torch.GPUTensor");
+THGPUTensor_gtValue(arg1,arg2,arg3);
 return 1;
 }
 else if(argset == 2)
 {
 lua_pushvalue(L, arg4_idx);
-THCudaTensor_gtTensor(arg4,arg5,arg6);
+THGPUTensor_gtTensor(arg4,arg5,arg6);
 return 1;
 }
 return 0;
@@ -5059,26 +5059,26 @@ static int wrapper_le(lua_State *L)
 {
 int narg = lua_gettop(L);
 int argset = 0;
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
-THCudaTensor *arg2 = NULL;
+THGPUTensor *arg2 = NULL;
 float arg3 = 0;
-THCudaTensor *arg4 = NULL;
+THGPUTensor *arg4 = NULL;
 int arg4_idx = 0;
-THCudaTensor *arg5 = NULL;
-THCudaTensor *arg6 = NULL;
+THGPUTensor *arg5 = NULL;
+THGPUTensor *arg6 = NULL;
 if(narg == 2
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
 )
 {
 argset = 1;
 arg3 = (float)lua_tonumber(L, 2);
-arg1 = THCudaTensor_new();
+arg1 = THGPUTensor_new();
 }
 else if(narg == 3
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 && lua_isnumber(L, 3)
 )
 {
@@ -5087,29 +5087,29 @@ arg1_idx = 1;
 arg3 = (float)lua_tonumber(L, 3);
 }
 else if(narg == 3
-&& (arg4 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
-&& (arg6 = (THCudaTensor *)luaT_toudata(L, 3, "torch.CudaTensor"))
+&& (arg4 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
+&& (arg6 = (THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor"))
 )
 {
 argset = 2;
 arg4_idx = 1;
 }
 else
-luaL_error(L, "expected arguments: [*CudaTensor*] CudaTensor float | *CudaTensor* CudaTensor CudaTensor");
+luaL_error(L, "expected arguments: [*GPUTensor*] GPUTensor float | *GPUTensor* GPUTensor GPUTensor");
 if(argset == 1)
 {
 if(arg1_idx)
 lua_pushvalue(L, arg1_idx);
 else
-luaT_pushudata(L, arg1, "torch.CudaTensor");
-THCudaTensor_leValue(arg1,arg2,arg3);
+luaT_pushudata(L, arg1, "torch.GPUTensor");
+THGPUTensor_leValue(arg1,arg2,arg3);
 return 1;
 }
 else if(argset == 2)
 {
 lua_pushvalue(L, arg4_idx);
-THCudaTensor_leTensor(arg4,arg5,arg6);
+THGPUTensor_leTensor(arg4,arg5,arg6);
 return 1;
 }
 return 0;
@@ -5119,26 +5119,26 @@ static int wrapper_ge(lua_State *L)
 {
 int narg = lua_gettop(L);
 int argset = 0;
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
-THCudaTensor *arg2 = NULL;
+THGPUTensor *arg2 = NULL;
 float arg3 = 0;
-THCudaTensor *arg4 = NULL;
+THGPUTensor *arg4 = NULL;
 int arg4_idx = 0;
-THCudaTensor *arg5 = NULL;
-THCudaTensor *arg6 = NULL;
+THGPUTensor *arg5 = NULL;
+THGPUTensor *arg6 = NULL;
 if(narg == 2
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
 )
 {
 argset = 1;
 arg3 = (float)lua_tonumber(L, 2);
-arg1 = THCudaTensor_new();
+arg1 = THGPUTensor_new();
 }
 else if(narg == 3
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 && lua_isnumber(L, 3)
 )
 {
@@ -5147,29 +5147,29 @@ arg1_idx = 1;
 arg3 = (float)lua_tonumber(L, 3);
 }
 else if(narg == 3
-&& (arg4 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
-&& (arg6 = (THCudaTensor *)luaT_toudata(L, 3, "torch.CudaTensor"))
+&& (arg4 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
+&& (arg6 = (THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor"))
 )
 {
 argset = 2;
 arg4_idx = 1;
 }
 else
-luaL_error(L, "expected arguments: [*CudaTensor*] CudaTensor float | *CudaTensor* CudaTensor CudaTensor");
+luaL_error(L, "expected arguments: [*GPUTensor*] GPUTensor float | *GPUTensor* GPUTensor GPUTensor");
 if(argset == 1)
 {
 if(arg1_idx)
 lua_pushvalue(L, arg1_idx);
 else
-luaT_pushudata(L, arg1, "torch.CudaTensor");
-THCudaTensor_geValue(arg1,arg2,arg3);
+luaT_pushudata(L, arg1, "torch.GPUTensor");
+THGPUTensor_geValue(arg1,arg2,arg3);
 return 1;
 }
 else if(argset == 2)
 {
 lua_pushvalue(L, arg4_idx);
-THCudaTensor_geTensor(arg4,arg5,arg6);
+THGPUTensor_geTensor(arg4,arg5,arg6);
 return 1;
 }
 return 0;
@@ -5179,26 +5179,26 @@ static int wrapper_eq(lua_State *L)
 {
 int narg = lua_gettop(L);
 int argset = 0;
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
-THCudaTensor *arg2 = NULL;
+THGPUTensor *arg2 = NULL;
 float arg3 = 0;
-THCudaTensor *arg4 = NULL;
+THGPUTensor *arg4 = NULL;
 int arg4_idx = 0;
-THCudaTensor *arg5 = NULL;
-THCudaTensor *arg6 = NULL;
+THGPUTensor *arg5 = NULL;
+THGPUTensor *arg6 = NULL;
 if(narg == 2
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
 )
 {
 argset = 1;
 arg3 = (float)lua_tonumber(L, 2);
-arg1 = THCudaTensor_new();
+arg1 = THGPUTensor_new();
 }
 else if(narg == 3
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 && lua_isnumber(L, 3)
 )
 {
@@ -5207,29 +5207,29 @@ arg1_idx = 1;
 arg3 = (float)lua_tonumber(L, 3);
 }
 else if(narg == 3
-&& (arg4 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
-&& (arg6 = (THCudaTensor *)luaT_toudata(L, 3, "torch.CudaTensor"))
+&& (arg4 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
+&& (arg6 = (THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor"))
 )
 {
 argset = 2;
 arg4_idx = 1;
 }
 else
-luaL_error(L, "expected arguments: [*CudaTensor*] CudaTensor float | *CudaTensor* CudaTensor CudaTensor");
+luaL_error(L, "expected arguments: [*GPUTensor*] GPUTensor float | *GPUTensor* GPUTensor GPUTensor");
 if(argset == 1)
 {
 if(arg1_idx)
 lua_pushvalue(L, arg1_idx);
 else
-luaT_pushudata(L, arg1, "torch.CudaTensor");
-THCudaTensor_eqValue(arg1,arg2,arg3);
+luaT_pushudata(L, arg1, "torch.GPUTensor");
+THGPUTensor_eqValue(arg1,arg2,arg3);
 return 1;
 }
 else if(argset == 2)
 {
 lua_pushvalue(L, arg4_idx);
-THCudaTensor_eqTensor(arg4,arg5,arg6);
+THGPUTensor_eqTensor(arg4,arg5,arg6);
 return 1;
 }
 return 0;
@@ -5239,26 +5239,26 @@ static int wrapper_ne(lua_State *L)
 {
 int narg = lua_gettop(L);
 int argset = 0;
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
-THCudaTensor *arg2 = NULL;
+THGPUTensor *arg2 = NULL;
 float arg3 = 0;
-THCudaTensor *arg4 = NULL;
+THGPUTensor *arg4 = NULL;
 int arg4_idx = 0;
-THCudaTensor *arg5 = NULL;
-THCudaTensor *arg6 = NULL;
+THGPUTensor *arg5 = NULL;
+THGPUTensor *arg6 = NULL;
 if(narg == 2
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
 )
 {
 argset = 1;
 arg3 = (float)lua_tonumber(L, 2);
-arg1 = THCudaTensor_new();
+arg1 = THGPUTensor_new();
 }
 else if(narg == 3
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 && lua_isnumber(L, 3)
 )
 {
@@ -5267,29 +5267,29 @@ arg1_idx = 1;
 arg3 = (float)lua_tonumber(L, 3);
 }
 else if(narg == 3
-&& (arg4 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
-&& (arg6 = (THCudaTensor *)luaT_toudata(L, 3, "torch.CudaTensor"))
+&& (arg4 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
+&& (arg6 = (THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor"))
 )
 {
 argset = 2;
 arg4_idx = 1;
 }
 else
-luaL_error(L, "expected arguments: [*CudaTensor*] CudaTensor float | *CudaTensor* CudaTensor CudaTensor");
+luaL_error(L, "expected arguments: [*GPUTensor*] GPUTensor float | *GPUTensor* GPUTensor GPUTensor");
 if(argset == 1)
 {
 if(arg1_idx)
 lua_pushvalue(L, arg1_idx);
 else
-luaT_pushudata(L, arg1, "torch.CudaTensor");
-THCudaTensor_neValue(arg1,arg2,arg3);
+luaT_pushudata(L, arg1, "torch.GPUTensor");
+THGPUTensor_neValue(arg1,arg2,arg3);
 return 1;
 }
 else if(argset == 2)
 {
 lua_pushvalue(L, arg4_idx);
-THCudaTensor_neTensor(arg4,arg5,arg6);
+THGPUTensor_neTensor(arg4,arg5,arg6);
 return 1;
 }
 return 0;
@@ -5298,12 +5298,12 @@ return 0;
 static int wrapper_geometric(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaState *arg1 = NULL;
-THCudaTensor *arg2 = NULL;
+THGPUState *arg1 = NULL;
+THGPUTensor *arg2 = NULL;
 int arg2_idx = 0;
 float arg3 = 0;
 if(narg == 2
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
 )
 {
@@ -5311,31 +5311,31 @@ arg2_idx = 1;
 arg3 = (float)lua_tonumber(L, 2);
 }
 else
-luaL_error(L, "expected arguments: *CudaTensor* float");
-lua_getglobal(L, "cutorch");
+luaL_error(L, "expected arguments: *GPUTensor* float");
+lua_getglobal(L, "gputorch");
 lua_getfield(L, -1, "_state");
-arg1 = (THCudaState *)lua_touserdata(L, -1);
+arg1 = (THGPUState *)lua_touserdata(L, -1);
 lua_pop(L, 2);
 lua_pushvalue(L, arg2_idx);
-THCudaTensor_geometric(NULL,arg2,arg3);
+THGPUTensor_geometric(NULL,arg2,arg3);
 return 1;
 }
 
 static int wrapper_bernoulli(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaState *arg1 = NULL;
-THCudaTensor *arg2 = NULL;
+THGPUState *arg1 = NULL;
+THGPUTensor *arg2 = NULL;
 int arg2_idx = 0;
 float arg3 = 0;
 if(narg == 1
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
 arg2_idx = 1;
 }
 else if(narg == 2
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
 )
 {
@@ -5343,32 +5343,32 @@ arg2_idx = 1;
 arg3 = (float)lua_tonumber(L, 2);
 }
 else
-luaL_error(L, "expected arguments: *CudaTensor* [float]");
-lua_getglobal(L, "cutorch");
+luaL_error(L, "expected arguments: *GPUTensor* [float]");
+lua_getglobal(L, "gputorch");
 lua_getfield(L, -1, "_state");
-arg1 = (THCudaState *)lua_touserdata(L, -1);
+arg1 = (THGPUState *)lua_touserdata(L, -1);
 lua_pop(L, 2);
 lua_pushvalue(L, arg2_idx);
-THCudaTensor_bernoulli(NULL,arg2,arg3);
+THGPUTensor_bernoulli(NULL,arg2,arg3);
 return 1;
 }
 
 static int wrapper_uniform(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaState *arg1 = NULL;
-THCudaTensor *arg2 = NULL;
+THGPUState *arg1 = NULL;
+THGPUTensor *arg2 = NULL;
 int arg2_idx = 0;
 float arg3 = 0;
 float arg4 = 1;
 if(narg == 1
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
 arg2_idx = 1;
 }
 else if(narg == 2
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
 )
 {
@@ -5376,7 +5376,7 @@ arg2_idx = 1;
 arg3 = (float)lua_tonumber(L, 2);
 }
 else if(narg == 2
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
 )
 {
@@ -5384,7 +5384,7 @@ arg2_idx = 1;
 arg4 = (float)lua_tonumber(L, 2);
 }
 else if(narg == 3
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
 && lua_isnumber(L, 3)
 )
@@ -5394,32 +5394,32 @@ arg3 = (float)lua_tonumber(L, 2);
 arg4 = (float)lua_tonumber(L, 3);
 }
 else
-luaL_error(L, "expected arguments: *CudaTensor* [float] [float]");
-lua_getglobal(L, "cutorch");
+luaL_error(L, "expected arguments: *GPUTensor* [float] [float]");
+lua_getglobal(L, "gputorch");
 lua_getfield(L, -1, "_state");
-arg1 =(THCudaState *) lua_touserdata(L, -1);
+arg1 =(THGPUState *) lua_touserdata(L, -1);
 lua_pop(L, 2);
 lua_pushvalue(L, arg2_idx);
-THCudaTensor_uniform(NULL,arg2,arg3,arg4);
+THGPUTensor_uniform(NULL,arg2,arg3,arg4);
 return 1;
 }
 
 static int wrapper_normal(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaState *arg1 = NULL;
-THCudaTensor *arg2 = NULL;
+THGPUState *arg1 = NULL;
+THGPUTensor *arg2 = NULL;
 int arg2_idx = 0;
 float arg3 = 0;
 float arg4 = 1;
 if(narg == 1
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
 arg2_idx = 1;
 }
 else if(narg == 2
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
 )
 {
@@ -5427,7 +5427,7 @@ arg2_idx = 1;
 arg3 = (float)lua_tonumber(L, 2);
 }
 else if(narg == 2
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
 )
 {
@@ -5435,7 +5435,7 @@ arg2_idx = 1;
 arg4 = (float)lua_tonumber(L, 2);
 }
 else if(narg == 3
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
 && lua_isnumber(L, 3)
 )
@@ -5445,32 +5445,32 @@ arg3 = (float)lua_tonumber(L, 2);
 arg4 = (float)lua_tonumber(L, 3);
 }
 else
-luaL_error(L, "expected arguments: *CudaTensor* [float] [float]");
-lua_getglobal(L, "cutorch");
+luaL_error(L, "expected arguments: *GPUTensor* [float] [float]");
+lua_getglobal(L, "gputorch");
 lua_getfield(L, -1, "_state");
-arg1 = (THCudaState *)lua_touserdata(L, -1);
+arg1 = (THGPUState *)lua_touserdata(L, -1);
 lua_pop(L, 2);
 lua_pushvalue(L, arg2_idx);
-THCudaTensor_normal(NULL,arg2,arg3,arg4);
+THGPUTensor_normal(NULL,arg2,arg3,arg4);
 return 1;
 }
 
 static int wrapper_cauchy(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaState *arg1 = NULL;
-THCudaTensor *arg2 = NULL;
+THGPUState *arg1 = NULL;
+THGPUTensor *arg2 = NULL;
 int arg2_idx = 0;
 float arg3 = 0;
 float arg4 = 1;
 if(narg == 1
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
 arg2_idx = 1;
 }
 else if(narg == 2
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
 )
 {
@@ -5478,7 +5478,7 @@ arg2_idx = 1;
 arg3 = (float)lua_tonumber(L, 2);
 }
 else if(narg == 2
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
 )
 {
@@ -5486,7 +5486,7 @@ arg2_idx = 1;
 arg4 = (float)lua_tonumber(L, 2);
 }
 else if(narg == 3
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
 && lua_isnumber(L, 3)
 )
@@ -5496,32 +5496,32 @@ arg3 = (float)lua_tonumber(L, 2);
 arg4 = (float)lua_tonumber(L, 3);
 }
 else
-luaL_error(L, "expected arguments: *CudaTensor* [float] [float]");
-lua_getglobal(L, "cutorch");
+luaL_error(L, "expected arguments: *GPUTensor* [float] [float]");
+lua_getglobal(L, "gputorch");
 lua_getfield(L, -1, "_state");
-arg1 = (THCudaState *)lua_touserdata(L, -1);
+arg1 = (THGPUState *)lua_touserdata(L, -1);
 lua_pop(L, 2);
 lua_pushvalue(L, arg2_idx);
-THCudaTensor_cauchy(NULL,arg2,arg3,arg4);
+THGPUTensor_cauchy(NULL,arg2,arg3,arg4);
 return 1;
 }
 
 static int wrapper_logNormal(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaState *arg1 = NULL;
-THCudaTensor *arg2 = NULL;
+THGPUState *arg1 = NULL;
+THGPUTensor *arg2 = NULL;
 int arg2_idx = 0;
 float arg3 = 1;
 float arg4 = 2;
 if(narg == 1
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
 arg2_idx = 1;
 }
 else if(narg == 2
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
 )
 {
@@ -5529,7 +5529,7 @@ arg2_idx = 1;
 arg3 = (float)lua_tonumber(L, 2);
 }
 else if(narg == 2
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
 )
 {
@@ -5537,7 +5537,7 @@ arg2_idx = 1;
 arg4 = (float)lua_tonumber(L, 2);
 }
 else if(narg == 3
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
 && lua_isnumber(L, 3)
 )
@@ -5547,25 +5547,25 @@ arg3 = (float)lua_tonumber(L, 2);
 arg4 = (float)lua_tonumber(L, 3);
 }
 else
-luaL_error(L, "expected arguments: *CudaTensor* [float] [float]");
-lua_getglobal(L, "cutorch");
+luaL_error(L, "expected arguments: *GPUTensor* [float] [float]");
+lua_getglobal(L, "gputorch");
 lua_getfield(L, -1, "_state");
-arg1 =(THCudaState *) lua_touserdata(L, -1);
+arg1 =(THGPUState *) lua_touserdata(L, -1);
 lua_pop(L, 2);
 lua_pushvalue(L, arg2_idx);
-THCudaTensor_logNormal(NULL,arg2,arg3,arg4);
+THGPUTensor_logNormal(NULL,arg2,arg3,arg4);
 return 1;
 }
 
 static int wrapper_exponential(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaState *arg1 = NULL;
-THCudaTensor *arg2 = NULL;
+THGPUState *arg1 = NULL;
+THGPUTensor *arg2 = NULL;
 int arg2_idx = 0;
 float arg3 = 0;
 if(narg == 2
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
 )
 {
@@ -5573,13 +5573,13 @@ arg2_idx = 1;
 arg3 = (float)lua_tonumber(L, 2);
 }
 else
-luaL_error(L, "expected arguments: *CudaTensor* float");
-lua_getglobal(L, "cutorch");
+luaL_error(L, "expected arguments: *GPUTensor* float");
+lua_getglobal(L, "gputorch");
 lua_getfield(L, -1, "_state");
-arg1 = (THCudaState *)lua_touserdata(L, -1);
+arg1 = (THGPUState *)lua_touserdata(L, -1);
 lua_pop(L, 2);
 lua_pushvalue(L, arg2_idx);
-THCudaTensor_exponential(NULL,arg2,arg3);
+THGPUTensor_exponential(NULL,arg2,arg3);
 return 1;
 }
 
@@ -5587,30 +5587,30 @@ static int wrapper_mean(lua_State *L)
 {
 int narg = lua_gettop(L);
 int argset = 0;
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 float arg2 = 0;
-THCudaTensor *arg3 = NULL;
+THGPUTensor *arg3 = NULL;
 int arg3_idx = 0;
-THCudaTensor *arg4 = NULL;
+THGPUTensor *arg4 = NULL;
 long arg5 = 0;
 if(narg == 1
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
 argset = 1;
 }
 else if(narg == 2
-&& (arg4 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg4 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
 )
 {
 argset = 2;
 arg5 = (long)lua_tonumber(L, 2)-1;
-arg3 = THCudaTensor_new();
+arg3 = THGPUTensor_new();
 }
 else if(narg == 3
-&& (arg3 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg4 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg3 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg4 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 && lua_isnumber(L, 3)
 )
 {
@@ -5619,10 +5619,10 @@ arg3_idx = 1;
 arg5 = (long)lua_tonumber(L, 3)-1;
 }
 else
-luaL_error(L, "expected arguments: CudaTensor | [*CudaTensor*] CudaTensor index");
+luaL_error(L, "expected arguments: GPUTensor | [*GPUTensor*] GPUTensor index");
 if(argset == 1)
 {
-arg2 = THCudaTensor_meanall(arg1);
+arg2 = THGPUTensor_meanall(arg1);
 lua_pushnumber(L, (lua_Number)arg2);
 return 1;
 }
@@ -5631,8 +5631,8 @@ else if(argset == 2)
 if(arg3_idx)
 lua_pushvalue(L, arg3_idx);
 else
-luaT_pushudata(L, arg3, "torch.CudaTensor");
-THCudaTensor_mean(arg3,arg4,arg5);
+luaT_pushudata(L, arg3, "torch.GPUTensor");
+THGPUTensor_mean(arg3,arg4,arg5);
 return 1;
 }
 return 0;
@@ -5641,16 +5641,16 @@ return 0;
 static int wrapper_var(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 float arg2 = 0;
 if(narg == 1
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
 }
 else
-luaL_error(L, "expected arguments: CudaTensor");
-arg2 = THCudaTensor_varall(arg1);
+luaL_error(L, "expected arguments: GPUTensor");
+arg2 = THGPUTensor_varall(arg1);
 lua_pushnumber(L, (lua_Number)arg2);
 return 1;
 }
@@ -5658,16 +5658,16 @@ return 1;
 static int wrapper_std(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 float arg2 = 0;
 if(narg == 1
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
 }
 else
-luaL_error(L, "expected arguments: CudaTensor");
-arg2 = THCudaTensor_stdall(arg1);
+luaL_error(L, "expected arguments: GPUTensor");
+arg2 = THGPUTensor_stdall(arg1);
 lua_pushnumber(L, (lua_Number)arg2);
 return 1;
 }
@@ -5676,22 +5676,22 @@ static int wrapper_norm(lua_State *L)
 {
 int narg = lua_gettop(L);
 int argset = 0;
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 float arg2 = 2;
 float arg3 = 0;
-THCudaTensor *arg4 = NULL;
+THGPUTensor *arg4 = NULL;
 int arg4_idx = 0;
-THCudaTensor *arg5 = NULL;
+THGPUTensor *arg5 = NULL;
 float arg6 = 0;
 long arg7 = 0;
 if(narg == 1
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
 argset = 1;
 }
 else if(narg == 2
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
 )
 {
@@ -5699,7 +5699,7 @@ argset = 1;
 arg2 = (float)lua_tonumber(L, 2);
 }
 else if(narg == 3
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
 && lua_isnumber(L, 3)
 )
@@ -5707,11 +5707,11 @@ else if(narg == 3
 argset = 2;
 arg6 = (float)lua_tonumber(L, 2);
 arg7 = (long)lua_tonumber(L, 3)-1;
-arg4 = THCudaTensor_new();
+arg4 = THGPUTensor_new();
 }
 else if(narg == 4
-&& (arg4 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg5 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg4 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 && lua_isnumber(L, 3)
 && lua_isnumber(L, 4)
 )
@@ -5722,10 +5722,10 @@ arg6 = (float)lua_tonumber(L, 3);
 arg7 = (long)lua_tonumber(L, 4)-1;
 }
 else
-luaL_error(L, "expected arguments: CudaTensor [float] | [*CudaTensor*] CudaTensor float index");
+luaL_error(L, "expected arguments: GPUTensor [float] | [*GPUTensor*] GPUTensor float index");
 if(argset == 1)
 {
-arg3 = THCudaTensor_normall(arg1,arg2);
+arg3 = THGPUTensor_normall(arg1,arg2);
 lua_pushnumber(L, (lua_Number)arg3);
 return 1;
 }
@@ -5734,8 +5734,8 @@ else if(argset == 2)
 if(arg4_idx)
 lua_pushvalue(L, arg4_idx);
 else
-luaT_pushudata(L, arg4, "torch.CudaTensor");
-THCudaTensor_norm(arg4,arg5,arg6,arg7);
+luaT_pushudata(L, arg4, "torch.GPUTensor");
+THGPUTensor_norm(arg4,arg5,arg6,arg7);
 return 1;
 }
 return 0;
@@ -5744,14 +5744,14 @@ return 0;
 static int wrapper_renorm(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
-THCudaTensor *arg2 = NULL;
+THGPUTensor *arg2 = NULL;
 float arg3 = 0;
 long arg4 = 0;
 float arg5 = 0;
 if(narg == 4
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
 && lua_isnumber(L, 3)
 && lua_isnumber(L, 4)
@@ -5764,8 +5764,8 @@ arg5 = (float)lua_tonumber(L, 4);
 arg2 = arg1;
 }
 else if(narg == 5
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 && lua_isnumber(L, 3)
 && lua_isnumber(L, 4)
 && lua_isnumber(L, 5)
@@ -5777,36 +5777,36 @@ arg4 = (long)lua_tonumber(L, 4)-1;
 arg5 = (float)lua_tonumber(L, 5);
 }
 else
-luaL_error(L, "expected arguments: *CudaTensor* [CudaTensor] float index float");
+luaL_error(L, "expected arguments: *GPUTensor* [GPUTensor] float index float");
 lua_pushvalue(L, arg1_idx);
-THCudaTensor_renorm(arg1,arg2,arg3,arg4,arg5);
+THGPUTensor_renorm(arg1,arg2,arg3,arg4,arg5);
 return 1;
 }
 
 static int wrapper_dist(lua_State *L)
 {
 int narg = lua_gettop(L);
-THCudaTensor *arg1 = NULL;
-THCudaTensor *arg2 = NULL;
+THGPUTensor *arg1 = NULL;
+THGPUTensor *arg2 = NULL;
 float arg3 = 2;
 float arg4 = 0;
 if(narg == 2
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 )
 {
 }
 else if(narg == 3
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 && lua_isnumber(L, 3)
 )
 {
 arg3 = (float)lua_tonumber(L, 3);
 }
 else
-luaL_error(L, "expected arguments: CudaTensor CudaTensor [float]");
-arg4 = THCudaTensor_dist(arg1,arg2,arg3);
+luaL_error(L, "expected arguments: GPUTensor GPUTensor [float]");
+arg4 = THGPUTensor_dist(arg1,arg2,arg3);
 lua_pushnumber(L, (lua_Number)arg4);
 return 1;
 }
@@ -5815,40 +5815,40 @@ static int wrapper_squeeze(lua_State *L)
 {
 int narg = lua_gettop(L);
 int argset = 0;
-THCudaTensor *arg1 = NULL;
+THGPUTensor *arg1 = NULL;
 int arg1_idx = 0;
-THCudaTensor *arg2 = NULL;
-THCudaTensor *arg3 = NULL;
+THGPUTensor *arg2 = NULL;
+THGPUTensor *arg3 = NULL;
 int arg3_idx = 0;
-THCudaTensor *arg4 = NULL;
+THGPUTensor *arg4 = NULL;
 long arg5 = 0;
 if(narg == 1
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
 argset = 1;
-arg1 = THCudaTensor_new();
+arg1 = THGPUTensor_new();
 }
 else if(narg == 2
-&& (arg1 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg2 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 )
 {
 argset = 1;
 arg1_idx = 1;
 }
 else if(narg == 2
-&& (arg4 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
+&& (arg4 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
 )
 {
 argset = 2;
 arg5 = (long)lua_tonumber(L, 2)-1;
-arg3 = THCudaTensor_new();
+arg3 = THGPUTensor_new();
 }
 else if(narg == 3
-&& (arg3 = (THCudaTensor *)luaT_toudata(L, 1, "torch.CudaTensor"))
-&& (arg4 = (THCudaTensor *)luaT_toudata(L, 2, "torch.CudaTensor"))
+&& (arg3 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg4 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 && lua_isnumber(L, 3)
 )
 {
@@ -5857,16 +5857,16 @@ arg3_idx = 1;
 arg5 = (long)lua_tonumber(L, 3)-1;
 }
 else
-luaL_error(L, "expected arguments: [*CudaTensor*] CudaTensor | [*CudaTensor*] CudaTensor index");
+luaL_error(L, "expected arguments: [*GPUTensor*] GPUTensor | [*GPUTensor*] GPUTensor index");
 if(argset == 1)
 {
 if(arg1_idx)
 lua_pushvalue(L, arg1_idx);
 else
-luaT_pushudata(L, arg1, "torch.CudaTensor");
-THCudaTensor_squeeze(arg1,arg2);
+luaT_pushudata(L, arg1, "torch.GPUTensor");
+THGPUTensor_squeeze(arg1,arg2);
 if(arg1->nDimension == 1 && arg1->size[0] == 1)
-lua_pushnumber(L, (lua_Number)(*THCudaTensor_data(arg1)));
+lua_pushnumber(L, (lua_Number)(*THGPUTensor_data(arg1)));
 return 1;
 }
 else if(argset == 2)
@@ -5874,17 +5874,17 @@ else if(argset == 2)
 if(arg3_idx)
 lua_pushvalue(L, arg3_idx);
 else
-luaT_pushudata(L, arg3, "torch.CudaTensor");
+luaT_pushudata(L, arg3, "torch.GPUTensor");
 {int hasdims = arg4->nDimension > 1;
-THCudaTensor_squeeze1d(arg3,arg4,arg5);
+THGPUTensor_squeeze1d(arg3,arg4,arg5);
 if(!hasdims && arg3->nDimension == 1 && arg3->size[0] == 1)
-lua_pushnumber(L, (lua_Number)(*THCudaTensor_data(arg3)));}
+lua_pushnumber(L, (lua_Number)(*THGPUTensor_data(arg3)));}
 return 1;
 }
 return 0;
 }
 
-static const struct luaL_Reg m_cutorch_CudaTensorMath__ [] = {
+static const struct luaL_Reg m_gputorch_GPUTensorMath__ [] = {
 {"zero", wrapper_zero},
 {"fill", wrapper_fill},
 {"zeros", wrapper_zeros},
@@ -5955,88 +5955,88 @@ static const struct luaL_Reg m_cutorch_CudaTensorMath__ [] = {
 {NULL, NULL}
 };
 
-static const struct luaL_Reg cutorch_CudaTensorMath__ [] = {
-{"zero", cutorch_CudaTensor_zero},
-{"fill", cutorch_CudaTensor_fill},
-{"zeros", cutorch_CudaTensor_zeros},
-{"ones", cutorch_CudaTensor_ones},
-{"reshape", cutorch_CudaTensor_reshape},
-{"numel", cutorch_CudaTensor_numel},
-{"add", cutorch_CudaTensor_add},
-{"mul", cutorch_CudaTensor_mul},
-{"div", cutorch_CudaTensor_div},
-{"cmul", cutorch_CudaTensor_cmul},
-{"cdiv", cutorch_CudaTensor_cdiv},
-{"addcmul", cutorch_CudaTensor_addcmul},
-{"addcdiv", cutorch_CudaTensor_addcdiv},
-{"mv", cutorch_CudaTensor_mv},
-{"mm", cutorch_CudaTensor_mm},
-{"ger", cutorch_CudaTensor_ger},
-{"addmv", cutorch_CudaTensor_addmv},
-{"addmm", cutorch_CudaTensor_addmm},
-{"addr", cutorch_CudaTensor_addr},
-{"dot", cutorch_CudaTensor_dot},
-{"sum", cutorch_CudaTensor_sum},
-{"prod", cutorch_CudaTensor_prod},
-{"min", cutorch_CudaTensor_min},
-{"max", cutorch_CudaTensor_max},
-{"log", cutorch_CudaTensor_log},
-{"log1p", cutorch_CudaTensor_log1p},
-{"exp", cutorch_CudaTensor_exp},
-{"cos", cutorch_CudaTensor_cos},
-{"acos", cutorch_CudaTensor_acos},
-{"cosh", cutorch_CudaTensor_cosh},
-{"sin", cutorch_CudaTensor_sin},
-{"asin", cutorch_CudaTensor_asin},
-{"sinh", cutorch_CudaTensor_sinh},
-{"tan", cutorch_CudaTensor_tan},
-{"atan", cutorch_CudaTensor_atan},
-{"tanh", cutorch_CudaTensor_tanh},
-{"sqrt", cutorch_CudaTensor_sqrt},
-{"ceil", cutorch_CudaTensor_ceil},
-{"floor", cutorch_CudaTensor_floor},
-{"abs", cutorch_CudaTensor_abs},
-{"sign", cutorch_CudaTensor_sign},
-{"round", cutorch_CudaTensor_round},
-{"atan2", cutorch_CudaTensor_atan2},
-{"pow", cutorch_CudaTensor_pow},
-{"rand", cutorch_CudaTensor_rand},
-{"randn", cutorch_CudaTensor_randn},
-{"clamp", cutorch_CudaTensor_clamp},
-{"lt", cutorch_CudaTensor_lt},
-{"gt", cutorch_CudaTensor_gt},
-{"le", cutorch_CudaTensor_le},
-{"ge", cutorch_CudaTensor_ge},
-{"eq", cutorch_CudaTensor_eq},
-{"ne", cutorch_CudaTensor_ne},
-{"geometric", cutorch_CudaTensor_geometric},
-{"bernoulli", cutorch_CudaTensor_bernoulli},
-{"uniform", cutorch_CudaTensor_uniform},
-{"normal", cutorch_CudaTensor_normal},
-{"cauchy", cutorch_CudaTensor_cauchy},
-{"logNormal", cutorch_CudaTensor_logNormal},
-{"exponential", cutorch_CudaTensor_exponential},
-{"mean", cutorch_CudaTensor_mean},
-{"var", cutorch_CudaTensor_var},
-{"std", cutorch_CudaTensor_std},
-{"norm", cutorch_CudaTensor_norm},
-{"renorm", cutorch_CudaTensor_renorm},
-{"dist", cutorch_CudaTensor_dist},
-{"squeeze", cutorch_CudaTensor_squeeze},
+static const struct luaL_Reg gputorch_GPUTensorMath__ [] = {
+{"zero", gputorch_GPUTensor_zero},
+{"fill", gputorch_GPUTensor_fill},
+{"zeros", gputorch_GPUTensor_zeros},
+{"ones", gputorch_GPUTensor_ones},
+{"reshape", gputorch_GPUTensor_reshape},
+{"numel", gputorch_GPUTensor_numel},
+{"add", gputorch_GPUTensor_add},
+{"mul", gputorch_GPUTensor_mul},
+{"div", gputorch_GPUTensor_div},
+{"cmul", gputorch_GPUTensor_cmul},
+{"cdiv", gputorch_GPUTensor_cdiv},
+{"addcmul", gputorch_GPUTensor_addcmul},
+{"addcdiv", gputorch_GPUTensor_addcdiv},
+{"mv", gputorch_GPUTensor_mv},
+{"mm", gputorch_GPUTensor_mm},
+{"ger", gputorch_GPUTensor_ger},
+{"addmv", gputorch_GPUTensor_addmv},
+{"addmm", gputorch_GPUTensor_addmm},
+{"addr", gputorch_GPUTensor_addr},
+{"dot", gputorch_GPUTensor_dot},
+{"sum", gputorch_GPUTensor_sum},
+{"prod", gputorch_GPUTensor_prod},
+{"min", gputorch_GPUTensor_min},
+{"max", gputorch_GPUTensor_max},
+{"log", gputorch_GPUTensor_log},
+{"log1p", gputorch_GPUTensor_log1p},
+{"exp", gputorch_GPUTensor_exp},
+{"cos", gputorch_GPUTensor_cos},
+{"acos", gputorch_GPUTensor_acos},
+{"cosh", gputorch_GPUTensor_cosh},
+{"sin", gputorch_GPUTensor_sin},
+{"asin", gputorch_GPUTensor_asin},
+{"sinh", gputorch_GPUTensor_sinh},
+{"tan", gputorch_GPUTensor_tan},
+{"atan", gputorch_GPUTensor_atan},
+{"tanh", gputorch_GPUTensor_tanh},
+{"sqrt", gputorch_GPUTensor_sqrt},
+{"ceil", gputorch_GPUTensor_ceil},
+{"floor", gputorch_GPUTensor_floor},
+{"abs", gputorch_GPUTensor_abs},
+{"sign", gputorch_GPUTensor_sign},
+{"round", gputorch_GPUTensor_round},
+{"atan2", gputorch_GPUTensor_atan2},
+{"pow", gputorch_GPUTensor_pow},
+{"rand", gputorch_GPUTensor_rand},
+{"randn", gputorch_GPUTensor_randn},
+{"clamp", gputorch_GPUTensor_clamp},
+{"lt", gputorch_GPUTensor_lt},
+{"gt", gputorch_GPUTensor_gt},
+{"le", gputorch_GPUTensor_le},
+{"ge", gputorch_GPUTensor_ge},
+{"eq", gputorch_GPUTensor_eq},
+{"ne", gputorch_GPUTensor_ne},
+{"geometric", gputorch_GPUTensor_geometric},
+{"bernoulli", gputorch_GPUTensor_bernoulli},
+{"uniform", gputorch_GPUTensor_uniform},
+{"normal", gputorch_GPUTensor_normal},
+{"cauchy", gputorch_GPUTensor_cauchy},
+{"logNormal", gputorch_GPUTensor_logNormal},
+{"exponential", gputorch_GPUTensor_exponential},
+{"mean", gputorch_GPUTensor_mean},
+{"var", gputorch_GPUTensor_var},
+{"std", gputorch_GPUTensor_std},
+{"norm", gputorch_GPUTensor_norm},
+{"renorm", gputorch_GPUTensor_renorm},
+{"dist", gputorch_GPUTensor_dist},
+{"squeeze", gputorch_GPUTensor_squeeze},
 {NULL, NULL}
 };
 
-void cutorch_CudaTensorMath_init(lua_State *L)
+void gputorch_GPUTensorMath_init(lua_State *L)
 {
-  luaT_pushmetatable(L, "torch.CudaTensor");
+  luaT_pushmetatable(L, "torch.GPUTensor");
 
   /* register methods */
-  luaL_register(L, NULL, m_cutorch_CudaTensorMath__);
+  luaL_register(L, NULL, m_gputorch_GPUTensorMath__);
 
   /* register functions into the "torch" field of the tensor metaclass */
   lua_pushstring(L, "torch");
   lua_newtable(L);
-  luaL_register(L, NULL, cutorch_CudaTensorMath__);
+  luaL_register(L, NULL, gputorch_GPUTensorMath__);
   lua_rawset(L, -3);
   lua_pop(L, 1);
 }

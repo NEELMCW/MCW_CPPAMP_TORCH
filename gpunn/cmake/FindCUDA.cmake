@@ -209,11 +209,11 @@
 #                           libraries, if you so choose (at your own risk).
 #  CUDA_INCLUDE_DIRS     -- Include directory for cuda headers.  Added automatically
 #                           for CUDA_ADD_EXECUTABLE and CUDA_ADD_LIBRARY.
-#  CUDA_LIBRARIES        -- Cuda RT library.
-#  CUDA_CUFFT_LIBRARIES  -- Device or emulation library for the Cuda FFT
+#  CUDA_LIBRARIES        -- GPU RT library.
+#  CUDA_CUFFT_LIBRARIES  -- Device or emulation library for the GPU FFT
 #                           implementation (alternative to:
 #                           CUDA_ADD_CUFFT_TO_TARGET macro)
-#  CUDA_CUBLAS_LIBRARIES -- Device or emulation library for the Cuda BLAS
+#  CUDA_CUBLAS_LIBRARIES -- Device or emulation library for the GPU BLAS
 #                           implementation (alterative to:
 #                           CUDA_ADD_CUBLAS_TO_TARGET macro).
 #  CUDA_curand_LIBRARY   -- CUDA Random Number Generation library.
@@ -231,7 +231,7 @@
 #
 #
 #  James Bigler, NVIDIA Corp (nvidia.com - jbigler)
-#  Abe Stephens, SCI Institute -- http://www.sci.utah.edu/~abe/FindCuda.html
+#  Abe Stephens, SCI Institute -- http://www.sci.utah.edu/~abe/FindGPU.html
 #
 #  Copyright (c) 2008 - 2009 NVIDIA Corporation.  All rights reserved.
 #

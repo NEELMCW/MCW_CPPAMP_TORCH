@@ -2,43 +2,43 @@
 #include "THCGeneral.h"
 #include "THCTensorRandom.h"
 
-extern void cutorch_CudaStorage_init(lua_State* L);
-extern void cutorch_CudaTensor_init(lua_State* L);
-extern void cutorch_CudaTensorMath_init(lua_State* L);
+extern void gputorch_GPUStorage_init(lua_State* L);
+extern void gputorch_GPUTensor_init(lua_State* L);
+extern void gputorch_GPUTensorMath_init(lua_State* L);
 
-static int cutorch_synchronize(lua_State *L)
+static int gputorch_synchronize(lua_State *L)
 {
 /*  cudaDeviceSynchronize();  */
   return 0;
 }
 
-static int cutorch_getDevice(lua_State *L)
+static int gputorch_getDevice(lua_State *L)
 {
 /*  int device;
-  THCudaCheck(cudaGetDevice(&device));
+  THGPUCheck(cudaGetDevice(&device));
   device++;
   lua_pushnumber(L, device);*/
   return 1;
 }
 
-static int cutorch_deviceReset(lua_State *L)
+static int gputorch_deviceReset(lua_State *L)
 {
-/*  THCudaCheck(cudaDeviceReset());*/
+/*  THGPUCheck(cudaDeviceReset());*/
   return 0;
 }
 
-static int cutorch_getDeviceCount(lua_State *L)
+static int gputorch_getDeviceCount(lua_State *L)
 {
 /*  int ndevice;
-  THCudaCheck(cudaGetDeviceCount(&ndevice));
+  THGPUCheck(cudaGetDeviceCount(&ndevice));
   lua_pushnumber(L, ndevice);*/
   return 1;
 }
 
-static int cutorch_setDevice(lua_State *L)
+static int gputorch_setDevice(lua_State *L)
 {
 /*  int device = (int)luaL_checknumber(L, 1)-1;
-  THCudaCheck(cudaSetDevice(device));
+  THGPUCheck(cudaSetDevice(device));
   THCRandom_setGenerator(device);*/
   return 0;
 }
@@ -47,11 +47,11 @@ static int cutorch_setDevice(lua_State *L)
   lua_pushnumber(L, prop.NAME); \
   lua_setfield(L, -2, #NAME);
 
-static int cutorch_getDeviceProperties(lua_State *L)
+static int gputorch_getDeviceProperties(lua_State *L)
 {
   /*struct cudaDeviceProp prop;
   int device = (int)luaL_checknumber(L, 1)-1;
-  THCudaCheck(cudaGetDeviceProperties(&prop, device));
+  THGPUCheck(cudaGetDeviceProperties(&prop, device));
   lua_newtable(L);
   SET_DEVN_PROP(canMapHostMemory);
   SET_DEVN_PROP(clockRate);
@@ -77,7 +77,7 @@ static int cutorch_getDeviceProperties(lua_State *L)
   SET_DEVN_PROP(maxTexture1DLinear);
   
   size_t freeMem;
-  THCudaCheck(cudaMemGetInfo (&freeMem, NULL));
+  THGPUCheck(cudaMemGetInfo (&freeMem, NULL));
   lua_pushnumber(L, freeMem);
   lua_setfield(L, -2, "freeGlobalMem");
 
@@ -87,52 +87,52 @@ static int cutorch_getDeviceProperties(lua_State *L)
   return 1;
 }
 
-static int cutorch_seed(lua_State *L)
+static int gputorch_seed(lua_State *L)
 {
   /*unsigned long seed = THCRandom_seed();
   lua_pushnumber(L, seed);*/
   return 1;
 }
 
-static int cutorch_initialSeed(lua_State *L)
+static int gputorch_initialSeed(lua_State *L)
 {
 /*  unsigned long seed = THCRandom_initialSeed();
   lua_pushnumber(L, seed);*/
   return 1;
 }
 
-static int cutorch_manualSeed(lua_State *L)
+static int gputorch_manualSeed(lua_State *L)
 {
 /*  unsigned long seed = luaL_checknumber(L, 1);
   THCRandom_manualSeed(seed);*/
   return 0;
 }
 
-static const struct luaL_Reg cutorch_stuff__ [] = {
-  {"synchronize", cutorch_synchronize},
-  {"getDevice", cutorch_getDevice},
-  {"deviceReset", cutorch_deviceReset},
-  {"getDeviceCount", cutorch_getDeviceCount},
-  {"getDeviceProperties", cutorch_getDeviceProperties},
-  {"setDevice", cutorch_setDevice},
-  {"seed", cutorch_seed},
-  {"initialSeed", cutorch_initialSeed},
-  {"manualSeed", cutorch_manualSeed},
+static const struct luaL_Reg gputorch_stuff__ [] = {
+  {"synchronize", gputorch_synchronize},
+  {"getDevice", gputorch_getDevice},
+  {"deviceReset", gputorch_deviceReset},
+  {"getDeviceCount", gputorch_getDeviceCount},
+  {"getDeviceProperties", gputorch_getDeviceProperties},
+  {"setDevice", gputorch_setDevice},
+  {"seed", gputorch_seed},
+  {"initialSeed", gputorch_initialSeed},
+  {"manualSeed", gputorch_manualSeed},
   {NULL, NULL}
 };
 
-LUA_EXTERNC DLL_EXPORT int luaopen_libcutorch(lua_State *L);
+LUA_EXTERNC DLL_EXPORT int luaopen_libgputorch(lua_State *L);
 
-int luaopen_libcutorch(lua_State *L)
+int luaopen_libgputorch(lua_State *L)
 {
   lua_newtable(L);
-  luaL_register(L, NULL, cutorch_stuff__);
+  luaL_register(L, NULL, gputorch_stuff__);
 
-  THCudaInit();
+  THGPUInit();
 
-  cutorch_CudaStorage_init(L);
-  cutorch_CudaTensor_init(L);
-  cutorch_CudaTensorMath_init(L);
+  gputorch_GPUStorage_init(L);
+  gputorch_GPUTensor_init(L);
+  gputorch_GPUTensorMath_init(L);
 
 
   return 1;

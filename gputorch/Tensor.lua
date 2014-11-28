@@ -1,4 +1,4 @@
-function torch.CudaTensor.apply(self, func)
+function torch.GPUTensor.apply(self, func)
    local x = torch.FloatTensor(self:size()):copy(self)
    x:apply(func)
    self:copy(x)
@@ -21,7 +21,7 @@ local function Tensor__typeAs(self,tensor)
    return self:type(tensor:type())
 end
 local function Tensor__cuda(self,type)
-   return self:type('torch.CudaTensor')
+   return self:type('torch.GPUTensor')
 end
 local function Tensor__double(self,type)
    return self:type('torch.DoubleTensor')
@@ -32,18 +32,18 @@ end
 
 rawset(torch.getmetatable('torch.DoubleTensor'), 'cuda', Tensor__cuda)
 rawset(torch.getmetatable('torch.FloatTensor'), 'cuda', Tensor__cuda)
-rawset(torch.getmetatable('torch.CudaTensor'), 'cuda', Tensor__cuda)
+rawset(torch.getmetatable('torch.GPUTensor'), 'cuda', Tensor__cuda)
 
-rawset(torch.getmetatable('torch.CudaTensor'), 'type', Tensor__type)
-rawset(torch.getmetatable('torch.CudaTensor'), 'typeAs', Tensor__typeAs)
-rawset(torch.getmetatable('torch.CudaTensor'), 'double', Tensor__double)
-rawset(torch.getmetatable('torch.CudaTensor'), 'float', Tensor__float)
+rawset(torch.getmetatable('torch.GPUTensor'), 'type', Tensor__type)
+rawset(torch.getmetatable('torch.GPUTensor'), 'typeAs', Tensor__typeAs)
+rawset(torch.getmetatable('torch.GPUTensor'), 'double', Tensor__double)
+rawset(torch.getmetatable('torch.GPUTensor'), 'float', Tensor__float)
 
 for _,func in ipairs({'addmv',
                       'addmm'}) do
       
-   local torchfunc = torch.CudaTensor[func]
-   torch.CudaTensor[func] = function(self, next1, next2, ...)
+   local torchfunc = torch.GPUTensor[func]
+   torch.GPUTensor[func] = function(self, next1, next2, ...)
                                if type(next1) == 'number' and type(next2) == 'number' then -- beta=next1, alpha=next2
                                   return torchfunc(self, next1, next2, ...)
                                elseif type(next1) == 'number' then -- beta=1, alpha=next1
@@ -55,7 +55,7 @@ for _,func in ipairs({'addmv',
 end
 
 do
-    local metatable = torch.getmetatable('torch.CudaTensor')
+    local metatable = torch.getmetatable('torch.GPUTensor')
     for _,func in pairs{'expand', 'expandAs', 'view', 'viewAs', 'repeatTensor'} do
         rawset(metatable, func, torch[func])
     end

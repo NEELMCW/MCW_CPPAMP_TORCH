@@ -17,17 +17,17 @@ struct absupdateOutput_functor
   }
 };
 
-static int cunn_Abs_updateOutput(lua_State *L)
+static int gpunn_Abs_updateOutput(lua_State *L)
 {
-  THCudaTensor *input = (THCudaTensor*)luaT_checkudata(L, 2, "torch.CudaTensor");
-  THCudaTensor *output = (THCudaTensor*)luaT_getfieldcheckudata(L, 1, "output", "torch.CudaTensor");
-  long size = THCudaTensor_nElement(input);
-  input = THCudaTensor_newContiguous(input);
-  THCudaTensor_resizeAs(output, input);
-  bolt::amp::device_vector<float> output_data(THCudaTensor_data(output), THCudaTensor_data(output) + THCudaTensor_nElement(output));
-  bolt::amp::device_vector<float> input_data(THCudaTensor_data(input), THCudaTensor_data(input) + THCudaTensor_nElement(input));
+  THGPUTensor *input = (THGPUTensor*)luaT_checkudata(L, 2, "torch.GPUTensor");
+  THGPUTensor *output = (THGPUTensor*)luaT_getfieldcheckudata(L, 1, "output", "torch.GPUTensor");
+  long size = THGPUTensor_nElement(input);
+  input = THGPUTensor_newContiguous(input);
+  THGPUTensor_resizeAs(output, input);
+  bolt::amp::device_vector<float> output_data(THGPUTensor_data(output), THGPUTensor_data(output) + THGPUTensor_nElement(output));
+  bolt::amp::device_vector<float> input_data(THGPUTensor_data(input), THGPUTensor_data(input) + THGPUTensor_nElement(input));
   bolt::amp::transform(input_data.begin(), input_data.end(), output_data.begin(), absupdateOutput_functor());
-  THCudaTensor_free(input);
+  THGPUTensor_free(input);
   return 1;
 }
 
@@ -42,37 +42,37 @@ struct absupdateGradInput_functor
   }
 };
 
-static int cunn_Abs_updateGradInput(lua_State *L)
+static int gpunn_Abs_updateGradInput(lua_State *L)
 {
-  THCudaTensor *input = (THCudaTensor*)luaT_checkudata(L, 2, "torch.CudaTensor");
-  THCudaTensor *gradOutput = (THCudaTensor*)luaT_checkudata(L, 3, "torch.CudaTensor");
-  THCudaTensor *gradInput = (THCudaTensor*)luaT_getfieldcheckudata(L, 1, "gradInput", "torch.CudaTensor");
-  long size = THCudaTensor_nElement(input);
+  THGPUTensor *input = (THGPUTensor*)luaT_checkudata(L, 2, "torch.GPUTensor");
+  THGPUTensor *gradOutput = (THGPUTensor*)luaT_checkudata(L, 3, "torch.GPUTensor");
+  THGPUTensor *gradInput = (THGPUTensor*)luaT_getfieldcheckudata(L, 1, "gradInput", "torch.GPUTensor");
+  long size = THGPUTensor_nElement(input);
 
-  input = THCudaTensor_newContiguous(input);
-  gradOutput = THCudaTensor_newContiguous(gradOutput);
+  input = THGPUTensor_newContiguous(input);
+  gradOutput = THGPUTensor_newContiguous(gradOutput);
 
-  THCudaTensor_resizeAs(gradInput, input);
+  THGPUTensor_resizeAs(gradInput, input);
 
-  bolt::amp::device_vector<float> input_data(THCudaTensor_data(input), THCudaTensor_data(input) + THCudaTensor_nElement(input));
-  bolt::amp::device_vector<float> gradOutput_data(THCudaTensor_data(gradOutput), THCudaTensor_data(gradOutput) + THCudaTensor_nElement(gradOutput));
-  bolt::amp::device_vector<float> gradInput_data(THCudaTensor_data(gradInput), THCudaTensor_data(gradInput) + THCudaTensor_nElement(gradInput));
+  bolt::amp::device_vector<float> input_data(THGPUTensor_data(input), THGPUTensor_data(input) + THGPUTensor_nElement(input));
+  bolt::amp::device_vector<float> gradOutput_data(THGPUTensor_data(gradOutput), THGPUTensor_data(gradOutput) + THGPUTensor_nElement(gradOutput));
+  bolt::amp::device_vector<float> gradInput_data(THGPUTensor_data(gradInput), THGPUTensor_data(gradInput) + THGPUTensor_nElement(gradInput));
   bolt::amp::transform(input_data.begin(), input_data.end(), gradOutput_data.begin(),gradInput_data.begin(), absupdateGradInput_functor());
 
-  THCudaTensor_free(gradOutput);
-  THCudaTensor_free(input);
+  THGPUTensor_free(gradOutput);
+  THGPUTensor_free(input);
   return 1;
 }
 
-static const struct luaL_Reg cunn_Abs__ [] = {
-  {"Abs_updateOutput", cunn_Abs_updateOutput},
-  {"Abs_updateGradInput", cunn_Abs_updateGradInput},
+static const struct luaL_Reg gpunn_Abs__ [] = {
+  {"Abs_updateOutput", gpunn_Abs_updateOutput},
+  {"Abs_updateGradInput", gpunn_Abs_updateGradInput},
   {NULL, NULL}
 };
 
-static void cunn_Abs_init(lua_State *L)
+static void gpunn_Abs_init(lua_State *L)
 {
-  luaT_pushmetatable(L, "torch.CudaTensor");
-  luaT_registeratname(L, cunn_Abs__, "nn");
+  luaT_pushmetatable(L, "torch.GPUTensor");
+  luaT_registeratname(L, gpunn_Abs__, "nn");
   lua_pop(L,1);
 }

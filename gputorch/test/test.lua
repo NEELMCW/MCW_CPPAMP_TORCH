@@ -1,7 +1,7 @@
 
 local runtests = false
-if not cutorch then
-   require 'cutorch'
+if not gputorch then
+   require 'gputorch'
    runtests = true
 end
 local tester
@@ -14,7 +14,7 @@ local maxvalue = 20
 local nloop = 100
 local times = {}
 
---e.g. unit test cmd: th -lcutorch -e "cutorch.test{'view','viewAs'}"
+--e.g. unit test cmd: th -lgputorch -e "gputorch.test{'view','viewAs'}"
 
 local function isEqual(a, b, tolerance, ...)
    if a == nil and b == nil then return true end
@@ -37,14 +37,14 @@ local function isEqual(a, b, tolerance, ...)
    end
 end
 
-local function compareFloatAndCuda(x, fn, ...)
+local function compareFloatAndGPU(x, fn, ...)
    local x_cpu    = x:float()
    local x_cuda   = x_cpu:cuda()
    local res1_cpu, res2_cpu, res3_cpu, res4_cpu
    local res1_cuda, res2_cuda, res3_cuda, res4_cuda
    if type(fn) == 'string' then
       tester:assertne(x_cuda[fn], nil,
-         string.format("Missing function CudaTensor.%s", fn))
+         string.format("Missing function GPUTensor.%s", fn))
       res1_cpu, res2_cpu, res3_cpu, res4_cpu  = x_cpu[fn](x_cpu, ...)
       res1_cuda, res2_cuda, res3_cuda, res4_cuda = x_cuda[fn](x_cuda, ...)
    elseif type(fn) == 'function' then
@@ -64,7 +64,7 @@ local function compareFloatAndCuda(x, fn, ...)
                  string.format("Divergent results between CPU and CUDA for function '%s'", tostring(fn)))
 end
 
-local function compareFloatAndCudaTensorArgs(x, fn, ...)
+local function compareFloatAndGPUTensorArgs(x, fn, ...)
    local x_cpu = x:float()
    local x_cuda = x_cpu:cuda()
    local res1_cpu, res2_cpu, res3_cpu, res4_cpu
@@ -73,17 +73,17 @@ local function compareFloatAndCudaTensorArgs(x, fn, ...)
    local tranform_args = function(t, type)
       for k,v in pairs(t) do
          local v_type = torch.Tensor.type(v)
-         if v_type == 'torch.FloatTensor' or v_type == 'torch.CudaTensor' or v_type == 'torch.DoubleTensor' then
+         if v_type == 'torch.FloatTensor' or v_type == 'torch.GPUTensor' or v_type == 'torch.DoubleTensor' then
             t[k] = v:type(type)
          end
       end
       return t
    end
    local cpu_args = tranform_args({...}, 'torch.FloatTensor')
-   local cuda_args = tranform_args({...}, 'torch.CudaTensor')
+   local cuda_args = tranform_args({...}, 'torch.GPUTensor')
    if type(fn) == 'string' then
       tester:assertne(x_cuda[fn], nil,
-         string.format("Missing function CudaTensor.%s", fn))
+         string.format("Missing function GPUTensor.%s", fn))
       res1_cpu, res2_cpu, res3_cpu, res4_cpu  = x_cpu[fn](x_cpu, unpack(cpu_args))
       res1_cuda, res2_cuda, res3_cuda, res4_cuda = x_cuda[fn](x_cuda, unpack(cuda_args))
    elseif type(fn) == 'function' then
@@ -106,13 +106,13 @@ end
 function test.squeeze()
    local sz = math.floor(torch.uniform(minsize,maxsize))
    local x = torch.FloatTensor():rand(sz, 1, sz, 1)
-   compareFloatAndCuda(x, 'squeeze')
+   compareFloatAndGPU(x, 'squeeze')
 
    local y = x:cuda():squeeze()
    tester:assert(y:dim() == 2, "squeeze err")
 
    x = torch.FloatTensor():rand(sz, 1, 1, sz)
-   compareFloatAndCuda(x, 'squeeze', 2)
+   compareFloatAndGPU(x, 'squeeze', 2)
 
    local y = x:cuda():squeeze(2)
    tester:assert(y:dim() == 3, "squeeze1d err")
@@ -121,29 +121,29 @@ end
 function test.expand()
    local sz = math.floor(torch.uniform(minsize,maxsize))
    local x = torch.FloatTensor():rand(sz, 1)
-   compareFloatAndCuda(x, 'expand', sz, sz)
+   compareFloatAndGPU(x, 'expand', sz, sz)
 
    x = torch.FloatTensor():rand(1, sz)
-   compareFloatAndCuda(x, 'expand', sz, sz)
+   compareFloatAndGPU(x, 'expand', sz, sz)
 end
 
 function test.view()
    local sz = math.floor(torch.uniform(minsize,maxsize))
    local x = torch.FloatTensor():rand(sz, 3)
-   compareFloatAndCuda(x, 'view', sz, 3, 1)
+   compareFloatAndGPU(x, 'view', sz, 3, 1)
 end
 
 function test.viewAs()
    local sz = math.floor(torch.uniform(minsize,maxsize))
    local x = torch.FloatTensor():rand(sz, 3)
    local y = torch.FloatTensor():rand(sz, 3, 1)
-   compareFloatAndCudaTensorArgs(x, 'viewAs', y)
+   compareFloatAndGPUTensorArgs(x, 'viewAs', y)
 end
 
 function test.repeatTensor()
    local sz = math.floor(torch.uniform(minsize,maxsize))
    local x = torch.FloatTensor():rand(sz, 3)
-   compareFloatAndCuda(x, 'repeatTensor', sz, 2)
+   compareFloatAndGPU(x, 'repeatTensor', sz, 2)
 end
 
 function test.copyNoncontiguous()
@@ -151,44 +151,44 @@ function test.copyNoncontiguous()
      local f = function(src)
         return src.new(2, 2):copy(src:expand(2, 2))
      end
-     compareFloatAndCuda(x, f)
+     compareFloatAndGPU(x, f)
 
    local sz = math.floor(torch.uniform(minsize,maxsize))
    local x = torch.FloatTensor():rand(sz, 1)
    local f = function(src)
       return src.new(sz, sz):copy(src:expand(sz, sz))
    end
-   compareFloatAndCuda(x, f)
+   compareFloatAndGPU(x, f)
 
    x = torch.FloatTensor():rand(sz, sz, 2)
    local f = function(src)
       return src.new(sz, sz):copy(src[{{},{},{2}}])
    end
-   compareFloatAndCuda(x, f)
+   compareFloatAndGPU(x, f)
 
    x = torch.FloatTensor():rand(2, sz, sz)
    local f = function(src)
       return src.new(sz, sz):copy(src[{{2},{},{}}])
    end
-   compareFloatAndCuda(x, f)
+   compareFloatAndGPU(x, f)
 
    x = torch.FloatTensor():rand(sz, 2, sz)
    local f = function(src)
       return src.new(sz, sz):copy(src[{{},{2},{}}])
    end
-   compareFloatAndCuda(x, f)
+   compareFloatAndGPU(x, f)
 
    x = torch.FloatTensor():rand(sz, 2, sz)
    local f = function(src)
       return src.new(sz, 1, sz):copy(src[{{},{2},{}}])
    end
-   compareFloatAndCuda(x, f)
+   compareFloatAndGPU(x, f)
 
    x = torch.FloatTensor():rand(sz, sz):transpose(1,2)
    local f = function(src)
       return src.new(sz, sz):copy(src)
    end
-   compareFloatAndCuda(x, f)
+   compareFloatAndGPU(x, f)
 end
 
 function test.largeNoncontiguous()
@@ -197,14 +197,14 @@ function test.largeNoncontiguous()
    local f = function(src)
       return src.new(20, sz, 60, 60):copy(src:expand(20, sz, 60, 60))
    end
-   compareFloatAndCuda(x, f)
+   compareFloatAndGPU(x, f)
 end
 
 function test.zero()
    local sz1 = math.floor(torch.uniform(minsize,maxsize))
    local sz2 = math.floor(torch.uniform(minsize,maxsize))
    local x = torch.FloatTensor():rand(sz1, sz2)
-   compareFloatAndCudaTensorArgs(x, 'zero')
+   compareFloatAndGPUTensorArgs(x, 'zero')
 end
 
 function test.fill()
@@ -212,21 +212,21 @@ function test.fill()
    local sz2 = math.floor(torch.uniform(minsize,maxsize))
    local x = torch.FloatTensor():rand(sz1, sz2)
    local v = torch.uniform()
-   compareFloatAndCudaTensorArgs(x, 'fill', v)
+   compareFloatAndGPUTensorArgs(x, 'fill', v)
 end
 
 function test.reshape()
    local sz1 = math.floor(torch.uniform(minsize,maxsize))*2
    local sz2 = math.floor(torch.uniform(minsize,maxsize))
    local x = torch.FloatTensor():rand(sz1, sz2)
-   compareFloatAndCudaTensorArgs(x, 'reshape', sz1/2, sz2*2)
+   compareFloatAndGPUTensorArgs(x, 'reshape', sz1/2, sz2*2)
 end
 
 function test.zeros()
    local sz1 = math.floor(torch.uniform(minsize,maxsize))
    local sz2 = math.floor(torch.uniform(minsize,maxsize))
    local t = torch.getdefaulttensortype()
-   torch.setdefaulttensortype('torch.CudaTensor')
+   torch.setdefaulttensortype('torch.GPUTensor')
    local x = torch.zeros(sz1, sz2)
    assert(x:sum() == 0)
    torch.setdefaulttensortype(t)
@@ -236,7 +236,7 @@ function test.ones()
    local sz1 = math.floor(torch.uniform(minsize,maxsize))
    local sz2 = math.floor(torch.uniform(minsize,maxsize))
    local t = torch.getdefaulttensortype()
-   torch.setdefaulttensortype('torch.CudaTensor')
+   torch.setdefaulttensortype('torch.GPUTensor')
    local x = torch.ones(sz1, sz2)
    assert(x:sum() == x:nElement())
    torch.setdefaulttensortype(t)
@@ -250,10 +250,10 @@ function test.add()
    local y = torch.FloatTensor():rand(sz1, sz2)
    local z = torch.FloatTensor():rand(sz1, sz2)
    local v = torch.uniform()
-   compareFloatAndCudaTensorArgs(x, 'add', z)
-   compareFloatAndCudaTensorArgs(x, 'add', z, v)
-   compareFloatAndCudaTensorArgs(x, 'add', y, z)
-   compareFloatAndCudaTensorArgs(x, 'add', y, v, z)
+   compareFloatAndGPUTensorArgs(x, 'add', z)
+   compareFloatAndGPUTensorArgs(x, 'add', z, v)
+   compareFloatAndGPUTensorArgs(x, 'add', y, z)
+   compareFloatAndGPUTensorArgs(x, 'add', y, v, z)
 end
 
 function test.cmul()
@@ -261,7 +261,7 @@ function test.cmul()
    local sz2 = math.floor(torch.uniform(minsize,maxsize))
    local x = torch.FloatTensor():rand(sz1, sz2)
    local y = torch.FloatTensor():rand(sz1, sz2)
-   compareFloatAndCudaTensorArgs(x, 'cmul', y)
+   compareFloatAndGPUTensorArgs(x, 'cmul', y)
 end
 
 function test.cdiv()
@@ -269,7 +269,7 @@ function test.cdiv()
    local sz2 = math.floor(torch.uniform(minsize,maxsize))
    local x = torch.FloatTensor():rand(sz1, sz2)
    local y = torch.FloatTensor():rand(sz1, sz2)
-   compareFloatAndCudaTensorArgs(x, 'cdiv', y)
+   compareFloatAndGPUTensorArgs(x, 'cdiv', y)
 end
 
 function test.cdiv3()
@@ -278,7 +278,7 @@ function test.cdiv3()
    local x = torch.FloatTensor():rand(sz1, sz2)
    local y = torch.FloatTensor():rand(sz1, sz2)
    local z = torch.FloatTensor(sz1, sz2)
-   compareFloatAndCudaTensorArgs(z, 'cdiv', x, y)
+   compareFloatAndGPUTensorArgs(z, 'cdiv', x, y)
 end
 
 function test.addcmul()
@@ -287,12 +287,12 @@ function test.addcmul()
    local x = torch.FloatTensor():rand(sz1, sz2)
    local y = torch.FloatTensor():rand(sz1, sz2)
    local z = torch.FloatTensor():rand(sz1, sz2)
-   compareFloatAndCudaTensorArgs(x, 'addcmul', y, z)
-   compareFloatAndCudaTensorArgs(x, 'addcmul', torch.uniform(), y, z)
+   compareFloatAndGPUTensorArgs(x, 'addcmul', y, z)
+   compareFloatAndGPUTensorArgs(x, 'addcmul', torch.uniform(), y, z)
 
    local r = torch.zeros(sz1, sz2)
-   compareFloatAndCudaTensorArgs(r, 'addcmul', x, y, z)
-   compareFloatAndCudaTensorArgs(r, 'addcmul', x, torch.uniform(), y, z)
+   compareFloatAndGPUTensorArgs(r, 'addcmul', x, y, z)
+   compareFloatAndGPUTensorArgs(r, 'addcmul', x, torch.uniform(), y, z)
 end
 
 function test.addcdiv()
@@ -301,12 +301,12 @@ function test.addcdiv()
    local x = torch.FloatTensor():rand(sz1, sz2)
    local y = torch.FloatTensor():rand(sz1, sz2)
    local z = torch.FloatTensor():rand(sz1, sz2)
-   compareFloatAndCudaTensorArgs(x, 'addcdiv', y, z)
-   compareFloatAndCudaTensorArgs(x, 'addcdiv', torch.uniform(), y, z)
+   compareFloatAndGPUTensorArgs(x, 'addcdiv', y, z)
+   compareFloatAndGPUTensorArgs(x, 'addcdiv', torch.uniform(), y, z)
 
    local r = torch.zeros(sz1, sz2)
-   compareFloatAndCudaTensorArgs(r, 'addcdiv', x, y, z)
-   compareFloatAndCudaTensorArgs(r, 'addcdiv', x, torch.uniform(), y, z)
+   compareFloatAndGPUTensorArgs(r, 'addcdiv', x, y, z)
+   compareFloatAndGPUTensorArgs(r, 'addcdiv', x, torch.uniform(), y, z)
 end
 
 function test.logicalValue()
@@ -314,8 +314,8 @@ function test.logicalValue()
    local sz2 = math.floor(torch.uniform(minsize,maxsize))
    local x = torch.FloatTensor():rand(sz1, sz2)
    local y = torch.FloatTensor():rand(sz1, sz2)
-   compareFloatAndCudaTensorArgs(x, 'gt', y, 0.3)
-   compareFloatAndCuda(x, 'gt', 0.3)
+   compareFloatAndGPUTensorArgs(x, 'gt', y, 0.3)
+   compareFloatAndGPU(x, 'gt', 0.3)
 end
 
 function test.logicalTensor()
@@ -324,34 +324,34 @@ function test.logicalTensor()
    local x = torch.FloatTensor():rand(sz1, sz2)
    local y = torch.FloatTensor():rand(sz1, sz2)
    local z = torch.FloatTensor():rand(sz1, sz2)
-   compareFloatAndCudaTensorArgs(x, 'gt', y, z)
+   compareFloatAndGPUTensorArgs(x, 'gt', y, z)
 end
 
 function test.mean()
    local sz1 = math.floor(torch.uniform(minsize,maxsize))
    local sz2 = math.floor(torch.uniform(minsize,maxsize))
    local x = torch.FloatTensor():rand(sz1, sz2)
-   compareFloatAndCuda(x, 'mean')
-   compareFloatAndCuda(x, 'mean', 1)
-   --compareFloatAndCuda(x, 'mean', 2)
+   compareFloatAndGPU(x, 'mean')
+   compareFloatAndGPU(x, 'mean', 1)
+   --compareFloatAndGPU(x, 'mean', 2)
 end
 
 function test.max()
    local sz1 = math.floor(torch.uniform(minsize,maxsize))
    local sz2 = math.floor(torch.uniform(minsize,maxsize))
    local x = torch.FloatTensor():rand(sz1, sz2)
-   compareFloatAndCuda(x, 'max')
-   --compareFloatAndCuda(x, 'max', 1)
-   --compareFloatAndCuda(x, 'max', 2)
+   compareFloatAndGPU(x, 'max')
+   --compareFloatAndGPU(x, 'max', 1)
+   --compareFloatAndGPU(x, 'max', 2)
 end
 
 function test.min()
    local sz1 = math.floor(torch.uniform(minsize,maxsize))
    local sz2 = math.floor(torch.uniform(minsize,maxsize))
    local x = torch.FloatTensor():rand(sz1, sz2)
-   compareFloatAndCuda(x, 'min')
-   --compareFloatAndCuda(x, 'min', 1)
-   --compareFloatAndCuda(x, 'min', 2)
+   compareFloatAndGPU(x, 'min')
+   --compareFloatAndGPU(x, 'min', 1)
+   --compareFloatAndGPU(x, 'min', 2)
 end
 
 function test.sum()
@@ -360,9 +360,9 @@ function test.sum()
    local sz1 = math.floor(torch.uniform(minsize,maxsize))
    local sz2 = math.floor(torch.uniform(minsize,maxsize))
    local x = torch.FloatTensor():rand(sz1, sz2)
-   compareFloatAndCuda(x, 'sum')
-   compareFloatAndCuda(x, 'sum', 1)
-   --compareFloatAndCuda(x, 'sum', 2)
+   compareFloatAndGPU(x, 'sum')
+   compareFloatAndGPU(x, 'sum', 1)
+   --compareFloatAndGPU(x, 'sum', 2)
 end
 
 function test.prod()
@@ -371,40 +371,40 @@ function test.prod()
    local sz1 = math.floor(torch.uniform(minsize,maxsize))
    local sz2 = math.floor(torch.uniform(minsize,maxsize))
    local x = torch.FloatTensor():rand(sz1, sz2)
-   --compareFloatAndCuda(x, 'prod')
-   compareFloatAndCuda(x, 'prod', 1)
-   compareFloatAndCuda(x, 'prod', 2)
+   --compareFloatAndGPU(x, 'prod')
+   compareFloatAndGPU(x, 'prod', 1)
+   compareFloatAndGPU(x, 'prod', 2)
 end
 
 function test.round()
    local sz1 = math.floor(torch.uniform(minsize,maxsize))
    local sz2 = math.floor(torch.uniform(minsize,maxsize))
    local x = torch.FloatTensor():rand(sz1, sz2)
-   compareFloatAndCuda(x, 'round')
+   compareFloatAndGPU(x, 'round')
 end
 
 function test.var()
    local sz1 = math.floor(torch.uniform(minsize,maxsize))
    local sz2 = math.floor(torch.uniform(minsize,maxsize))
    local x = torch.FloatTensor():rand(sz1, sz2)
-   compareFloatAndCuda(x, 'var')
+   compareFloatAndGPU(x, 'var')
    -- multi-dim var is not implemented
-   -- compareFloatAndCuda(x, 'var', 1, true)
-   -- compareFloatAndCuda(x, 'var', 1, false)
-   -- compareFloatAndCuda(x, 'var', 2, true)
-   -- compareFloatAndCuda(x, 'var', 2, false)
+   -- compareFloatAndGPU(x, 'var', 1, true)
+   -- compareFloatAndGPU(x, 'var', 1, false)
+   -- compareFloatAndGPU(x, 'var', 2, true)
+   -- compareFloatAndGPU(x, 'var', 2, false)
 end
 
 function test.std()
    local sz1 = math.floor(torch.uniform(minsize,maxsize))
    local sz2 = math.floor(torch.uniform(minsize,maxsize))
    local x = torch.FloatTensor():rand(sz1, sz2)
-   compareFloatAndCuda(x, 'std')
+   compareFloatAndGPU(x, 'std')
    -- multi-dim std is not implemented
-   -- compareFloatAndCuda(x, 'std', 1, true)
-   -- compareFloatAndCuda(x, 'std', 1, false)
-   -- compareFloatAndCuda(x, 'std', 2, true)
-   -- compareFloatAndCuda(x, 'std', 2, false)
+   -- compareFloatAndGPU(x, 'std', 1, true)
+   -- compareFloatAndGPU(x, 'std', 1, false)
+   -- compareFloatAndGPU(x, 'std', 2, true)
+   -- compareFloatAndGPU(x, 'std', 2, false)
 end
 
 -- Test element-wise unary operators with both one and two arguments.
@@ -413,7 +413,7 @@ local function testUnary1(fn)
       local sz1 = math.floor(torch.uniform(minsize,maxsize))
       local sz2 = math.floor(torch.uniform(minsize,maxsize))
       local x = torch.FloatTensor():rand(sz1, sz2)
-      compareFloatAndCudaTensorArgs(x, fn)
+      compareFloatAndGPUTensorArgs(x, fn)
    end
    return test
 end
@@ -424,7 +424,7 @@ local function testUnary2(fn)
       local sz2 = math.floor(torch.uniform(minsize,maxsize))
       local x = torch.FloatTensor():rand(sz1, sz2)
       local y = torch.FloatTensor()
-      compareFloatAndCudaTensorArgs(y, fn, x)
+      compareFloatAndGPUTensorArgs(y, fn, x)
    end
    return test
 end
@@ -448,7 +448,7 @@ function test.atan2(fn)
    local x = torch.FloatTensor():rand(sz1, sz2)
    local y = torch.FloatTensor():rand(sz1, sz2)
    local z = torch.FloatTensor()
-   compareFloatAndCudaTensorArgs(z, 'atan2', x, y)
+   compareFloatAndGPUTensorArgs(z, 'atan2', x, y)
 end
 
 function test.pow1()
@@ -456,7 +456,7 @@ function test.pow1()
    local sz2 = math.floor(torch.uniform(minsize,maxsize))
    local x = torch.FloatTensor():rand(sz1, sz2)
    local pow = torch.uniform(minvalue,maxvalue)
-   compareFloatAndCudaTensorArgs(x, 'pow', pow)
+   compareFloatAndGPUTensorArgs(x, 'pow', pow)
 end
 
 function test.pow2()
@@ -465,7 +465,7 @@ function test.pow2()
    local x = torch.FloatTensor():rand(sz1, sz2)
    local y = torch.FloatTensor()
    local pow = torch.uniform(minvalue,maxvalue)
-   compareFloatAndCudaTensorArgs(y, 'pow', x, pow)
+   compareFloatAndGPUTensorArgs(y, 'pow', x, pow)
 end
 
 function test.clamp1()
@@ -478,7 +478,7 @@ function test.clamp1()
    if sz2 >= 2 then
      x[1][2] = max_val + 1
    end
-   compareFloatAndCudaTensorArgs(x, 'clamp', min_val, max_val)
+   compareFloatAndGPUTensorArgs(x, 'clamp', min_val, max_val)
 end
 
 function test.clamp2()
@@ -492,7 +492,7 @@ function test.clamp2()
      x[1][2] = max_val + 1
    end
    local y = torch.FloatTensor():resizeAs(x)
-   compareFloatAndCudaTensorArgs(y, 'clamp', x, min_val, max_val)
+   compareFloatAndGPUTensorArgs(y, 'clamp', x, min_val, max_val)
 end
 
 
@@ -507,20 +507,20 @@ function test.indexCopy()
    local longIndex = torch.LongTensor{math.floor(torch.uniform(1, sz1)), math.floor(torch.uniform(1, sz1))}
    local index = 1
    local src = torch.Tensor(2, sz2):uniform()
-   compareFloatAndCudaTensorArgs(x, 'indexCopy', index, longIndex, src)
+   compareFloatAndGPUTensorArgs(x, 'indexCopy', index, longIndex, src)
 
    -- Case 2: 2D tensor, indexCopy over second dimension, 2 indices
    index = 2
    longIndex =  torch.LongTensor{math.floor(torch.uniform(1, sz2)), math.floor(torch.uniform(1, sz2))}
    src = torch.Tensor(sz1, 2):uniform():cuda()
-   compareFloatAndCudaTensorArgs(x, 'indexCopy', index, longIndex, src)
+   compareFloatAndGPUTensorArgs(x, 'indexCopy', index, longIndex, src)
 
    -- Case 3: 1D tensor, indexCopy over 1st dimension, 2 indices
    x = torch.FloatTensor():rand(sz1)
    index = 1
    longIndex = torch.LongTensor{math.floor(torch.uniform(1, sz1)), math.floor(torch.uniform(1, sz1))}
    src = torch.Tensor(2):uniform()
-   compareFloatAndCudaTensorArgs(x, 'indexCopy', index, longIndex, src)
+   compareFloatAndGPUTensorArgs(x, 'indexCopy', index, longIndex, src)
 end
 
 function test.indexFill()
@@ -531,37 +531,37 @@ function test.indexFill()
    local longIndex = torch.LongTensor{math.floor(torch.uniform(1, sz1)), math.floor(torch.uniform(1, sz1))}
    local index = 1
    local val = torch.randn(1)[1]
-   compareFloatAndCuda(x, 'indexFill', index, longIndex, val)
+   compareFloatAndGPU(x, 'indexFill', index, longIndex, val)
 
    index = 2
    longIndex =  torch.LongTensor{math.floor(torch.uniform(1, sz2)), math.floor(torch.uniform(1, sz2))}
    val = torch.randn(1)[1]
-   compareFloatAndCuda(x, 'indexFill', index, longIndex, val)
+   compareFloatAndGPU(x, 'indexFill', index, longIndex, val)
 
    x = torch.FloatTensor():rand(sz1)
    index = 1
    longIndex = torch.LongTensor{math.floor(torch.uniform(1, sz1)), math.floor(torch.uniform(1, sz1))}
    val = torch.randn(1)[1]
-   compareFloatAndCuda(x, 'indexFill', index, longIndex, val)
+   compareFloatAndGPU(x, 'indexFill', index, longIndex, val)
 end
 
 function test.renorm()
    local x = torch.randn(10,5):float()
    local maxnorm = x:norm(2,1):mean()
 
-   compareFloatAndCuda(x, 'renorm', 2, 2, maxnorm)
+   compareFloatAndGPU(x, 'renorm', 2, 2, maxnorm)
 
    x = torch.randn(3,4,5)
-   compareFloatAndCuda(x, 'renorm', 2, 2, maxnorm)
+   compareFloatAndGPU(x, 'renorm', 2, 2, maxnorm)
 
    x = torch.randn(3,4,5)
-   compareFloatAndCuda(x, 'renorm', 3, 2, maxnorm)
+   compareFloatAndGPU(x, 'renorm', 3, 2, maxnorm)
 
    x = torch.randn(3,4,5,100)
-   compareFloatAndCuda(x, 'renorm', 3, 2, maxnorm)
+   compareFloatAndGPU(x, 'renorm', 3, 2, maxnorm)
 
    x = torch.randn(3,4,5,100)
-   compareFloatAndCuda(x, 'renorm', 4, 2, maxnorm)
+   compareFloatAndGPU(x, 'renorm', 4, 2, maxnorm)
 end
 
 function test.indexSelect()
@@ -587,7 +587,7 @@ function test.indexSelect()
    tm.cpu = clock:time().real
 
    x = x:cuda()
-   z = torch.CudaTensor()
+   z = torch.GPUTensor()
 
    z:index(x, 2, indices)
    local rescuda = z:clone():float()
@@ -614,7 +614,7 @@ function test.addmv()
       local c = torch.zeros(n)
       local a = torch.randn(n, m)
       local b = torch.randn(m)
-      compareFloatAndCudaTensorArgs(c, 'addmv', torch.normal(), torch.normal(), a, b)
+      compareFloatAndGPUTensorArgs(c, 'addmv', torch.normal(), torch.normal(), a, b)
    end
 end
 
@@ -633,7 +633,7 @@ end
       local c = torch.zeros(n)
       local a = torch.randn(n, m)
       local b = torch.randn(m)
-      compareFloatAndCudaTensorArgs(c, 'mv', a, b)
+      compareFloatAndGPUTensorArgs(c, 'mv', a, b)
    end
 end]]--
 
@@ -652,7 +652,7 @@ end]]--
       local c = torch.zeros(n,m)
       local a = torch.randn(n)
       local b = torch.randn(m)
-      compareFloatAndCudaTensorArgs(c, 'addr', torch.normal(), a, b)
+      compareFloatAndGPUTensorArgs(c, 'addr', torch.normal(), a, b)
    end
 end]]--
 
@@ -671,7 +671,7 @@ function test.addmm()
       local c = torch.zeros(n, m)
       local a = torch.randn(n, k)
       local b = torch.randn(k, m)
-      compareFloatAndCudaTensorArgs(c, 'addmm', torch.normal(), torch.normal(), a, b)
+      compareFloatAndGPUTensorArgs(c, 'addmm', torch.normal(), torch.normal(), a, b)
    end
 end
 
@@ -690,7 +690,7 @@ end
       local c = torch.zeros(n, m)
       local a = torch.randn(n, k)
       local b = torch.randn(k, m)
-      compareFloatAndCudaTensorArgs(c, 'mm', a, b)
+      compareFloatAndGPUTensorArgs(c, 'mm', a, b)
    end
 end]]--
 
@@ -709,15 +709,15 @@ end]]--
       local c = torch.zeros(n, m)
       local a = torch.randn(n)
       local b = torch.randn(m)
-      compareFloatAndCudaTensorArgs(c, 'ger', a, b)
+      compareFloatAndGPUTensorArgs(c, 'ger', a, b)
    end
 end]]--
 
 function test.isSameSizeAs()
-   local t1 = torch.CudaTensor(3, 4, 9, 10)
-   local t2 = torch.CudaTensor(3, 4)
-   local t3 = torch.CudaTensor(1, 9, 3, 3)
-   local t4 = torch.CudaTensor(3, 4, 9, 10)
+   local t1 = torch.GPUTensor(3, 4, 9, 10)
+   local t2 = torch.GPUTensor(3, 4)
+   local t3 = torch.GPUTensor(1, 9, 3, 3)
+   local t4 = torch.GPUTensor(3, 4, 9, 10)
 
    tester:assert(t1:isSameSizeAs(t2) == false, "wrong answer ")
    tester:assert(t1:isSameSizeAs(t3) == false, "wrong answer ")
@@ -736,7 +736,7 @@ function test.uniform()
    local sz2 = math.floor(torch.uniform(minsize,maxsize))
    local min = torch.uniform()
    local max = min + torch.uniform()
-   local t = torch.CudaTensor(sz1, sz2)
+   local t = torch.GPUTensor(sz1, sz2)
 
    t:uniform(min, max)
    checkIfUniformlyDistributed(t, min, max, tolerance)
@@ -746,7 +746,7 @@ function test.bernoulli()
    local sz1 = math.floor(torch.uniform(minsize,maxsize))
    local sz2 = math.floor(torch.uniform(minsize,maxsize))
    local p = torch.uniform()
-   local t = torch.CudaTensor(sz1, sz2)
+   local t = torch.GPUTensor(sz1, sz2)
    t:bernoulli(p)
    tester:assertalmosteq(t:mean(), p, 0.1, "mean is not equal to p")
    local f = t:float()
@@ -761,7 +761,7 @@ function test.normal()
    local sz2 = math.floor(torch.uniform(minsize,maxsize))
    local mean, std = torch.uniform(), torch.uniform()
    local tolerance = 0.1
-   local t = torch.CudaTensor(sz1, sz2)
+   local t = torch.GPUTensor(sz1, sz2)
 
    t:normal(mean, std)
    tester:assertalmosteq(t:mean(), mean, tolerance, "mean is wrong")
@@ -773,7 +773,7 @@ function test.logNormal()
    local sz2 = math.floor(torch.uniform(minsize,maxsize))
    local mean, std = torch.uniform(), torch.uniform()
    local tolerance = 0.1
-   local t = torch.CudaTensor(sz1, sz2)
+   local t = torch.GPUTensor(sz1, sz2)
 
    t:logNormal(mean, std)
    local logt = t:log()
@@ -785,7 +785,7 @@ function test.geometric()
    local sz1 = math.floor(torch.uniform(minsize,maxsize))
    local sz2 = math.floor(torch.uniform(minsize,maxsize))
    local p = torch.uniform()
-   local t = torch.CudaTensor(sz1, sz2)
+   local t = torch.GPUTensor(sz1, sz2)
 
    t:geometric(p)
    local u = torch.FloatTensor(sz1, sz2):fill(1) -
@@ -797,7 +797,7 @@ function test.exponential()
    local sz1 = math.floor(torch.uniform(minsize,maxsize))
    local sz2 = math.floor(torch.uniform(minsize,maxsize))
    local lambda = torch.uniform()
-   local t = torch.CudaTensor(sz1, sz2)
+   local t = torch.GPUTensor(sz1, sz2)
 
    t:exponential(lambda)
    local u = torch.FloatTensor(sz1, sz2):fill(1) -
@@ -809,7 +809,7 @@ function test.cauchy()
    local sz1 = math.floor(torch.uniform(minsize,maxsize))
    local sz2 = math.floor(torch.uniform(minsize,maxsize))
    local median, sigma = torch.uniform(), torch.uniform()
-   local t = torch.CudaTensor(sz1, sz2)
+   local t = torch.GPUTensor(sz1, sz2)
 
    t:cauchy(median, sigma)
    local u = ((t:float() - median) / sigma):atan() / math.pi + 0.5
@@ -821,12 +821,12 @@ end
    local sz2 = math.floor(torch.uniform(minsize,maxsize))
    local mean, std = torch.uniform(), torch.uniform()
    local tolerance = 0.01
-   local t = torch.CudaTensor(sz1, sz2)
-   local u = torch.CudaTensor(sz1, sz2)
+   local t = torch.GPUTensor(sz1, sz2)
+   local u = torch.GPUTensor(sz1, sz2)
 
-   local seed = cutorch.seed()
+   local seed = gputorch.seed()
    t:normal(mean, std)
-   cutorch.manualSeed(seed)
+   gputorch.manualSeed(seed)
    u:normal(mean, std)
    tester:assertTensorEq(t:float(), u:float(), 1e-6, "values not equal after resetting the seed")
 end]]--
@@ -836,23 +836,23 @@ end]]--
    local sz2 = math.floor(torch.uniform(minsize,maxsize))
    local mean, std = torch.uniform(), torch.uniform()
    local tolerance = 0.01
-   local t = torch.CudaTensor(sz1, sz2)
-   local u = torch.CudaTensor(sz1, sz2)
+   local t = torch.GPUTensor(sz1, sz2)
+   local u = torch.GPUTensor(sz1, sz2)
 
-   local seed = cutorch.seed()
-   local rng = cutorch.getRNGState()
+   local seed = gputorch.seed()
+   local rng = gputorch.getRNGState()
    t:normal(mean, std)
    -- Change the seed so we can check that restoring the RNG state also restores the seed.
-   cutorch.manualSeed(seed + 123)
-   cutorch.setRNGState(rng)
+   gputorch.manualSeed(seed + 123)
+   gputorch.setRNGState(rng)
    u:normal(mean, std)
    tester:assertTensorEq(t:float(), u:float(), 1e-6, "values not equal after restoring the RNG state")
-   tester:asserteq(cutorch.initialSeed(), seed, "seed was not restored")
+   tester:asserteq(gputorch.initialSeed(), seed, "seed was not restored")
 end]]--
 
 
 
-function cutorch.test(tests)
+function gputorch.test(tests)
    math.randomseed(os.time())
    torch.manualSeed(os.time())
    tester = torch.Tester()
@@ -865,6 +865,6 @@ function cutorch.test(tests)
 end
 
 if runtests then
-   cutorch.test()
+   gputorch.test()
 end
 

@@ -5,7 +5,7 @@
 /* everything is as the generic Storage.c, except few things (see below) */
 
 #define real float
-#define Real Cuda
+#define Real GPU
 #define TH_GENERIC_FILE "generic/Storage.c"
 
 #define torch_Storage_(NAME) TH_CONCAT_4(torch_,Real,Storage_,NAME)
@@ -38,10 +38,10 @@
 #undef Real
 #undef TH_GENERIC_FILE
 
-/* now we overwrite some methods specific to CudaStorage */
+/* now we overwrite some methods specific to GPUStorage */
 
 #define CUDA_IMPLEMENT_STORAGE_COPY(TYPEC)                              \
-  static int cutorch_##TYPEC##Storage_copy(lua_State *L)                \
+  static int gputorch_##TYPEC##Storage_copy(lua_State *L)                \
   {                                                                     \
     TH##TYPEC##Storage *storage = (TH##TYPEC##Storage *)luaT_checkudata(L, 1, "torch." #TYPEC "Storage"); \
     void *src;                                                          \
@@ -61,8 +61,8 @@
       TH##TYPEC##Storage_copyFloat(storage, (THFloatStorage *)src);                       \
     else if( (src = luaT_toudata(L, 2, "torch.DoubleStorage")) )        \
       TH##TYPEC##Storage_copyDouble(storage, (THDoubleStorage*)src);                      \
-    else if( (src = luaT_toudata(L, 2, "torch.CudaStorage")) )          \
-      TH##TYPEC##Storage_copyCuda(storage, (THCudaStorage *)src);                        \
+    else if( (src = luaT_toudata(L, 2, "torch.GPUStorage")) )          \
+      TH##TYPEC##Storage_copyGPU(storage, (THGPUStorage *)src);                        \
     else                                                                \
       luaL_typerror(L, 2, "torch.*Storage");                            \
                                                                         \
@@ -77,12 +77,12 @@ CUDA_IMPLEMENT_STORAGE_COPY(Int)
 CUDA_IMPLEMENT_STORAGE_COPY(Long)
 CUDA_IMPLEMENT_STORAGE_COPY(Float)
 CUDA_IMPLEMENT_STORAGE_COPY(Double)
-CUDA_IMPLEMENT_STORAGE_COPY(Cuda)
+CUDA_IMPLEMENT_STORAGE_COPY(GPU)
 
-void cutorch_CudaStorage_init(lua_State* L)
+void gputorch_GPUStorage_init(lua_State* L)
 {
   /* the standard stuff */
-  torch_CudaStorage_init(L);
+  torch_GPUStorage_init(L);
 
   /* the copy methods */
   {
@@ -95,16 +95,16 @@ void cutorch_CudaStorage_init(lua_State* L)
                              "torch.LongStorage",
                              "torch.FloatStorage",
                              "torch.DoubleStorage",
-                             "torch.CudaStorage"};
+                             "torch.GPUStorage"};
 
-    static int (*funcs[8])(lua_State*) = {cutorch_ByteStorage_copy,
-                                          cutorch_CharStorage_copy,
-                                          cutorch_ShortStorage_copy,
-                                          cutorch_IntStorage_copy,
-                                          cutorch_LongStorage_copy,
-                                          cutorch_FloatStorage_copy,
-                                          cutorch_DoubleStorage_copy,
-                                          cutorch_CudaStorage_copy};
+    static int (*funcs[8])(lua_State*) = {gputorch_ByteStorage_copy,
+                                          gputorch_CharStorage_copy,
+                                          gputorch_ShortStorage_copy,
+                                          gputorch_IntStorage_copy,
+                                          gputorch_LongStorage_copy,
+                                          gputorch_FloatStorage_copy,
+                                          gputorch_DoubleStorage_copy,
+                                          gputorch_GPUStorage_copy};
 
     for (i = 0; i < 8; i++)
     {

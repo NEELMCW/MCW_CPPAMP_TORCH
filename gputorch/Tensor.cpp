@@ -4,23 +4,23 @@
 
 /* everything is as the generic Storage.c, except few things (see below) */
 
-static void THCudaTensor_maskedFill(THCudaTensor *tensor, THByteTensor *mask, float value)
+static void THGPUTensor_maskedFill(THGPUTensor *tensor, THByteTensor *mask, float value)
 {
   THError("not yet implemented for CUDA");
 }
 
-static void THCudaTensor_maskedCopy(THCudaTensor *tensor, THByteTensor *mask, THCudaTensor* src)
+static void THGPUTensor_maskedCopy(THGPUTensor *tensor, THByteTensor *mask, THGPUTensor* src)
 {
   THError("not yet implemented for CUDA");
 }
 
-void THCudaTensor_maskedSelect(THCudaTensor *tensor, THCudaTensor* src, THByteTensor *mask)
+void THGPUTensor_maskedSelect(THGPUTensor *tensor, THGPUTensor* src, THByteTensor *mask)
 {
   THError("not yet implemented for CUDA");
 }
 
 #define real float
-#define Real Cuda
+#define Real GPU
 
 #define torch_Storage_(NAME) TH_CONCAT_4(torch_,Real,Storage_,NAME)
 #define torch_Storage TH_CONCAT_STRING_3(torch.,Real,Storage)
@@ -34,10 +34,10 @@ void THCudaTensor_maskedSelect(THCudaTensor *tensor, THCudaTensor* src, THByteTe
 #undef real
 #undef Real
 
-/* now we overwrite some methods specific to CudaTensor */
+/* now we overwrite some methods specific to GPUTensor */
 
 #define CUDA_IMPLEMENT_TENSOR_COPY(TYPEC)                               \
-  static int cutorch_##TYPEC##Tensor_copy(lua_State *L)                 \
+  static int gputorch_##TYPEC##Tensor_copy(lua_State *L)                 \
   {                                                                     \
     TH##TYPEC##Tensor *storage = (TH##TYPEC##Tensor *)luaT_checkudata(L, 1, "torch." #TYPEC "Tensor"); \
     void *src;                                                          \
@@ -57,8 +57,8 @@ void THCudaTensor_maskedSelect(THCudaTensor *tensor, THCudaTensor* src, THByteTe
       TH##TYPEC##Tensor_copyFloat(storage, (THFloatTensor *)src);                        \
     else if( (src = luaT_toudata(L, 2, "torch.DoubleTensor")) )         \
       TH##TYPEC##Tensor_copyDouble(storage, (THDoubleTensor *)src);                       \
-    else if( (src = luaT_toudata(L, 2, "torch.CudaTensor")) )           \
-      TH##TYPEC##Tensor_copyCuda(storage, (THCudaTensor *)src);                         \
+    else if( (src = luaT_toudata(L, 2, "torch.GPUTensor")) )           \
+      TH##TYPEC##Tensor_copyGPU(storage, (THGPUTensor *)src);                         \
     else                                                                \
       luaL_typerror(L, 2, "torch.*Tensor");                             \
                                                                         \
@@ -73,7 +73,7 @@ CUDA_IMPLEMENT_TENSOR_COPY(Int)
 CUDA_IMPLEMENT_TENSOR_COPY(Long)
 CUDA_IMPLEMENT_TENSOR_COPY(Float)
 CUDA_IMPLEMENT_TENSOR_COPY(Double)
-CUDA_IMPLEMENT_TENSOR_COPY(Cuda)
+CUDA_IMPLEMENT_TENSOR_COPY(GPU)
 
 static void THFloatTensor_computesz(THFloatTensor *self, long **sz_, long **st_)
 {
@@ -156,10 +156,10 @@ static int cuda_FloatTensor_fakecopy(lua_State *L)
   return 1;
 }
 
-void cutorch_CudaTensor_init(lua_State* L)
+void gputorch_GPUTensor_init(lua_State* L)
 {
   /* the standard stuff */
-  torch_CudaTensor_init(L);
+  torch_GPUTensor_init(L);
 
   /* additional methods */
   luaT_pushmetatable(L, "torch.FloatTensor");
@@ -178,16 +178,16 @@ void cutorch_CudaTensor_init(lua_State* L)
                              "torch.LongTensor",
                              "torch.FloatTensor",
                              "torch.DoubleTensor",
-                             "torch.CudaTensor"};
+                             "torch.GPUTensor"};
 
-    static int (*funcs[8])(lua_State*) = {cutorch_ByteTensor_copy,
-                                          cutorch_CharTensor_copy,
-                                          cutorch_ShortTensor_copy,
-                                          cutorch_IntTensor_copy,
-                                          cutorch_LongTensor_copy,
-                                          cutorch_FloatTensor_copy,
-                                          cutorch_DoubleTensor_copy,
-                                          cutorch_CudaTensor_copy};
+    static int (*funcs[8])(lua_State*) = {gputorch_ByteTensor_copy,
+                                          gputorch_CharTensor_copy,
+                                          gputorch_ShortTensor_copy,
+                                          gputorch_IntTensor_copy,
+                                          gputorch_LongTensor_copy,
+                                          gputorch_FloatTensor_copy,
+                                          gputorch_DoubleTensor_copy,
+                                          gputorch_GPUTensor_copy};
 
     for (i = 0; i < 8; i++)
     {

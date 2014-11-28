@@ -1,6 +1,6 @@
 #include "utils.h"
 
-THLongStorage* cutorch_checklongargs(lua_State *L, int index)
+THLongStorage* gputorch_checklongargs(lua_State *L, int index)
 {
   THLongStorage *storage;
   int i;
@@ -28,7 +28,7 @@ THLongStorage* cutorch_checklongargs(lua_State *L, int index)
   return storage;
 }
 
-int cutorch_islongargs(lua_State *L, int index)
+int gputorch_islongargs(lua_State *L, int index)
 {
   int narg = lua_gettop(L) - index + 1;
 

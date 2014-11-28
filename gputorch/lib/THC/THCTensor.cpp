@@ -2,7 +2,7 @@
 #include "THCTensor.h"
 
 #define real float
-#define Real Cuda
+#define Real GPU
 #define TH_GENERIC_FILE "generic/THTensor.c"
 
 #include "generic/THTensor.c"

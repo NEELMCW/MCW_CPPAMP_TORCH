@@ -7,12 +7,12 @@ using namespace std;
 
 /* specific methods */
 
-void THCudaTensor_copyFloat(THCudaTensor *self, struct THFloatTensor *src)
+void THGPUTensor_copyFloat(THGPUTensor *self, struct THFloatTensor *src)
 {
-  THArgCheck(THCudaTensor_nElement(self) == THFloatTensor_nElement(src), 2, "sizes do not match");
+  THArgCheck(THGPUTensor_nElement(self) == THFloatTensor_nElement(src), 2, "sizes do not match");
 
   {
-    THCudaTensor *selfc = THCudaTensor_newContiguous(self);
+    THGPUTensor *selfc = THGPUTensor_newContiguous(self);
     src = THFloatTensor_newContiguous(src);
 
     Concurrency::array<float> arrSrc(Concurrency::extent<1>(src->storage->size), src->storage->data);
@@ -20,22 +20,22 @@ void THCudaTensor_copyFloat(THCudaTensor *self, struct THFloatTensor *src)
     Concurrency::copy(arrSrc, avSelfCopy);
 
     THFloatTensor_free(src);
-    THCudaTensor_freeCopyTo(selfc, self);
+    THGPUTensor_freeCopyTo(selfc, self);
   }
 }
 
 /* everything comes down to copy to a tensor of floats */
 #define IMPLEMENT_TH_CUDA_TENSOR_COPY(TYPEC)                            \
-void THCudaTensor_copy##TYPEC(THCudaTensor *self, struct TH##TYPEC##Tensor *src) \
+void THGPUTensor_copy##TYPEC(THGPUTensor *self, struct TH##TYPEC##Tensor *src) \
 {                                                                       \
-  THArgCheck(THCudaTensor_nElement(self) == TH##TYPEC##Tensor_nElement(src), 2, "sizes do not match"); \
+  THArgCheck(THGPUTensor_nElement(self) == TH##TYPEC##Tensor_nElement(src), 2, "sizes do not match"); \
                                                                         \
   {                                                                     \
     THLongStorage *size = TH##TYPEC##Tensor_newSizeOf(src);             \
     THFloatTensor *srcf = THFloatTensor_newWithSize(size, NULL);        \
                                                                         \
     THFloatTensor_copy##TYPEC(srcf, src);                               \
-    THCudaTensor_copyFloat(self, srcf);                                 \
+    THGPUTensor_copyFloat(self, srcf);                                 \
                                                                         \
     THLongStorage_free(size);                                           \
     THFloatTensor_free(srcf);                                           \
@@ -49,35 +49,35 @@ IMPLEMENT_TH_CUDA_TENSOR_COPY(Int)
 IMPLEMENT_TH_CUDA_TENSOR_COPY(Long)
 IMPLEMENT_TH_CUDA_TENSOR_COPY(Double)
 
-/* copyCuda */
+/* copyGPU */
 
-void THFloatTensor_copyCuda(THFloatTensor *self, struct THCudaTensor *src)
+void THFloatTensor_copyGPU(THFloatTensor *self, struct THGPUTensor *src)
 {
-  THArgCheck(THFloatTensor_nElement(self) == THCudaTensor_nElement(src), 2, "sizes do not match"); 
+  THArgCheck(THFloatTensor_nElement(self) == THGPUTensor_nElement(src), 2, "sizes do not match"); 
 
   {
     THFloatTensor *selfc = THFloatTensor_newContiguous(self);
-    src = THCudaTensor_newContiguous(src);
+    src = THGPUTensor_newContiguous(src);
 
     Concurrency::array<float> arrSrc(Concurrency::extent<1>(self->storage->size), src->storage->data);
     Concurrency::array_view<float> avSelfCopy(Concurrency::extent<1>(self->storage->size), self->storage->data);
     Concurrency::copy(arrSrc, avSelfCopy);
 
-    THCudaTensor_free(src);
+    THGPUTensor_free(src);
     THFloatTensor_freeCopyTo(selfc, self);
   }
 }
 
 #define IMPLEMENT_TH_CUDA_TENSOR_COPY_TO(TYPEC)                         \
-  void TH##TYPEC##Tensor_copyCuda(TH##TYPEC##Tensor *self, struct THCudaTensor *src) \
+  void TH##TYPEC##Tensor_copyGPU(TH##TYPEC##Tensor *self, struct THGPUTensor *src) \
   {                                                                     \
-    THArgCheck(TH##TYPEC##Tensor_nElement(self) == THCudaTensor_nElement(src), 2, "sizes do not match"); \
+    THArgCheck(TH##TYPEC##Tensor_nElement(self) == THGPUTensor_nElement(src), 2, "sizes do not match"); \
                                                                         \
     {                                                                   \
-      THLongStorage *size = THCudaTensor_newSizeOf(src);                \
+      THLongStorage *size = THGPUTensor_newSizeOf(src);                \
       THFloatTensor *srcf = THFloatTensor_newWithSize(size, NULL);      \
                                                                         \
-      THFloatTensor_copyCuda(srcf, src);                                \
+      THFloatTensor_copyGPU(srcf, src);                                \
       TH##TYPEC##Tensor_copyFloat(self, srcf);                          \
                                                                         \
       THLongStorage_free(size);                                         \
@@ -92,9 +92,9 @@ IMPLEMENT_TH_CUDA_TENSOR_COPY_TO(Int)
 IMPLEMENT_TH_CUDA_TENSOR_COPY_TO(Long)
 IMPLEMENT_TH_CUDA_TENSOR_COPY_TO(Double)
 
-void THCudaTensor_copyCuda(THCudaTensor *self, THCudaTensor *src)
+void THGPUTensor_copyGPU(THGPUTensor *self, THGPUTensor *src)
 {
-  THCudaTensor_copy(self, src);
+  THGPUTensor_copy(self, src);
 }
 
 #ifndef DIVUP
@@ -102,7 +102,7 @@ void THCudaTensor_copyCuda(THCudaTensor *self, THCudaTensor *src)
 #endif
 
 // Copy self->size to device and remove all dims of size=1
-static void THCudaTensor_computesz(THCudaTensor *self, Concurrency::array<long,1> **sz_,
+static void THGPUTensor_computesz(THGPUTensor *self, Concurrency::array<long,1> **sz_,
                                   Concurrency::array<long> **st_, int *dim_, long *innermostdim)
 {
   long *szh, *sth;
@@ -153,7 +153,7 @@ static void THCudaTensor_computesz(THCudaTensor *self, Concurrency::array<long,1
   *dim_ = dim;
 }
 
-void THCudaTensor_kernel_copy(THCudaTensor *self, THCudaTensor *src, Concurrency::array<long, 1> *dst_sz,
+void THGPUTensor_kernel_copy(THGPUTensor *self, THGPUTensor *src, Concurrency::array<long, 1> *dst_sz,
                              Concurrency::array<long, 1> *dst_st, int dst_dim, 
                              Concurrency::array<long, 1> *src_sz, Concurrency::array<long, 1> *src_st,
                              int src_dim, long n_elem, long innerdim, int nblockx, int nblocky,
@@ -165,8 +165,8 @@ void THCudaTensor_kernel_copy(THCudaTensor *self, THCudaTensor *src, Concurrency
   Concurrency::array_view<long, 1> av_src_sz(*src_sz);
   Concurrency::array_view<long, 1> av_dst_st(*dst_st);
   Concurrency::array_view<long, 1> av_dst_sz(*dst_sz);
-  Concurrency::array_view<float, 1> av_dst(self->storage->size, THCudaTensor_data(self));
-  Concurrency::array_view<float, 1> av_src(src->storage->size, THCudaTensor_data(src));
+  Concurrency::array_view<float, 1> av_dst(self->storage->size, THGPUTensor_data(self));
+  Concurrency::array_view<float, 1> av_src(src->storage->size, THGPUTensor_data(src));
 
   //Copy Kernel
   Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1, 16, 16> tidx) restrict(amp)
@@ -208,21 +208,21 @@ void THCudaTensor_kernel_copy(THCudaTensor *self, THCudaTensor *src, Concurrency
   av_dst.synchronize();
 }
 
-THC_API void THCudaTensor_copy(THCudaTensor *self, THCudaTensor *src)
+THC_API void THGPUTensor_copy(THGPUTensor *self, THGPUTensor *src)
 {
-  THArgCheck(THCudaTensor_nElement(self) == THCudaTensor_nElement(src), 2, "sizes do not match");
+  THArgCheck(THGPUTensor_nElement(self) == THGPUTensor_nElement(src), 2, "sizes do not match");
 
-  if (THCudaTensor_nDimension(self) == 0) return;
+  if (THGPUTensor_nDimension(self) == 0) return;
     
   Concurrency::array_view<float,1> avSelf(Concurrency::extent<1>(self->storage->size),self->storage->data);
 
   Concurrency::array<long, 1> *d_self_sz, *d_self_st, *d_src_sz, *d_src_st;
   int self_dim, src_dim;
-  long size = THCudaTensor_nElement(self);
+  long size = THGPUTensor_nElement(self);
   long innermostdim;
 
-  THCudaTensor_computesz(src, &d_src_sz, &d_src_st, &src_dim, &innermostdim);
-  THCudaTensor_computesz(self, &d_self_sz, &d_self_st, &self_dim, &innermostdim);
+  THGPUTensor_computesz(src, &d_src_sz, &d_src_st, &src_dim, &innermostdim);
+  THGPUTensor_computesz(self, &d_self_sz, &d_self_st, &self_dim, &innermostdim);
 
   int nblocks = ceil((float)size / (16 * innermostdim ));
 
@@ -243,7 +243,7 @@ THC_API void THCudaTensor_copy(THCudaTensor *self, THCudaTensor *src)
 
   nblocks_y = (nblocks_y + 15) & ~15;
 
-  THCudaTensor_kernel_copy(self, src,
+  THGPUTensor_kernel_copy(self, src,
                           d_self_sz, d_self_st, self_dim,
                           d_src_sz, d_src_st, src_dim,
                           size, innermostdim, nblocks_x, nblocks_y, nblocks_z);

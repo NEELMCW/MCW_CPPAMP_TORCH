@@ -11,10 +11,10 @@ interface:print('')
 interface:print('')
 
 -- specific to CUDA
-local typename = 'CudaTensor'
+local typename = 'GPUTensor'
 
 -- cut and paste from wrap/types.lua
-wrap.types.CudaTensor = {
+wrap.types.GPUTensor = {
    
    helpname = function(arg)
                  if arg.dim then
@@ -159,92 +159,92 @@ wrap.types.LongArg = {
 }
 
 function interface.luaname2wrapname(self, name)
-   return string.format('cutorch_CudaTensor_%s', name)
+   return string.format('gputorch_GPUTensor_%s', name)
 end
 
 local function cname(name)
-   return string.format('THCudaTensor_%s', name)
+   return string.format('THGPUTensor_%s', name)
 end
 
 local function lastdim(argn)
    return function(arg)
-             return string.format("THCudaTensor_nDimension(%s)", arg.args[argn]:carg())
+             return string.format("THGPUTensor_nDimension(%s)", arg.args[argn]:carg())
           end
 end
 
 interface:wrap("zero",
                cname("zero"),
-               {{name="CudaTensor", returned=true}})
+               {{name="GPUTensor", returned=true}})
 
 interface:wrap("fill",
                cname("fill"),
-               {{name="CudaTensor", returned=true},
+               {{name="GPUTensor", returned=true},
                 {name="float"}})
 
 interface:wrap("add",
                cname("add"),
-               {{name="CudaTensor",returned=true},
+               {{name="GPUTensor",returned=true},
                 {name="float"}},
                cname("cadd"),
-               {{name="CudaTensor", returned=true},
+               {{name="GPUTensor", returned=true},
                 {name="float", default=1},
-                {name="CudaTensor"}},
+                {name="GPUTensor"}},
                cname("cadd_tst"),
-               {{name="CudaTensor", returned=true},
-                {name="CudaTensor"},
+               {{name="GPUTensor", returned=true},
+                {name="GPUTensor"},
                 {name="float", default=1},
-                {name="CudaTensor"}})
+                {name="GPUTensor"}})
 
 interface:wrap("mul",
                cname("mul"),
-               {{name="CudaTensor", returned=true},
+               {{name="GPUTensor", returned=true},
                 {name="float"}})
 
 interface:wrap("div",
                cname("div"),
-               {{name="CudaTensor", returned=true},
+               {{name="GPUTensor", returned=true},
                 {name="float"}})
 
 interface:wrap("cmul",
                cname("cmul"),
-               {{name="CudaTensor", returned=true},
-                {name="CudaTensor", default=1},
-                {name="CudaTensor"}})
+               {{name="GPUTensor", returned=true},
+                {name="GPUTensor", default=1},
+                {name="GPUTensor"}})
 
 interface:wrap("cdiv",
                cname("cdiv"),
-               {{name="CudaTensor", returned=true},
-                {name="CudaTensor", default=1},
-                {name="CudaTensor"}})
+               {{name="GPUTensor", returned=true},
+                {name="GPUTensor", default=1},
+                {name="GPUTensor"}})
 
 interface:wrap("addcmul",
                   cname("addcmul"),
-                  {{name="CudaTensor", returned=true},
+                  {{name="GPUTensor", returned=true},
                    {name="float", default=1},
-                   {name="CudaTensor"},
-                   {name="CudaTensor"}})
+                   {name="GPUTensor"},
+                   {name="GPUTensor"}})
 
 interface:wrap("addcdiv",
                cname("addcdiv"),
-               {{name="CudaTensor", returned=true},
+               {{name="GPUTensor", returned=true},
                 {name="float", default=1},
-                {name="CudaTensor"},
-                {name="CudaTensor"}})
+                {name="GPUTensor"},
+                {name="GPUTensor"}})
 
 interface:wrap("dot",
                cname("dot"),
-               {{name="CudaTensor"},
-                {name="CudaTensor"},
+               {{name="GPUTensor"},
+                {name="GPUTensor"},
                 {name="float", creturned=true}})
 
 for _,name in ipairs({"min", "max", "sum"}) do
    interface:wrap(name,
                   cname(name .. "all"),
-                  {{name="CudaTensor"},
+                  {{name="GPUTensor"},
                    {name="float", creturned=true}},
                   cname(name),
-                  {{name="CudaTensor", default=true, returned=true},
-                   {name="CudaTensor"},
+                  {{name="GPUTensor", default=true, returned=true},
+                   {name="GPUTensor"},
                    {name="index"}})
 end
 
@@ -253,25 +253,25 @@ end
 for _,name in ipairs({"addmv", "addmm"}) do
    interface:wrap(name,
                   cname(name),
-                  {{name="CudaTensor", returned=true},
+                  {{name="GPUTensor", returned=true},
                    {name="float", default=1, invisible=true}, -- ambiguity
                    {name="float", default=1},
-                   {name="CudaTensor"},
-                   {name="CudaTensor"}},
+                   {name="GPUTensor"},
+                   {name="GPUTensor"}},
                   cname(name),
-                  {{name="CudaTensor", returned=true},
+                  {{name="GPUTensor", returned=true},
                    {name="float"}, -- ambiguity
                    {name="float"},
-                   {name="CudaTensor"},
-                   {name="CudaTensor"}})
+                   {name="GPUTensor"},
+                   {name="GPUTensor"}})
 end
 
 interface:wrap("addr",
                cname("addr"),
-               {{name="CudaTensor", returned=true},
+               {{name="GPUTensor", returned=true},
                 {name="float", default=1},
-                {name="CudaTensor"},
-                {name="CudaTensor"}})
+                {name="GPUTensor"},
+                {name="GPUTensor"}})
 
 for _,name in ipairs({"log", "log1p", "exp",
                       "cos", "acos", "cosh",
@@ -283,54 +283,54 @@ for _,name in ipairs({"log", "log1p", "exp",
    
    interface:wrap(name,
                   cname(name),
-                  {{name="CudaTensor", returned=true},
-                   {name="CudaTensor", default=1}})
+                  {{name="GPUTensor", returned=true},
+                   {name="GPUTensor", default=1}})
    
 end
 
 interface:wrap("pow",
                cname("pow"),
-               {{name="CudaTensor", returned=true},
-                {name="CudaTensor", default=1},
+               {{name="GPUTensor", returned=true},
+                {name="GPUTensor", default=1},
                 {name="float"}})
 
 interface:wrap("clamp",
                cname("clamp"),
-               {{name="CudaTensor", returned=true},
-                {name="CudaTensor", default=1},
+               {{name="GPUTensor", returned=true},
+                {name="GPUTensor", default=1},
                 {name="float"},
                 {name="float"}})
 
 for _,name in pairs({'lt','gt','le','ge','eq','ne'}) do
    interface:wrap(name,
                   cname(name .. 'Value'),
-                  {{name="CudaTensor", default=true, returned=true},
-                   {name="CudaTensor"},
+                  {{name="GPUTensor", default=true, returned=true},
+                   {name="GPUTensor"},
                    {name="float"}},
                   cname(name .. 'Tensor'),
-                  {{name="CudaTensor", returned=true},
-                   {name="CudaTensor"},
-                   {name="CudaTensor"}})
+                  {{name="GPUTensor", returned=true},
+                   {name="GPUTensor"},
+                   {name="GPUTensor"}})
 end
 
 
 -- interface:wrap('random',
 --                cname("random2"),
---                {{name="CudaTensor", returned=true},
+--                {{name="GPUTensor", returned=true},
 --                 {name='long'},
 --                 {name='long'}},
 --                cname("random1"),
---                {{name="CudaTensor", returned=true},
+--                {{name="GPUTensor", returned=true},
 --                 {name='long'}},
 --                cname("random"),
---                {{name="CudaTensor", returned=true}})
+--                {{name="GPUTensor", returned=true}})
 
 for _,f in ipairs({{name='geometric'},
                    {name='bernoulli', a=0.5}}) do
    
    interface:wrap(f.name,
                   cname(f.name),
-                  {{name="CudaTensor", returned=true},
+                  {{name="GPUTensor", returned=true},
                    {name="float", default=f.a}})
 end
 
@@ -341,7 +341,7 @@ for _,f in ipairs({{name='uniform', a=0, b=1},
 
    interface:wrap(f.name,
                   cname(f.name),
-                  {{name="CudaTensor", returned=true},
+                  {{name="GPUTensor", returned=true},
                    {name="float", default=f.a},
                    {name="float", default=f.b}})
 end
@@ -350,78 +350,78 @@ for _,f in ipairs({{name='exponential'}}) do
    
    interface:wrap(f.name,
                   cname(f.name),
-                  {{name="CudaTensor", returned=true},
+                  {{name="GPUTensor", returned=true},
                    {name="float", default=f.a}})
 end
 
 
 interface:wrap("mean",
               cname("meanall"),
-              {{name="CudaTensor"},
+              {{name="GPUTensor"},
                {name="float", creturned=true}},
               cname("mean"),
-              {{name="CudaTensor", default=true, returned=true},
-               {name="CudaTensor"},
+              {{name="GPUTensor", default=true, returned=true},
+               {name="GPUTensor"},
                {name="index"}})
 
 for _,name in ipairs({"var", "std"}) do
    interface:wrap(name,
                   cname(name .. "all"),
-                  {{name="CudaTensor"},
+                  {{name="GPUTensor"},
                    {name="float", creturned=true}})
 end
 
 interface:wrap("norm",
                cname("normall"),
-                     {{name="CudaTensor"},
+                     {{name="GPUTensor"},
                       {name="float", default=2},
                       {name="float", creturned=true}},
                cname("norm"),
-                     {{name="CudaTensor", default=true, returned=true},
-                      {name="CudaTensor"},
+                     {{name="GPUTensor", default=true, returned=true},
+                      {name="GPUTensor"},
                       {name="float"},
                       {name="index"}})
                       
 interface:wrap("renorm",
                cname("renorm"),
-                     {{name="CudaTensor", returned=true},
-                      {name="CudaTensor", default=1},
+                     {{name="GPUTensor", returned=true},
+                      {name="GPUTensor", default=1},
                       {name="float"},
                       {name="index"},
                       {name="float"}})
 
 interface:wrap("dist",
                cname("dist"),
-               {{name="CudaTensor"},
-                {name="CudaTensor"},
+               {{name="GPUTensor"},
+                {name="GPUTensor"},
                 {name="float", default=2},
                 {name="float", creturned=true}})
                 
 interface:wrap("squeeze",
         cname("squeeze"),
-        {{name="CudaTensor", default=true, returned=true, postcall=function(arg)
+        {{name="GPUTensor", default=true, returned=true, postcall=function(arg)
                                                                 local txt = {}
                                                                 if arg.returned then
                                                                    table.insert(txt, string.format('if(arg%d->nDimension == 1 && arg%d->size[0] == 1)', arg.i, arg.i)) -- number
-                                                                   table.insert(txt, string.format('lua_pushnumber(L, (lua_Number)(*THCudaTensor_data(arg%d)));', arg.i))
+                                                                   table.insert(txt, string.format('lua_pushnumber(L, (lua_Number)(*THGPUTensor_data(arg%d)));', arg.i))
                                                                 end
                                                                 return table.concat(txt, '\n')
                                                              end},
-         {name="CudaTensor"}},
+         {name="GPUTensor"}},
         cname("squeeze1d"),
-        {{name="CudaTensor", default=true, returned=true,
+        {{name="GPUTensor", default=true, returned=true,
 
           postcall=
              function(arg)
                 local txt = {}
                 if arg.returned then
                    table.insert(txt, string.format('if(!hasdims && arg%d->nDimension == 1 && arg%d->size[0] == 1)', arg.i, arg.i)) -- number
-                   table.insert(txt, string.format('lua_pushnumber(L, (lua_Number)(*THCudaTensor_data(arg%d)));}', arg.i))
+                   table.insert(txt, string.format('lua_pushnumber(L, (lua_Number)(*THGPUTensor_data(arg%d)));}', arg.i))
                 end
                 return table.concat(txt, '\n')
              end},
 
-         {name="CudaTensor",
+         {name="GPUTensor",
 
           precall=
              function(arg)
@@ -430,13 +430,13 @@ interface:wrap("squeeze",
 
          {name="index"}})
 
-interface:register("cutorch_CudaTensorMath__")
+interface:register("gputorch_GPUTensorMath__")
 
    interface:print([[
-void cutorch_CudaTensorMath_init(lua_State *L)
+void gputorch_GPUTensorMath_init(lua_State *L)
 {
-  luaT_pushmetatable(L, "torch.CudaTensor");
-  luaL_register(L, NULL, cutorch_CudaTensorMath__);
+  luaT_pushmetatable(L, "torch.GPUTensor");
+  luaL_register(L, NULL, gputorch_GPUTensorMath__);
   lua_pop(L, 1);
 }
 ]])

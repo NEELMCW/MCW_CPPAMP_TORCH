@@ -15,22 +15,22 @@ struct tanhupdateOutput_functor
   }
 };
 
-static int cunn_Tanh_updateOutput(lua_State *L)
+static int gpunn_Tanh_updateOutput(lua_State *L)
 {
-  THCudaTensor *input = (THCudaTensor*)luaT_checkudata(L, 2, "torch.CudaTensor");
-  THCudaTensor *output = (THCudaTensor*)luaT_getfieldcheckudata(L, 1, "output", "torch.CudaTensor");
-  long size = THCudaTensor_nElement(input);
+  THGPUTensor *input = (THGPUTensor*)luaT_checkudata(L, 2, "torch.GPUTensor");
+  THGPUTensor *output = (THGPUTensor*)luaT_getfieldcheckudata(L, 1, "output", "torch.GPUTensor");
+  long size = THGPUTensor_nElement(input);
 
-  input = THCudaTensor_newContiguous(input);
+  input = THGPUTensor_newContiguous(input);
 
-  THCudaTensor_resizeAs(output, input);
+  THGPUTensor_resizeAs(output, input);
 
-  bolt::amp::device_vector<float> output_data(THCudaTensor_data(output), THCudaTensor_data(output) + THCudaTensor_nElement(output));
-  bolt::amp::device_vector<float> input_data(THCudaTensor_data(input), THCudaTensor_data(input) + THCudaTensor_nElement(input));
+  bolt::amp::device_vector<float> output_data(THGPUTensor_data(output), THGPUTensor_data(output) + THGPUTensor_nElement(output));
+  bolt::amp::device_vector<float> input_data(THGPUTensor_data(input), THGPUTensor_data(input) + THGPUTensor_nElement(input));
   bolt::amp::transform(input_data.begin(), input_data.end(), output_data.begin(), tanhupdateOutput_functor());
  
 
-  THCudaTensor_free(input);
+  THGPUTensor_free(input);
   return 1;
 }
 
@@ -42,33 +42,33 @@ struct tanhupdateGradInput_functor
   }
 };
 
-static int cunn_Tanh_updateGradInput(lua_State *L)
+static int gpunn_Tanh_updateGradInput(lua_State *L)
 {
-  THCudaTensor *output = (THCudaTensor*)luaT_getfieldcheckudata(L, 1, "output", "torch.CudaTensor");
-  THCudaTensor *gradOutput = (THCudaTensor*)luaT_checkudata(L, 3, "torch.CudaTensor");
-  THCudaTensor *gradInput = (THCudaTensor*)luaT_getfieldcheckudata(L, 1, "gradInput", "torch.CudaTensor");
-  long size = THCudaTensor_nElement(output);
-  gradOutput = THCudaTensor_newContiguous(gradOutput);
-  THCudaTensor_resizeAs(gradInput, output);
+  THGPUTensor *output = (THGPUTensor*)luaT_getfieldcheckudata(L, 1, "output", "torch.GPUTensor");
+  THGPUTensor *gradOutput = (THGPUTensor*)luaT_checkudata(L, 3, "torch.GPUTensor");
+  THGPUTensor *gradInput = (THGPUTensor*)luaT_getfieldcheckudata(L, 1, "gradInput", "torch.GPUTensor");
+  long size = THGPUTensor_nElement(output);
+  gradOutput = THGPUTensor_newContiguous(gradOutput);
+  THGPUTensor_resizeAs(gradInput, output);
 
-  bolt::amp::device_vector<float> output_data(THCudaTensor_data(output), THCudaTensor_data(output) + THCudaTensor_nElement(output));
-  bolt::amp::device_vector<float> gradOutput_data(THCudaTensor_data(gradOutput), THCudaTensor_data(gradOutput) + THCudaTensor_nElement(gradOutput));
-  bolt::amp::device_vector<float> gradInput_data(THCudaTensor_data(gradInput), THCudaTensor_data(gradInput) + THCudaTensor_nElement(gradInput));
+  bolt::amp::device_vector<float> output_data(THGPUTensor_data(output), THGPUTensor_data(output) + THGPUTensor_nElement(output));
+  bolt::amp::device_vector<float> gradOutput_data(THGPUTensor_data(gradOutput), THGPUTensor_data(gradOutput) + THGPUTensor_nElement(gradOutput));
+  bolt::amp::device_vector<float> gradInput_data(THGPUTensor_data(gradInput), THGPUTensor_data(gradInput) + THGPUTensor_nElement(gradInput));
   bolt::amp::transform(output_data.begin(), output_data.end(), gradOutput_data.begin(),gradInput_data.begin(), tanhupdateGradInput_functor());
 
-  THCudaTensor_free(gradOutput);
+  THGPUTensor_free(gradOutput);
   return 1;
 }
 
-static const struct luaL_Reg cunn_Tanh__ [] = {
-  {"Tanh_updateOutput", cunn_Tanh_updateOutput},
-  {"Tanh_updateGradInput", cunn_Tanh_updateGradInput},
+static const struct luaL_Reg gpunn_Tanh__ [] = {
+  {"Tanh_updateOutput", gpunn_Tanh_updateOutput},
+  {"Tanh_updateGradInput", gpunn_Tanh_updateGradInput},
   {NULL, NULL}
 };
 
-static void cunn_Tanh_init(lua_State *L)
+static void gpunn_Tanh_init(lua_State *L)
 {
-  luaT_pushmetatable(L, "torch.CudaTensor");
-  luaT_registeratname(L, cunn_Tanh__, "nn");
+  luaT_pushmetatable(L, "torch.GPUTensor");
+  luaT_registeratname(L, gpunn_Tanh__, "nn");
   lua_pop(L,1);
 }

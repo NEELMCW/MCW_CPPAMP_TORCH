@@ -31,15 +31,15 @@
  */
 
 template <int B_Y, int B_X, int imgsPerThread, int filtersPerThread, int numColors, bool scale, bool checkImgBounds>
-void filterActs_YxX_color(THCudaTensor* imageTensor, THCudaTensor* filterTensor, THCudaTensor* targetTensor,
+void filterActs_YxX_color(THGPUTensor* imageTensor, THGPUTensor* filterTensor, THGPUTensor* targetTensor,
                           const int numImages, const int numFilters, const int imgSizeY,const int imgSizeX,
                           const int filterSize, const int paddingStart,const int moduleStride,
                           const int numModulesY, const int numModulesX,const int imgStride,const float scaleTargets,
                           const float scaleOutputs, const bool conv , int blockX, int blockY)
 {
-    Concurrency::array_view<float,1> avImages(Concurrency::extent<1>(imageTensor->storage->size), THCudaTensor_data(imageTensor));
-    Concurrency::array_view<float,1> avFilters(Concurrency::extent<1>(filterTensor->storage->size), THCudaTensor_data(filterTensor));
-    Concurrency::array_view<float,1> avTargets(Concurrency::extent<1>(targetTensor->storage->size), THCudaTensor_data(targetTensor));
+    Concurrency::array_view<float,1> avImages(Concurrency::extent<1>(imageTensor->storage->size), THGPUTensor_data(imageTensor));
+    Concurrency::array_view<float,1> avFilters(Concurrency::extent<1>(filterTensor->storage->size), THGPUTensor_data(filterTensor));
+    Concurrency::array_view<float,1> avTargets(Concurrency::extent<1>(targetTensor->storage->size), THGPUTensor_data(targetTensor));
     blockX = (blockX + 31) &~31;
     blockY = (blockY + 3) &~3;
     Concurrency::extent<3> grdExt(1, blockY, blockX);
@@ -229,15 +229,15 @@ avTargets.synchronize();
  *
  */
 template <int B_Y, int B_X, int imgsPerThread, int filtersPerThread, int colorCache, bool scale, bool checkImgBounds>
-void filterActs_YxX_sparse(THCudaTensor* imageTensor, THCudaTensor* filterTensor, THCudaTensor* targetTensor, const int numImages,
+void filterActs_YxX_sparse(THGPUTensor* imageTensor, THGPUTensor* filterTensor, THGPUTensor* targetTensor, const int numImages,
                            const int numFilters, const int imgSizeY, const int imgSizeX, const int filterSize,
                            const int paddingStart, const int moduleStride, const int numModulesY,
                            const int numModulesX, const int imgStride, const int numImgColors, const int numGroups,
                            const float scaleTargets, const float scaleOutputs, const bool conv, int blockX, int blockY)
 {
-    Concurrency::array_view<float,1> avImages(Concurrency::extent<1>(imageTensor->storage->size), THCudaTensor_data(imageTensor));
-    Concurrency::array_view<float,1> avFilters(Concurrency::extent<1>(filterTensor->storage->size), THCudaTensor_data(filterTensor));
-    Concurrency::array_view<float,1> avTargets(Concurrency::extent<1>(targetTensor->storage->size), THCudaTensor_data(targetTensor));
+    Concurrency::array_view<float,1> avImages(Concurrency::extent<1>(imageTensor->storage->size), THGPUTensor_data(imageTensor));
+    Concurrency::array_view<float,1> avFilters(Concurrency::extent<1>(filterTensor->storage->size), THGPUTensor_data(filterTensor));
+    Concurrency::array_view<float,1> avTargets(Concurrency::extent<1>(targetTensor->storage->size), THGPUTensor_data(targetTensor));
     blockX = (blockX + 31) &~31;
     blockY = (blockY + 3) &~3;
     Concurrency::extent<3> grdExt(1, blockY, blockX);
@@ -420,7 +420,7 @@ avTargets.synchronize();
  */ 
 void spatialConv_updateOutput(
     // raw pointers:
-    THCudaTensor *images, THCudaTensor *filters, THCudaTensor *targets,
+    THGPUTensor *images, THGPUTensor *filters, THGPUTensor *targets,
     // input dim:
     int numImgColors, int imgSizeY, int imgSizeX, int numImages,
     // output dim:

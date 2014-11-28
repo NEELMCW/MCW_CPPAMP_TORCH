@@ -2,15 +2,15 @@
 #include "SpatialPoolingCUDA/updateOutput.cpp"
 #include "SpatialPoolingCUDA/updateGradInput.cpp"
 
-static int cunn_SpatialMaxPoolingCUDA_updateOutput(lua_State *L)
+static int gpunn_SpatialMaxPoolingCUDA_updateOutput(lua_State *L)
 {
-  THCudaTensor *input = (THCudaTensor *)luaT_checkudata(L, 2, "torch.CudaTensor");
+  THGPUTensor *input = (THGPUTensor *)luaT_checkudata(L, 2, "torch.GPUTensor");
   int kW = luaT_getfieldcheckint(L, 1, "kW");
   int kH = luaT_getfieldcheckint(L, 1, "kH");
   int dW = luaT_getfieldcheckint(L, 1, "dW");
   int dH = luaT_getfieldcheckint(L, 1, "dH");
 
-  THCudaTensor *output = (THCudaTensor *)luaT_getfieldcheckudata(L, 1, "output", "torch.CudaTensor");
+  THGPUTensor *output = (THGPUTensor *)luaT_getfieldcheckudata(L, 1, "output", "torch.GPUTensor");
 
   luaL_argcheck(L, input->nDimension == 4, 2, "4D (batch) tensor expected");
 
@@ -23,11 +23,11 @@ static int cunn_SpatialMaxPoolingCUDA_updateOutput(lua_State *L)
 
   luaL_argcheck(L, nInputCols >= kW && nInputRows >= kH, 2, "input image smaller than kernel size");
 
-  luaL_argcheck(L, THCudaTensor_isContiguous(input), 2, "input must be contiguous");
-  float *input_data = THCudaTensor_data(input);
+  luaL_argcheck(L, THGPUTensor_isContiguous(input), 2, "input must be contiguous");
+  float *input_data = THGPUTensor_data(input);
   
-  THCudaTensor_resize4d(output, nInputPlane, nOutputRows, nOutputCols, batchSize);
-  float *output_data = THCudaTensor_data(output);
+  THGPUTensor_resize4d(output, nInputPlane, nOutputRows, nOutputCols, batchSize);
+  float *output_data = THGPUTensor_data(output);
 
   spatialMaxPooling_updateOutput<MaxPooler>
     (input, output, 
@@ -39,17 +39,17 @@ static int cunn_SpatialMaxPoolingCUDA_updateOutput(lua_State *L)
   return 1;
 }
 
-static int cunn_SpatialMaxPoolingCUDA_updateGradInput(lua_State *L)
+static int gpunn_SpatialMaxPoolingCUDA_updateGradInput(lua_State *L)
 {
-  THCudaTensor *input = (THCudaTensor *)luaT_checkudata(L, 2, "torch.CudaTensor");
-  THCudaTensor *gradOutput = (THCudaTensor *)luaT_checkudata(L, 3, "torch.CudaTensor");
+  THGPUTensor *input = (THGPUTensor *)luaT_checkudata(L, 2, "torch.GPUTensor");
+  THGPUTensor *gradOutput = (THGPUTensor *)luaT_checkudata(L, 3, "torch.GPUTensor");
   int kW = luaT_getfieldcheckint(L, 1, "kW");
   int kH = luaT_getfieldcheckint(L, 1, "kH");
   int dW = luaT_getfieldcheckint(L, 1, "dW");
   int dH = luaT_getfieldcheckint(L, 1, "dH");
 
-  THCudaTensor *gradInput = (THCudaTensor *)luaT_getfieldcheckudata(L, 1, "gradInput", "torch.CudaTensor");
-  THCudaTensor *output = (THCudaTensor *)luaT_getfieldcheckudata(L, 1, "output", "torch.CudaTensor");
+  THGPUTensor *gradInput = (THGPUTensor *)luaT_getfieldcheckudata(L, 1, "gradInput", "torch.GPUTensor");
+  THGPUTensor *output = (THGPUTensor *)luaT_getfieldcheckudata(L, 1, "output", "torch.GPUTensor");
 
   long nInputCols = input->size[2];
   long nInputRows = input->size[1];
@@ -58,13 +58,13 @@ static int cunn_SpatialMaxPoolingCUDA_updateGradInput(lua_State *L)
   long nOutputCols = (nInputCols - kW) / dW + 1;
   long nOutputRows = (nInputRows - kH) / dH + 1;
 
-  THCudaTensor_resizeAs(gradInput, input);
-  THCudaTensor_zero(gradInput);
+  THGPUTensor_resizeAs(gradInput, input);
+  THGPUTensor_zero(gradInput);
 
-  float *input_data = THCudaTensor_data(input);
-  float *output_data = THCudaTensor_data(output);
-  float *gradOutput_data = THCudaTensor_data(gradOutput);
-  float *gradInput_data = THCudaTensor_data(gradInput);
+  float *input_data = THGPUTensor_data(input);
+  float *output_data = THGPUTensor_data(output);
+  float *gradOutput_data = THGPUTensor_data(gradOutput);
+  float *gradInput_data = THGPUTensor_data(gradInput);
 
  spatialMaxPooling_updateGradInput
     (input, gradOutput, output, gradInput,
@@ -76,15 +76,15 @@ static int cunn_SpatialMaxPoolingCUDA_updateGradInput(lua_State *L)
 
 }
 
-static const struct luaL_Reg cunn_SpatialMaxPoolingCUDA__ [] = {
-  {"SpatialMaxPoolingCUDA_updateOutput", cunn_SpatialMaxPoolingCUDA_updateOutput},
-  {"SpatialMaxPoolingCUDA_updateGradInput", cunn_SpatialMaxPoolingCUDA_updateGradInput},
+static const struct luaL_Reg gpunn_SpatialMaxPoolingCUDA__ [] = {
+  {"SpatialMaxPoolingCUDA_updateOutput", gpunn_SpatialMaxPoolingCUDA_updateOutput},
+  {"SpatialMaxPoolingCUDA_updateGradInput", gpunn_SpatialMaxPoolingCUDA_updateGradInput},
   {NULL, NULL}
 };
 
-static void cunn_SpatialMaxPoolingCUDA_init(lua_State *L)
+static void gpunn_SpatialMaxPoolingCUDA_init(lua_State *L)
 {
-  luaT_pushmetatable(L, "torch.CudaTensor");
-  luaT_registeratname(L, cunn_SpatialMaxPoolingCUDA__, "nn");
+  luaT_pushmetatable(L, "torch.GPUTensor");
+  luaT_registeratname(L, gpunn_SpatialMaxPoolingCUDA__, "nn");
   lua_pop(L,1);
 }

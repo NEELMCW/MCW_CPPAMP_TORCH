@@ -17,15 +17,15 @@
 #include "SpatialConvolutionCUDA/updateGradInput.cpp"
 #include "SpatialConvolutionCUDA/accGradParameters.cpp"
 
-static int cunn_SpatialConvolutionCUDA_updateOutput(lua_State *L)
+static int gpunn_SpatialConvolutionCUDA_updateOutput(lua_State *L)
 {
-  THCudaTensor *input = (THCudaTensor*)luaT_checkudata(L, 2, "torch.CudaTensor");
+  THGPUTensor *input = (THGPUTensor*)luaT_checkudata(L, 2, "torch.GPUTensor");
   int dW = luaT_getfieldcheckint(L, 1, "dW");
   int dH = luaT_getfieldcheckint(L, 1, "dH");
   int padding = luaT_getfieldcheckint(L, 1, "padding");
 
-  THCudaTensor *weight = (THCudaTensor*)luaT_getfieldcheckudata(L, 1, "weight", "torch.CudaTensor");
-  THCudaTensor *output = (THCudaTensor*)luaT_getfieldcheckudata(L, 1, "output", "torch.CudaTensor");
+  THGPUTensor *weight = (THGPUTensor*)luaT_getfieldcheckudata(L, 1, "weight", "torch.GPUTensor");
+  THGPUTensor *output = (THGPUTensor*)luaT_getfieldcheckudata(L, 1, "output", "torch.GPUTensor");
 
   luaL_argcheck(L, input->nDimension == 4, 2, "4D (batch mode) tensor is expected");
 
@@ -40,7 +40,7 @@ static int cunn_SpatialConvolutionCUDA_updateOutput(lua_State *L)
   long outputWidth  = (padding + inputWidth - kW) / dW + 1;
 
   // resize output
-  THCudaTensor_resize4d(output, nOutputPlane, outputHeight, outputWidth, batchSize);
+  THGPUTensor_resize4d(output, nOutputPlane, outputHeight, outputWidth, batchSize);
 
   // asserts
   luaL_argcheck(L, inputWidth == inputHeight, 1, "input must be square");
@@ -48,14 +48,14 @@ static int cunn_SpatialConvolutionCUDA_updateOutput(lua_State *L)
   luaL_argcheck(L, dH == dW, 1, "dH must be equal to dW");
 
   // all the data must be contiguous: 
-  luaL_argcheck(L, THCudaTensor_isContiguous(input), 2, "input must be contiguous");
-  luaL_argcheck(L, THCudaTensor_isContiguous(weight), 1, "weight must be contiguous");
-  luaL_argcheck(L, THCudaTensor_isContiguous(output), 1, "output must be contiguous");
+  luaL_argcheck(L, THGPUTensor_isContiguous(input), 2, "input must be contiguous");
+  luaL_argcheck(L, THGPUTensor_isContiguous(weight), 1, "weight must be contiguous");
+  luaL_argcheck(L, THGPUTensor_isContiguous(output), 1, "output must be contiguous");
 
   // raw pointers 
-  float *input_data = THCudaTensor_data(input);
-  float *weight_data = THCudaTensor_data(weight);
-  float *output_data = THCudaTensor_data(output);
+  float *input_data = THGPUTensor_data(input);
+  float *weight_data = THGPUTensor_data(weight);
+  float *output_data = THGPUTensor_data(output);
 
   // convolutions
   spatialConv_updateOutput(input, weight, output, nInputPlane, inputHeight, inputWidth,
@@ -65,16 +65,16 @@ static int cunn_SpatialConvolutionCUDA_updateOutput(lua_State *L)
   return 1;
 }
 
-static int cunn_SpatialConvolutionCUDA_updateGradInput(lua_State *L)
+static int gpunn_SpatialConvolutionCUDA_updateGradInput(lua_State *L)
 {
-  THCudaTensor *input = (THCudaTensor *)luaT_checkudata(L, 2, "torch.CudaTensor");
-  THCudaTensor *gradOutput = (THCudaTensor *)luaT_checkudata(L, 3, "torch.CudaTensor");
+  THGPUTensor *input = (THGPUTensor *)luaT_checkudata(L, 2, "torch.GPUTensor");
+  THGPUTensor *gradOutput = (THGPUTensor *)luaT_checkudata(L, 3, "torch.GPUTensor");
   int dW = luaT_getfieldcheckint(L, 1, "dW");
   int dH = luaT_getfieldcheckint(L, 1, "dH");
   int padding = luaT_getfieldcheckint(L, 1, "padding");
 
-  THCudaTensor *weight = (THCudaTensor *)luaT_getfieldcheckudata(L, 1, "weight", "torch.CudaTensor");
-  THCudaTensor *gradInput = (THCudaTensor *)luaT_getfieldcheckudata(L, 1, "gradInput", "torch.CudaTensor");
+  THGPUTensor *weight = (THGPUTensor *)luaT_getfieldcheckudata(L, 1, "weight", "torch.GPUTensor");
+  THGPUTensor *gradInput = (THGPUTensor *)luaT_getfieldcheckudata(L, 1, "gradInput", "torch.GPUTensor");
 
   long nOutputPlane = weight->size[3];
   long nInputPlane  = weight->size[0];
@@ -87,7 +87,7 @@ static int cunn_SpatialConvolutionCUDA_updateGradInput(lua_State *L)
   long outputWidth  = (padding + inputWidth - kW) / dW + 1;
 
   // resize gradInput
-  THCudaTensor_resize4d(gradInput, nInputPlane, inputHeight, inputWidth, batchSize);
+  THGPUTensor_resize4d(gradInput, nInputPlane, inputHeight, inputWidth, batchSize);
 
   // asserts
   luaL_argcheck(L, inputWidth == inputHeight, 1, "input must be square");
@@ -95,14 +95,14 @@ static int cunn_SpatialConvolutionCUDA_updateGradInput(lua_State *L)
   luaL_argcheck(L, dH == dW, 1, "dH must be equal to dW");
 
   // all the data must be contiguous: 
-  luaL_argcheck(L, THCudaTensor_isContiguous(gradInput), 2, "input must be contiguous");
-  luaL_argcheck(L, THCudaTensor_isContiguous(weight), 1, "weight must be contiguous");
-  luaL_argcheck(L, THCudaTensor_isContiguous(gradOutput), 1, "output must be contiguous");
+  luaL_argcheck(L, THGPUTensor_isContiguous(gradInput), 2, "input must be contiguous");
+  luaL_argcheck(L, THGPUTensor_isContiguous(weight), 1, "weight must be contiguous");
+  luaL_argcheck(L, THGPUTensor_isContiguous(gradOutput), 1, "output must be contiguous");
 
   // raw pointers 
-  float *gradInput_data = THCudaTensor_data(gradInput);
-  float *weight_data = THCudaTensor_data(weight);
-  float *gradOutput_data = THCudaTensor_data(gradOutput);
+  float *gradInput_data = THGPUTensor_data(gradInput);
+  float *weight_data = THGPUTensor_data(weight);
+  float *gradOutput_data = THGPUTensor_data(gradOutput);
 
   // convolutions
   spatialConv_updateGradInput(gradOutput, weight, gradInput, nInputPlane, inputHeight,
@@ -112,11 +112,11 @@ static int cunn_SpatialConvolutionCUDA_updateGradInput(lua_State *L)
   return 1;
 }
 
-static int cunn_SpatialConvolutionCUDA_accGradParameters(lua_State *L)
+static int gpunn_SpatialConvolutionCUDA_accGradParameters(lua_State *L)
 {
-  THCudaTensor *input = (THCudaTensor *)luaT_checkudata(L, 2, "torch.CudaTensor");
-  THCudaTensor *gradOutput = (THCudaTensor *)luaT_checkudata(L, 3, "torch.CudaTensor");
-  THCudaTensor *gradWeight = (THCudaTensor *)luaT_getfieldcheckudata(L, 1, "gradWeight", "torch.CudaTensor");
+  THGPUTensor *input = (THGPUTensor *)luaT_checkudata(L, 2, "torch.GPUTensor");
+  THGPUTensor *gradOutput = (THGPUTensor *)luaT_checkudata(L, 3, "torch.GPUTensor");
+  THGPUTensor *gradWeight = (THGPUTensor *)luaT_getfieldcheckudata(L, 1, "gradWeight", "torch.GPUTensor");
   
   int dW = luaT_getfieldcheckint(L, 1, "dW");
   int dH = luaT_getfieldcheckint(L, 1, "dH");
@@ -142,21 +142,21 @@ static int cunn_SpatialConvolutionCUDA_accGradParameters(lua_State *L)
   if (partialSum)
   {
     // compute partial gradients for outputHeight*outputWidth/partialSum groups of filters separately
-    gradWeight = (THCudaTensor *)luaT_getfieldcheckudata(L, 1, "gradWeightPartial", "torch.CudaTensor");
-    THCudaTensor_resize4d(gradWeight, outputHeight * outputWidth / partialSum, nInputPlane, kH * kW,
+    gradWeight = (THGPUTensor *)luaT_getfieldcheckudata(L, 1, "gradWeightPartial", "torch.GPUTensor");
+    THGPUTensor_resize4d(gradWeight, outputHeight * outputWidth / partialSum, nInputPlane, kH * kW,
                          nOutputPlane);
     // numModuleY*numModulesX/partialSum, numFilterColors, filterPixels, numFilters
   }
 
   // all the data must be contiguous: 
-  luaL_argcheck(L, THCudaTensor_isContiguous(input), 2, "input must be contiguous");
-  luaL_argcheck(L, THCudaTensor_isContiguous(gradWeight), 1, "weight must be contiguous");
-  luaL_argcheck(L, THCudaTensor_isContiguous(gradOutput), 1, "output must be contiguous");
+  luaL_argcheck(L, THGPUTensor_isContiguous(input), 2, "input must be contiguous");
+  luaL_argcheck(L, THGPUTensor_isContiguous(gradWeight), 1, "weight must be contiguous");
+  luaL_argcheck(L, THGPUTensor_isContiguous(gradOutput), 1, "output must be contiguous");
 
   // raw pointers 
-  float *input_data = THCudaTensor_data(input);
-  float *gradWeight_data = THCudaTensor_data(gradWeight);
-  float *gradOutput_data = THCudaTensor_data(gradOutput);
+  float *input_data = THGPUTensor_data(input);
+  float *gradWeight_data = THGPUTensor_data(gradWeight);
+  float *gradOutput_data = THGPUTensor_data(gradOutput);
 
   // convolutions
   spatialConv_accGradParameters(input, gradOutput, gradWeight, nInputPlane, inputHeight,
@@ -166,16 +166,16 @@ static int cunn_SpatialConvolutionCUDA_accGradParameters(lua_State *L)
   return 0;
 }
 
-static const struct luaL_Reg cunn_SpatialConvolutionCUDA__ [] = {
-  {"SpatialConvolutionCUDA_updateOutput", cunn_SpatialConvolutionCUDA_updateOutput},
-  {"SpatialConvolutionCUDA_updateGradInput", cunn_SpatialConvolutionCUDA_updateGradInput},
-  {"SpatialConvolutionCUDA_accGradParameters", cunn_SpatialConvolutionCUDA_accGradParameters},
+static const struct luaL_Reg gpunn_SpatialConvolutionCUDA__ [] = {
+  {"SpatialConvolutionCUDA_updateOutput", gpunn_SpatialConvolutionCUDA_updateOutput},
+  {"SpatialConvolutionCUDA_updateGradInput", gpunn_SpatialConvolutionCUDA_updateGradInput},
+  {"SpatialConvolutionCUDA_accGradParameters", gpunn_SpatialConvolutionCUDA_accGradParameters},
   {NULL, NULL}
 };
 
-static void cunn_SpatialConvolutionCUDA_init(lua_State *L)
+static void gpunn_SpatialConvolutionCUDA_init(lua_State *L)
 {
-  luaT_pushmetatable(L, "torch.CudaTensor");
-  luaT_registeratname(L, cunn_SpatialConvolutionCUDA__, "nn");
+  luaT_pushmetatable(L, "torch.GPUTensor");
+  luaT_registeratname(L, gpunn_SpatialConvolutionCUDA__, "nn");
   lua_pop(L,1);
 }

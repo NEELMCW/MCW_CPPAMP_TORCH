@@ -1,5 +1,5 @@
-require "cutorch"
+require "gputorch"
 require "nn"
-require "libcunn"
+require "libgpunn"
 
-torch.include('cunn', 'test.lua')
+torch.include('gpunn', 'test.lua')

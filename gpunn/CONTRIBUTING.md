@@ -1,4 +1,4 @@
-# Contributing to Torch7 Core (torch7, nn, cutorch, cunn)
+# Contributing to Torch7 Core (torch7, nn, gputorch, gpunn)
 
 Thanks a lot! There are plenty of ways you can help!
 
@@ -13,7 +13,7 @@ patches and features.
 
 ## Using the issue tracker
 
-The [issue tracker](https://github.com/torch/cunn/issues) is
+The [issue tracker](https://github.com/torch/gpunn/issues) is
 the preferred channel for [bug reports](#bugs), [features requests](#features)
 and [submitting pull requests](#pull-requests), but please respect the following
 restrictions:
@@ -23,7 +23,7 @@ restrictions:
 
 * Please **do not** open issues regarding the code in a torch package 
   outside the core. For example dont open issues about the 
-  REPL in the cunn issue tracker, use the trepl issue tracker for that.
+  REPL in the gpunn issue tracker, use the trepl issue tracker for that.
 
 <a name="bugs"></a>
 ## Bug reports
@@ -80,11 +80,11 @@ included in the project:
 
    ```bash
    # Clone your fork of the repo into the current directory
-   git clone https://github.com/<your-username>/cunn.git
+   git clone https://github.com/<your-username>/gpunn.git
    # Navigate to the newly cloned directory
-   cd cunn
+   cd gpunn
    # Assign the original repo to a remote called "upstream"
-   git remote add upstream https://github.com/torch/cunn.git
+   git remote add upstream https://github.com/torch/gpunn.git
    ```
 
 2. If you cloned a while ago, get the latest changes from upstream:

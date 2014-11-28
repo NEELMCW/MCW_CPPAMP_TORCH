@@ -1,5 +1,5 @@
 require 'sys'
-require 'cunn'
+require 'gpunn'
 
 steps = 4 -- nb of steps in loop to average perf
 ops = 2 -- ops per point
@@ -108,70 +108,70 @@ for i,run in ipairs(runs) do
    o2 = n2:forward(i2)
    -- o3 = n3:forward(i3)
 
-   cutorch.synchronize()
+   gputorch.synchronize()
    sys.tic()
    for t = 1,steps do
       o1 = n1:updateOutput(i1)
    end
-   cutorch.synchronize()
+   gputorch.synchronize()
    tm = sys.toc()/steps
    print('DHWB:updateOutput(): ' .. (ni*no*kw*kh*(iw-kw+1)*(ih-kh+1) /dw/dh * bs * ops / tm / 1e9) .. ' GFLOP/s (tm = ' .. tm .. ')')
 
-   cutorch.synchronize()
+   gputorch.synchronize()
    sys.tic()
    for t = 1,steps do
       o2 = n2:updateOutput(i2)
    end
-   cutorch.synchronize()
+   gputorch.synchronize()
    tm = sys.toc()/steps
    print('BDHW:updateOutput(): ' .. (ni*no*kw*kh*(iw-kw+1)*(ih-kh+1) /dw/dh * bs * ops / tm / 1e9) .. ' GFLOP/s (tm = ' .. tm .. ')')
    
-   -- cutorch.synchronize()
+   -- gputorch.synchronize()
    -- sys.tic()
    -- for t = 1,steps do
    --    o3 = n3:updateOutput(i3)
    -- end
-   -- cutorch.synchronize()
+   -- gputorch.synchronize()
    -- tm = sys.toc()/steps
    -- print('BHWD:updateOutput(): ' .. (ni*no*kw*kh*(iw-kw+1)*(ih-kh+1) /dw/dh * bs * ops / tm / 1e9) .. ' GFLOP/s (tm = ' .. tm .. ')')
 
    collectgarbage()
    
-   cutorch.synchronize()
+   gputorch.synchronize()
    sys.tic()
    for t = 1,steps do
       n1:updateGradInput(i1, o1)
    end
-   cutorch.synchronize()
+   gputorch.synchronize()
    tm = sys.toc()/steps
    print('DHWB:updateGradInput(): ' .. (ni*no*kw*kh*(iw-kw+1)*(ih-kh+1) /dw/dh * bs * ops / tm / 1e9) .. ' GFLOP/s (tm = ' .. tm .. ')')
 
-   cutorch.synchronize()
+   gputorch.synchronize()
    sys.tic()
    for t = 1,steps do
       n2:updateGradInput(i2, o2)
    end
-   cutorch.synchronize()
+   gputorch.synchronize()
    tm = sys.toc()/steps
    print('BDHW:updateGradInput(): ' .. (ni*no*kw*kh*(iw-kw+1)*(ih-kh+1) /dw/dh * bs * ops / tm / 1e9) .. ' GFLOP/s (tm = ' .. tm .. ')')
    
    collectgarbage()
    
-   cutorch.synchronize()
+   gputorch.synchronize()
    sys.tic()
    for t = 1,steps do
       n1:accGradParameters(i1, o1)
    end
-   cutorch.synchronize()
+   gputorch.synchronize()
    tm = sys.toc()/steps
    print('DHWB:accGradParameters(): ' .. (ni*no*kw*kh*(iw-kw+1)*(ih-kh+1) /dw/dh * bs * ops / tm / 1e9) .. ' GFLOP/s (tm = ' .. tm .. ')')
 
-   cutorch.synchronize()
+   gputorch.synchronize()
    sys.tic()
    for t = 1,steps do
       n2:accGradParameters(i2, o2)
    end
-   cutorch.synchronize()
+   gputorch.synchronize()
    tm = sys.toc()/steps
    print('BDHW:accGradParameters(): ' .. (ni*no*kw*kh*(iw-kw+1)*(ih-kh+1) /dw/dh * bs * ops / tm / 1e9) .. ' GFLOP/s (tm = ' .. tm .. ')')
 end

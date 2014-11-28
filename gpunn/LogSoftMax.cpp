@@ -3,10 +3,10 @@
 #include "amp_math.h"
 
 
-void cunn_LogSoftMax_updateOutput_kernel(THCudaTensor *output, THCudaTensor *input, int nframe, int dim)
+void gpunn_LogSoftMax_updateOutput_kernel(THGPUTensor *output, THGPUTensor *input, int nframe, int dim)
 {
-    Concurrency::array_view<float,1> avInp(Concurrency::extent<1>(input->storage->size), THCudaTensor_data(input));
-    Concurrency::array_view<float,1> avOutput(Concurrency::extent<1>(output->storage->size), THCudaTensor_data(output));
+    Concurrency::array_view<float,1> avInp(Concurrency::extent<1>(input->storage->size), THGPUTensor_data(input));
+    Concurrency::array_view<float,1> avOutput(Concurrency::extent<1>(output->storage->size), THGPUTensor_data(output));
    // nframe = (nframe + (LOGSOFTMAX_THREADS -1)) &~(LOGSOFTMAX_THREADS-1);
     Concurrency::extent<1> grdExt(nframe * 128);
     Concurrency::tiled_extent<LOGSOFTMAX_THREADS> t_ext(grdExt);
@@ -78,11 +78,11 @@ void cunn_LogSoftMax_updateOutput_kernel(THCudaTensor *output, THCudaTensor *inp
     avOutput.synchronize();
 }
 
-void cunn_LogSoftMax_updateGradInput_kernel(THCudaTensor *gradInput, THCudaTensor *output, THCudaTensor *gradOutput, int nframe, int dim)
+void gpunn_LogSoftMax_updateGradInput_kernel(THGPUTensor *gradInput, THGPUTensor *output, THGPUTensor *gradOutput, int nframe, int dim)
 {
-    Concurrency::array_view<float,1> avGradInput(Concurrency::extent<1>(gradInput->storage->size), THCudaTensor_data(gradInput));
-    Concurrency::array_view<float,1> avOutput(Concurrency::extent<1>(output->storage->size), THCudaTensor_data(output));
-    Concurrency::array_view<float,1> avGradOutput(Concurrency::extent<1>(gradOutput->storage->size), THCudaTensor_data(gradOutput));
+    Concurrency::array_view<float,1> avGradInput(Concurrency::extent<1>(gradInput->storage->size), THGPUTensor_data(gradInput));
+    Concurrency::array_view<float,1> avOutput(Concurrency::extent<1>(output->storage->size), THGPUTensor_data(output));
+    Concurrency::array_view<float,1> avGradOutput(Concurrency::extent<1>(gradOutput->storage->size), THGPUTensor_data(gradOutput));
     Concurrency::extent<1> grdExt(nframe * LOGSOFTMAX_THREADS);
     Concurrency::tiled_extent<LOGSOFTMAX_THREADS> t_ext(grdExt);
     //std::cout<<"UpdateGradInputkernel invoked"<<std::endl;
@@ -128,23 +128,23 @@ void cunn_LogSoftMax_updateGradInput_kernel(THCudaTensor *gradInput, THCudaTenso
     });
 }
 
-static int cunn_LogSoftMax_updateOutput(lua_State *L)
+static int gpunn_LogSoftMax_updateOutput(lua_State *L)
 {
-  THCudaTensor *input = (THCudaTensor*)luaT_checkudata(L, 2, "torch.CudaTensor");
-  THCudaTensor *output = (THCudaTensor*)luaT_getfieldcheckudata(L, 1, "output", "torch.CudaTensor");
+  THGPUTensor *input = (THGPUTensor*)luaT_checkudata(L, 2, "torch.GPUTensor");
+  THGPUTensor *output = (THGPUTensor*)luaT_getfieldcheckudata(L, 1, "output", "torch.GPUTensor");
 
-  THCudaTensor *temp = input;
-  input = THCudaTensor_newContiguous(input);
+  THGPUTensor *temp = input;
+  input = THGPUTensor_newContiguous(input);
   //std::cout<<"Before logSoft resize"<<std::endl;
-  THCudaTensor_resizeAs(output, input);
+  THGPUTensor_resizeAs(output, input);
 
   if(input->nDimension == 1)
   {
-    cunn_LogSoftMax_updateOutput_kernel(output, input, 1, input->size[0]);
+    gpunn_LogSoftMax_updateOutput_kernel(output, input, 1, input->size[0]);
   }
   else if(input->nDimension == 2)
   {
-        cunn_LogSoftMax_updateOutput_kernel(output, input, input->size[0], input->size[1]);
+        gpunn_LogSoftMax_updateOutput_kernel(output, input, input->size[0], input->size[1]);
   }
   else
   THError("vector or matrix expected");
@@ -153,61 +153,61 @@ static int cunn_LogSoftMax_updateOutput(lua_State *L)
 
   if (input != temp)
   {
-      THCudaTensor_free(input);
+      THGPUTensor_free(input);
         input = NULL;
   }
 
   return 1;
 }
 
-static int cunn_LogSoftMax_updateGradInput(lua_State *L)
+static int gpunn_LogSoftMax_updateGradInput(lua_State *L)
 {
-  THCudaTensor *gradOutput = (THCudaTensor*)luaT_checkudata(L, 3, "torch.CudaTensor");
-  THCudaTensor *output = (THCudaTensor*)luaT_getfieldcheckudata(L, 1, "output", "torch.CudaTensor");
-  THCudaTensor *gradInput = (THCudaTensor*)luaT_getfieldcheckudata(L, 1, "gradInput", "torch.CudaTensor");
+  THGPUTensor *gradOutput = (THGPUTensor*)luaT_checkudata(L, 3, "torch.GPUTensor");
+  THGPUTensor *output = (THGPUTensor*)luaT_getfieldcheckudata(L, 1, "output", "torch.GPUTensor");
+  THGPUTensor *gradInput = (THGPUTensor*)luaT_getfieldcheckudata(L, 1, "gradInput", "torch.GPUTensor");
 
-  THCudaTensor *tempOutput = output;
-  THCudaTensor *tempGradOutput = gradOutput;
-  output = THCudaTensor_newContiguous(output);
-  gradOutput = THCudaTensor_newContiguous(gradOutput);
+  THGPUTensor *tempOutput = output;
+  THGPUTensor *tempGradOutput = gradOutput;
+  output = THGPUTensor_newContiguous(output);
+  gradOutput = THGPUTensor_newContiguous(gradOutput);
   //std::cout<<"inside logsoftmax input"<<std::endl;
-  THCudaTensor_resizeAs(gradInput, output);
+  THGPUTensor_resizeAs(gradInput, output);
 
   if(gradInput->nDimension == 1)
   {
-        cunn_LogSoftMax_updateGradInput_kernel(gradInput, output, gradOutput, 1, gradInput->size[0]);
+        gpunn_LogSoftMax_updateGradInput_kernel(gradInput, output, gradOutput, 1, gradInput->size[0]);
   }
   else if(gradInput->nDimension == 2)
   {
-        cunn_LogSoftMax_updateGradInput_kernel (gradInput, output, gradOutput, gradInput->size[0], gradInput->size[1]);
+        gpunn_LogSoftMax_updateGradInput_kernel (gradInput, output, gradOutput, gradInput->size[0], gradInput->size[1]);
   }
   else
     THError("vector or matrix expected");
 
     if (output != tempOutput)
     {
-        THCudaTensor_free(output);
+        THGPUTensor_free(output);
         output = NULL;
     }
 
     if (gradOutput != tempGradOutput)
     {
-        THCudaTensor_free(gradOutput);
+        THGPUTensor_free(gradOutput);
         gradOutput = NULL;
     }
 
   return 1;
 }
 
-static const struct luaL_Reg cunn_LogSoftMax__ [] = {
-  {"LogSoftMax_updateOutput", cunn_LogSoftMax_updateOutput},
-  {"LogSoftMax_updateGradInput", cunn_LogSoftMax_updateGradInput},
+static const struct luaL_Reg gpunn_LogSoftMax__ [] = {
+  {"LogSoftMax_updateOutput", gpunn_LogSoftMax_updateOutput},
+  {"LogSoftMax_updateGradInput", gpunn_LogSoftMax_updateGradInput},
   {NULL, NULL}
 };
 
-static void cunn_LogSoftMax_init(lua_State *L)
+static void gpunn_LogSoftMax_init(lua_State *L)
 {
-  luaT_pushmetatable(L, "torch.CudaTensor");
-  luaT_registeratname(L, cunn_LogSoftMax__, "nn");
+  luaT_pushmetatable(L, "torch.GPUTensor");
+  luaT_registeratname(L, gpunn_LogSoftMax__, "nn");
   lua_pop(L,1);
 }

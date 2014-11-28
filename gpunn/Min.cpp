@@ -68,32 +68,32 @@ void min_gradInput(float *input, float *output, float *indices, unsigned int inp
   avInp.synchronize();
 }
 
-static int cunn_Min_updateOutput(lua_State *L)
+static int gpunn_Min_updateOutput(lua_State *L)
 {
-  THCudaTensor *input = (THCudaTensor *)luaT_checkudata(L, 2, "torch.CudaTensor");
+  THGPUTensor *input = (THGPUTensor *)luaT_checkudata(L, 2, "torch.GPUTensor");
   int dimension = luaT_getfieldcheckint(L, 1, "dimension") - 1;
-  THCudaTensor *indices = (THCudaTensor *)luaT_getfieldcheckudata(L, 1, "indices", "torch.CudaTensor");
-  THCudaTensor *output = (THCudaTensor *)luaT_getfieldcheckudata(L, 1, "output", "torch.CudaTensor");
+  THGPUTensor *indices = (THGPUTensor *)luaT_getfieldcheckudata(L, 1, "indices", "torch.GPUTensor");
+  THGPUTensor *output = (THGPUTensor *)luaT_getfieldcheckudata(L, 1, "output", "torch.GPUTensor");
 
   luaL_argcheck(L, dimension >= 0 && dimension < input->nDimension, 2, "dimension out of range");
   luaL_argcheck(L, dimension == input->nDimension - 1, 2, "only supported dimension is innermost (CUDA kernel only)");
 
-  input = THCudaTensor_newContiguous(input);
+  input = THGPUTensor_newContiguous(input);
 
   THLongStorage *dim = THLongStorage_newWithSize(input->nDimension);
   long i;
   for (i = 0; i < input->nDimension; i++)
     dim->data[i] = input->size[i];
   dim->data[dimension] = 1;
-  THCudaTensor_resize(output, dim, NULL);
-  THCudaTensor_resize(indices, dim, NULL);
+  THGPUTensor_resize(output, dim, NULL);
+  THGPUTensor_resize(indices, dim, NULL);
   THLongStorage_free(dim);
 
-  float *input_data = THCudaTensor_data(input);
-  float *output_data = THCudaTensor_data(output);
-  float *indices_data = THCudaTensor_data(indices);
+  float *input_data = THGPUTensor_data(input);
+  float *output_data = THGPUTensor_data(output);
+  float *indices_data = THGPUTensor_data(indices);
 
-  long nrows = THCudaTensor_nElement(output);
+  long nrows = THGPUTensor_nElement(output);
   long ncols = input->size[dimension];
 
   // cuda blocks & threads:
@@ -101,32 +101,32 @@ static int cunn_Min_updateOutput(lua_State *L)
   long nblocks = ceil((float)nrows / nthreads);
 
   // kernel:
-  min_output(input_data, output_data, indices_data, THCudaTensor_nElement(input),
-            THCudaTensor_nElement(output), THCudaTensor_nElement(indices), nrows, ncols, nblocks);
+  min_output(input_data, output_data, indices_data, THGPUTensor_nElement(input),
+            THGPUTensor_nElement(output), THGPUTensor_nElement(indices), nrows, ncols, nblocks);
 
   // final cut:
-  THCudaTensor_free(input); 
-  THCudaTensor_select(output, NULL, dimension, 0);
+  THGPUTensor_free(input); 
+  THGPUTensor_select(output, NULL, dimension, 0);
 
   return 1;
 }
 
-static int cunn_Min_updateGradInput(lua_State *L)
+static int gpunn_Min_updateGradInput(lua_State *L)
 {
-  THCudaTensor *input = (THCudaTensor *)luaT_checkudata(L, 2, "torch.CudaTensor");
-  THCudaTensor *gradOutput = (THCudaTensor *)luaT_checkudata(L, 3, "torch.CudaTensor");
-  THCudaTensor *indices = (THCudaTensor *)luaT_getfieldcheckudata(L, 1, "indices", "torch.CudaTensor");
+  THGPUTensor *input = (THGPUTensor *)luaT_checkudata(L, 2, "torch.GPUTensor");
+  THGPUTensor *gradOutput = (THGPUTensor *)luaT_checkudata(L, 3, "torch.GPUTensor");
+  THGPUTensor *indices = (THGPUTensor *)luaT_getfieldcheckudata(L, 1, "indices", "torch.GPUTensor");
   int dimension  = luaT_getfieldcheckint(L, 1, "dimension") - 1;
-  THCudaTensor *gradInput  = (THCudaTensor *)luaT_getfieldcheckudata(L, 1, "gradInput", "torch.CudaTensor");
+  THGPUTensor *gradInput  = (THGPUTensor *)luaT_getfieldcheckudata(L, 1, "gradInput", "torch.GPUTensor");
 
-  THCudaTensor_resizeAs(gradInput, input);
-  THCudaTensor_zero(gradInput);
+  THGPUTensor_resizeAs(gradInput, input);
+  THGPUTensor_zero(gradInput);
 
-  float *gradInput_data = THCudaTensor_data(gradInput);
-  float *gradOutput_data = THCudaTensor_data(gradOutput);
-  float *indices_data = THCudaTensor_data(indices);
+  float *gradInput_data = THGPUTensor_data(gradInput);
+  float *gradOutput_data = THGPUTensor_data(gradOutput);
+  float *indices_data = THGPUTensor_data(indices);
 
-  long nrows = THCudaTensor_nElement(gradOutput);
+  long nrows = THGPUTensor_nElement(gradOutput);
   long ncols = gradInput->size[dimension];
 
   // cuda blocks & threads:
@@ -134,21 +134,21 @@ static int cunn_Min_updateGradInput(lua_State *L)
   long nblocks = ceil((float)nrows / nthreads);
 
   // kernel:
-  min_gradInput(gradInput_data, gradOutput_data, indices_data, THCudaTensor_nElement(gradInput),
-               THCudaTensor_nElement(gradOutput), THCudaTensor_nElement(indices), nrows, ncols, nblocks);
+  min_gradInput(gradInput_data, gradOutput_data, indices_data, THGPUTensor_nElement(gradInput),
+               THGPUTensor_nElement(gradOutput), THGPUTensor_nElement(indices), nrows, ncols, nblocks);
 
   return 1;
 }
 
-static const struct luaL_Reg cunn_Min__ [] = {
-  {"Min_updateOutput", cunn_Min_updateOutput},
-  {"Min_updateGradInput", cunn_Min_updateGradInput},
+static const struct luaL_Reg gpunn_Min__ [] = {
+  {"Min_updateOutput", gpunn_Min_updateOutput},
+  {"Min_updateGradInput", gpunn_Min_updateGradInput},
   {NULL, NULL}
 };
 
-static void cunn_Min_init(lua_State *L)
+static void gpunn_Min_init(lua_State *L)
 {
-  luaT_pushmetatable(L, "torch.CudaTensor");
-  luaT_registeratname(L, cunn_Min__, "nn");
+  luaT_pushmetatable(L, "torch.GPUTensor");
+  luaT_registeratname(L, gpunn_Min__, "nn");
   lua_pop(L,1);
 }

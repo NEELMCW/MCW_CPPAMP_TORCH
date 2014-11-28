@@ -3,20 +3,20 @@
 
 #include "THCTensor.h"
 
-THC_API void THCudaTensor_conv2Dmv(THCudaTensor *output, float beta, THCudaTensor *input,
-                                  THCudaTensor *kernel, long srow, long scol, const char *type);
-THC_API void THCudaTensor_conv2Dmm(THCudaTensor *output, float beta, THCudaTensor *input,
-                                  THCudaTensor *kernel, long srow, long scol, const char *type);
+THC_API void THGPUTensor_conv2Dmv(THGPUTensor *output, float beta, THGPUTensor *input,
+                                  THGPUTensor *kernel, long srow, long scol, const char *type);
+THC_API void THGPUTensor_conv2Dmm(THGPUTensor *output, float beta, THGPUTensor *input,
+                                  THGPUTensor *kernel, long srow, long scol, const char *type);
 
-THC_API void THCudaTensor_conv2DRevger(THCudaTensor *output, float beta, float alpha, 
-                                      THCudaTensor *input, THCudaTensor *kernel, 
+THC_API void THGPUTensor_conv2DRevger(THGPUTensor *output, float beta, float alpha, 
+                                      THGPUTensor *input, THGPUTensor *kernel, 
                                       long srow, long scol);
-THC_API void THCudaTensor_conv2DRevgerm(THCudaTensor *output, float beta, float alpha, 
-                                       THCudaTensor *input, THCudaTensor *kernel, 
+THC_API void THGPUTensor_conv2DRevgerm(THGPUTensor *output, float beta, float alpha, 
+                                       THGPUTensor *input, THGPUTensor *kernel, 
                                        long srow, long scol);
 
-THC_API void THCudaTensor_conv2Dmap(THCudaTensor *output, THCudaTensor *input,
-                                   THCudaTensor *kernel, long stride_x, long stride_y,
-                                   THCudaTensor *table, long fanin);
+THC_API void THGPUTensor_conv2Dmap(THGPUTensor *output, THGPUTensor *input,
+                                   THGPUTensor *kernel, long stride_x, long stride_y,
+                                   THGPUTensor *table, long fanin);
 
 #endif

@@ -30,7 +30,7 @@
  * matrix vector product like: y <- Ax + beta*y
  */
 template <bool swapkernel, int T_kernel_h, int T_kernel_w>
-void THCudaTensor_kernel_conv2generic(THCudaTensor *input, THCudaTensor *kernel, THCudaTensor *output,
+void THGPUTensor_kernel_conv2generic(THGPUTensor *input, THGPUTensor *kernel, THGPUTensor *output,
                                int input_n, int input_h, int input_w,
                                int kernel_n, int kernel_h, int kernel_w,
                                long stride_h, long stride_w, int nOutputPlane, int yblocks)
@@ -38,9 +38,9 @@ void THCudaTensor_kernel_conv2generic(THCudaTensor *input, THCudaTensor *kernel,
 	Concurrency::extent<3> copyExt(1, yblocks * 16, nOutputPlane * 16);
   Concurrency::tiled_extent<1,16,16> t_ext(copyExt);
 
-  Concurrency::array_view<float,1>input_data(Concurrency::extent<1>(input->storage->size),THCudaTensor_data(input));
-  Concurrency::array_view<float,1>kernel_data(Concurrency::extent<1>(kernel->storage->size),THCudaTensor_data(kernel));
-  Concurrency::array_view<float,1>output_data(Concurrency::extent<1>(output->storage->size),THCudaTensor_data(output));
+  Concurrency::array_view<float,1>input_data(Concurrency::extent<1>(input->storage->size),THGPUTensor_data(input));
+  Concurrency::array_view<float,1>kernel_data(Concurrency::extent<1>(kernel->storage->size),THGPUTensor_data(kernel));
+  Concurrency::array_view<float,1>output_data(Concurrency::extent<1>(output->storage->size),THGPUTensor_data(output));
 
   Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1,16,16> tidx) restrict(amp)
   {
@@ -215,14 +215,14 @@ void THCudaTensor_kernel_conv2generic(THCudaTensor *input, THCudaTensor *kernel,
 }
 
 
-void THCudaTensor_conv2Dmv(THCudaTensor *output, float beta, THCudaTensor *t_,
-                                  THCudaTensor *k_, long srow, long scol, const char *type)
+void THGPUTensor_conv2Dmv(THGPUTensor *output, float beta, THGPUTensor *t_,
+                                  THGPUTensor *k_, long srow, long scol, const char *type)
 {
   int nInputPlane, nInputRows, nInputCols;
   int nKernelRows, nKernelCols;
   int nOutputPlane, nOutputRows, nOutputCols;
-  THCudaTensor *input;
-  THCudaTensor *kernel;
+  THGPUTensor *input;
+  THGPUTensor *kernel;
  
   THArgCheck(kernel->nDimension == 4 , 4, "kernel: 4D Tensor expected");
   THArgCheck(srow >= 1, 5, "Stride should be a positive integer");
@@ -231,10 +231,10 @@ void THCudaTensor_conv2Dmv(THCudaTensor *output, float beta, THCudaTensor *t_,
   THArgCheck(type[1] == 'c' || type[1] == 'x', 7, "type of convolution can 'x' or 'c'");
 
 
-  input = THCudaTensor_newContiguous(t_);
-  //kernel = THCudaTensor_newContiguous(kernel);
+  input = THGPUTensor_newContiguous(t_);
+  //kernel = THGPUTensor_newContiguous(kernel);
   if (!(k_->stride[3] == 1) || !(k_->stride[2] == k_->size[3])) {
-    kernel = THCudaTensor_newContiguous(k_);
+    kernel = THGPUTensor_newContiguous(k_);
   } else {
     //THFloatTensor_retain(k_);
     kernel = k_;
@@ -259,24 +259,24 @@ void THCudaTensor_conv2Dmv(THCudaTensor *output, float beta, THCudaTensor *t_,
     nOutputCols = (nInputCols - 1) * scol + nKernelCols;
 
     // use temp buffer
-    THCudaTensor *inputP = NULL;
+    THGPUTensor *inputP = NULL;
     int firstcall = 1;
     if (firstcall) {
-      inputP = THCudaTensor_new();
+      inputP = THGPUTensor_new();
       firstcall = 0;
     }
 
     // create a zero-padded input
     long nInputRowsPadded = (nOutputRows - 1) * srow + nKernelRows;
     long nInputColsPadded = (nOutputCols - 1) * scol + nKernelCols;
-    THCudaTensor_resize3d(inputP, nInputPlane, nInputRowsPadded, nInputColsPadded);
-    THCudaTensor_zero(inputP);
+    THGPUTensor_resize3d(inputP, nInputPlane, nInputRowsPadded, nInputColsPadded);
+    THGPUTensor_zero(inputP);
 
-    THCudaTensor *centered = THCudaTensor_new();
-    THCudaTensor_narrow(centered, inputP, 2, nKernelCols-1, nInputCols);
-    THCudaTensor_narrow(centered, NULL, 1, nKernelRows-1, nInputRows);
-    THCudaTensor_copy(centered, input);
-    THCudaTensor_free(centered);
+    THGPUTensor *centered = THGPUTensor_new();
+    THGPUTensor_narrow(centered, inputP, 2, nKernelCols-1, nInputCols);
+    THGPUTensor_narrow(centered, NULL, 1, nKernelRows-1, nInputRows);
+    THGPUTensor_copy(centered, input);
+    THGPUTensor_free(centered);
 
     // remap input to newly created tensor
     input = inputP;
@@ -289,13 +289,13 @@ void THCudaTensor_conv2Dmv(THCudaTensor *output, float beta, THCudaTensor *t_,
     nOutputCols = (nInputCols - nKernelCols) / scol + 1;
   }
 
-  long nelem = THCudaTensor_nElement(output);
-  THCudaTensor_resize3d(output, nOutputPlane, nOutputRows, nOutputCols);
+  long nelem = THGPUTensor_nElement(output);
+  THGPUTensor_resize3d(output, nOutputPlane, nOutputRows, nOutputCols);
 
-  if (beta == 0 || nelem != THCudaTensor_nElement(output)) {
-    THCudaTensor_zero(output);
+  if (beta == 0 || nelem != THGPUTensor_nElement(output)) {
+    THGPUTensor_zero(output);
   } else if (beta != 1) {
-    THCudaTensor_mul(output,output, beta);
+    THGPUTensor_mul(output,output, beta);
   }
 
   int yblocks = (int)(16L / nOutputPlane);
@@ -304,7 +304,7 @@ void THCudaTensor_conv2Dmv(THCudaTensor *output, float beta, THCudaTensor *t_,
   // convolution: xcorr2 or conv2
   if (type[1] == 'X') {
 #define X_CONV_KERNEL(dim)                                              \
-    THCudaTensor_kernel_conv2generic <false, (dim), (dim)>(             \
+    THGPUTensor_kernel_conv2generic <false, (dim), (dim)>(             \
         input, kernel, output,                                          \
         nInputPlane, nInputRows, nInputCols,                            \
         nOutputPlane*nInputPlane, nKernelRows, nKernelCols,             \
@@ -314,7 +314,7 @@ void THCudaTensor_conv2Dmv(THCudaTensor *output, float beta, THCudaTensor *t_,
 #undef X_CONV_KERNEL
   } else { // 'c'
 #define C_CONV_KERNEL(dim)                                              \
-    THCudaTensor_kernel_conv2generic <true, (dim), (dim)>(              \
+    THGPUTensor_kernel_conv2generic <true, (dim), (dim)>(              \
         input, kernel, output,                                          \
         nInputPlane, nInputRows, nInputCols,                            \
         nOutputPlane*nInputPlane, nKernelRows, nKernelCols,             \
@@ -325,8 +325,8 @@ void THCudaTensor_conv2Dmv(THCudaTensor *output, float beta, THCudaTensor *t_,
   }
   if(input != t_)
   {
-      THCudaStorage_free(input->storage);
-      THCudaTensor_free(input);
+      THGPUStorage_free(input->storage);
+      THGPUTensor_free(input);
   }
 }
 
@@ -335,14 +335,14 @@ void THCudaTensor_conv2Dmv(THCudaTensor *output, float beta, THCudaTensor *t_,
  * 4D input, 4D kernel, 4D output
  * matrix vector product like: y <- Ax + beta*y
  */
-void THCudaTensor_conv2Dmm(THCudaTensor *output, float beta, THCudaTensor *t_,
-                                  THCudaTensor *k_, long srow, long scol, const char *type)
+void THGPUTensor_conv2Dmm(THGPUTensor *output, float beta, THGPUTensor *t_,
+                                  THGPUTensor *k_, long srow, long scol, const char *type)
 {
   int nbatch, nInputPlane, nInputRows, nInputCols;
   int nKernelRows, nKernelCols;
   int nOutputPlane, nOutputRows, nOutputCols;
-  THCudaTensor *input;
-  THCudaTensor *kernel;
+  THGPUTensor *input;
+  THGPUTensor *kernel;
   
   
   THArgCheck(kernel->nDimension == 4 , 4, "kernel: 4D Tensor expected");
@@ -351,8 +351,8 @@ void THCudaTensor_conv2Dmm(THCudaTensor *output, float beta, THCudaTensor *t_,
   THArgCheck(type[0] == 'v' || type[0] == 'f', 7, "type of convolution can 'v' or 'f'");
   THArgCheck(type[1] == 'c' || type[1] == 'x', 7, "type of convolution can 'x' or 'c'");
 
-  input = THCudaTensor_newContiguous(t_);
-  kernel = THCudaTensor_newContiguous(k_);
+  input = THGPUTensor_newContiguous(t_);
+  kernel = THGPUTensor_newContiguous(k_);
 
   nbatch      = input->size[0];
   nInputPlane = input->size[1];
@@ -374,27 +374,27 @@ void THCudaTensor_conv2Dmm(THCudaTensor *output, float beta, THCudaTensor *t_,
     nOutputCols = (nInputCols - 1) * scol + nKernelCols;
 
     // use temp buffer
-    static THCudaTensor *inputP;
+    static THGPUTensor *inputP;
     static int firstcall = 1;
     if (firstcall) {
-      inputP = THCudaTensor_new();
+      inputP = THGPUTensor_new();
       firstcall = 0;
     }
 
     // create a zero-padded input
     long nInputRowsPadded = (nOutputRows - 1) * srow + nKernelRows;
     long nInputColsPadded = (nOutputCols - 1) * scol + nKernelCols;
-    THCudaTensor_resize4d(inputP, nbatch, nInputPlane, nInputRowsPadded, nInputColsPadded);
-    THCudaTensor_zero(inputP);
+    THGPUTensor_resize4d(inputP, nbatch, nInputPlane, nInputRowsPadded, nInputColsPadded);
+    THGPUTensor_zero(inputP);
 
-    THCudaTensor *centered = THCudaTensor_new();
-    THCudaTensor_narrow(centered, inputP, 3, nKernelCols-1, nInputCols);
-    THCudaTensor_narrow(centered, NULL, 2, nKernelRows-1, nInputRows);
-    THCudaTensor_copy(centered, input);
-    //THCudaTensor_free(centered);
+    THGPUTensor *centered = THGPUTensor_new();
+    THGPUTensor_narrow(centered, inputP, 3, nKernelCols-1, nInputCols);
+    THGPUTensor_narrow(centered, NULL, 2, nKernelRows-1, nInputRows);
+    THGPUTensor_copy(centered, input);
+    //THGPUTensor_free(centered);
 
     // remap input to newly created tensor
-    THCudaTensor_free(input);
+    THGPUTensor_free(input);
     input = inputP;
     nInputRows = nInputRowsPadded;
     nInputCols = nInputColsPadded;
@@ -405,13 +405,13 @@ void THCudaTensor_conv2Dmm(THCudaTensor *output, float beta, THCudaTensor *t_,
     nOutputCols = (nInputCols - nKernelCols) / scol + 1;
   }
 
-  long nelem = THCudaTensor_nElement(output);
-  THCudaTensor_resize4d(output, nbatch, nOutputPlane, nOutputRows, nOutputCols);
+  long nelem = THGPUTensor_nElement(output);
+  THGPUTensor_resize4d(output, nbatch, nOutputPlane, nOutputRows, nOutputCols);
 
-  if (beta == 0 || nelem != THCudaTensor_nElement(output)) {
-    THCudaTensor_zero(output);
+  if (beta == 0 || nelem != THGPUTensor_nElement(output)) {
+    THGPUTensor_zero(output);
   } else if (beta != 1) {
-    THCudaTensor_mul(output,output, beta);
+    THGPUTensor_mul(output,output, beta);
   }
 
   // cuda blocks & threads:
@@ -421,7 +421,7 @@ void THCudaTensor_conv2Dmm(THCudaTensor *output, float beta, THCudaTensor *t_,
   // convolution: xcorr2 or conv2
   if (type[1] == 'X') {
 #define X_CONV_KERNEL(dim)                                              \
-    THCudaTensor_kernel_conv2generic <false, (dim), (dim)>(             \
+    THGPUTensor_kernel_conv2generic <false, (dim), (dim)>(             \
         input, kernel, output,                                          \
         nInputPlane, nInputRows, nInputCols,                            \
         nOutputPlane*nInputPlane, nKernelRows, nKernelCols,             \
@@ -431,7 +431,7 @@ void THCudaTensor_conv2Dmm(THCudaTensor *output, float beta, THCudaTensor *t_,
 #undef X_CONV_KERNEL
   } else { // 'c'
 #define C_CONV_KERNEL(dim)                                              \
-    THCudaTensor_kernel_conv2generic <true, (dim), (dim)>(              \
+    THGPUTensor_kernel_conv2generic <true, (dim), (dim)>(              \
         input, kernel, output,                                          \
         nInputPlane, nInputRows, nInputCols,                            \
         nOutputPlane*nInputPlane, nKernelRows, nKernelCols,             \
@@ -442,11 +442,11 @@ void THCudaTensor_conv2Dmm(THCudaTensor *output, float beta, THCudaTensor *t_,
   }
 
   // clean
-  if (*type != 'F') THCudaTensor_free(input);
-  THCudaTensor_free(kernel);
+  if (*type != 'F') THGPUTensor_free(input);
+  THGPUTensor_free(kernel);
 }
 
-void THCudaTensor_kernel_conv2genericrev(THCudaTensor *input, THCudaTensor *kernel, THCudaTensor *output,
+void THGPUTensor_kernel_conv2genericrev(THGPUTensor *input, THGPUTensor *kernel, THGPUTensor *output,
                                 int input_n, int input_h, int input_w,
                                 int kernel_n, int kernel_h, int kernel_w,
                                 float alpha, int stride_h, int stride_w,
@@ -459,9 +459,9 @@ void THCudaTensor_kernel_conv2genericrev(THCudaTensor *input, THCudaTensor *kern
   Concurrency::extent<3> copyExt(1,nInputPlane*16,nKernelPlane*16);
   Concurrency::tiled_extent<1,16,16> t_ext(copyExt);
 
-  Concurrency::array_view<float,1>input_data(Concurrency::extent<1>(input->storage->size),THCudaTensor_data(input));
-  Concurrency::array_view<float,1>kernel_data(Concurrency::extent<1>(kernel->storage->size),THCudaTensor_data(kernel));
-  Concurrency::array_view<float,1>output_o(Concurrency::extent<1>(output->storage->size),THCudaTensor_data(output));
+  Concurrency::array_view<float,1>input_data(Concurrency::extent<1>(input->storage->size),THGPUTensor_data(input));
+  Concurrency::array_view<float,1>kernel_data(Concurrency::extent<1>(kernel->storage->size),THGPUTensor_data(kernel));
+  Concurrency::array_view<float,1>output_o(Concurrency::extent<1>(output->storage->size),THGPUTensor_data(output));
 
   Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1,16,16> tidx) restrict(amp)
   {
@@ -555,8 +555,8 @@ void THCudaTensor_kernel_conv2genericrev(THCudaTensor *input, THCudaTensor *kern
  * for sr,sc=1 this is equivalent to xcorr2Dger, but otherwise it is useful for
  * calculating derivatives wrt a kernel that is applied with stride sr,sc != 1
  */
-void THCudaTensor_conv2DRevger(THCudaTensor *output, float beta, float alpha,
-                                      THCudaTensor *input, THCudaTensor *kernel,
+void THGPUTensor_conv2DRevger(THGPUTensor *output, float beta, float alpha,
+                                      THGPUTensor *input, THGPUTensor *kernel,
                                       long srow, long scol)
 {
   long nInputPlane, nInputRows, nInputCols;
@@ -568,8 +568,8 @@ void THCudaTensor_conv2DRevger(THCudaTensor *output, float beta, float alpha,
   THArgCheck(srow >= 1, 5, "Stride should be a positive integer");
   THArgCheck(scol >= 1, 6, "Stride should be a positive integer");
 
-  input = THCudaTensor_newContiguous(input);
-  kernel = THCudaTensor_newContiguous(kernel);
+  input = THGPUTensor_newContiguous(input);
+  kernel = THGPUTensor_newContiguous(kernel);
 
   nInputPlane = input->size[0];
   nInputRows  = input->size[1];
@@ -586,13 +586,13 @@ void THCudaTensor_conv2DRevger(THCudaTensor *output, float beta, float alpha,
   nOutputRows = nInputRows - (nKernelRows - 1) * srow;
   nOutputCols = nInputCols - (nKernelCols - 1) * scol;
 
-  long nelem = THCudaTensor_nElement(output);
-  THCudaTensor_resize4d(output, nKernelPlane, nInputPlane, nOutputRows, nOutputCols);
+  long nelem = THGPUTensor_nElement(output);
+  THGPUTensor_resize4d(output, nKernelPlane, nInputPlane, nOutputRows, nOutputCols);
 
-  if (nelem == 0 || beta == 0 || nelem != THCudaTensor_nElement(output)) {
-    THCudaTensor_zero(output);
+  if (nelem == 0 || beta == 0 || nelem != THGPUTensor_nElement(output)) {
+    THGPUTensor_zero(output);
   } else if (beta != 1) {
-    THCudaTensor_mul(output,output, beta);
+    THGPUTensor_mul(output,output, beta);
   }
 
   // auto compute nb of blocks and threads
@@ -602,15 +602,15 @@ void THCudaTensor_conv2DRevger(THCudaTensor *output, float beta, float alpha,
   int cst = 0, subbatch = 0, sl = 0;
 
   // compute rev conv
-  THCudaTensor_kernel_conv2genericrev (input, kernel, output,
+  THGPUTensor_kernel_conv2genericrev (input, kernel, output,
                                        nInputPlane, nInputRows, nInputCols,
                                        nKernelPlane, nKernelRows, nKernelCols,
                                        alpha, srow, scol, nKernelPlane, nInputPlane, 
                                        nOutputRows, cst, subbatch, sl);
 
   // clean
-  THCudaTensor_free(input);
-  THCudaTensor_free(kernel);
+  THGPUTensor_free(input);
+  THGPUTensor_free(kernel);
 
   // check for errors
   //cudaError_t err = cudaGetLastError();
@@ -625,8 +625,8 @@ void THCudaTensor_conv2DRevger(THCudaTensor *output, float beta, float alpha,
  * 4D input, 4D kernel, 4D output
  * conv2DRevgerm is doing the same thing as conv2DRevger, but with batch inputs
  */
-void THCudaTensor_conv2DRevgerm(THCudaTensor *output, float beta, float alpha,
-                                       THCudaTensor *input, THCudaTensor *kernel,
+void THGPUTensor_conv2DRevgerm(THGPUTensor *output, float beta, float alpha,
+                                       THGPUTensor *input, THGPUTensor *kernel,
                                        long srow, long scol)
 {
   long nInputPlane, nInputRows, nInputCols;
@@ -640,8 +640,8 @@ void THCudaTensor_conv2DRevgerm(THCudaTensor *output, float beta, float alpha,
   THArgCheck(srow >= 1, 5, "Stride should be a positive integer");
   THArgCheck(scol >= 1, 6, "Stride should be a positive integer");
 
-  input = THCudaTensor_newContiguous(input);
-  kernel = THCudaTensor_newContiguous(kernel);
+  input = THGPUTensor_newContiguous(input);
+  kernel = THGPUTensor_newContiguous(kernel);
 
   nbatch      = input->size[0];
   nInputPlane = input->size[1];
@@ -658,13 +658,13 @@ void THCudaTensor_conv2DRevgerm(THCudaTensor *output, float beta, float alpha,
   nOutputRows = nInputRows - (nKernelRows - 1) * srow;
   nOutputCols = nInputCols - (nKernelCols - 1) * scol;
 
-  long nelem = THCudaTensor_nElement(output);
-  THCudaTensor_resize4d(output, nKernelPlane, nInputPlane, nOutputRows, nOutputCols);
+  long nelem = THGPUTensor_nElement(output);
+  THGPUTensor_resize4d(output, nKernelPlane, nInputPlane, nOutputRows, nOutputCols);
 
-  if (nelem == 0 || beta == 0 || nelem != THCudaTensor_nElement(output)) {
-    THCudaTensor_zero(output);
+  if (nelem == 0 || beta == 0 || nelem != THGPUTensor_nElement(output)) {
+    THGPUTensor_zero(output);
   } else if (beta != 1) {
-    THCudaTensor_mul(output,output, beta);
+    THGPUTensor_mul(output,output, beta);
   }
 
   // kernel is called multiple times
@@ -678,7 +678,7 @@ void THCudaTensor_conv2DRevgerm(THCudaTensor *output, float beta, float alpha,
  //   dim3 threads(cst, nOutputRows, subbatch);
 
     // compute rev conv
-    THCudaTensor_kernel_conv2genericrev (input + input->stride[0]*sl,
+    THGPUTensor_kernel_conv2genericrev (input + input->stride[0]*sl,
                                            kernel + kernel->stride[0]*sl, 
                                            output,
                                            nInputPlane, nInputRows, nInputCols,
@@ -688,8 +688,8 @@ void THCudaTensor_conv2DRevgerm(THCudaTensor *output, float beta, float alpha,
   }
 
   // clean
-  THCudaTensor_free(input);
-  THCudaTensor_free(kernel);
+  THGPUTensor_free(input);
+  THGPUTensor_free(kernel);
 
   // check for errors
   //cudaError_t err = cudaGetLastError();
@@ -713,20 +713,20 @@ void THCudaTensor_conv2DRevgerm(THCudaTensor *output, float beta, float alpha,
  *   ---- should have a fanin set of inputs contiguously
  */
 template <bool swapkernel, int T_kernel_h, int T_kernel_w>
-void THCudaTensor_kernel_conv2mapgeneric(THCudaTensor *input, THCudaTensor *kernel, THCudaTensor *output,
+void THGPUTensor_kernel_conv2mapgeneric(THGPUTensor *input, THGPUTensor *kernel, THGPUTensor *output,
                                          int input_n, int input_h, int input_w,
                                          int kernel_n, int kernel_h, int kernel_w,
                                          int stride_w, int stride_h,
-                                         THCudaTensor *table, int fanin,
+                                         THGPUTensor *table, int fanin,
                                          int nOutputPlane, int block_height)
 {
   Concurrency::extent<3> copyExt(1,nOutputPlane*16,block_height*16);
   Concurrency::tiled_extent<1,16,16> t_ext(copyExt);
 
-  Concurrency::array_view<float,1>input_data(Concurrency::extent<1>(input->storage->size),THCudaTensor_data(input));
-  Concurrency::array_view<float,1>kernel_data(Concurrency::extent<1>(kernel->storage->size),THCudaTensor_data(kernel));
-  Concurrency::array_view<float,1>output_data(Concurrency::extent<1>(output->storage->size),THCudaTensor_data(output));
-  Concurrency::array_view<float,1>table_data(Concurrency::extent<1>(table->storage->size),THCudaTensor_data(table));
+  Concurrency::array_view<float,1>input_data(Concurrency::extent<1>(input->storage->size),THGPUTensor_data(input));
+  Concurrency::array_view<float,1>kernel_data(Concurrency::extent<1>(kernel->storage->size),THGPUTensor_data(kernel));
+  Concurrency::array_view<float,1>output_data(Concurrency::extent<1>(output->storage->size),THGPUTensor_data(output));
+  Concurrency::array_view<float,1>table_data(Concurrency::extent<1>(table->storage->size),THGPUTensor_data(table));
 
   Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1,16,16> tidx) restrict(amp)
   {
@@ -900,9 +900,9 @@ void THCudaTensor_kernel_conv2mapgeneric(THCudaTensor *input, THCudaTensor *kern
  * 3D input, 4D kernel, 3D output
  * matrix vector product like: y <- Ax + beta*y
  */
-void THCudaTensor_conv2Dmap(THCudaTensor *output, THCudaTensor *input,
-                                   THCudaTensor *kernel, long stride_x, long stride_y,
-                                   THCudaTensor *table, long fanin)
+void THGPUTensor_conv2Dmap(THGPUTensor *output, THGPUTensor *input,
+                                   THGPUTensor *kernel, long stride_x, long stride_y,
+                                   THGPUTensor *table, long fanin)
 {
   long nInputPlane, nInputRows, nInputCols;
   long nKernelRows, nKernelCols;
@@ -913,9 +913,9 @@ void THCudaTensor_conv2Dmap(THCudaTensor *output, THCudaTensor *input,
   THArgCheck(stride_x >= 1, 5, "Stride should be a positive integer");
   THArgCheck(stride_y >= 1, 6, "Stride should be a positive integer");
 
-  input = THCudaTensor_newContiguous(input);
-  kernel = THCudaTensor_newContiguous(kernel);
-  table = THCudaTensor_newContiguous(table);
+  input = THGPUTensor_newContiguous(input);
+  kernel = THGPUTensor_newContiguous(kernel);
+  table = THGPUTensor_newContiguous(table);
 
   nInputPlane = input->size[0];
   nInputRows  = input->size[1];
@@ -933,8 +933,8 @@ void THCudaTensor_conv2Dmap(THCudaTensor *output, THCudaTensor *input,
   nOutputRows = (nInputRows - nKernelRows) / stride_y + 1;
   nOutputCols = (nInputCols - nKernelCols) / stride_x + 1;
 
-  // long nelem = THCudaTensor_nElement(output);
-  THCudaTensor_resize3d(output, nOutputPlane, nOutputRows, nOutputCols);
+  // long nelem = THGPUTensor_nElement(output);
+  THGPUTensor_resize3d(output, nOutputPlane, nOutputRows, nOutputCols);
 
   // set the number of blocks and threads
   int nthreads_x = 32;
@@ -944,7 +944,7 @@ void THCudaTensor_conv2Dmap(THCudaTensor *output, THCudaTensor *input,
     block_height = 1;
 
 #define GENERIC_MAP_KERNEL(dim)                 \
-  THCudaTensor_kernel_conv2mapgeneric <false, (dim), (dim)>(         \
+  THGPUTensor_kernel_conv2mapgeneric <false, (dim), (dim)>(         \
       input, kernel, output, nInputPlane, nInputRows,                \
       nInputCols, nOutputPlane*fanin, nKernelRows, nKernelCols,      \
       stride_x, stride_y, table, fanin, nOutputPlane, block_height);
@@ -952,9 +952,9 @@ void THCudaTensor_conv2Dmap(THCudaTensor *output, THCudaTensor *input,
   FOR_KERNEL_SPECIALIZED_DIMENSION(nKernelCols, nKernelRows, GENERIC_MAP_KERNEL);
 #undef GENERIC_MAP_KERNEL
   // clean
-  THCudaTensor_free(input);
-  THCudaTensor_free(kernel);
-  THCudaTensor_free(table);
+  THGPUTensor_free(input);
+  THGPUTensor_free(kernel);
+  THGPUTensor_free(table);
 
   // check for errors
   //cudaError_t err = cudaGetLastError();

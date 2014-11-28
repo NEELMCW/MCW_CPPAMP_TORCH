@@ -7,8 +7,8 @@
  *    3D input, 3D output, 1D weight, 1D bias
  */
 
-void subsample(THCudaTensor *inputTensor, THCudaTensor *outputTensor, THCudaTensor *weightTensor,
-               THCudaTensor *biasTensor ,int input_n, int input_h, int input_w, int kH, int kW, int dH, int dW, int xBlocks)
+void subsample(THGPUTensor *inputTensor, THGPUTensor *outputTensor, THGPUTensor *weightTensor,
+               THGPUTensor *biasTensor ,int input_n, int input_h, int input_w, int kH, int kW, int dH, int dW, int xBlocks)
 {
     // output size
     std::cout<<"subSample"<<std::endl;
@@ -17,10 +17,10 @@ void subsample(THCudaTensor *inputTensor, THCudaTensor *outputTensor, THCudaTens
     //int xBlocks = input_n;
     int yBlocks = (int)(16L / xBlocks);
     yBlocks = yBlocks < 1 ? 1 : yBlocks;
-    Concurrency::array_view<float,1> avInput(Concurrency::extent<1>(inputTensor->storage->size), THCudaTensor_data(inputTensor));
-    Concurrency::array_view<float,1> avOutput(Concurrency::extent<1>(outputTensor->storage->size), THCudaTensor_data(outputTensor));
-    Concurrency::array_view<float,1> avWeight(Concurrency::extent<1>(weightTensor->storage->size), THCudaTensor_data(weightTensor));
-    Concurrency::array_view<float,1> avBias(Concurrency::extent<1>(biasTensor->storage->size), THCudaTensor_data(biasTensor));
+    Concurrency::array_view<float,1> avInput(Concurrency::extent<1>(inputTensor->storage->size), THGPUTensor_data(inputTensor));
+    Concurrency::array_view<float,1> avOutput(Concurrency::extent<1>(outputTensor->storage->size), THGPUTensor_data(outputTensor));
+    Concurrency::array_view<float,1> avWeight(Concurrency::extent<1>(weightTensor->storage->size), THGPUTensor_data(weightTensor));
+    Concurrency::array_view<float,1> avBias(Concurrency::extent<1>(biasTensor->storage->size), THGPUTensor_data(biasTensor));
     //yBlocks = yBlocks * 8;
     //xBlocks = xBlocks * 32;
     //yBlocks = (yBlocks + 7) &~7;
@@ -86,8 +86,8 @@ void subsample(THCudaTensor *inputTensor, THCudaTensor *outputTensor, THCudaTens
  * Description:
  *    this function computes the gradWeight from input and gradOutput
  */
-void subgradweight(THCudaTensor *inputTensor, THCudaTensor *gradOutputTensor, THCudaTensor *gradWeightTensor,
-                   THCudaTensor *gradBiasTensor, int input_n, int input_h, int input_w, int kH, int kW,
+void subgradweight(THGPUTensor *inputTensor, THGPUTensor *gradOutputTensor, THGPUTensor *gradWeightTensor,
+                   THGPUTensor *gradBiasTensor, int input_n, int input_h, int input_w, int kH, int kW,
                    int dH, int dW, float scale, long sl)
 {
     // output size
@@ -100,10 +100,10 @@ void subgradweight(THCudaTensor *inputTensor, THCudaTensor *gradOutputTensor, TH
     int xBlocks = input_n;
     //int yBlocks = (int)(16L / input_n);
     //yBlocks = yBlocks < 1 ? 1 : yBlocks;
-    Concurrency::array_view<float,1> avInput(Concurrency::extent<1>(inputTensor->storage->size), THCudaTensor_data(inputTensor));
-    Concurrency::array_view<float,1> avGradOutput(Concurrency::extent<1>(gradOutputTensor->storage->size), THCudaTensor_data(gradOutputTensor));
-    Concurrency::array_view<float,1> avGradWeight(Concurrency::extent<1>(gradWeightTensor->storage->size), THCudaTensor_data(gradWeightTensor));
-    Concurrency::array_view<float,1> avGradBias(Concurrency::extent<1>(gradBiasTensor->storage->size), THCudaTensor_data(gradBiasTensor));
+    Concurrency::array_view<float,1> avInput(Concurrency::extent<1>(inputTensor->storage->size), THGPUTensor_data(inputTensor));
+    Concurrency::array_view<float,1> avGradOutput(Concurrency::extent<1>(gradOutputTensor->storage->size), THGPUTensor_data(gradOutputTensor));
+    Concurrency::array_view<float,1> avGradWeight(Concurrency::extent<1>(gradWeightTensor->storage->size), THGPUTensor_data(gradWeightTensor));
+    Concurrency::array_view<float,1> avGradBias(Concurrency::extent<1>(gradBiasTensor->storage->size), THGPUTensor_data(gradBiasTensor));
     //yBlocks = (yBlocks + 7) &~7;
     //xBlocks = (xBlocks + 31) &~31;
     Concurrency::extent<3> grdExt(1, 8 , xBlocks * 32);
@@ -197,7 +197,7 @@ void subgradweight(THCudaTensor *inputTensor, THCudaTensor *gradOutputTensor, TH
  * Description:
  *    this function computes the gradInput from weight and gradOutput
  */
-void subgradinput(THCudaTensor *gradInputTensor, THCudaTensor *gradOutputTensor, THCudaTensor *weightTensor,
+void subgradinput(THGPUTensor *gradInputTensor, THGPUTensor *gradOutputTensor, THGPUTensor *weightTensor,
                   int input_n, int input_h, int input_w, int kH, int kW, int dH, int dW, int xBlocks)
 {
     // output size
@@ -208,9 +208,9 @@ void subgradinput(THCudaTensor *gradInputTensor, THCudaTensor *gradOutputTensor,
     //int xBlocks = input_n;
     int yBlocks = (int)(16L / input_n);
     yBlocks = yBlocks < 1 ? 1 : yBlocks;
-    Concurrency::array_view<float,1> avGradInput(Concurrency::extent<1>(gradInputTensor->storage->size), THCudaTensor_data(gradInputTensor));
-    Concurrency::array_view<float,1> avGradOutput(Concurrency::extent<1>(gradOutputTensor->storage->size), THCudaTensor_data(gradOutputTensor));
-    Concurrency::array_view<float,1> avWeight(Concurrency::extent<1>(weightTensor->storage->size), THCudaTensor_data(weightTensor));
+    Concurrency::array_view<float,1> avGradInput(Concurrency::extent<1>(gradInputTensor->storage->size), THGPUTensor_data(gradInputTensor));
+    Concurrency::array_view<float,1> avGradOutput(Concurrency::extent<1>(gradOutputTensor->storage->size), THGPUTensor_data(gradOutputTensor));
+    Concurrency::array_view<float,1> avWeight(Concurrency::extent<1>(weightTensor->storage->size), THGPUTensor_data(weightTensor));
     //yBlocks = (yBlocks + 7) &~7;
     //xBlocks = (xBlocks + 31) &~31;
     Concurrency::extent<3> grdExt(1, yBlocks * 8 , xBlocks * 32);
@@ -264,21 +264,21 @@ void subgradinput(THCudaTensor *gradInputTensor, THCudaTensor *gradOutputTensor,
     avGradInput.synchronize();
 }
 
-static int cunn_SpatialSubSampling_updateOutput(lua_State *L)
+static int gpunn_SpatialSubSampling_updateOutput(lua_State *L)
 {
-  THCudaTensor *input = (THCudaTensor *)luaT_checkudata(L, 2, "torch.CudaTensor");
+  THGPUTensor *input = (THGPUTensor *)luaT_checkudata(L, 2, "torch.GPUTensor");
   int kW = luaT_getfieldcheckint(L, 1, "kW");
   int kH = luaT_getfieldcheckint(L, 1, "kH");
   int dW = luaT_getfieldcheckint(L, 1, "dW");
   int dH = luaT_getfieldcheckint(L, 1, "dH");
   int nInputPlane = luaT_getfieldcheckint(L, 1, "nInputPlane");
 
-  THCudaTensor *weight = (THCudaTensor *)luaT_getfieldcheckudata(L, 1, "weight", "torch.CudaTensor");
-  THCudaTensor *bias = (THCudaTensor *)luaT_getfieldcheckudata(L, 1, "bias", "torch.CudaTensor");
-  THCudaTensor *output = (THCudaTensor *)luaT_getfieldcheckudata(L, 1, "output", "torch.CudaTensor");
+  THGPUTensor *weight = (THGPUTensor *)luaT_getfieldcheckudata(L, 1, "weight", "torch.GPUTensor");
+  THGPUTensor *bias = (THGPUTensor *)luaT_getfieldcheckudata(L, 1, "bias", "torch.GPUTensor");
+  THGPUTensor *output = (THGPUTensor *)luaT_getfieldcheckudata(L, 1, "output", "torch.GPUTensor");
 
-  float *weight_data = THCudaTensor_data(weight);
-  float *bias_data = THCudaTensor_data(bias);
+  float *weight_data = THGPUTensor_data(weight);
+  float *bias_data = THGPUTensor_data(bias);
   float *output_data;
   float *input_data;
 
@@ -294,11 +294,11 @@ static int cunn_SpatialSubSampling_updateOutput(lua_State *L)
     luaL_argcheck(L, input->size[0] == nInputPlane, 2, "invalid number of input planes");
     luaL_argcheck(L, nInputCols >= kW && nInputRows >= kH, 2, "input image smaller than kernel size");
 
-    input = THCudaTensor_newContiguous(input);
-    input_data = THCudaTensor_data(input);
+    input = THGPUTensor_newContiguous(input);
+    input_data = THGPUTensor_data(input);
 
-    THCudaTensor_resize3d(output, nInputPlane, nOutputRows, nOutputCols);
-    output_data = THCudaTensor_data(output);
+    THGPUTensor_resize3d(output, nInputPlane, nOutputRows, nOutputCols);
+    output_data = THGPUTensor_data(output);
 
     int xBlocks = nInputPlane;
     subsample (input, output, weight, bias, nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW, xBlocks);
@@ -314,27 +314,27 @@ static int cunn_SpatialSubSampling_updateOutput(lua_State *L)
     luaL_argcheck(L, input->size[1] == nInputPlane, 2, "invalid number of input planes");
     luaL_argcheck(L, nInputCols >= kW && nInputRows >= kH, 2, "input image smaller than kernel size");
 
-    input = THCudaTensor_newContiguous(input);
-    input_data = THCudaTensor_data(input);
+    input = THGPUTensor_newContiguous(input);
+    input_data = THGPUTensor_data(input);
 
-    THCudaTensor_resize4d(output, nbatch, nInputPlane, nOutputRows, nOutputCols);
-    output_data = THCudaTensor_data(output);
+    THGPUTensor_resize4d(output, nbatch, nInputPlane, nOutputRows, nOutputCols);
+    output_data = THGPUTensor_data(output);
 
     int xBlocks = nInputPlane * nbatch;
     subsample(input, output, weight, bias, nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW, xBlocks);
   }
 
   // clean
-  THCudaTensor_free(input);
+  THGPUTensor_free(input);
 
   // check for errors
   return 1;
 }
 
-static int cunn_SpatialSubSampling_updateGradInput(lua_State *L)
+static int gpunn_SpatialSubSampling_updateGradInput(lua_State *L)
 {
-  THCudaTensor *input = (THCudaTensor *)luaT_checkudata(L, 2, "torch.CudaTensor");
-  THCudaTensor *gradOutput = (THCudaTensor *)luaT_checkudata(L, 3, "torch.CudaTensor");
+  THGPUTensor *input = (THGPUTensor *)luaT_checkudata(L, 2, "torch.GPUTensor");
+  THGPUTensor *gradOutput = (THGPUTensor *)luaT_checkudata(L, 3, "torch.GPUTensor");
   int kW = luaT_getfieldcheckint(L, 1, "kW");
   int kH = luaT_getfieldcheckint(L, 1, "kH");
   int dW = luaT_getfieldcheckint(L, 1, "dW");
@@ -344,21 +344,21 @@ static int cunn_SpatialSubSampling_updateGradInput(lua_State *L)
   luaL_argcheck(L, dW == kW, 1, "dW and kW must be equal (this will be fixed soon)");
   luaL_argcheck(L, dH == kH, 1, "dH and kH must be equal (this will be fixed soon)");
 
-  THCudaTensor *weight = (THCudaTensor *)luaT_getfieldcheckudata(L, 1, "weight", "torch.CudaTensor");
-  THCudaTensor *gradInput = (THCudaTensor *)luaT_getfieldcheckudata(L, 1, "gradInput", "torch.CudaTensor");
+  THGPUTensor *weight = (THGPUTensor *)luaT_getfieldcheckudata(L, 1, "weight", "torch.GPUTensor");
+  THGPUTensor *gradInput = (THGPUTensor *)luaT_getfieldcheckudata(L, 1, "gradInput", "torch.GPUTensor");
 
   if (input->nDimension == 3)
   {
     long nInputCols = input->size[2];
     long nInputRows = input->size[1];
 
-    float *weight_data = THCudaTensor_data(weight);
-    float *gradOutput_data = THCudaTensor_data(gradOutput);
+    float *weight_data = THGPUTensor_data(weight);
+    float *gradOutput_data = THGPUTensor_data(gradOutput);
     float *gradInput_data;
 
-    THCudaTensor_resizeAs(gradInput, input);
-    THCudaTensor_zero(gradInput);
-    gradInput_data = THCudaTensor_data(gradInput);
+    THGPUTensor_resizeAs(gradInput, input);
+    THGPUTensor_zero(gradInput);
+    gradInput_data = THGPUTensor_data(gradInput);
 
     int xBlocks = nInputPlane;
     subgradinput (gradInput, gradOutput, weight, nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW, xBlocks);
@@ -370,13 +370,13 @@ static int cunn_SpatialSubSampling_updateGradInput(lua_State *L)
     long nInputRows = input->size[2];
     long nbatch = input->size[0];
 
-    float *weight_data = THCudaTensor_data(weight);
-    float *gradOutput_data = THCudaTensor_data(gradOutput);
+    float *weight_data = THGPUTensor_data(weight);
+    float *gradOutput_data = THGPUTensor_data(gradOutput);
     float *gradInput_data;
 
-    THCudaTensor_resizeAs(gradInput, input);
-    THCudaTensor_zero(gradInput);
-    gradInput_data = THCudaTensor_data(gradInput);
+    THGPUTensor_resizeAs(gradInput, input);
+    THGPUTensor_zero(gradInput);
+    gradInput_data = THGPUTensor_data(gradInput);
 
     int xBlocks = nInputPlane * nbatch;
     subgradinput (gradInput, gradOutput, weight, nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW, xBlocks);
@@ -384,10 +384,10 @@ static int cunn_SpatialSubSampling_updateGradInput(lua_State *L)
   return 0;
 }
 
-static int cunn_SpatialSubSampling_accGradParameters(lua_State *L)
+static int gpunn_SpatialSubSampling_accGradParameters(lua_State *L)
 {
-  THCudaTensor *input = (THCudaTensor *)luaT_checkudata(L, 2, "torch.CudaTensor");
-  THCudaTensor *gradOutput = (THCudaTensor *)luaT_checkudata(L, 3, "torch.CudaTensor");
+  THGPUTensor *input = (THGPUTensor *)luaT_checkudata(L, 2, "torch.GPUTensor");
+  THGPUTensor *gradOutput = (THGPUTensor *)luaT_checkudata(L, 3, "torch.GPUTensor");
   int kW = luaT_getfieldcheckint(L, 1, "kW");
   int kH = luaT_getfieldcheckint(L, 1, "kH");
   int dW = luaT_getfieldcheckint(L, 1, "dW");
@@ -398,22 +398,22 @@ static int cunn_SpatialSubSampling_accGradParameters(lua_State *L)
   luaL_argcheck(L, dW == kW, 1, "dW and kW must be equal (this will be fixed soon)");
   luaL_argcheck(L, dH == kH, 1, "dH and kH must be equal (this will be fixed soon)");
 
-  THCudaTensor *gradWeight = (THCudaTensor *)luaT_getfieldcheckudata(L, 1, "gradWeight", "torch.CudaTensor");
-  THCudaTensor *gradBias = (THCudaTensor *)luaT_getfieldcheckudata(L, 1, "gradBias", "torch.CudaTensor");
+  THGPUTensor *gradWeight = (THGPUTensor *)luaT_getfieldcheckudata(L, 1, "gradWeight", "torch.GPUTensor");
+  THGPUTensor *gradBias = (THGPUTensor *)luaT_getfieldcheckudata(L, 1, "gradBias", "torch.GPUTensor");
 
   if (input->nDimension == 3)
   {
     long nInputCols = input->size[2];
     long nInputRows = input->size[1];
 
-    float *gradWeight_data = THCudaTensor_data(gradWeight);
-    float *gradBias_data = THCudaTensor_data(gradBias);
-    float *gradOutput_data = THCudaTensor_data(gradOutput);
+    float *gradWeight_data = THGPUTensor_data(gradWeight);
+    float *gradBias_data = THGPUTensor_data(gradBias);
+    float *gradOutput_data = THGPUTensor_data(gradOutput);
     float *input_data;
     long sl = 0;
 
-    input = THCudaTensor_newContiguous(input);
-    input_data = THCudaTensor_data(input);
+    input = THGPUTensor_newContiguous(input);
+    input_data = THGPUTensor_data(input);
 
     subgradweight (input, gradOutput, gradWeight, gradBias, nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW, scale, sl);
 
@@ -424,13 +424,13 @@ static int cunn_SpatialSubSampling_accGradParameters(lua_State *L)
     long nInputRows = input->size[2];
     long nbatch = input->size[0];
 
-    float *gradWeight_data = THCudaTensor_data(gradWeight);
-    float *gradBias_data = THCudaTensor_data(gradBias);
-    float *gradOutput_data = THCudaTensor_data(gradOutput);
+    float *gradWeight_data = THGPUTensor_data(gradWeight);
+    float *gradBias_data = THGPUTensor_data(gradBias);
+    float *gradOutput_data = THGPUTensor_data(gradOutput);
     float *input_data;
 
-    input = THCudaTensor_newContiguous(input);
-    input_data = THCudaTensor_data(input);
+    input = THGPUTensor_newContiguous(input);
+    input_data = THGPUTensor_data(input);
 
     // cuda blocks & threads:
 
@@ -444,21 +444,21 @@ static int cunn_SpatialSubSampling_accGradParameters(lua_State *L)
   }
 
   // clean
-  THCudaTensor_free(input);
+  THGPUTensor_free(input);
 
   return 0;
 }
 
-static const struct luaL_Reg cunn_SpatialSubSampling__ [] = {
-  {"SpatialSubSampling_updateOutput", cunn_SpatialSubSampling_updateOutput},
-  {"SpatialSubSampling_updateGradInput", cunn_SpatialSubSampling_updateGradInput},
-  {"SpatialSubSampling_accGradParameters", cunn_SpatialSubSampling_accGradParameters},
+static const struct luaL_Reg gpunn_SpatialSubSampling__ [] = {
+  {"SpatialSubSampling_updateOutput", gpunn_SpatialSubSampling_updateOutput},
+  {"SpatialSubSampling_updateGradInput", gpunn_SpatialSubSampling_updateGradInput},
+  {"SpatialSubSampling_accGradParameters", gpunn_SpatialSubSampling_accGradParameters},
   {NULL, NULL}
 };
 
-static void cunn_SpatialSubSampling_init(lua_State *L)
+static void gpunn_SpatialSubSampling_init(lua_State *L)
 {
-  luaT_pushmetatable(L, "torch.CudaTensor");
-  luaT_registeratname(L, cunn_SpatialSubSampling__, "nn");
+  luaT_pushmetatable(L, "torch.GPUTensor");
+  luaT_registeratname(L, gpunn_SpatialSubSampling__, "nn");
   lua_pop(L,1);
 }

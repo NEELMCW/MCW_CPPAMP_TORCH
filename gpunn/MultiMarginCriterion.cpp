@@ -1,6 +1,6 @@
 #define MULTIMARGIN_THREADS 128
 
-void cunn_MultiMarginCriterion_updateOutput_kernel(THCudaStorage *output, THCudaStorage *input, THCudaStorage *target, int nframe, int dim, int sizeaverage)
+void gpunn_MultiMarginCriterion_updateOutput_kernel(THGPUStorage *output, THGPUStorage *input, THGPUStorage *target, int nframe, int dim, int sizeaverage)
 {
     Concurrency::array_view<float,1> avInp(Concurrency::extent<1>(input->size), input->data);
     Concurrency::array_view<float,1> avTarget(Concurrency::extent<1>(target->size), target->data);
@@ -53,11 +53,11 @@ void cunn_MultiMarginCriterion_updateOutput_kernel(THCudaStorage *output, THCuda
     });
 }
 
-void cunn_MultiMarginCriterion_updateGradInput_kernel(THCudaTensor *gradInput, THCudaTensor *input, THCudaTensor *target, int nframe, int dim, int sizeaverage)
+void gpunn_MultiMarginCriterion_updateGradInput_kernel(THGPUTensor *gradInput, THGPUTensor *input, THGPUTensor *target, int nframe, int dim, int sizeaverage)
 {
-    Concurrency::array_view<float,1> avInp(Concurrency::extent<1>(input->storage->size), THCudaTensor_data(input));
-    Concurrency::array_view<float,1> avTarget(Concurrency::extent<1>(target->storage->size), THCudaTensor_data(target));
-    Concurrency::array_view<float,1> avgradInput(Concurrency::extent<1>(gradInput->storage->size), THCudaTensor_data(gradInput));
+    Concurrency::array_view<float,1> avInp(Concurrency::extent<1>(input->storage->size), THGPUTensor_data(input));
+    Concurrency::array_view<float,1> avTarget(Concurrency::extent<1>(target->storage->size), THGPUTensor_data(target));
+    Concurrency::array_view<float,1> avgradInput(Concurrency::extent<1>(gradInput->storage->size), THGPUTensor_data(gradInput));
     Concurrency::extent<1> grdExt(MULTIMARGIN_THREADS);
     Concurrency::tiled_extent<MULTIMARGIN_THREADS> t_ext(grdExt);
     float g = (float)(sizeaverage ? 1.0/((float)dim) : 1.0);
@@ -108,42 +108,42 @@ void cunn_MultiMarginCriterion_updateGradInput_kernel(THCudaTensor *gradInput, T
     });
 }
 
-static int cunn_MultiMarginCriterion_updateOutput(lua_State *L)
+static int gpunn_MultiMarginCriterion_updateOutput(lua_State *L)
 {
-  THCudaTensor *input = (THCudaTensor*)luaT_checkudata(L, 2, "torch.CudaTensor");
+  THGPUTensor *input = (THGPUTensor*)luaT_checkudata(L, 2, "torch.GPUTensor");
   int sizeaverage = luaT_getfieldcheckboolean(L, 1, "sizeAverage");
 
-  input = THCudaTensor_newContiguous(input);
+  input = THGPUTensor_newContiguous(input);
 
   if(input->nDimension == 1)
   {
     float target_ = luaL_checknumber(L, 3);
-    THCudaStorage *target = THCudaStorage_newWithSize(1);
-    THCudaStorage *output = THCudaStorage_newWithSize(1);
+    THGPUStorage *target = THGPUStorage_newWithSize(1);
+    THGPUStorage *output = THGPUStorage_newWithSize(1);
 
-    THCudaStorage_fill(target, target_);
+    THGPUStorage_fill(target, target_);
 
-    cunn_MultiMarginCriterion_updateOutput_kernel(output,
+    gpunn_MultiMarginCriterion_updateOutput_kernel(output,
                                                                  input->storage,
                                                                  target,
                                                                  1, input->size[0],
                                                                  sizeaverage);
-    lua_pushnumber(L, THCudaStorage_get(output, 0));
+    lua_pushnumber(L, THGPUStorage_get(output, 0));
 
-    THCudaStorage_free(output);
-    THCudaStorage_free(target);
+    THGPUStorage_free(output);
+    THGPUStorage_free(target);
   }
   else if(input->nDimension == 2)
   {
-    THCudaTensor *target = (THCudaTensor*)luaT_checkudata(L, 3, "torch.CudaTensor");
-    THCudaTensor *output = THCudaTensor_newWithSize1d(input->size[0]);
-    cunn_MultiMarginCriterion_updateOutput_kernel(output->storage,
+    THGPUTensor *target = (THGPUTensor*)luaT_checkudata(L, 3, "torch.GPUTensor");
+    THGPUTensor *output = THGPUTensor_newWithSize1d(input->size[0]);
+    gpunn_MultiMarginCriterion_updateOutput_kernel(output->storage,
                                                                  input->storage,
                                                                  target->storage,
                                                                  input->size[0], input->size[1],
                                                                  sizeaverage);
-    lua_pushnumber(L, THCudaTensor_sumall(output));
-    THCudaTensor_free(output);
+    lua_pushnumber(L, THGPUTensor_sumall(output));
+    THGPUTensor_free(output);
   }
   else
     THError("vector or matrix expected");
@@ -153,34 +153,34 @@ static int cunn_MultiMarginCriterion_updateOutput(lua_State *L)
   lua_pushvalue(L, -2);
   lua_rawset(L, 1);
 
-  THCudaTensor_free(input);
+  THGPUTensor_free(input);
   return 1;
 }
 
-static int cunn_MultiMarginCriterion_updateGradInput(lua_State *L)
+static int gpunn_MultiMarginCriterion_updateGradInput(lua_State *L)
 {
-  THCudaTensor *input = (THCudaTensor*)luaT_checkudata(L, 2, "torch.CudaTensor");
+  THGPUTensor *input = (THGPUTensor*)luaT_checkudata(L, 2, "torch.GPUTensor");
   int sizeaverage = luaT_getfieldcheckboolean(L, 1, "sizeAverage");
-  THCudaTensor *gradInput = (THCudaTensor*)luaT_getfieldcheckudata(L, 1, "gradInput", "torch.CudaTensor");
+  THGPUTensor *gradInput = (THGPUTensor*)luaT_getfieldcheckudata(L, 1, "gradInput", "torch.GPUTensor");
 
-  THCudaTensor_resizeAs(gradInput, input);
+  THGPUTensor_resizeAs(gradInput, input);
 
   if(gradInput->nDimension == 1)
   {
     float target_ = luaL_checknumber(L, 3);
-    THCudaTensor *target = THCudaTensor_newWithSize1d(1);
+    THGPUTensor *target = THGPUTensor_newWithSize1d(1);
 
-    THCudaTensor_fill(target, target_);
+    THGPUTensor_fill(target, target_);
 
-        cunn_MultiMarginCriterion_updateGradInput_kernel(gradInput, input, target, 1, gradInput->size[0], sizeaverage);
+        gpunn_MultiMarginCriterion_updateGradInput_kernel(gradInput, input, target, 1, gradInput->size[0], sizeaverage);
 
-    THCudaTensor_free(target);
+    THGPUTensor_free(target);
   }
   else if(gradInput->nDimension == 2)
   {
-    THCudaTensor *target = (THCudaTensor*)luaT_checkudata(L, 3, "torch.CudaTensor");
+    THGPUTensor *target = (THGPUTensor*)luaT_checkudata(L, 3, "torch.GPUTensor");
 
-        cunn_MultiMarginCriterion_updateGradInput_kernel(gradInput, input, target, gradInput->size[0], gradInput->size[1], sizeaverage);
+        gpunn_MultiMarginCriterion_updateGradInput_kernel(gradInput, input, target, gradInput->size[0], gradInput->size[1], sizeaverage);
   }
   else
     THError("vector or matrix expected");
@@ -188,15 +188,15 @@ static int cunn_MultiMarginCriterion_updateGradInput(lua_State *L)
   return 1;
 }
 
-static const struct luaL_Reg cunn_MultiMarginCriterion__ [] = {
-  {"MultiMarginCriterion_updateOutput", cunn_MultiMarginCriterion_updateOutput},
-  {"MultiMarginCriterion_updateGradInput", cunn_MultiMarginCriterion_updateGradInput},
+static const struct luaL_Reg gpunn_MultiMarginCriterion__ [] = {
+  {"MultiMarginCriterion_updateOutput", gpunn_MultiMarginCriterion_updateOutput},
+  {"MultiMarginCriterion_updateGradInput", gpunn_MultiMarginCriterion_updateGradInput},
   {NULL, NULL}
 };
 
-static void cunn_MultiMarginCriterion_init(lua_State *L)
+static void gpunn_MultiMarginCriterion_init(lua_State *L)
 {
-  luaT_pushmetatable(L, "torch.CudaTensor");
-  luaT_registeratname(L, cunn_MultiMarginCriterion__, "nn");
+  luaT_pushmetatable(L, "torch.GPUTensor");
+  luaT_registeratname(L, gpunn_MultiMarginCriterion__, "nn");
   lua_pop(L,1);
 }

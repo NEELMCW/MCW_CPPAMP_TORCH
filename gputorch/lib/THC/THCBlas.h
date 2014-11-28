@@ -6,7 +6,7 @@
 #undef TH_API
 #define TH_API THC_API
 #define real float
-#define Real Cuda
+#define Real GPU
 #define THBlas_(NAME) TH_CONCAT_4(TH,Real,Blas_,NAME)
 
 #define TH_GENERIC_FILE "generic/THBlas.h"

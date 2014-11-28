@@ -18,27 +18,27 @@ struct kl_functor
   }
 };
 
-static int cunn_DistKLDivCriterion_updateOutput(lua_State *L)
+static int gpunn_DistKLDivCriterion_updateOutput(lua_State *L)
 {
-  THCudaTensor *input = (THCudaTensor*)luaT_checkudata(L, 2, "torch.CudaTensor");
-  THCudaTensor *target = (THCudaTensor*)luaT_checkudata(L, 3, "torch.CudaTensor");
+  THGPUTensor *input = (THGPUTensor*)luaT_checkudata(L, 2, "torch.GPUTensor");
+  THGPUTensor *target = (THGPUTensor*)luaT_checkudata(L, 3, "torch.GPUTensor");
   int sizeAverage = luaT_getfieldcheckboolean(L, 1, "sizeAverage");
 
   float sum;
 
-  long size = THCudaTensor_nElement(input);
+  long size = THGPUTensor_nElement(input);
 
-  input = THCudaTensor_newContiguous(input);
-  target = THCudaTensor_newContiguous(target);
+  input = THGPUTensor_newContiguous(input);
+  target = THGPUTensor_newContiguous(target);
 
-  bolt::amp::device_vector<float> input_data(THCudaTensor_data(input), THCudaTensor_data(input) + THCudaTensor_nElement(input));
-  bolt::amp::device_vector<float> target_data(THCudaTensor_data(target), THCudaTensor_data(target) + THCudaTensor_nElement(target));
+  bolt::amp::device_vector<float> input_data(THGPUTensor_data(input), THGPUTensor_data(input) + THGPUTensor_nElement(input));
+  bolt::amp::device_vector<float> target_data(THGPUTensor_data(target), THGPUTensor_data(target) + THGPUTensor_nElement(target));
   sum = bolt::amp::inner_product(input_data.begin(), input_data.end(), target_data.begin(), (float) 0, bolt::amp::plus<float>(), kl_functor());
   if (sizeAverage)
     sum /= size;
 
-  THCudaTensor_free(input);
-  THCudaTensor_free(target);
+  THGPUTensor_free(input);
+  THGPUTensor_free(target);
 
   lua_pushnumber(L, sum);
   lua_setfield(L, 1, "output");
@@ -59,41 +59,41 @@ struct kl_updateGradInput_functor
   }
 };
 
-static int cunn_DistKLDivCriterion_updateGradInput(lua_State *L)
+static int gpunn_DistKLDivCriterion_updateGradInput(lua_State *L)
 {
-  THCudaTensor *input = (THCudaTensor*)luaT_checkudata(L, 2, "torch.CudaTensor");
-  THCudaTensor *target = (THCudaTensor*)luaT_checkudata(L, 3, "torch.CudaTensor");
+  THGPUTensor *input = (THGPUTensor*)luaT_checkudata(L, 2, "torch.GPUTensor");
+  THGPUTensor *target = (THGPUTensor*)luaT_checkudata(L, 3, "torch.GPUTensor");
   int sizeAverage = luaT_getfieldcheckboolean(L, 1, "sizeAverage");
-  THCudaTensor *gradInput = (THCudaTensor*)luaT_getfieldcheckudata(L, 1, "gradInput", "torch.CudaTensor");
+  THGPUTensor *gradInput = (THGPUTensor*)luaT_getfieldcheckudata(L, 1, "gradInput", "torch.GPUTensor");
 
-  long size = THCudaTensor_nElement(input);
+  long size = THGPUTensor_nElement(input);
   float norm = (sizeAverage ? 2./size : 2.);
 
-  input = THCudaTensor_newContiguous(input);
-  target = THCudaTensor_newContiguous(target);
+  input = THGPUTensor_newContiguous(input);
+  target = THGPUTensor_newContiguous(target);
 
-  THCudaTensor_resizeAs(gradInput, input);
+  THGPUTensor_resizeAs(gradInput, input);
 
-  bolt::amp::device_vector<float> input_data(THCudaTensor_data(input), THCudaTensor_data(input) + THCudaTensor_nElement(input));
-  bolt::amp::device_vector<float> target_data(THCudaTensor_data(target), THCudaTensor_data(target) + THCudaTensor_nElement(target));
-  bolt::amp::device_vector<float> gradInput_data(THCudaTensor_data(gradInput), THCudaTensor_data(gradInput) + THCudaTensor_nElement(gradInput));
+  bolt::amp::device_vector<float> input_data(THGPUTensor_data(input), THGPUTensor_data(input) + THGPUTensor_nElement(input));
+  bolt::amp::device_vector<float> target_data(THGPUTensor_data(target), THGPUTensor_data(target) + THGPUTensor_nElement(target));
+  bolt::amp::device_vector<float> gradInput_data(THGPUTensor_data(gradInput), THGPUTensor_data(gradInput) + THGPUTensor_nElement(gradInput));
 
   bolt::amp::transform(input_data.begin(), input_data.end(), target_data.begin(), gradInput_data.begin(), kl_updateGradInput_functor(norm));
 
-  THCudaTensor_free(input);
-  THCudaTensor_free(target);
+  THGPUTensor_free(input);
+  THGPUTensor_free(target);
   return 1;
 }
 
-static const struct luaL_Reg cunn_DistKLDivCriterion__ [] = {
-  {"DistKLDivCriterion_updateOutput", cunn_DistKLDivCriterion_updateOutput},
-  {"DistKLDivCriterion_updateGradInput", cunn_DistKLDivCriterion_updateGradInput},
+static const struct luaL_Reg gpunn_DistKLDivCriterion__ [] = {
+  {"DistKLDivCriterion_updateOutput", gpunn_DistKLDivCriterion_updateOutput},
+  {"DistKLDivCriterion_updateGradInput", gpunn_DistKLDivCriterion_updateGradInput},
   {NULL, NULL}
 };
 
-static void cunn_DistKLDivCriterion_init(lua_State *L)
+static void gpunn_DistKLDivCriterion_init(lua_State *L)
 {
-  luaT_pushmetatable(L, "torch.CudaTensor");
-  luaT_registeratname(L, cunn_DistKLDivCriterion__, "nn");
+  luaT_pushmetatable(L, "torch.GPUTensor");
+  luaT_registeratname(L, gpunn_DistKLDivCriterion__, "nn");
   lua_pop(L,1);
 }

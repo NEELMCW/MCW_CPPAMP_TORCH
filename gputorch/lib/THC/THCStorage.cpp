@@ -1,14 +1,14 @@
 #include "THCStorage.h"
 #include "THCGeneral.h"
 
-void THCudaStorage_set(THCudaStorage *self, long index, float value)
+void THGPUStorage_set(THGPUStorage *self, long index, float value)
 {
   THArgCheck((index >= 0) && (index < self->size), 2, "index out of bounds");
   Concurrency::array_view<float> avData(Concurrency::extent<1>(self->size), self->data);
   avData[Concurrency::index<1>(index)] = value;
 }
 
-float THCudaStorage_get(const THCudaStorage *self, long index)
+float THGPUStorage_get(const THGPUStorage *self, long index)
 {
   float value;
   THArgCheck((index >= 0) && (index < self->size), 2, "index out of bounds");
@@ -17,9 +17,9 @@ float THCudaStorage_get(const THCudaStorage *self, long index)
   return value;
 }
 
-THCudaStorage* THCudaStorage_new(void)
+THGPUStorage* THGPUStorage_new(void)
 {
-  THCudaStorage *storage = (THCudaStorage *)THAlloc(sizeof(THCudaStorage));
+  THGPUStorage *storage = (THGPUStorage *)THAlloc(sizeof(THGPUStorage));
   storage->allocatorContext = new Concurrency::array<float, 1>(Concurrency::extent<1>(1));
   Concurrency::array_view<float>avData(*(Concurrency::array<float, 1>*)storage->allocatorContext);
   storage->data = avData.data();
@@ -29,13 +29,13 @@ THCudaStorage* THCudaStorage_new(void)
   return storage;
 }
 
-THCudaStorage* THCudaStorage_newWithSize(long size)
+THGPUStorage* THGPUStorage_newWithSize(long size)
 {
   THArgCheck(size >= 0, 2, "invalid size");
 
   if (size > 0)
   {
-    THCudaStorage *storage = (THCudaStorage *)THAlloc(sizeof(THCudaStorage));
+    THGPUStorage *storage = (THGPUStorage *)THAlloc(sizeof(THGPUStorage));
     Concurrency::extent<1> eA(size);
     // Allocating device array of given size
     storage->allocatorContext = new Concurrency::array<float>(eA);
@@ -48,53 +48,53 @@ THCudaStorage* THCudaStorage_newWithSize(long size)
   }
   else
   {
-    return THCudaStorage_new();
+    return THGPUStorage_new();
   }
 }
 
-THCudaStorage* THCudaStorage_newWithSize1(float data0)
+THGPUStorage* THGPUStorage_newWithSize1(float data0)
 {
-  THCudaStorage *self = THCudaStorage_newWithSize(1);
-  THCudaStorage_set(self, 0, data0);
+  THGPUStorage *self = THGPUStorage_newWithSize(1);
+  THGPUStorage_set(self, 0, data0);
   return self;
 }
 
-THCudaStorage* THCudaStorage_newWithSize2(float data0, float data1)
+THGPUStorage* THGPUStorage_newWithSize2(float data0, float data1)
 {
-  THCudaStorage *self = THCudaStorage_newWithSize(2);
-  THCudaStorage_set(self, 0, data0);
-  THCudaStorage_set(self, 1, data1);
+  THGPUStorage *self = THGPUStorage_newWithSize(2);
+  THGPUStorage_set(self, 0, data0);
+  THGPUStorage_set(self, 1, data1);
   return self;
 }
 
-THCudaStorage* THCudaStorage_newWithSize3(float data0, float data1, float data2)
+THGPUStorage* THGPUStorage_newWithSize3(float data0, float data1, float data2)
 {
-  THCudaStorage *self = THCudaStorage_newWithSize(3);
-  THCudaStorage_set(self, 0, data0);
-  THCudaStorage_set(self, 1, data1);
-  THCudaStorage_set(self, 2, data2);
+  THGPUStorage *self = THGPUStorage_newWithSize(3);
+  THGPUStorage_set(self, 0, data0);
+  THGPUStorage_set(self, 1, data1);
+  THGPUStorage_set(self, 2, data2);
   return self;
 }
 
-THCudaStorage* THCudaStorage_newWithSize4(float data0, float data1, float data2, float data3)
+THGPUStorage* THGPUStorage_newWithSize4(float data0, float data1, float data2, float data3)
 {
-  THCudaStorage *self = THCudaStorage_newWithSize(4);
-  THCudaStorage_set(self, 0, data0);
-  THCudaStorage_set(self, 1, data1);
-  THCudaStorage_set(self, 2, data2);
-  THCudaStorage_set(self, 3, data3);
+  THGPUStorage *self = THGPUStorage_newWithSize(4);
+  THGPUStorage_set(self, 0, data0);
+  THGPUStorage_set(self, 1, data1);
+  THGPUStorage_set(self, 2, data2);
+  THGPUStorage_set(self, 3, data3);
   return self;
 }
 
-THCudaStorage* THCudaStorage_newWithMapping(const char *fileName, long size, int isShared)
+THGPUStorage* THGPUStorage_newWithMapping(const char *fileName, long size, int isShared)
 {
-  THError("not available yet for THCudaStorage");
+  THError("not available yet for THGPUStorage");
   return NULL;
 }
 
-THCudaStorage* THCudaStorage_newWithData(float *data, long size)
+THGPUStorage* THGPUStorage_newWithData(float *data, long size)
 {
-  THCudaStorage *storage = (THCudaStorage *)THAlloc(sizeof(THCudaStorage));
+  THGPUStorage *storage = (THGPUStorage *)THAlloc(sizeof(THGPUStorage));
   storage->allocatorContext = new Concurrency::array<float>(Concurrency::extent<1>(size), data);
   Concurrency::array_view<float> avData(*(Concurrency::array<float>*)storage->allocatorContext);
   storage->data = avData.data();
@@ -104,13 +104,13 @@ THCudaStorage* THCudaStorage_newWithData(float *data, long size)
   return storage;
 }
 
-void THCudaStorage_retain(THCudaStorage *self)
+void THGPUStorage_retain(THGPUStorage *self)
 {
   if (self && (self->flag & TH_STORAGE_REFCOUNTED))
     ++self->refcount;
 }
 
-void THCudaStorage_free(THCudaStorage *self)
+void THGPUStorage_free(THGPUStorage *self)
 {
   if (!(self->flag & TH_STORAGE_REFCOUNTED))
     return;
@@ -138,20 +138,20 @@ void THCudaStorage_free(THCudaStorage *self)
   }
 }
 
-void THCudaStorage_copyFloat(THCudaStorage *self, struct THFloatStorage *src)
+void THGPUStorage_copyFloat(THGPUStorage *self, struct THFloatStorage *src)
 {
   THArgCheck(self->size == src->size, 2, "size does not match");
-  THCudaStorage_rawCopy(self, src->data);
+  THGPUStorage_rawCopy(self, src->data);
 }
 
 #define TH_CUDA_STORAGE_IMPLEMENT_COPY(TYPEC)                           \
-  void THCudaStorage_copy##TYPEC(THCudaStorage *self, struct TH##TYPEC##Storage *src) \
+  void THGPUStorage_copy##TYPEC(THGPUStorage *self, struct TH##TYPEC##Storage *src) \
   {                                                                     \
     THFloatStorage *buffer;                                             \
     THArgCheck(self->size == src->size, 2, "size does not match");      \
     buffer = THFloatStorage_newWithSize(src->size);                     \
     THFloatStorage_copy##TYPEC(buffer, src);                            \
-    THCudaStorage_copyFloat(self, buffer);                              \
+    THGPUStorage_copyFloat(self, buffer);                              \
     THFloatStorage_free(buffer);                                        \
   }
 
@@ -162,7 +162,7 @@ TH_CUDA_STORAGE_IMPLEMENT_COPY(Int)
 TH_CUDA_STORAGE_IMPLEMENT_COPY(Long)
 TH_CUDA_STORAGE_IMPLEMENT_COPY(Double)
 
-void THFloatStorage_copyCuda(THFloatStorage *self, struct THCudaStorage *src)
+void THFloatStorage_copyGPU(THFloatStorage *self, struct THGPUStorage *src)
 {
   THArgCheck(self->size == src->size, 2, "size does not match");
   Concurrency::array<float, 1> arrSrc(Concurrency::extent<1>(self->size), src->data);
@@ -171,12 +171,12 @@ void THFloatStorage_copyCuda(THFloatStorage *self, struct THCudaStorage *src)
 }
 
 #define TH_CUDA_STORAGE_IMPLEMENT_COPYTO(TYPEC)                           \
-  void TH##TYPEC##Storage_copyCuda(TH##TYPEC##Storage *self, struct THCudaStorage *src) \
+  void TH##TYPEC##Storage_copyGPU(TH##TYPEC##Storage *self, struct THGPUStorage *src) \
   {                                                                     \
     THFloatStorage *buffer;                                             \
     THArgCheck(self->size == src->size, 2, "size does not match");      \
     buffer = THFloatStorage_newWithSize(src->size);                     \
-    THFloatStorage_copyCuda(buffer, src);                               \
+    THFloatStorage_copyGPU(buffer, src);                               \
     TH##TYPEC##Storage_copyFloat(self, buffer);                         \
     THFloatStorage_free(buffer);                                        \
   }
@@ -188,7 +188,7 @@ TH_CUDA_STORAGE_IMPLEMENT_COPYTO(Int)
 TH_CUDA_STORAGE_IMPLEMENT_COPYTO(Long)
 TH_CUDA_STORAGE_IMPLEMENT_COPYTO(Double)
 
-void THCudaStorage_fill(THCudaStorage *self, float value)
+void THGPUStorage_fill(THGPUStorage *self, float value)
 {
   Concurrency::array_view<float, 1> srcData(Concurrency::extent<1>(self->size), self->data);
   Concurrency::parallel_for_each(srcData.get_extent(), [=] (Concurrency::index<1> idx) restrict(amp)
@@ -198,7 +198,7 @@ void THCudaStorage_fill(THCudaStorage *self, float value)
   srcData.synchronize();
 }
 
-void THCudaStorage_resize(THCudaStorage *self, long size)
+void THGPUStorage_resize(THGPUStorage *self, long size)
 {
   THArgCheck(size >= 0, 2, "invalid size");
 
@@ -236,14 +236,14 @@ void THCudaStorage_resize(THCudaStorage *self, long size)
   }
 }
 
-void THCudaStorage_rawCopy(THCudaStorage *self, float *src)
+void THGPUStorage_rawCopy(THGPUStorage *self, float *src)
 {
   Concurrency::array<float> arrSrc(Concurrency::extent<1>(self->size), src);
   Concurrency::array_view<float> avSelfCopy(Concurrency::extent<1>(self->size), self->data);
   Concurrency::copy(arrSrc, avSelfCopy);
 }
 
-void THCudaStorage_copy(THCudaStorage *self, THCudaStorage *src)
+void THGPUStorage_copy(THGPUStorage *self, THGPUStorage *src)
 {
   THArgCheck(self->size == src->size, 2, "size does not match");
   Concurrency::array<float> arrSrc(Concurrency::extent<1>(self->size), src->data);
@@ -251,7 +251,7 @@ void THCudaStorage_copy(THCudaStorage *self, THCudaStorage *src)
   Concurrency::copy(arrSrc, avSelfCopy);
 }
 
-void THCudaStorage_copyCuda(THCudaStorage *self, THCudaStorage *src)
+void THGPUStorage_copyGPU(THGPUStorage *self, THGPUStorage *src)
 {
   THArgCheck(self->size == src->size, 2, "size does not match");
   Concurrency::array<float> arrSrc(Concurrency::extent<1>(self->size), src->data);

@@ -27,14 +27,14 @@
  */
 
 template<int B_Y, int B_X, int imgsPerThread, int filtersPerThread, bool add, bool checkCaseBounds>
-void kLocalMaxUndo(THCudaTensor* imgs, THCudaTensor* maxGrads, THCudaTensor* maxActs, THCudaTensor* target, const int imgSize, const int numFilters,
+void kLocalMaxUndo(THGPUTensor* imgs, THGPUTensor* maxGrads, THGPUTensor* maxActs, THGPUTensor* target, const int imgSize, const int numFilters,
                               const int numImages, const int subsX, const int startX, const int strideX, const int outputsX,
                               const float scaleTargets, const float scaleOutputs, int blockX, int blockY) 
 {
-    Concurrency::array_view<float,1> avImages(Concurrency::extent<1>(imgs->storage->size), THCudaTensor_data(imgs));
-    Concurrency::array_view<float,1> avMaxGrads(Concurrency::extent<1>(maxGrads->storage->size), THCudaTensor_data(maxGrads));
-    Concurrency::array_view<float,1> avMaxActs(Concurrency::extent<1>(maxActs->storage->size), THCudaTensor_data(maxActs));
-    Concurrency::array_view<float,1> avTargets(Concurrency::extent<1>(target->storage->size), THCudaTensor_data(target));
+    Concurrency::array_view<float,1> avImages(Concurrency::extent<1>(imgs->storage->size), THGPUTensor_data(imgs));
+    Concurrency::array_view<float,1> avMaxGrads(Concurrency::extent<1>(maxGrads->storage->size), THGPUTensor_data(maxGrads));
+    Concurrency::array_view<float,1> avMaxActs(Concurrency::extent<1>(maxActs->storage->size), THGPUTensor_data(maxActs));
+    Concurrency::array_view<float,1> avTargets(Concurrency::extent<1>(target->storage->size), THGPUTensor_data(target));
     Concurrency::extent<3> grdExt(1, blockY * 4, blockX * 32);
     Concurrency::tiled_extent<1, 4, 32> t_ext(grdExt);
     Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1, 4, 32> tidx) restrict(amp) 
@@ -134,7 +134,7 @@ void kLocalMaxUndo(THCudaTensor* imgs, THCudaTensor* maxGrads, THCudaTensor* max
 void spatialMaxPooling_updateGradInput
 (
  // raw pointers:
- THCudaTensor *images, THCudaTensor *maxgrads, THCudaTensor *maxacts, THCudaTensor *targets,
+ THGPUTensor *images, THGPUTensor *maxgrads, THGPUTensor *maxacts, THGPUTensor *targets,
  // numImgColors == numFilters
  int numFilters, int imgSizeY, int imgSizeX, int numImages,
  // numModulesY == numModulesX == outputsX

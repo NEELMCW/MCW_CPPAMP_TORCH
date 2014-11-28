@@ -4,92 +4,92 @@
 #include "THCTensor.h"
 #include "THCTensorRandom.h"
 
-THC_API void THCudaTensor_fill(THCudaTensor *self, float value);
-THC_API void THCudaTensor_zero(THCudaTensor *self);
+THC_API void THGPUTensor_fill(THGPUTensor *self, float value);
+THC_API void THGPUTensor_zero(THGPUTensor *self);
 
-THC_API void THCudaTensor_zeros(THCudaTensor *r_, THLongStorage *size);
-THC_API void THCudaTensor_ones(THCudaTensor *r_, THLongStorage *size);
-THC_API void THCudaTensor_reshape(THCudaTensor *r_, THCudaTensor *t, THLongStorage *size);
-THC_API long THCudaTensor_numel(THCudaTensor *t);
+THC_API void THGPUTensor_zeros(THGPUTensor *r_, THLongStorage *size);
+THC_API void THGPUTensor_ones(THGPUTensor *r_, THLongStorage *size);
+THC_API void THGPUTensor_reshape(THGPUTensor *r_, THGPUTensor *t, THLongStorage *size);
+THC_API long THGPUTensor_numel(THGPUTensor *t);
 
-THC_API void THCudaTensor_add(THCudaTensor *self, THCudaTensor *src, float value);
-THC_API void THCudaTensor_mul(THCudaTensor *self, THCudaTensor *src, float value);
-THC_API void THCudaTensor_div(THCudaTensor *self, THCudaTensor *src, float value);
+THC_API void THGPUTensor_add(THGPUTensor *self, THGPUTensor *src, float value);
+THC_API void THGPUTensor_mul(THGPUTensor *self, THGPUTensor *src, float value);
+THC_API void THGPUTensor_div(THGPUTensor *self, THGPUTensor *src, float value);
 
-THC_API void THCudaTensor_cadd(THCudaTensor *self, THCudaTensor *src1, float value, THCudaTensor *src2);
-THC_API void THCudaTensor_cadd_tst(THCudaTensor *self, THCudaTensor *src1, float value, THCudaTensor *src2);
-THC_API void THCudaTensor_cmul(THCudaTensor *self, THCudaTensor *src1, THCudaTensor *src2);
-THC_API void THCudaTensor_cdiv(THCudaTensor *self, THCudaTensor *src1, THCudaTensor *src2);
+THC_API void THGPUTensor_cadd(THGPUTensor *self, THGPUTensor *src1, float value, THGPUTensor *src2);
+THC_API void THGPUTensor_cadd_tst(THGPUTensor *self, THGPUTensor *src1, float value, THGPUTensor *src2);
+THC_API void THGPUTensor_cmul(THGPUTensor *self, THGPUTensor *src1, THGPUTensor *src2);
+THC_API void THGPUTensor_cdiv(THGPUTensor *self, THGPUTensor *src1, THGPUTensor *src2);
 
-THC_API void THCudaTensor_addcmul(THCudaTensor *self, THCudaTensor *t, float value, THCudaTensor *src1, THCudaTensor *src2);
-THC_API void THCudaTensor_addcdiv(THCudaTensor *self, THCudaTensor *t, float value, THCudaTensor *src1, THCudaTensor *src2);
+THC_API void THGPUTensor_addcmul(THGPUTensor *self, THGPUTensor *t, float value, THGPUTensor *src1, THGPUTensor *src2);
+THC_API void THGPUTensor_addcdiv(THGPUTensor *self, THGPUTensor *t, float value, THGPUTensor *src1, THGPUTensor *src2);
 
-THC_API float THCudaTensor_dot(THCudaTensor *self, THCudaTensor *src);
+THC_API float THGPUTensor_dot(THGPUTensor *self, THGPUTensor *src);
   
-THC_API float THCudaTensor_minall(THCudaTensor *self);
-THC_API float THCudaTensor_maxall(THCudaTensor *self);
-THC_API float THCudaTensor_sumall(THCudaTensor *self);
-THC_API float THCudaTensor_prodall(THCudaTensor *self);
-THC_API void THCudaTensor_min(THCudaTensor *values, THCudaTensor *indices, THCudaTensor *src, long dim);
-THC_API void THCudaTensor_max(THCudaTensor *values, THCudaTensor *indices, THCudaTensor *src, long dim);
-THC_API void THCudaTensor_sum(THCudaTensor *self, THCudaTensor *src, long dim);
-THC_API void THCudaTensor_prod(THCudaTensor *self, THCudaTensor *src, long dim);
+THC_API float THGPUTensor_minall(THGPUTensor *self);
+THC_API float THGPUTensor_maxall(THGPUTensor *self);
+THC_API float THGPUTensor_sumall(THGPUTensor *self);
+THC_API float THGPUTensor_prodall(THGPUTensor *self);
+THC_API void THGPUTensor_min(THGPUTensor *values, THGPUTensor *indices, THGPUTensor *src, long dim);
+THC_API void THGPUTensor_max(THGPUTensor *values, THGPUTensor *indices, THGPUTensor *src, long dim);
+THC_API void THGPUTensor_sum(THGPUTensor *self, THGPUTensor *src, long dim);
+THC_API void THGPUTensor_prod(THGPUTensor *self, THGPUTensor *src, long dim);
 
-THC_API void THCudaTensor_addmv(THCudaTensor *self, float beta, THCudaTensor *t, float alpha, THCudaTensor *mat, THCudaTensor *vec);
-THC_API void THCudaTensor_addmm(THCudaTensor *self, float beta, THCudaTensor *t, float alpha, THCudaTensor *mat1, THCudaTensor *mat2);
-THC_API void THCudaTensor_addr(THCudaTensor *self, float beta, THCudaTensor *t, float alpha, THCudaTensor *vec1, THCudaTensor *vec2);
+THC_API void THGPUTensor_addmv(THGPUTensor *self, float beta, THGPUTensor *t, float alpha, THGPUTensor *mat, THGPUTensor *vec);
+THC_API void THGPUTensor_addmm(THGPUTensor *self, float beta, THGPUTensor *t, float alpha, THGPUTensor *mat1, THGPUTensor *mat2);
+THC_API void THGPUTensor_addr(THGPUTensor *self, float beta, THGPUTensor *t, float alpha, THGPUTensor *vec1, THGPUTensor *vec2);
 
-THC_API void THCudaTensor_log(THCudaTensor *self, THCudaTensor *src);
-THC_API void THCudaTensor_log1p(THCudaTensor *self, THCudaTensor *src);
-THC_API void THCudaTensor_exp(THCudaTensor *self, THCudaTensor *src);
-THC_API void THCudaTensor_cos(THCudaTensor *self, THCudaTensor *src);
-THC_API void THCudaTensor_acos(THCudaTensor *self, THCudaTensor *src);
-THC_API void THCudaTensor_cosh(THCudaTensor *self, THCudaTensor *src);
-THC_API void THCudaTensor_sin(THCudaTensor *self, THCudaTensor *src);
-THC_API void THCudaTensor_asin(THCudaTensor *self, THCudaTensor *src);
-THC_API void THCudaTensor_sinh(THCudaTensor *self, THCudaTensor *src);
-THC_API void THCudaTensor_tan(THCudaTensor *self, THCudaTensor *src);
-THC_API void THCudaTensor_atan(THCudaTensor *self, THCudaTensor *src);
-THC_API void THCudaTensor_tanh(THCudaTensor *self, THCudaTensor *src);
-THC_API void THCudaTensor_pow(THCudaTensor *self, THCudaTensor *src, float value);
-THC_API void THCudaTensor_clamp(THCudaTensor *self, THCudaTensor *src, float min_value, float max_value);
-THC_API void THCudaTensor_sqrt(THCudaTensor *self, THCudaTensor *src);
-THC_API void THCudaTensor_ceil(THCudaTensor *self, THCudaTensor *src);
-THC_API void THCudaTensor_floor(THCudaTensor *self, THCudaTensor *src);
-THC_API void THCudaTensor_abs(THCudaTensor *self, THCudaTensor *src);
-THC_API void THCudaTensor_sign(THCudaTensor *self, THCudaTensor *src);
-THC_API void THCudaTensor_round(THCudaTensor *self, THCudaTensor *src);
-THC_API void THCudaTensor_atan2(THCudaTensor *r_, THCudaTensor *tx, THCudaTensor *ty);
+THC_API void THGPUTensor_log(THGPUTensor *self, THGPUTensor *src);
+THC_API void THGPUTensor_log1p(THGPUTensor *self, THGPUTensor *src);
+THC_API void THGPUTensor_exp(THGPUTensor *self, THGPUTensor *src);
+THC_API void THGPUTensor_cos(THGPUTensor *self, THGPUTensor *src);
+THC_API void THGPUTensor_acos(THGPUTensor *self, THGPUTensor *src);
+THC_API void THGPUTensor_cosh(THGPUTensor *self, THGPUTensor *src);
+THC_API void THGPUTensor_sin(THGPUTensor *self, THGPUTensor *src);
+THC_API void THGPUTensor_asin(THGPUTensor *self, THGPUTensor *src);
+THC_API void THGPUTensor_sinh(THGPUTensor *self, THGPUTensor *src);
+THC_API void THGPUTensor_tan(THGPUTensor *self, THGPUTensor *src);
+THC_API void THGPUTensor_atan(THGPUTensor *self, THGPUTensor *src);
+THC_API void THGPUTensor_tanh(THGPUTensor *self, THGPUTensor *src);
+THC_API void THGPUTensor_pow(THGPUTensor *self, THGPUTensor *src, float value);
+THC_API void THGPUTensor_clamp(THGPUTensor *self, THGPUTensor *src, float min_value, float max_value);
+THC_API void THGPUTensor_sqrt(THGPUTensor *self, THGPUTensor *src);
+THC_API void THGPUTensor_ceil(THGPUTensor *self, THGPUTensor *src);
+THC_API void THGPUTensor_floor(THGPUTensor *self, THGPUTensor *src);
+THC_API void THGPUTensor_abs(THGPUTensor *self, THGPUTensor *src);
+THC_API void THGPUTensor_sign(THGPUTensor *self, THGPUTensor *src);
+THC_API void THGPUTensor_round(THGPUTensor *self, THGPUTensor *src);
+THC_API void THGPUTensor_atan2(THGPUTensor *r_, THGPUTensor *tx, THGPUTensor *ty);
 
-THC_API void THCudaTensor_ltValue(THCudaTensor *self_, THCudaTensor *src, float value);
-THC_API void THCudaTensor_gtValue(THCudaTensor *self_, THCudaTensor *src, float value);
-THC_API void THCudaTensor_leValue(THCudaTensor *self_, THCudaTensor *src, float value);
-THC_API void THCudaTensor_geValue(THCudaTensor *self_, THCudaTensor *src, float value);
-THC_API void THCudaTensor_eqValue(THCudaTensor *self_, THCudaTensor *src, float value);
-THC_API void THCudaTensor_neValue(THCudaTensor *self_, THCudaTensor *src, float value);
+THC_API void THGPUTensor_ltValue(THGPUTensor *self_, THGPUTensor *src, float value);
+THC_API void THGPUTensor_gtValue(THGPUTensor *self_, THGPUTensor *src, float value);
+THC_API void THGPUTensor_leValue(THGPUTensor *self_, THGPUTensor *src, float value);
+THC_API void THGPUTensor_geValue(THGPUTensor *self_, THGPUTensor *src, float value);
+THC_API void THGPUTensor_eqValue(THGPUTensor *self_, THGPUTensor *src, float value);
+THC_API void THGPUTensor_neValue(THGPUTensor *self_, THGPUTensor *src, float value);
 
-THC_API void THCudaTensor_ltTensor(THCudaTensor *self_, THCudaTensor *src1, THCudaTensor *src2);
-THC_API void THCudaTensor_gtTensor(THCudaTensor *self_, THCudaTensor *src1, THCudaTensor *src2);
-THC_API void THCudaTensor_leTensor(THCudaTensor *self_, THCudaTensor *src1, THCudaTensor *src2);
-THC_API void THCudaTensor_geTensor(THCudaTensor *self_, THCudaTensor *src1, THCudaTensor *src2);
-THC_API void THCudaTensor_eqTensor(THCudaTensor *self_, THCudaTensor *src1, THCudaTensor *src2);
-THC_API void THCudaTensor_neTensor(THCudaTensor *self_, THCudaTensor *src1, THCudaTensor *src2);
+THC_API void THGPUTensor_ltTensor(THGPUTensor *self_, THGPUTensor *src1, THGPUTensor *src2);
+THC_API void THGPUTensor_gtTensor(THGPUTensor *self_, THGPUTensor *src1, THGPUTensor *src2);
+THC_API void THGPUTensor_leTensor(THGPUTensor *self_, THGPUTensor *src1, THGPUTensor *src2);
+THC_API void THGPUTensor_geTensor(THGPUTensor *self_, THGPUTensor *src1, THGPUTensor *src2);
+THC_API void THGPUTensor_eqTensor(THGPUTensor *self_, THGPUTensor *src1, THGPUTensor *src2);
+THC_API void THGPUTensor_neTensor(THGPUTensor *self_, THGPUTensor *src1, THGPUTensor *src2);
 
-THC_API float THCudaTensor_meanall(THCudaTensor *self);
-THC_API void  THCudaTensor_mean(THCudaTensor *self, THCudaTensor *src, long dim);
-THC_API float THCudaTensor_varall(THCudaTensor *self);
-THC_API float THCudaTensor_stdall(THCudaTensor *self);
-THC_API float THCudaTensor_normall(THCudaTensor *self, float value);
-THC_API void  THCudaTensor_norm(THCudaTensor* self, THCudaTensor* src, float value, long dimension);
-THC_API void  THCudaTensor_renorm(THCudaTensor* self, THCudaTensor* src, float value, long dimension, float max_norm);
-THC_API float THCudaTensor_dist(THCudaTensor *self, THCudaTensor *src, float value);
+THC_API float THGPUTensor_meanall(THGPUTensor *self);
+THC_API void  THGPUTensor_mean(THGPUTensor *self, THGPUTensor *src, long dim);
+THC_API float THGPUTensor_varall(THGPUTensor *self);
+THC_API float THGPUTensor_stdall(THGPUTensor *self);
+THC_API float THGPUTensor_normall(THGPUTensor *self, float value);
+THC_API void  THGPUTensor_norm(THGPUTensor* self, THGPUTensor* src, float value, long dimension);
+THC_API void  THGPUTensor_renorm(THGPUTensor* self, THGPUTensor* src, float value, long dimension, float max_norm);
+THC_API float THGPUTensor_dist(THGPUTensor *self, THGPUTensor *src, float value);
 
-THC_API void THCudaTensor_rand(THCudaRNGState* rng_state,THCudaTensor *r_, THLongStorage *size);
-THC_API void THCudaTensor_randn(THCudaRNGState* rng_state,THCudaTensor *r_, THLongStorage *size);
+THC_API void THGPUTensor_rand(THGPURNGState* rng_state,THGPUTensor *r_, THLongStorage *size);
+THC_API void THGPUTensor_randn(THGPURNGState* rng_state,THGPUTensor *r_, THLongStorage *size);
 
-THC_API void THCudaTensor_indexCopy(THCudaTensor *res_, int dim, THLongTensor *indices, THCudaTensor *src);
-THC_API void THCudaTensor_indexFill(THCudaTensor *tensor, int dim, THLongTensor *index, float val);
-THC_API void THCudaTensor_indexSelect(THCudaTensor *tensor, THCudaTensor *src, int dim, THLongTensor *index);
+THC_API void THGPUTensor_indexCopy(THGPUTensor *res_, int dim, THLongTensor *indices, THGPUTensor *src);
+THC_API void THGPUTensor_indexFill(THGPUTensor *tensor, int dim, THLongTensor *index, float val);
+THC_API void THGPUTensor_indexSelect(THGPUTensor *tensor, THGPUTensor *src, int dim, THLongTensor *index);
 
 
 #endif

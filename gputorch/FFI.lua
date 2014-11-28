@@ -3,7 +3,7 @@ if jit then
    local ffi = require 'ffi'
 
    local cdefs = [[
-typedef struct THCudaStorage
+typedef struct THGPUStorage
 {
     float *data;
     long size;
@@ -11,32 +11,32 @@ typedef struct THCudaStorage
     char flag;
     THAllocator *allocator;
     void *allocatorContext;
-} THCudaStorage;
+} THGPUStorage;
 
-typedef struct THCudaTensor
+typedef struct THGPUTensor
 {
     long *size;
     long *stride;
     int nDimension;
     
-    THCudaStorage *storage;
+    THGPUStorage *storage;
     long storageOffset;
     int refcount;
 
     char flag;
 
-} THCudaTensor;
+} THGPUTensor;
 ]]
    ffi.cdef(cdefs)
 
-   local Storage = torch.getmetatable('torch.CudaStorage')
-   local Storage_tt = ffi.typeof('THCudaStorage**')
+   local Storage = torch.getmetatable('torch.GPUStorage')
+   local Storage_tt = ffi.typeof('THGPUStorage**')
 
    rawset(Storage, "cdata", function(self) return Storage_tt(self)[0] end)
    rawset(Storage, "data", function(self) return Storage_tt(self)[0].data end)
    -- Tensor
-   local Tensor = torch.getmetatable('torch.CudaTensor')
-   local Tensor_tt = ffi.typeof('THCudaTensor**')
+   local Tensor = torch.getmetatable('torch.GPUTensor')
+   local Tensor_tt = ffi.typeof('THGPUTensor**')
 
    rawset(Tensor, "cdata", function(self) return Tensor_tt(self)[0] end)
 
