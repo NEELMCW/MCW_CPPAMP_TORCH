@@ -1,40 +1,25 @@
-# README #
+# ** C++ AMP backend Implementation for Torch7 ** #
 
-This README would normally document whatever steps are necessary to get your application up and running.
+##Introduction: ##
 
-### What is this repository for? ###
+This repository hosts the C++ AMP backend implementation project for  [torch7](http://torch.ch/). Torch7 framework currently has a CUDA backend support in the form of [cutorch](https://github.com/torch/cutorch) and [cunn](https://github.com/torch/cunn) packages. The goal of this project is to develop  gputorch and gpunn packages that would functionally behave as  C++ AMP counterparts for exisiting cutorch and cunn packages. This project mainly targets the linux platform and makes use of the linux-based C++ AMP compiler implementation hosted [here](https://bitbucket.org/multicoreware/cppamp-driver-ng/overview)
 
-* Quick summary
-C++ AMP counterpart of CUDA torch implementation
-* Version 0.1
-* [Learn Markdown](https://bitbucket.org/tutorials/markdowndemo)
 
-### How do I get set up? ###
 
-* Summary of set up:
-To build this package:
+##Repository Structure: ##
 
-1. Clone the repo
+##Building and set up: ##
 
-2. run the command - luarocks make rocks/*.spec
+(i)   C++ AMP Compiler installation:
 
-* Dependencies
+(ii)  Bolt Set up:
 
-Torch7 package
+(iii) CLBLAS setup:
 
-* How to run tests
+(iv) Torch7 set up:
 
-Run the command - th -lclamptorch -e "clamptorch.test()"
 
-* Deployment instructions
 
-### Contribution guidelines ###
 
-* Writing tests
-* Code review
-* Other guidelines
 
-### Who do I talk to? ###
 
-* Repo owner or admin
-* Other community or team contact
