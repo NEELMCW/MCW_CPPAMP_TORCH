@@ -85,4 +85,4 @@ To set up bolt use the master branch of https://bitbucket.org/multicoreware/cppa
 
 (iv) CLBLAS setup:
 
-(
+Extract the clBlas binary package from [here](https://github.com/clMathLibraries/clBLAS/releases) to /opt/clBlas
