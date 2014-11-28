@@ -31,9 +31,9 @@ This repository hosts the C++ AMP backend implementation project for  [torch7](h
 
 Prepare a directory for work space.
 
-   * mkdir cppamp
+   * mkdir mcw_cppamp
 
-   * cd cppamp 
+   * cd mcw_cppamp 
    
    * git clone https://bitbucket.org/multicoreware/cppamp-driver-ng.git src
 
@@ -61,11 +61,11 @@ Build the whole system. This will build clang and other libraries that require o
 
 To set up bolt use the master branch of https://bitbucket.org/multicoreware/cppamp-driver-ng.git
 
-  * cd cppamp/src
+  * cd mcw_cppamp/src
 
   * git checkout master
 
- *  mkdir cppamp/master-build && cd cppamp/master-build
+ *  mkdir mcw_cppamp/master-build && cd mcw_cppamp/master-build
 
  * cmake ../src
 
@@ -73,9 +73,9 @@ To set up bolt use the master branch of https://bitbucket.org/multicoreware/cppa
 
 *  make (This builts bolt and other support libraries)
 
-*  copy the Bolt directory from cppamp/src to cppamp 
+*  copy the Bolt directory from mcw_cppamp/src to mcw_cppamp 
 
-*  cd cppamp/src 
+*  cd mcw_cppamp/src 
 
 * git checkout gmac-exp (Need to get back to this)
 
