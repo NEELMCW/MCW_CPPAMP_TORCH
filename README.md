@@ -12,6 +12,8 @@ This repository hosts the C++ AMP backend implementation project for  [torch7](h
 * **dGPU**:  AMD firepro S9150
 * **OS** : Ubuntu 14.04 LTS
 * **Ubuntu Pack**: libc6-dev-i386
+* **AMD APP SDK : Ver 2.9.1 launched on 18/8/2014 from [here](http://developer.amd.com/tools-and-sdks/opencl-zone/amd-accelerated-parallel-processing-app-sdk/)
+* **clBLAS**: ver 2-2.0 from [here](https://github.com/clMathLibraries/clBLAS/releases)
 
 
 ##Building and set up: ##
