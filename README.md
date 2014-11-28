@@ -37,7 +37,7 @@ Prepare a directory for work space.
    
    * git clone https://bitbucket.org/multicoreware/cppamp-driver-ng.git src
 
-   * git checkout gmac-exp (gmac-exp branch is tailor built for torch7 use case)
+   * git checkout gmac-exp (gmac-exp branch is tailor made for torch7 use case)
 
 Create a build directory and configure using CMake.
 
@@ -45,7 +45,17 @@ Create a build directory and configure using CMake.
 
   * cd gmac_exp_build
 
-   * cmake ../src
+   * cmake ../src  (default options can be overridden on the command line:
+  cmake ../src \
+      -DCLANG_URL=https://bitbucket.org/multicoreware/cppamp-ng.git \
+      -DOPENCL_HEADER_DIR=/opt/AMDAPP/include \
+      -DOPENCL_LIBRARY_DIR=/opt/AMDAPP/lib/x86_64 \ )
+
+Build the whole system. This will build clang and other libraries that require one time build.
+
+  * make [-j #] world           (# is the number of parallel builds)
+
+  * make                        (this builds llvm utilities)
  
 (iii)  Bolt Set up:
 
