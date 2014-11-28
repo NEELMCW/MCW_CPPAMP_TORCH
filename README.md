@@ -8,6 +8,12 @@ This repository hosts the C++ AMP backend implementation project for  [torch7](h
 
 ##Repository Structure: ##
 
+##Prerequisites: ##
+* **dGPU**:  AMD firepro S9150
+* **OS** : Ubuntu 14.04 LTS
+* **Ubuntu Pack**: libc6-dev-i386
+
+
 ##Building and set up: ##
 
 (i)   C++ AMP Compiler installation:
@@ -17,9 +23,3 @@ This repository hosts the C++ AMP backend implementation project for  [torch7](h
 (iii) CLBLAS setup:
 
 (iv) Torch7 set up:
-
-
-
-
-
-
