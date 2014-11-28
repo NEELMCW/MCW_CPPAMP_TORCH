@@ -17,7 +17,7 @@ void imt2col_kernel(const int n, THGPUTensor* data_im,
     unsigned int grdSz = (n + 255)/256;
     Concurrency::extent<1> grdExt(grdSz * 256);
     Concurrency::tiled_extent<256> t_ext(grdExt);
-    std::cout<<"imt2col"<<std::endl;
+    //std::cout<<"imt2col"<<std::endl;
     Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<256> tidx) restrict(amp)
     {
         int data_col=0;

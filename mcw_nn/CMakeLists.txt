@@ -10,11 +10,6 @@ IF(MSVC)
   ADD_DEFINITIONS(-D_CRT_SECURE_NO_DEPRECATE=1)
 ENDIF(MSVC)
 
-# Stay C89 strict
-IF("${CMAKE_C_COMPILER_ID}" STREQUAL "Clang" OR "${CMAKE_C_COMPILER_ID}" STREQUAL "GNU")
-  SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c89 -pedantic")
-ENDIF()
-
 # OpenMP support?
 SET(WITH_OPENMP ON CACHE BOOL "OpenMP support if available?")
 IF (APPLE AND CMAKE_COMPILER_IS_GNUCC)
@@ -49,7 +44,6 @@ LINK_DIRECTORIES("${Torch_INSTALL_LIB}")
 SET(src init.c)
 
 FILE(GLOB luasrc *.lua)
-SET(luasrc ${luasrc} test/test.lua)
 
 ADD_TORCH_PACKAGE(nn "${src}" "${luasrc}")
 

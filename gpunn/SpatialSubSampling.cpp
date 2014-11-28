@@ -11,7 +11,7 @@ void subsample(THGPUTensor *inputTensor, THGPUTensor *outputTensor, THGPUTensor 
                THGPUTensor *biasTensor ,int input_n, int input_h, int input_w, int kH, int kW, int dH, int dW, int xBlocks)
 {
     // output size
-    std::cout<<"subSample"<<std::endl;
+    //std::cout<<"subSample"<<std::endl;
     int output_w = (input_w - kW) / dW + 1;
     int output_h = (input_h - kH) / dH + 1;
     //int xBlocks = input_n;
@@ -91,7 +91,7 @@ void subgradweight(THGPUTensor *inputTensor, THGPUTensor *gradOutputTensor, THGP
                    int dH, int dW, float scale, long sl)
 {
     // output size
-    std::cout<<"subgradweight"<<std::endl;
+    //std::cout<<"subgradweight"<<std::endl;
     int output_w = (input_w - kW) / dW + 1;
     int output_h = (input_h - kH) / dH + 1;
     int inputStride = sl * inputTensor->stride[0];
@@ -201,7 +201,7 @@ void subgradinput(THGPUTensor *gradInputTensor, THGPUTensor *gradOutputTensor, T
                   int input_n, int input_h, int input_w, int kH, int kW, int dH, int dW, int xBlocks)
 {
     // output size
-    std::cout<<"subgradinput"<<std::endl;
+    //std::cout<<"subgradinput"<<std::endl;
     int output_w = (input_w - kW) / dW + 1;
     int output_h = (input_h - kH) / dH + 1;
 
@@ -435,7 +435,7 @@ static int gpunn_SpatialSubSampling_accGradParameters(lua_State *L)
     // gpu blocks & threads:
 
     // run gradweight kernel
-    std::cout<<"subgradweight else case"<<std::endl;
+    //std::cout<<"subgradweight else case"<<std::endl;
     long sl;
     for (sl = 0; sl < nbatch; sl++)
     {

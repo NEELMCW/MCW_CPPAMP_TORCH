@@ -28,6 +28,10 @@ function PairwiseDistance:updateOutput(input)
    else
       error('input must be vector or matrix')
    end
+   if input[1]:dim() > 2 then
+      error('input must be vector or matrix')
+   end  
+ 
    return self.output
 end
 
@@ -97,3 +101,4 @@ function PairwiseDistance:type(type)
    self.gradInput[2] = self.gradInput[2]:type(type)
    return self
 end
+

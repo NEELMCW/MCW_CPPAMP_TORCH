@@ -47,7 +47,11 @@ function Criterion:double()
 end
 
 function Criterion:cuda()
-   return self:type('torch.CampTensor')
+   return self:type('torch.CudaTensor')
+end
+
+function Criterion:gpu()
+   return self:type('torch.GPUTensor')
 end
 
 function Criterion:__call__(input, target)

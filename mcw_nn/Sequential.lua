@@ -1,6 +1,7 @@
 local Sequential, parent = torch.class('nn.Sequential', 'nn.Module')
 
 function Sequential:__init()
+   parent.__init(self)
    self.modules = {}
 end
 
@@ -11,6 +12,16 @@ function Sequential:add(module)
    table.insert(self.modules, module)
    self.output = module.output
    return self
+end
+
+function Sequential:insert(module, index)
+   index = index or (#self.modules + 1)
+   if index > (#self.modules + 1) then
+      error"index should be contiguous to existing modules"
+   end
+   table.insert(self.modules, index, module)
+   self.output = self.modules[#self.modules].output
+   self.gradInput = self.modules[1].gradInput
 end
 
 function Sequential:size()
@@ -80,6 +91,18 @@ end
 function Sequential:updateParameters(learningRate)
    for i=1,#self.modules do
       self.modules[i]:updateParameters(learningRate)
+   end
+end
+
+function Sequential:training()
+   for i=1,#self.modules do
+      self.modules[i]:training()
+   end
+end
+
+function Sequential:evaluate()
+   for i=1,#self.modules do
+      self.modules[i]:evaluate()
    end
 end
 

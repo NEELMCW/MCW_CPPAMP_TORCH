@@ -1,7 +1,5 @@
 local Abs, parent = torch.class('nn.Abs', 'nn.Module')
 
----
-
 function Abs:__init()
    parent.__init(self)
 end

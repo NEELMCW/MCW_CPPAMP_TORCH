@@ -86,7 +86,8 @@ int nn_(SparseLinear_updateParameters)(lua_State *L)
   THTensor * bias = luaT_getfieldcheckudata(L, 1, "bias", torch_Tensor);
   THTensor * gradBias = luaT_getfieldcheckudata(L, 1, "gradBias", torch_Tensor);
   THTensor * gradWeight = luaT_getfieldcheckudata(L, 1, "gradWeight", torch_Tensor);
-  THTensor * lastInput = luaT_getfieldcheckudata(L, 1, "lastInput", torch_Tensor);  
+  THTensor * lastInput = luaT_getfieldcheckudata(L, 1, "lastInput", torch_Tensor);
+  
   long dim = weight->size[1]; /* number of weights.. */
   THTensor_(cadd)(bias, bias, -learningRate, gradBias);
   
@@ -104,7 +105,7 @@ int nn_(SparseLinear_updateParameters)(lua_State *L)
                         weight->stride[0]);
       }
       else {
-          printf("\nUpdateParameters: %ld not between 1 and %ld\n", offset+1, dim);
+          printf("\nupdateParameters: %ld not between 1 and %ld\n", offset+1, dim);
           luaL_error(L, "index out of bound");
       }
   }
