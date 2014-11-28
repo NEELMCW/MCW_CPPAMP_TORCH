@@ -13,14 +13,14 @@ void maxpool(THCudaTensor *input, THCudaTensor *output, THCudaTensor *indices, i
                         int xblocks, int yblocks)
 {
   //std::cout<<"inside Spatial Max pooling"<<std::endl;
-  Concurrency::extent<3> copyExt(1,yblocks*16,xblocks*16);
-  Concurrency::tiled_extent<1,16,16> t_ext(copyExt);
+  Concurrency::extent<3> copyExt(1,yblocks*8,xblocks*32);
+  Concurrency::tiled_extent<1,8,32> t_ext(copyExt);
 
-  Concurrency::array_view<float,1>input_data(Concurrency::extent<1>(input->storage->size),THCudaTensor_data(input));
-  Concurrency::array_view<float,1>indices_data(Concurrency::extent<1>(indices->storage->size),THCudaTensor_data(indices));
-  Concurrency::array_view<float,1>output_data(Concurrency::extent<1>(output->storage->size),THCudaTensor_data(output));
+  Concurrency::array_view<float,1>input_data(input->storage->size,THCudaTensor_data(input));
+  Concurrency::array_view<float,1>indices_data(indices->storage->size,THCudaTensor_data(indices));
+  Concurrency::array_view<float,1>output_data(output->storage->size,THCudaTensor_data(output));
 
-  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1,16,16> tidx) restrict(amp)
+  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1,8,32> tidx) restrict(amp)
   {
 
   // iterators
@@ -48,31 +48,27 @@ void maxpool(THCudaTensor *input, THCudaTensor *output, THCudaTensor *indices, i
   const int yy_step = t_ext[1];
 
   // select input/output plane
-  float *output = output_data.data();
-  output += o*output_w*output_h;
-  float *input = input_data.data();
-  input += i*input_w*input_h;
-  float *indices_x = indices_data.data();
-  indices_x += xblocks * nOutputCols * nOutputRows;
-  indices_x += o*output_w*output_h;
-  float *indices_y = indices_data.data();
-  indices_y += o*output_w*output_h;
 
+  int output = o*output_w*output_h;
+  int input = i*input_w*input_h;
+  int indices_x = xblocks * nOutputCols * nOutputRows + o*output_w*output_h;
+  int indices_y = o*output_w*output_h;
   // For all output pixels...
   for(yy = yy_start; yy < yy_end; yy+=yy_step) {
     for(xx = xx_start; xx < xx_end; xx+=xx_step) {
       // Compute the mean of the input image...
-      float *ptr_input = input + yy*dH*input_w + xx*dW;
-      float *ptr_output = output + yy*output_w + xx;
-      float *ptr_ind_x = indices_x + yy*output_w + xx;
-      float *ptr_ind_y = indices_y + yy*output_w + xx;
+      int ptr_input = input + yy*dH*input_w + xx*dW;
+      int ptr_output = output + yy*output_w + xx;
+      int ptr_ind_x = indices_x + yy*output_w + xx;
+      int ptr_ind_y = indices_y + yy*output_w + xx;
+
       int argmax_x = -1;
       int argmax_y = -1;
       float max = -FLT_MAX;
       int kx, ky;
       for(ky = 0; ky < kH; ky++) {
         for(kx = 0; kx < kW; kx++) {
-          float val = ptr_input[kx];
+          float val = input_data[ptr_input + kx];
           if (val > max) {
             max = val;
             argmax_x = kx;
@@ -82,12 +78,14 @@ void maxpool(THCudaTensor *input, THCudaTensor *output, THCudaTensor *indices, i
         ptr_input += input_w; // next input line
       }
       // Update output and argmax
-      *ptr_output = max;
-      *ptr_ind_x = (float)argmax_x + 1;
-      *ptr_ind_y = (float)argmax_y + 1;
+      output_data[ptr_output] = max;
+      indices_data[ptr_ind_x] = (float)argmax_x + 1;
+      indices_data[ptr_ind_y] = (float)argmax_y + 1;
     }
   }
   });
+  output_data.synchronize();
+  indices_data.synchronize();
 }
 
 /*
@@ -97,14 +95,14 @@ void maxpool(THCudaTensor *input, THCudaTensor *output, THCudaTensor *indices, i
 void maxgradinput(THCudaTensor *gradInput, THCudaTensor *gradOutput, THCudaTensor *indices, int nOutputCols, int nOutputRows,
                   int input_n, int input_h, int input_w, int kH, int kW, int dH, int dW, int xblocks, int yblocks)
 {
-  Concurrency::extent<3> copyExt(1,yblocks*16,xblocks*16);
-  Concurrency::tiled_extent<1,16,16> t_ext(copyExt);
+  Concurrency::extent<3> copyExt(1,yblocks*8,xblocks*32);
+  Concurrency::tiled_extent<1,8,32> t_ext(copyExt);
 
-  Concurrency::array_view<float,1>input_data(Concurrency::extent<1>(gradInput->storage->size),THCudaTensor_data(gradInput));
-  Concurrency::array_view<float,1>indices_data(Concurrency::extent<1>(indices->storage->size),THCudaTensor_data(indices));
-  Concurrency::array_view<float,1>output_data(Concurrency::extent<1>(gradOutput->storage->size),THCudaTensor_data(gradOutput));
+  Concurrency::array_view<float,1>input_data(gradInput->storage->size,THCudaTensor_data(gradInput));
+  Concurrency::array_view<float,1>indices_data(indices->storage->size,THCudaTensor_data(indices));
+  Concurrency::array_view<float,1>output_data(gradOutput->storage->size,THCudaTensor_data(gradOutput));
 
-  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1,16,16> tidx) restrict(amp)
+  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1,8,32> tidx) restrict(amp)
   {
   // iterators
   int xx, yy;
@@ -130,33 +128,27 @@ void maxgradinput(THCudaTensor *gradInput, THCudaTensor *gradOutput, THCudaTenso
   int yy_end = output_h;
   const int yy_step = t_ext[1];
 
-  // select input/output plane
-  float *gradOutput = output_data.data();
-  gradOutput += o*output_w*output_h;
-  float *gradInput = input_data.data();
-  gradInput += i*input_w*input_h;
-  float *indices_x = indices_data.data();
-  indices_x += xblocks * nOutputCols * nOutputRows;
-  indices_x += o*output_w*output_h;
-  float *indices_y = indices_data.data();
-  indices_y += o*output_w*output_h;
-
+  int gradOutput = o*output_w*output_h;
+  int gradInput = i*input_w*input_h;
+  int indices_x = xblocks * nOutputCols * nOutputRows + o*output_w*output_h;
+  int indices_y = o*output_w*output_h;
   // compute gradInput
   for(yy = yy_start; yy < yy_end; yy+=yy_step) {
     for(xx = xx_start; xx < xx_end; xx+=xx_step) {
-      float *ptr_gradInput = gradInput + yy*dH*input_w + xx*dW;
-      float *ptr_gradOutput = gradOutput + yy*output_w + xx;
-      float *ptr_ind_x = indices_x + yy*output_w + xx;
-      float *ptr_ind_y = indices_y + yy*output_w + xx;
-      float z = *ptr_gradOutput;
+      int ptr_gradInput = gradInput + yy*dH*input_w + xx*dW;
+      int ptr_gradOutput = gradOutput + yy*output_w + xx;
+      int ptr_ind_x = indices_x + yy*output_w + xx;
+      int ptr_ind_y = indices_y + yy*output_w + xx;
+     
+      float z = output_data[ptr_gradOutput];
+      int argmax_x = (int)indices_data[ptr_ind_x]-1;
+      int argmax_y = (int)indices_data[ptr_ind_y]-1;
 
-      int argmax_x = (int)(*ptr_ind_x)-1;
-      int argmax_y = (int)(*ptr_ind_y)-1;
-
-      ptr_gradInput[argmax_x + argmax_y*input_w] += z;
+      input_data[ptr_gradInput + argmax_x + argmax_y*input_w] += z;
     }
   }
   });
+  input_data.synchronize();
 }
 
 /*
@@ -169,14 +161,14 @@ void atomicmaxgradinput(
   int input_n, int input_h, int input_w, int kH, int kW, int dH, int dW, int xblocks, int yblocks
 )
 {
-  Concurrency::extent<3> copyExt(1,yblocks*16,xblocks*16);
-  Concurrency::tiled_extent<1,16,16> t_ext(copyExt);
+  Concurrency::extent<3> copyExt(1,yblocks*8,xblocks*32);
+  Concurrency::tiled_extent<1,8,32> t_ext(copyExt);
 
-  Concurrency::array_view<float,1>input_data(Concurrency::extent<1>(gradInput->storage->size),THCudaTensor_data(gradInput));
-  Concurrency::array_view<float,1>indices_data(Concurrency::extent<1>(indices->storage->size),THCudaTensor_data(indices));
-  Concurrency::array_view<float,1>output_data(Concurrency::extent<1>(gradOutput->storage->size),THCudaTensor_data(gradOutput));
+  Concurrency::array_view<float,1>input_data(gradInput->storage->size,THCudaTensor_data(gradInput));
+  Concurrency::array_view<float,1>indices_data(indices->storage->size,THCudaTensor_data(indices));
+  Concurrency::array_view<float,1>output_data(gradOutput->storage->size,THCudaTensor_data(gradOutput));
 
-  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1,16,16> tidx) restrict(amp)
+  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1,8,32> tidx) restrict(amp)
   {
   // iterators
   int xx, yy;
@@ -203,34 +195,30 @@ void atomicmaxgradinput(
   const int yy_step = t_ext[1];
 
   // select input/output plane
-  float *gradOutput = output_data.data();
-  gradOutput += o*output_w*output_h;
-  float *gradInput = input_data.data();
-  gradInput += i*input_w*input_h;
-  float *indices_x = indices_data.data();
-  indices_x += xblocks * nOutputCols * nOutputRows;
-  indices_x += o*output_w*output_h;
-  float *indices_y = indices_data.data();
-  indices_y += o*output_w*output_h;
+  int gradOutput = o*output_w*output_h;
+  int gradInput = i*input_w*input_h;
+  int indices_x = xblocks * nOutputCols * nOutputRows + o*output_w*output_h;
+  int indices_y = o*output_w*output_h;
 
   // compute gradInput
   for(yy = yy_start; yy < yy_end; yy+=yy_step) {
     for(xx = xx_start; xx < xx_end; xx+=xx_step) {
-      float *ptr_gradInput = gradInput + yy*dH*input_w + xx*dW;
-      float *ptr_gradOutput = gradOutput + yy*output_w + xx;
-      float *ptr_ind_x = indices_x + yy*output_w + xx;
-      float *ptr_ind_y = indices_y + yy*output_w + xx;
-      float z = *ptr_gradOutput;
+      int ptr_gradInput = gradInput + yy*dH*input_w + xx*dW;
+      int ptr_gradOutput = gradOutput + yy*output_w + xx;
+      int ptr_ind_x = indices_x + yy*output_w + xx;
+      int ptr_ind_y = indices_y + yy*output_w + xx;
+      float z = output_data[ptr_gradOutput];
 
-      int argmax_x = (int)(*ptr_ind_x)-1;
-      int argmax_y = (int)(*ptr_ind_y)-1;
+      int argmax_x = (int)indices_data[ptr_ind_x]-1;
+      int argmax_y = (int)indices_data[ptr_ind_y]-1;
 
       // atomic add since different threads could update same variable
       //Concurrency::atomic_fetch_add((int*)(&(ptr_gradInput[argmax_x + argmax_y*input_w])), (int)z);
-      ptr_gradInput[argmax_x + argmax_y*input_w] += z;
+      input_data[ptr_gradInput + argmax_x + argmax_y*input_w] += z;
     }
   }
   });
+input_data.synchronize();
 }
 
 static int cunn_SpatialMaxPooling_updateOutput(lua_State *L)
@@ -323,7 +311,7 @@ static int cunn_SpatialMaxPooling_updateGradInput(lua_State *L)
   int dW = luaT_getfieldcheckint(L, 1, "dW");
   int dH = luaT_getfieldcheckint(L, 1, "dH");
   bool atomic = (dW != kW) || (dH != kH); 
-
+  atomic = false;
   THCudaTensor *gradInput = (THCudaTensor *)luaT_getfieldcheckudata(L, 1, "gradInput", "torch.CudaTensor");
   THCudaTensor *indices = (THCudaTensor *)luaT_getfieldcheckudata(L, 1, "indices", "torch.CudaTensor");
 
@@ -359,9 +347,9 @@ static int cunn_SpatialMaxPooling_updateGradInput(lua_State *L)
     else
     {
       // run updateGradInput kernel
-      atomicmaxgradinput(gradInput, gradOutput, 
-                        indices, nOutputCols, nOutputRows,
-                        nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW, xblocks, yblocks);
+      maxgradinput(gradInput, gradOutput, 
+                   indices, nOutputCols, nOutputRows,
+                   nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW, xblocks, yblocks);
     }
   } else {
     long nInputCols = input->size[3];
