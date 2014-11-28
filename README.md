@@ -29,7 +29,13 @@ This repository hosts the C++ AMP backend implementation project for  [torch7](h
 
 (ii)  ** C++ AMP Compiler installation**: Indepth details can be found [here](https://bitbucket.org/multicoreware/cppamp-driver-ng/overview)
 
-* Prepare a directory for 
+Prepare a directory for work space.
+
+   * mkdir cppamp
+
+   * cd cppamp 
+   
+   * git clone https://bitbucket.org/multicoreware/cppamp-driver-ng.git src
 
 (iii)  Bolt Set up:
 
