@@ -18,10 +18,18 @@ This repository hosts the C++ AMP backend implementation project for  [torch7](h
 
 ##Building and set up: ##
 
-(i)   C++ AMP Compiler installation:
+(i) Torch7 install:
 
-(ii)  Bolt Set up:
+      *  $ curl -sk https://raw.githubusercontent.com/torch/ezinstall/master/install-deps | bash
+  
+      * $ curl -sk https://raw.githubusercontent.com/torch/ezinstall/master/install-luajit+torch | bash
+      
 
-(iii) CLBLAS setup:
 
-(iv) Torch7 set up:
+(ii)   C++ AMP Compiler installation:
+
+(iii)  Bolt Set up:
+
+(iv) CLBLAS setup:
+
+( 
