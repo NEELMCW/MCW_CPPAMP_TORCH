@@ -8,7 +8,7 @@ local tester
 local test = {}
 local msize = 100
 local minsize = 100
-local maxsize = 400
+local maxsize = 600
 local minvalue = 2
 local maxvalue = 20
 local nloop = 100

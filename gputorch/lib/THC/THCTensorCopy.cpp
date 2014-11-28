@@ -165,8 +165,8 @@ void THCudaTensor_kernel_copy(THCudaTensor *self, THCudaTensor *src, Concurrency
   Concurrency::array_view<long, 1> av_src_sz(*src_sz);
   Concurrency::array_view<long, 1> av_dst_st(*dst_st);
   Concurrency::array_view<long, 1> av_dst_sz(*dst_sz);
-  Concurrency::array_view<float, 1> av_dst(Concurrency::extent<1>(self->storage->size), THCudaTensor_data(self));
-  Concurrency::array_view<float, 1> av_src(Concurrency::extent<1>(src->storage->size), THCudaTensor_data(src));
+  Concurrency::array_view<float, 1> av_dst(self->storage->size, THCudaTensor_data(self));
+  Concurrency::array_view<float, 1> av_src(src->storage->size, THCudaTensor_data(src));
 
   //Copy Kernel
   Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1, 16, 16> tidx) restrict(amp)
@@ -213,6 +213,8 @@ THC_API void THCudaTensor_copy(THCudaTensor *self, THCudaTensor *src)
   THArgCheck(THCudaTensor_nElement(self) == THCudaTensor_nElement(src), 2, "sizes do not match");
 
   if (THCudaTensor_nDimension(self) == 0) return;
+    
+  Concurrency::array_view<float,1> avSelf(Concurrency::extent<1>(self->storage->size),self->storage->data);
 
   Concurrency::array<long, 1> *d_self_sz, *d_self_st, *d_src_sz, *d_src_st;
   int self_dim, src_dim;

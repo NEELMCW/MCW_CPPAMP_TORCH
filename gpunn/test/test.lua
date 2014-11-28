@@ -919,7 +919,7 @@ function cunntest.SpatialConvolutionMM_backward_batch()
    mytester:assertlt(berror:abs():max(), precision_backward, 'error on bias (backward) ')
 end
 
-function cunntest.SpatialConvolutionMM_BHWD_forward_batch()
+--[[function cunntest.SpatialConvolutionMM_BHWD_forward_batch()
    local bs = math.random(1,4) * 4
    local from = math.random(1,32)
    local to = math.random(1,8) * 8
@@ -961,9 +961,9 @@ function cunntest.SpatialConvolutionMM_BHWD_forward_batch()
 
    local error = rescuda:float() - groundtruth
    mytester:assertlt(error:abs():max(), precision_forward, 'error on state (forward) ')
-end
+end]]--
 
-function cunntest.SpatialConvolutionCUDA_forward_batch()
+--[[function cunntest.SpatialConvolutionCUDA_forward_batch()
    local bs = 32
    local from = 4 * math.random(1,4)
    local to = 32
@@ -1081,10 +1081,10 @@ function cunntest.SpatialConvolutionCUDA_backward_batch()
    mytester:assertlt(error:abs():max(), precision_backward, 'error on state (backward) ')
    mytester:assertlt(werror:abs():max(), precision_backward, 'error on weight (backward) ')
    mytester:assertlt(berror:abs():max(), precision_backward, 'error on bias (backward) ')
-end
+end]]--
 
 
-function cunntest.SpatialSubSampling_forward()
+--[[function cunntest.SpatialSubSampling_forward()
    local from = math.random(1,64)
    local to = from
    local ki = math.random(2,4)
@@ -1124,7 +1124,7 @@ function cunntest.SpatialSubSampling_forward()
 
    local error = rescuda:float() - groundtruth
    mytester:assertlt(error:abs():max(), precision_forward, 'error on state (forward) ')
-end
+end]]--
 
 --[[function cunntest.SpatialSubSampling_forward_batch()
    local bs = math.random(4,10)
@@ -1418,7 +1418,7 @@ end
    local error = rescuda:float() - groundgrad
 
    mytester:assertlt(error:abs():max(), precision_backward, 'error on state (backward) ')
-end
+end]]--
 
 function cunntest.SpatialMaxPooling_backward_batch()
    local bs = math.random(4,10)
@@ -1471,7 +1471,7 @@ function cunntest.SpatialMaxPooling_backward_batch()
    mytester:assertlt(error:abs():max(), precision_backward, 'error on state (backward) ')
 end
 
-function cunntest.SpatialMaxPooling_backward_batch_atomic()
+--[[function cunntest.SpatialMaxPooling_backward_batch_atomic()
    local bs = math.random(4,10)
    local from = math.random(1,64)
    local to = from
@@ -1522,7 +1522,7 @@ function cunntest.SpatialMaxPooling_backward_batch_atomic()
    mytester:assertlt(error:abs():max(), precision_backward, 'error on state (backward) ')
 end]]--
 
-function cunntest.SpatialMaxPoolingCUDA_forward_batch()
+--[[function cunntest.SpatialMaxPoolingCUDA_forward_batch()
    local bs = 32
    local from = 16 * math.random(1,3)
    local to = from
@@ -1563,7 +1563,7 @@ function cunntest.SpatialMaxPoolingCUDA_forward_batch()
 
    local error = rescuda - groundtruth
    mytester:assertlt(error:abs():max(), precision_forward, 'error on state (forward) ')
-end
+end]]--
 
 function cunntest.SpatialMaxPoolingCUDA_backward_batch()
    local bs = 32
@@ -1617,7 +1617,7 @@ function cunntest.SpatialMaxPoolingCUDA_backward_batch()
    mytester:assertlt(error:abs():max(), precision_backward, 'error on state (backward) ')
 end
 
-function cunntest.SpatialLPPooling_forward()
+--[[function cunntest.SpatialLPPooling_forward()
    local from = math.random(1,64)
    local to = from
    local pnorm = 2
@@ -1658,7 +1658,7 @@ function cunntest.SpatialLPPooling_forward()
    mytester:assertlt(error:abs():max(), precision_forward, 'error on state (forward) ')
 end
 
---[[function cunntest.SpatialLPPooling_backward()
+function cunntest.SpatialLPPooling_backward()
    local from = math.random(1,64)
    local to = from
    local pnorm = 2
@@ -1706,8 +1706,8 @@ end
    local error = rescuda:float() - groundgrad
 
    mytester:assertlt(error:abs():max(), precision_backward, 'error on state (backward) ')
-end
-]]--
+end]]--
+
 function cunntest.mse()
    for sizeAverage = 0, 1 do
       local size = math.random(3000,5000)
@@ -1852,7 +1852,7 @@ function cunntest.SoftMax_backward()
    mytester:assertlt(error:abs():max(), precision_backward, 'error on state (backward) ')
 end
 
-function cunntest.LogSoftMax_forward()
+--[[function cunntest.LogSoftMax_forward()
    local size = math.random(1,256)
 
    local tm = {}
@@ -1880,7 +1880,7 @@ function cunntest.LogSoftMax_forward()
 
    local error = rescuda:float() - groundtruth
    mytester:assertlt(error:abs():max(), precision_forward*10, 'error on state (forward) ')
-end
+end]]--
 
 function cunntest.LogSoftMax_backward()
    local size = math.random(1,256)
@@ -2060,9 +2060,9 @@ function cunntest.TemporalConvolution_forward_batch()
 
    local error = rescuda:float() - groundtruth
    mytester:assertlt(error:abs():max(), precision_forward, 'error on state (forward) ')
-end
+end]]--
 
-function cunntest.TemporalConvolution_backward()
+--[[function cunntest.TemporalConvolution_backward()
   local from = math.random(1,64)
    local to = math.random(1,64)
    local ki = math.random(3,15)
@@ -2116,9 +2116,9 @@ function cunntest.TemporalConvolution_backward()
    mytester:assertlt(error:abs():max(), precision_backward, 'error on state (backward) ')
    mytester:assertlt(werror:abs():max(), precision_backward, 'error on weight (backward) ')
    mytester:assertlt(berror:abs():max(), precision_backward, 'error on bias (backward) ')
-end
+end]]--
 
-function cunntest.TemporalConvolution_backward_batch()
+--[[function cunntest.TemporalConvolution_backward_batch()
    local bs = math.random(4,16)
    local from = math.random(1,64)
    local to = math.random(1,64)
@@ -2172,7 +2172,7 @@ function cunntest.TemporalConvolution_backward_batch()
    mytester:assertlt(error:abs():max(), precision_backward, 'error on state (backward) ')
    mytester:assertlt(werror:abs():max(), precision_backward, 'error on weight (backward) ')
    mytester:assertlt(berror:abs():max(), precision_backward, 'error on bias (backward) ')
-end
+end]]--
 
 function cunntest.Exp_forward()
    local size = math.random(1,100)

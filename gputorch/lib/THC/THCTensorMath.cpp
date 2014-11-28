@@ -59,7 +59,7 @@ void THCudaTensor_ones(THCudaTensor *r_, THLongStorage *size)
 
 void THCudaTensor_reshape(THCudaTensor *r_, THCudaTensor *t, THLongStorage *size)
 {
-  std::cout<<"Inside Reshape"<<std::endl;
+  //std::cout<<"Inside Reshape"<<std::endl;
   THCudaTensor_resize(r_, size, NULL);
   THCudaTensor_copy(r_, t);
 }
@@ -198,7 +198,7 @@ void THCudaTensor_cdiv(THCudaTensor *self_, THCudaTensor *src1, THCudaTensor *sr
     bolt::amp::device_vector<float> Dsrc1_data(THCudaTensor_data(src1), THCudaTensor_data(src1)+THCudaTensor_nElement(src1));
     bolt::amp::device_vector<float> Dsrc2_data(THCudaTensor_data(src2), THCudaTensor_data(src2)+THCudaTensor_nElement(src2));
 
-    std::transform(Dsrc1_data.begin(), Dsrc1_data.end(), Dsrc2_data.begin(), Dself_data.begin(), bolt::amp::divides<float>());
+    bolt::amp::transform(Dsrc1_data.begin(), Dsrc1_data.end(), Dsrc2_data.begin(), Dself_data.begin(), bolt::amp::divides<float>());
 
 
     THCudaTensor_free(src1);
@@ -490,9 +490,9 @@ void THCudaTensor_transformReduceOuterDim(THCudaTensor *tgt, THCudaTensor *src, 
   unsigned nBlockPerColumn = (size[0] + nThreadPerBlock - 1) / nThreadPerBlock;
   //dim3 threads(nThreadPerBlock);
   unsigned maxGridDim = 1024; // anything < 64k is fine. The choice has no impact on performance.
-  gridConfig[0] = std::min(maxGridDim, nBlockPerColumn);
-  gridConfig[1] = std::min(maxGridDim, size[1]);
-  gridConfig[2] = std::min(maxGridDim, size[2]);
+  gridConfig[0] = Concurrency::fast_math::fmin(maxGridDim, nBlockPerColumn);
+  gridConfig[1] = Concurrency::fast_math::fmin(maxGridDim, size[1]);
+  gridConfig[2] = Concurrency::fast_math::fmin(maxGridDim, size[2]);
   THCudaTensor_kernel_transformReduceOuterDim(tgt,
                                              src, THCudaTensor_nElement(src), THCudaTensor_nElement(tgt),
                                              src_stride, tgt_stride, size, unary_op, init, binary_op,gridConfig);
@@ -594,12 +594,12 @@ void THCudaTensor_transformReduceInnermostDim(THCudaTensor *tgt, THCudaTensor *s
     tgt_stride[odim] = THCudaTensor_stride(tgt, dim);
     size[odim] = THCudaTensor_size(src, dim);
   }
-  std::cout<<"InnerDim kernel"<<std::endl;
+  //std::cout<<"InnerDim kernel"<<std::endl;
   unsigned nBlockPerRow = (size[1] + 16 - 1) / 16;
   unsigned maxGridDim = 1024; // anything < 64k is fine. The choice has no impact on performance.
-  gridConfig[0]= std::min(maxGridDim, size[2]);
-  gridConfig[1]= std::min(maxGridDim, nBlockPerRow);
-  gridConfig[2] = std::min(maxGridDim, size[3]);
+  gridConfig[0]= Concurrency::fast_math::fmin(maxGridDim, size[2]);
+  gridConfig[1]= Concurrency::fast_math::fmin(maxGridDim, nBlockPerRow);
+  gridConfig[2] = Concurrency::fast_math::fmin(maxGridDim, size[3]);
   THCudaTensor_kernel_transformReduceInnermostDim(tgt, src,
                                                  THCudaTensor_nElement(tgt), THCudaTensor_nElement(src),
                                                  src_stride, tgt_stride, size, unary_op, init,
@@ -878,32 +878,31 @@ void THCudaTensor_addr(THCudaTensor *r_, float beta, THCudaTensor *t, float alph
     src = THCudaTensor_newContiguous(src);                                   \
     long size = THCudaTensor_nElement(self);                                 \
                                                                              \
-    std::vector<float> self_data(THCudaTensor_data(self), THCudaTensor_data(self)+THCudaTensor_nElement(self));\
-    std::vector<float> src_data(THCudaTensor_data(src), THCudaTensor_data(src)+THCudaTensor_nElement(src));\
-    std::transform(src_data.begin(), src_data.end(), self_data.begin(),NAME##_functor());\
-    std::copy(self_data.begin(), self_data.end(),self->storage->data);\
+    bolt::amp::device_vector<float> self_data(THCudaTensor_data(self), THCudaTensor_data(self)+THCudaTensor_nElement(self));\
+    bolt::amp::device_vector<float> src_data(THCudaTensor_data(src), THCudaTensor_data(src)+THCudaTensor_nElement(src));\
+    bolt::amp::transform(src_data.begin(), src_data.end(), self_data.begin(),NAME##_functor());\
                                                                              \
     THCudaTensor_free(src);                                                  \
     THCudaTensor_freeCopyTo(self, self_);                                    \
   }
 
-IMPLEMENT_CUDA_TENSOR_BASIC_FUNC(log, log)
-IMPLEMENT_CUDA_TENSOR_BASIC_FUNC(log1p, log1p)
-IMPLEMENT_CUDA_TENSOR_BASIC_FUNC(exp, exp)
-IMPLEMENT_CUDA_TENSOR_BASIC_FUNC(cos, cos)
-IMPLEMENT_CUDA_TENSOR_BASIC_FUNC(acos, acos)
-IMPLEMENT_CUDA_TENSOR_BASIC_FUNC(cosh, cosh)
-IMPLEMENT_CUDA_TENSOR_BASIC_FUNC(sin, sin)
-IMPLEMENT_CUDA_TENSOR_BASIC_FUNC(asin, asin)
-IMPLEMENT_CUDA_TENSOR_BASIC_FUNC(sinh, sinh)
-IMPLEMENT_CUDA_TENSOR_BASIC_FUNC(tan, tan)
-IMPLEMENT_CUDA_TENSOR_BASIC_FUNC(atan, atan)
-IMPLEMENT_CUDA_TENSOR_BASIC_FUNC(tanh, tanh)
-IMPLEMENT_CUDA_TENSOR_BASIC_FUNC(sqrt, sqrt)
-IMPLEMENT_CUDA_TENSOR_BASIC_FUNC(ceil, ceil)
-IMPLEMENT_CUDA_TENSOR_BASIC_FUNC(floor, floor)
-IMPLEMENT_CUDA_TENSOR_BASIC_FUNC(abs, fabs)
-IMPLEMENT_CUDA_TENSOR_BASIC_FUNC(round, roundf)
+IMPLEMENT_CUDA_TENSOR_BASIC_FUNC(log, Concurrency::fast_math::log)
+IMPLEMENT_CUDA_TENSOR_BASIC_FUNC(log1p, Concurrency::precise_math::log1p)
+IMPLEMENT_CUDA_TENSOR_BASIC_FUNC(exp, Concurrency::fast_math::exp)
+IMPLEMENT_CUDA_TENSOR_BASIC_FUNC(cos, Concurrency::fast_math::cos)
+IMPLEMENT_CUDA_TENSOR_BASIC_FUNC(acos, Concurrency::fast_math::acos)
+IMPLEMENT_CUDA_TENSOR_BASIC_FUNC(cosh, Concurrency::fast_math::cosh)
+IMPLEMENT_CUDA_TENSOR_BASIC_FUNC(sin, Concurrency::fast_math::sin)
+IMPLEMENT_CUDA_TENSOR_BASIC_FUNC(asin, Concurrency::fast_math::asin)
+IMPLEMENT_CUDA_TENSOR_BASIC_FUNC(sinh, Concurrency::fast_math::sinh)
+IMPLEMENT_CUDA_TENSOR_BASIC_FUNC(tan, Concurrency::fast_math::tan)
+IMPLEMENT_CUDA_TENSOR_BASIC_FUNC(atan, Concurrency::fast_math::atan)
+IMPLEMENT_CUDA_TENSOR_BASIC_FUNC(tanh, Concurrency::fast_math::tanh)
+IMPLEMENT_CUDA_TENSOR_BASIC_FUNC(sqrt, Concurrency::fast_math::sqrt)
+IMPLEMENT_CUDA_TENSOR_BASIC_FUNC(ceil, Concurrency::fast_math::ceil)
+IMPLEMENT_CUDA_TENSOR_BASIC_FUNC(floor, Concurrency::fast_math::floor)
+IMPLEMENT_CUDA_TENSOR_BASIC_FUNC(abs, Concurrency::fast_math::fabs)
+IMPLEMENT_CUDA_TENSOR_BASIC_FUNC(round, Concurrency::fast_math::roundf)
 
 struct pow_functor
 {
