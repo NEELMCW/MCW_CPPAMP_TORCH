@@ -6,10 +6,10 @@
 #define MIN(a,b) (a) < (b) ? (a) : (b)
 
 #ifndef assert
-#define assert(e)  \
-    if (!(e)) { \
+#define assert(e)                              \
+    if (!(e)) {                                \
         printf("failed assertion `%s'\n", #e); \
-        THError("aborting..."); \
+        THError("aborting...");                \
     };
 #endif
 

@@ -13,9 +13,9 @@ struct mse_functor
   mse_functor() restrict(amp,cpu) {}
 
   float operator()(const float& x, const float& y) const restrict(amp,cpu)
-    {
-      float z = x-y;
-      return z*z;
+  {
+    float z = x-y;
+    return z*z;
   }
 };
 
@@ -57,9 +57,9 @@ struct mse_updateGradInput_functor
 
   mse_updateGradInput_functor(float norm_) restrict(amp,cpu) : norm(norm_) {}
 
-   float operator()(const float& x, const float& y) const restrict(amp,cpu)
-    {
-      return norm * (x - y);
+  float operator()(const float& x, const float& y) const restrict(amp,cpu)
+  {
+    return norm * (x - y);
   }
 };
 
@@ -84,8 +84,6 @@ static int gpunn_MSECriterion_updateGradInput(lua_State *L)
 
   bolt::amp::transform(input_data.begin(), input_data.end(), target_data.begin(), gradInput_data.begin(), mse_updateGradInput_functor(norm));
 
-
-
   THGPUTensor_free(input);
   THGPUTensor_free(target);
   return 1;
@@ -95,79 +93,65 @@ static int gpunn_MSECriterion_updateGradInput(lua_State *L)
 
 void gpunn_MSECriterion_updateOutput_kernel(THGPUStorage* output, THGPUTensor *input, THGPUTensor *target, int nframe, int dim)
 {
-    Concurrency::array_view<float,1> avInp(Concurrency::extent<1>(input->storage->size), THGPUTensor_data(input));
-    Concurrency::array_view<float,1> avTarget(Concurrency::extent<1>(target->storage->size), THGPUTensor_data(target));
-    Concurrency::array_view<float,1> avOutput(Concurrency::extent<1>(output->size), output->data);
-    Concurrency::extent<1> grdExt(MSECRITERION_THREADS);
-    Concurrency::tiled_extent<MSECRITERION_THREADS> t_ext(grdExt);
-    Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<MSECRITERION_THREADS> tidx) restrict(amp) 
+  Concurrency::array_view<float,1> avInp(Concurrency::extent<1>(input->storage->size), THGPUTensor_data(input));
+  Concurrency::array_view<float,1> avTarget(Concurrency::extent<1>(target->storage->size), THGPUTensor_data(target));
+  Concurrency::array_view<float,1> avOutput(Concurrency::extent<1>(output->size), output->data);
+  Concurrency::extent<1> grdExt(MSECRITERION_THREADS);
+  Concurrency::tiled_extent<MSECRITERION_THREADS> t_ext(grdExt);
+  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<MSECRITERION_THREADS> tidx) restrict(amp) 
+  {
+    tile_static float buffer[MSECRITERION_THREADS];
+    float *input_k = avInp.data();
+    float *target_k = avTarget.data();
+
+    int i_start = tidx.local[0];
+    int i_end = dim;
+    int i_step = t_ext.tile_dim0;
+
+    // mse
+    buffer[i_start] = 0;
+    for (int i=i_start; i<i_end; i+=i_step)
     {
-        tile_static float buffer[MSECRITERION_THREADS];
-        //int k = blockIdx.x;
-        //int k = tidx.tile[0];
-        float *input_k = avInp.data();
-        //input_k += k * t_ext.tile_dim0;
-        float *target_k = avTarget.data();
-        //target_k += k * t_ext.tile_dim0;
+      float z = input_k[i] - target_k[i];
+      buffer[i_start] += z*z;
+    }
+    tidx.barrier.wait();
 
-        //int i_start = threadIdx.x;
-        int i_start = tidx.local[0];
-        int i_end = dim;
-        //int i_step = blockDim.x;
-        int i_step = t_ext.tile_dim0;
-
-        // mse
-        buffer[i_start] = 0;
-        for (int i=i_start; i<i_end; i+=i_step)
-        {
-            float z = input_k[i] - target_k[i];
-            buffer[i_start] += z*z;
-        }
-        //__syncthreads();
-        tidx.barrier.wait();
-  
-        //reduce
-        if (i_start == 0)
-        {
-        avOutput[0] = 0;
-        for (int i=0; i<i_step; i++)
-        {
-            avOutput[0] += buffer[i];
-        }
-        }
-    });
-    avOutput.synchronize();
+    //reduce
+    if (i_start == 0)
+    {
+      avOutput[0] = 0;
+      for (int i=0; i<i_step; i++)
+      {
+        avOutput[0] += buffer[i];
+      }
+    }
+  });
+  avOutput.synchronize();
 }
 
 void gpunn_MSECriterion_updateGradInput_kernel(THGPUTensor *gradInput, THGPUTensor *input, THGPUTensor *target, float norm, int nframe, int dim)
 {
-    Concurrency::array_view<float,1> avInp(Concurrency::extent<1>(input->storage->size), THGPUTensor_data(input));
-    Concurrency::array_view<float,1> avTarget(Concurrency::extent<1>(target->storage->size), THGPUTensor_data(target));
-    Concurrency::array_view<float,1> avGradInput(Concurrency::extent<1>(gradInput->storage->size), THGPUTensor_data(gradInput));
-    Concurrency::extent<1> grdExt(MSECRITERION_THREADS);
-    Concurrency::tiled_extent<MSECRITERION_THREADS> t_ext(grdExt);
-    Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<MSECRITERION_THREADS> tidx) restrict(amp)
-    {
-        //int k = blockIdx.x;
-        //int k = tidx.tile[0];
-        float *input_k = avInp.data();
-        //input_k += k * t_ext.tile_dim0;
-        float *target_k = avTarget.data();
-        //target_k += k * t_ext.tile_dim0;
-        float *gradInput_k = avGradInput.data();
-        //gradInput_k += k * t_ext.tile_dim0;
+  Concurrency::array_view<float,1> avInp(Concurrency::extent<1>(input->storage->size), THGPUTensor_data(input));
+  Concurrency::array_view<float,1> avTarget(Concurrency::extent<1>(target->storage->size), THGPUTensor_data(target));
+  Concurrency::array_view<float,1> avGradInput(Concurrency::extent<1>(gradInput->storage->size), THGPUTensor_data(gradInput));
+  Concurrency::extent<1> grdExt(MSECRITERION_THREADS);
+  Concurrency::tiled_extent<MSECRITERION_THREADS> t_ext(grdExt);
+  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<MSECRITERION_THREADS> tidx) restrict(amp)
+  {
+    float *input_k = avInp.data();
+    float *target_k = avTarget.data();
+    float *gradInput_k = avGradInput.data();
 
-        //int i_start = threadIdx.x;
-        int i_start = tidx.local[0];
-        int i_end = dim;
-        //int i_step = blockDim.x;
-        int i_step = t_ext.tile_dim0;
+    int i_start = tidx.local[0];
+    int i_end = dim;
+    int i_step = t_ext.tile_dim0;
 
-        // gradInput
-        for (int i=i_start; i<i_end; i+=i_step)
-            gradInput_k[i] = norm*(input_k[i] - target_k[i]);
-    });
-    avInp.synchronize();
+    // gradInput
+    for (int i=i_start; i<i_end; i+=i_step)
+      gradInput_k[i] = norm*(input_k[i] - target_k[i]);
+  });
+  avInp.synchronize();
 }
 
 static int gpunn_MSECriterion_updateOutput2(lua_State *L)
@@ -184,23 +168,22 @@ static int gpunn_MSECriterion_updateOutput2(lua_State *L)
 
   THGPUStorage *output = THGPUStorage_newWithSize(1);
 
-   size = (size + (MSECRITERION_THREADS - 1)) & ~(MSECRITERION_THREADS - 1);
+  size = (size + (MSECRITERION_THREADS - 1)) & ~(MSECRITERION_THREADS - 1);
+  gpunn_MSECriterion_updateOutput_kernel(output, input, target, 1, size);
 
-   gpunn_MSECriterion_updateOutput_kernel(output, input, target, 1, size);
+  lua_pushnumber(L, THGPUStorage_get(output, 0));
 
-   lua_pushnumber(L, THGPUStorage_get(output, 0));
-
-   if (input != temp1)
-   {
-        THGPUTensor_free(input);
-        input = NULL;
-   }
-   if (target != temp2)
-   {
-       THGPUTensor_free(target);
-       target = NULL;
-   }
-   THGPUStorage_free(output);
+  if (input != temp1)
+  {
+    THGPUTensor_free(input);
+    input = NULL;
+  }
+  if (target != temp2)
+  {
+    THGPUTensor_free(target);
+    target = NULL;
+  }
+  THGPUStorage_free(output);
 
   lua_pushstring(L, "output");
   lua_pushvalue(L, -2);
@@ -217,38 +200,34 @@ static int gpunn_MSECriterion_updateGradInput2(lua_State *L)
   THGPUTensor *gradInput = (THGPUTensor*)luaT_getfieldcheckudata(L, 1, "gradInput", "torch.GPUTensor");
   long size = THGPUTensor_nElement(input);
   float norm = (sizeAverage ? 2./size : 2.);
-  
-    THGPUTensor *temp1 = input;
-    THGPUTensor *temp2 = target;
-    THGPUTensor *temp3 = gradInput;
-    input = THGPUTensor_newContiguous(input);
-    target = THGPUTensor_newContiguous(target);
 
-    THGPUTensor_resizeAs(gradInput, input);
-    
-    gpunn_MSECriterion_updateGradInput_kernel(gradInput, input, target, norm, 1, size);
+  THGPUTensor *temp1 = input;
+  THGPUTensor *temp2 = target;
+  THGPUTensor *temp3 = gradInput;
+  input = THGPUTensor_newContiguous(input);
+  target = THGPUTensor_newContiguous(target);
 
-    if (input != temp1)
-    {
-        THGPUTensor_free(input);
-        input = NULL;
-    }
-    if (target != temp2)
-    {
-        THGPUTensor_free(target);
-        target = NULL;
-    }
-    if (gradInput != temp3)
-    {
-        THGPUTensor_free(gradInput);
-        gradInput = NULL;
-    }
-    return 1;
+  THGPUTensor_resizeAs(gradInput, input);
 
+  gpunn_MSECriterion_updateGradInput_kernel(gradInput, input, target, norm, 1, size);
 
+  if (input != temp1)
+  {
+    THGPUTensor_free(input);
+    input = NULL;
+  }
+  if (target != temp2)
+  {
+    THGPUTensor_free(target);
+    target = NULL;
+  }
+  if (gradInput != temp3)
+  {
+    THGPUTensor_free(gradInput);
+    gradInput = NULL;
+  }
   return 1;
 }
-
 
 static const struct luaL_Reg gpunn_MSECriterion__ [] = {
   {"MSECriterion_updateOutput", gpunn_MSECriterion_updateOutput},

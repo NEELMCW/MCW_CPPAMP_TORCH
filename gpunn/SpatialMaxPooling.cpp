@@ -22,70 +22,64 @@ void maxpool(THGPUTensor *input, THGPUTensor *output, THGPUTensor *indices, int 
 
   Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1,8,32> tidx) restrict(amp)
   {
+    // iterators
+    int xx, yy;
 
-  // iterators
-  int xx, yy;
+    // output size
+    const int output_w = (input_w - kW) / dW + 1;
+    const int output_h = (input_h - kH) / dH + 1;
 
-  // output size
-  const int output_w = (input_w - kW) / dW + 1;
-  const int output_h = (input_h - kH) / dH + 1;
+    // compute offsets based on thread/block ID
+    int o = tidx.tile[2];
+    int i = o;
 
-  // compute offsets based on thread/block ID
-  //int o = blockIdx.x;
-  int o = tidx.tile[2];
-  int i = o;
-  //int k = blockIdx.x % input_n;
+    int xx_start = tidx.local[2];
+    int xx_end = output_w;
+    const int xx_step = tidx.tile_dim2;
 
-  //int xx_start = threadIdx.x;
-  int xx_start = tidx.local[2];
-  int xx_end = output_w;
-  //const int xx_step = blockDim.x;
-  const int xx_step = tidx.tile_dim2;
+    int yy_start = tidx.tile_dim1*tidx.tile[1] + tidx.local[1];
+    int yy_end = output_h;
+    const int yy_step = t_ext[1];
 
-  //int yy_start = blockDim.y*blockIdx.y + threadIdx.y;
-  int yy_start = tidx.tile_dim1*tidx.tile[1] + tidx.local[1];
-  int yy_end = output_h;
-  const int yy_step = t_ext[1];
+    // select input/output plane
 
-  // select input/output plane
+    int output = o*output_w*output_h;
+    int input = i*input_w*input_h;
+    int indices_x = xblocks * nOutputCols * nOutputRows + o*output_w*output_h;
+    int indices_y = o*output_w*output_h;
+    // For all output pixels...
+    for (yy = yy_start; yy < yy_end; yy+=yy_step) {
+      for (xx = xx_start; xx < xx_end; xx+=xx_step) {
+        // Compute the mean of the input image...
+        int ptr_input = input + yy*dH*input_w + xx*dW;
+        int ptr_output = output + yy*output_w + xx;
+        int ptr_ind_x = indices_x + yy*output_w + xx;
+        int ptr_ind_y = indices_y + yy*output_w + xx;
 
-  int output = o*output_w*output_h;
-  int input = i*input_w*input_h;
-  int indices_x = xblocks * nOutputCols * nOutputRows + o*output_w*output_h;
-  int indices_y = o*output_w*output_h;
-  // For all output pixels...
-  for(yy = yy_start; yy < yy_end; yy+=yy_step) {
-    for(xx = xx_start; xx < xx_end; xx+=xx_step) {
-      // Compute the mean of the input image...
-      int ptr_input = input + yy*dH*input_w + xx*dW;
-      int ptr_output = output + yy*output_w + xx;
-      int ptr_ind_x = indices_x + yy*output_w + xx;
-      int ptr_ind_y = indices_y + yy*output_w + xx;
-
-      int argmax_x = -1;
-      int argmax_y = -1;
-      float max = -FLT_MAX;
-      int kx, ky;
-      for(ky = 0; ky < kH; ky++) {
-        for(kx = 0; kx < kW; kx++) {
-          float val = input_data[ptr_input + kx];
-          if (val > max) {
-            max = val;
-            argmax_x = kx;
-            argmax_y = ky;
-          } 
+        int argmax_x = -1;
+        int argmax_y = -1;
+        float max = -FLT_MAX;
+        int kx, ky;
+        for (ky = 0; ky < kH; ky++) {
+          for (kx = 0; kx < kW; kx++) {
+            float val = input_data[ptr_input + kx];
+            if (val > max) {
+              max = val;
+              argmax_x = kx;
+              argmax_y = ky;
+            } 
+          }
+          ptr_input += input_w; // next input line
         }
-        ptr_input += input_w; // next input line
+        // Update output and argmax
+        output_data[ptr_output] = max;
+        indices_data[ptr_ind_x] = (float)argmax_x + 1;
+        indices_data[ptr_ind_y] = (float)argmax_y + 1;
       }
-      // Update output and argmax
-      output_data[ptr_output] = max;
-      indices_data[ptr_ind_x] = (float)argmax_x + 1;
-      indices_data[ptr_ind_y] = (float)argmax_y + 1;
     }
-  }
-  });
-  output_data.synchronize();
-  indices_data.synchronize();
+    });
+    output_data.synchronize();
+    indices_data.synchronize();
 }
 
 /*
@@ -104,49 +98,44 @@ void maxgradinput(THGPUTensor *gradInput, THGPUTensor *gradOutput, THGPUTensor *
 
   Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1,8,32> tidx) restrict(amp)
   {
-  // iterators
-  int xx, yy;
+    // iterators
+    int xx, yy;
 
-  // output size
-  int output_w = (input_w - kW) / dW + 1;
-  int output_h = (input_h - kH) / dH + 1;
+    // output size
+    int output_w = (input_w - kW) / dW + 1;
+    int output_h = (input_h - kH) / dH + 1;
 
-  // compute offsets based on thread/block ID
-  //int o = blockIdx.x;
-  int o = tidx.tile[2];
-  int i = o;
-  //int k = blockIdx.x % input_n;
+    // compute offsets based on thread/block ID
+    int o = tidx.tile[2];
+    int i = o;
 
-  //int xx_start = threadIdx.x;
-  int xx_start = tidx.local[2];
-  int xx_end = output_w;
-  //const int xx_step = blockDim.x;
-  const int xx_step = tidx.tile_dim2;
+    int xx_start = tidx.local[2];
+    int xx_end = output_w;
+    const int xx_step = tidx.tile_dim2;
 
-  //int yy_start = blockDim.y*blockIdx.y + threadIdx.y;
-  int yy_start = tidx.tile_dim1*tidx.tile[1] + tidx.local[1];
-  int yy_end = output_h;
-  const int yy_step = t_ext[1];
+    int yy_start = tidx.tile_dim1*tidx.tile[1] + tidx.local[1];
+    int yy_end = output_h;
+    const int yy_step = t_ext[1];
 
-  int gradOutput = o*output_w*output_h;
-  int gradInput = i*input_w*input_h;
-  int indices_x = xblocks * nOutputCols * nOutputRows + o*output_w*output_h;
-  int indices_y = o*output_w*output_h;
-  // compute gradInput
-  for(yy = yy_start; yy < yy_end; yy+=yy_step) {
-    for(xx = xx_start; xx < xx_end; xx+=xx_step) {
-      int ptr_gradInput = gradInput + yy*dH*input_w + xx*dW;
-      int ptr_gradOutput = gradOutput + yy*output_w + xx;
-      int ptr_ind_x = indices_x + yy*output_w + xx;
-      int ptr_ind_y = indices_y + yy*output_w + xx;
-     
-      float z = output_data[ptr_gradOutput];
-      int argmax_x = (int)indices_data[ptr_ind_x]-1;
-      int argmax_y = (int)indices_data[ptr_ind_y]-1;
+    int gradOutput = o*output_w*output_h;
+    int gradInput = i*input_w*input_h;
+    int indices_x = xblocks * nOutputCols * nOutputRows + o*output_w*output_h;
+    int indices_y = o*output_w*output_h;
+    // compute gradInput
+    for (yy = yy_start; yy < yy_end; yy+=yy_step) {
+      for (xx = xx_start; xx < xx_end; xx+=xx_step) {
+        int ptr_gradInput = gradInput + yy*dH*input_w + xx*dW;
+        int ptr_gradOutput = gradOutput + yy*output_w + xx;
+        int ptr_ind_x = indices_x + yy*output_w + xx;
+        int ptr_ind_y = indices_y + yy*output_w + xx;
 
-      input_data[ptr_gradInput + argmax_x + argmax_y*input_w] += z;
+        float z = output_data[ptr_gradOutput];
+        int argmax_x = (int)indices_data[ptr_ind_x]-1;
+        int argmax_y = (int)indices_data[ptr_ind_y]-1;
+
+        input_data[ptr_gradInput + argmax_x + argmax_y*input_w] += z;
+      }
     }
-  }
   });
   input_data.synchronize();
 }
@@ -156,9 +145,8 @@ void maxgradinput(THGPUTensor *gradInput, THGPUTensor *gradOutput, THGPUTensor *
  *    this function computes the gradInput from weight and gradOutput
  *    when kH != dH or kW != dW (uses atomic add)
  */
-void atomicmaxgradinput(
-  THGPUTensor *gradInput, THGPUTensor *gradOutput, THGPUTensor *indices, int nOutputCols, int nOutputRows,
-  int input_n, int input_h, int input_w, int kH, int kW, int dH, int dW, int xblocks, int yblocks
+void atomicmaxgradinput(THGPUTensor *gradInput, THGPUTensor *gradOutput, THGPUTensor *indices, int nOutputCols, int nOutputRows,
+                        int input_n, int input_h, int input_w, int kH, int kW, int dH, int dW, int xblocks, int yblocks
 )
 {
   Concurrency::extent<3> copyExt(1,yblocks*8,xblocks*32);
@@ -170,53 +158,48 @@ void atomicmaxgradinput(
 
   Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1,8,32> tidx) restrict(amp)
   {
-  // iterators
-  int xx, yy;
+    // iterators
+    int xx, yy;
 
-  // output size
-  int output_w = (input_w - kW) / dW + 1;
-  int output_h = (input_h - kH) / dH + 1;
+    // output size
+    int output_w = (input_w - kW) / dW + 1;
+    int output_h = (input_h - kH) / dH + 1;
 
-  // compute offsets based on thread/block ID
-  //int o = blockIdx.x;
-  int o = tidx.tile[2];
-  int i = o;
-  //int k = blockIdx.x % input_n;
+    // compute offsets based on thread/block ID
+    int o = tidx.tile[2];
+    int i = o;
 
-  //int xx_start = threadIdx.x;
-  int xx_start = tidx.local[2];
-  int xx_end = output_w;
-  //const int xx_step = blockDim.x;
-  const int xx_step = tidx.tile_dim2;
+    int xx_start = tidx.local[2];
+    int xx_end = output_w;
+    const int xx_step = tidx.tile_dim2;
 
-  //int yy_start = blockDim.y*blockIdx.y + threadIdx.y;
-  int yy_start = tidx.tile_dim1*tidx.tile[1] + tidx.local[1];
-  int yy_end = output_h;
-  const int yy_step = t_ext[1];
+    int yy_start = tidx.tile_dim1*tidx.tile[1] + tidx.local[1];
+    int yy_end = output_h;
+    const int yy_step = t_ext[1];
 
-  // select input/output plane
-  int gradOutput = o*output_w*output_h;
-  int gradInput = i*input_w*input_h;
-  int indices_x = xblocks * nOutputCols * nOutputRows + o*output_w*output_h;
-  int indices_y = o*output_w*output_h;
+    // select input/output plane
+    int gradOutput = o*output_w*output_h;
+    int gradInput = i*input_w*input_h;
+    int indices_x = xblocks * nOutputCols * nOutputRows + o*output_w*output_h;
+    int indices_y = o*output_w*output_h;
 
-  // compute gradInput
-  for(yy = yy_start; yy < yy_end; yy+=yy_step) {
-    for(xx = xx_start; xx < xx_end; xx+=xx_step) {
-      int ptr_gradInput = gradInput + yy*dH*input_w + xx*dW;
-      int ptr_gradOutput = gradOutput + yy*output_w + xx;
-      int ptr_ind_x = indices_x + yy*output_w + xx;
-      int ptr_ind_y = indices_y + yy*output_w + xx;
-      float z = output_data[ptr_gradOutput];
+    // compute gradInput
+    for (yy = yy_start; yy < yy_end; yy+=yy_step) {
+      for (xx = xx_start; xx < xx_end; xx+=xx_step) {
+        int ptr_gradInput = gradInput + yy*dH*input_w + xx*dW;
+        int ptr_gradOutput = gradOutput + yy*output_w + xx;
+        int ptr_ind_x = indices_x + yy*output_w + xx;
+        int ptr_ind_y = indices_y + yy*output_w + xx;
+        float z = output_data[ptr_gradOutput];
 
-      int argmax_x = (int)indices_data[ptr_ind_x]-1;
-      int argmax_y = (int)indices_data[ptr_ind_y]-1;
+        int argmax_x = (int)indices_data[ptr_ind_x]-1;
+        int argmax_y = (int)indices_data[ptr_ind_y]-1;
 
-      // atomic add since different threads could update same variable
-      //Concurrency::atomic_fetch_add((int*)(&(ptr_gradInput[argmax_x + argmax_y*input_w])), (int)z);
-      input_data[ptr_gradInput + argmax_x + argmax_y*input_w] += z;
+        // atomic add since different threads could update same variable
+        //Concurrency::atomic_fetch_add((int*)(&(ptr_gradInput[argmax_x + argmax_y*input_w])), (int)z);
+        input_data[ptr_gradInput + argmax_x + argmax_y*input_w] += z;
+      }
     }
-  }
   });
 input_data.synchronize();
 }

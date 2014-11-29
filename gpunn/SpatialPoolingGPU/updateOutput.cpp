@@ -72,69 +72,69 @@ void kLocalPool(THGPUTensor* imgs, THGPUTensor* target, const int imgSize, const
                  const int numImages, const int subsX, const int startX, const int strideX,
                  const int outputsX, Agg agg, int blockX, int blockY)
 {
-    Concurrency::array_view<float,1> avImages(Concurrency::extent<1>(imgs->storage->size), THGPUTensor_data(imgs));
-    Concurrency::array_view<float,1> avTargets(Concurrency::extent<1>(target->storage->size), THGPUTensor_data(target));
-    Concurrency::extent<3> grdExt(1, blockY * 4, blockX * 32);
-    Concurrency::tiled_extent<1, 4, 32> t_ext(grdExt);
-    Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1, 4, 32> tidx) restrict(amp) 
-    {
-        float *imgs = avImages.data();
-        float *target = avTargets.data();
-        const int numImgBlocks = DIVUP(numImages,B_X*imgsPerThread);
-        const int numFilterBlocks = DIVUP(numFilters, B_Y*filtersPerThread);
-        const int outputIdxX = tidx.tile[2] / numImgBlocks;
-        const int outputIdxY = tidx.tile[1] / numFilterBlocks;
-        const int blockImgIdx = (tidx.tile[2] % numImgBlocks) * B_X * imgsPerThread;
-        const int blockFilterIdx = (tidx.tile[1] % numFilterBlocks) * B_Y * filtersPerThread;
-        const int myFilterIdx = (blockFilterIdx + tidx.local[1]*filtersPerThread);
-        if (myFilterIdx >= numFilters) {
-            return;
-        }
+  Concurrency::array_view<float,1> avImages(Concurrency::extent<1>(imgs->storage->size), THGPUTensor_data(imgs));
+  Concurrency::array_view<float,1> avTargets(Concurrency::extent<1>(target->storage->size), THGPUTensor_data(target));
+  Concurrency::extent<3> grdExt(1, blockY * 4, blockX * 32);
+  Concurrency::tiled_extent<1, 4, 32> t_ext(grdExt);
+  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1, 4, 32> tidx) restrict(amp) 
+  {
+    float *imgs = avImages.data();
+    float *target = avTargets.data();
+    const int numImgBlocks = DIVUP(numImages,B_X*imgsPerThread);
+    const int numFilterBlocks = DIVUP(numFilters, B_Y*filtersPerThread);
+    const int outputIdxX = tidx.tile[2] / numImgBlocks;
+    const int outputIdxY = tidx.tile[1] / numFilterBlocks;
+    const int blockImgIdx = (tidx.tile[2] % numImgBlocks) * B_X * imgsPerThread;
+    const int blockFilterIdx = (tidx.tile[1] % numFilterBlocks) * B_Y * filtersPerThread;
+    const int myFilterIdx = (blockFilterIdx + tidx.local[1]*filtersPerThread);
+    if (myFilterIdx >= numFilters) {
+      return;
+    }
 
-        const int outputIdx = outputIdxY * outputsX + outputIdxX;
-        const int numOutputs = outputsX * outputsX;
-        const int imgPixels = imgSize * imgSize;
+    const int outputIdx = outputIdxY * outputsX + outputIdxX;
+    const int numOutputs = outputsX * outputsX;
+    const int imgPixels = imgSize * imgSize;
 
-        const int startImgPxX = startX + outputIdxX * strideX;
-        const int startImgPxY = startX + outputIdxY * strideX;
-        const int imgIdx = blockImgIdx + tidx.local[2];
+    const int startImgPxX = startX + outputIdxX * strideX;
+    const int startImgPxY = startX + outputIdxY * strideX;
+    const int imgIdx = blockImgIdx + tidx.local[2];
 
-        imgs += myFilterIdx * imgPixels * numImages + imgIdx;
-        target += (myFilterIdx * numOutputs + outputIdx) * numImages + imgIdx;
+    imgs += myFilterIdx * imgPixels * numImages + imgIdx;
+    target += (myFilterIdx * numOutputs + outputIdx) * numImages + imgIdx;
 
-        float prod[filtersPerThread][imgsPerThread];
-        for (int f = 0; f < filtersPerThread; f++) {
-            for (int i = 0; i < imgsPerThread; i++) {
-                prod[f][i] = agg.getBaseValue(); 
-            }
-        }
+    float prod[filtersPerThread][imgsPerThread];
+    for (int f = 0; f < filtersPerThread; f++) {
+      for (int i = 0; i < imgsPerThread; i++) {
+        prod[f][i] = agg.getBaseValue(); 
+      }
+    }
 
-        const int loopStartY = MAX(0, startImgPxY);
-        const int loopStartX = MAX(0, startImgPxX);
-        const int loopEndY = MIN(imgSize, startImgPxY + subsX);
-        const int loopEndX = MIN(imgSize, startImgPxX + subsX);
-        const int regionSize = (loopEndY - loopStartY) * (loopEndX - loopStartX);
-        for (int y = loopStartY; y < loopEndY; y++) {
-            for (int x = loopStartX; x < loopEndX; x++) {
-                const int imgPx = y * imgSize + x;
-                for (int i = 0; i < imgsPerThread; i++) {
-                    if (!checkCaseBounds || imgIdx + i * B_X < numImages) {
-                        for (int f = 0; f < filtersPerThread; f++) {
-                            prod[f][i] = agg(prod[f][i], imgs[(f * imgPixels + imgPx) * numImages + i * B_X]);
-                        }
-                    }
-                }
-            }
-        }
-
+    const int loopStartY = MAX(0, startImgPxY);
+    const int loopStartX = MAX(0, startImgPxX);
+    const int loopEndY = MIN(imgSize, startImgPxY + subsX);
+    const int loopEndX = MIN(imgSize, startImgPxX + subsX);
+    const int regionSize = (loopEndY - loopStartY) * (loopEndX - loopStartX);
+    for (int y = loopStartY; y < loopEndY; y++) {
+      for (int x = loopStartX; x < loopEndX; x++) {
+        const int imgPx = y * imgSize + x;
         for (int i = 0; i < imgsPerThread; i++) {
-            if (!checkCaseBounds || imgIdx + i * B_X < numImages) {
-                for (int f = 0; f < filtersPerThread; f++) {
-                    target[f * numOutputs * numImages + i * B_X] = agg.output(prod[f][i], regionSize); 
-                }
+          if (!checkCaseBounds || imgIdx + i * B_X < numImages) {
+            for (int f = 0; f < filtersPerThread; f++) {
+              prod[f][i] = agg(prod[f][i], imgs[(f * imgPixels + imgPx) * numImages + i * B_X]);
             }
+          }
         }
-    });
+      }
+    }
+
+    for (int i = 0; i < imgsPerThread; i++) {
+      if (!checkCaseBounds || imgIdx + i * B_X < numImages) {
+        for (int f = 0; f < filtersPerThread; f++) {
+          target[f * numOutputs * numImages + i * B_X] = agg.output(prod[f][i], regionSize); 
+        }
+      }
+    }
+  });
 }
 
 
@@ -169,106 +169,102 @@ void kLocalPool2(THGPUTensor* imgs, THGPUTensor* target, const int imgSize, cons
                   const int numImages, const int subsX, const int startX,
                   const int outputsX, Agg agg, int blockX, int blockY)
 {
-    Concurrency::array_view<float,1> avImages(Concurrency::extent<1>(imgs->storage->size), THGPUTensor_data(imgs));
-    Concurrency::array_view<float,1> avTargets(Concurrency::extent<1>(target->storage->size), THGPUTensor_data(target));
-    Concurrency::extent<3> grdExt(1, blockY * 16, blockX * 8);
-    Concurrency::tiled_extent<1, 16, 8> t_ext(grdExt);
-    Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1, 16, 8> tidx) restrict(amp) 
-    {
-        tile_static float shImgs[filtersPerThread][B_X*imgsPerThread];
-        float *imgs = avImages.data();
-        float *target = avTargets.data();
+  Concurrency::array_view<float,1> avImages(Concurrency::extent<1>(imgs->storage->size), THGPUTensor_data(imgs));
+  Concurrency::array_view<float,1> avTargets(Concurrency::extent<1>(target->storage->size), THGPUTensor_data(target));
+  Concurrency::extent<3> grdExt(1, blockY * 16, blockX * 8);
+  Concurrency::tiled_extent<1, 16, 8> t_ext(grdExt);
+  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1, 16, 8> tidx) restrict(amp) 
+  {
+    tile_static float shImgs[filtersPerThread][B_X*imgsPerThread];
+    float *imgs = avImages.data();
+    float *target = avTargets.data();
 
-        const int numImgBlocks = DIVUP(numImages,B_X*imgsPerThread);
-        const int numFilterBlocks = numFilters/(filtersPerThread);
-        const int blockOutputX = 4*(tidx.tile[2] / numImgBlocks);
-        const int blockOutputY = 4*(tidx.tile[1] / numFilterBlocks);
-        const int blockImgIdx = (tidx.tile[2] % numImgBlocks) * B_X * imgsPerThread;
-        const int blockFilterIdx = (tidx.tile[1] % numFilterBlocks) * filtersPerThread;
+    const int numImgBlocks = DIVUP(numImages,B_X*imgsPerThread);
+    const int numFilterBlocks = numFilters/(filtersPerThread);
+    const int blockOutputX = 4*(tidx.tile[2] / numImgBlocks);
+    const int blockOutputY = 4*(tidx.tile[1] / numFilterBlocks);
+    const int blockImgIdx = (tidx.tile[2] % numImgBlocks) * B_X * imgsPerThread;
+    const int blockFilterIdx = (tidx.tile[1] % numFilterBlocks) * filtersPerThread;
 
-        //    const int blockOutputIdx = blockOutputY * outputsX + blockOutputX;
-        const int numOutputs = outputsX * outputsX;
-        const int imgPixels = imgSize * imgSize;
+    const int numOutputs = outputsX * outputsX;
+    const int imgPixels = imgSize * imgSize;
 
-        const int t_idx = tidx.local[1] * B_X + tidx.local[2];
-        const int loadY = t_idx / 32, loadX = t_idx % 32;
+    const int t_idx = tidx.local[1] * B_X + tidx.local[2];
+    const int loadY = t_idx / 32, loadX = t_idx % 32;
 
-        const int myX = tidx.local[1] % 4;
-        const int myY = tidx.local[1] / 4;
+    const int myX = tidx.local[1] % 4;
+    const int myY = tidx.local[1] / 4;
 
-        const int myOutputIdxY = blockOutputY + myY;
-        const int myOutputIdxX = blockOutputX + myX;
-        const int myOutputIdx = myOutputIdxY * outputsX + myOutputIdxX;
+    const int myOutputIdxY = blockOutputY + myY;
+    const int myOutputIdxX = blockOutputX + myX;
+    const int myOutputIdx = myOutputIdxY * outputsX + myOutputIdxX;
 
-        const int startImgPxX = startX + blockOutputX;
-        const int startImgPxY = startX + blockOutputY;
-        const int endImgPxX = startImgPxX + subsX;
-        const int endImgPxY = startImgPxY + subsX;
+    const int startImgPxX = startX + blockOutputX;
+    const int startImgPxY = startX + blockOutputY;
+    const int endImgPxX = startImgPxX + subsX;
+    const int endImgPxY = startImgPxY + subsX;
 
-        const int myStartImgPxY = startImgPxY + myY;
-        const int myStartImgPxX = startImgPxX + myX;
-        const int myEndImgPxY = endImgPxY + myY;
-        const int myEndImgPxX = endImgPxX + myX;
+    const int myStartImgPxY = startImgPxY + myY;
+    const int myStartImgPxX = startImgPxX + myX;
+    const int myEndImgPxY = endImgPxY + myY;
+    const int myEndImgPxX = endImgPxX + myX;
 
-        const int loopStartY = MAX(startImgPxY, 0);
-        const int loopStartX = MAX(startImgPxX, 0);
-        const int loopEndY = MIN(imgSize, endImgPxY + 3);
-        const int loopEndX = MIN(imgSize, endImgPxX + 3);
-        const int imgIdx = blockImgIdx + tidx.local[2];
+    const int loopStartY = MAX(startImgPxY, 0);
+    const int loopStartX = MAX(startImgPxX, 0);
+    const int loopEndY = MIN(imgSize, endImgPxY + 3);
+    const int loopEndX = MIN(imgSize, endImgPxX + 3);
+    const int imgIdx = blockImgIdx + tidx.local[2];
 
-        imgs += (blockFilterIdx + loadY) * imgPixels * numImages + blockImgIdx + loadX;
-        target += (blockFilterIdx * numOutputs + myOutputIdx) * numImages + imgIdx;
+    imgs += (blockFilterIdx + loadY) * imgPixels * numImages + blockImgIdx + loadX;
+    target += (blockFilterIdx * numOutputs + myOutputIdx) * numImages + imgIdx;
 
-        float prod[filtersPerThread][imgsPerThread];
-        for (int f = 0; f < filtersPerThread; f++) {
-            for (int i = 0; i < imgsPerThread; i++) {
-                prod[f][i] = agg.getBaseValue(); 
+    float prod[filtersPerThread][imgsPerThread];
+    for (int f = 0; f < filtersPerThread; f++) {
+      for (int i = 0; i < imgsPerThread; i++) {
+        prod[f][i] = agg.getBaseValue(); 
+      }
+    }
+    int regionSize = 0;
+    for (int y = loopStartY; y < loopEndY; y++) {
+      const bool isInY = y >= myStartImgPxY && y < myEndImgPxY ;
+      for (int x = loopStartX; x < loopEndX; x++) {
+        // Load a pixel
+        const int px = y * imgSize + x;
+        for (int ly = 0; ly < filtersPerThread; ly += B_X/2) {
+          if (filtersPerThread % (B_X/2) == 0 || ly + loadY < filtersPerThread) {
+            for (int lx = 0; lx < B_X*imgsPerThread; lx += 32) {
+              if (!checkCaseBounds || lx + loadX + blockImgIdx < numImages) {
+                shImgs[ly + loadY][lx + loadX] = imgs[(ly * imgPixels + px) * numImages + lx];
+              }
             }
+          }
         }
-        int regionSize = 0;
-        for (int y = loopStartY; y < loopEndY; y++) {
-            const bool isInY = y >= myStartImgPxY && y < myEndImgPxY ;
-            for (int x = loopStartX; x < loopEndX; x++) {
-                // Load a pixel
-                const int px = y * imgSize + x;
-                for (int ly = 0; ly < filtersPerThread; ly += B_X/2) {
-                    if (filtersPerThread % (B_X/2) == 0 || ly + loadY < filtersPerThread) {
-                        for (int lx = 0; lx < B_X*imgsPerThread; lx += 32) {
-                            if (!checkCaseBounds || lx + loadX + blockImgIdx < numImages) {
-                                shImgs[ly + loadY][lx + loadX] = imgs[(ly * imgPixels + px) * numImages + lx];
-                            }
-                        }
-                    }
-                }
-                //__syncthreads();
-                tidx.barrier.wait();
+        tidx.barrier.wait();
 
-                // Is this pixel in my region?
-                if (isInY && x >= myStartImgPxX && x < myEndImgPxX) {
-                    for (int i = 0; i < imgsPerThread; i++) {
-                        if (!checkCaseBounds || imgIdx + i * B_X < numImages) {
-                            for (int f = 0; f < filtersPerThread; f++) {
-                                prod[f][i] = agg(prod[f][i], shImgs[f][tidx.local[2] + i * B_X]);
-                            }
-                        }
-                    }
-                    ++regionSize;
-                }
-                //__syncthreads();
-                tidx.barrier.wait();
-
+        // Is this pixel in my region?
+        if (isInY && x >= myStartImgPxX && x < myEndImgPxX) {
+          for (int i = 0; i < imgsPerThread; i++) {
+            if (!checkCaseBounds || imgIdx + i * B_X < numImages) {
+              for (int f = 0; f < filtersPerThread; f++) {
+                prod[f][i] = agg(prod[f][i], shImgs[f][tidx.local[2] + i * B_X]);
+              }
             }
+          }
+          ++regionSize;
         }
-        if (myOutputIdxY < outputsX && myOutputIdxX < outputsX) {
-            for (int i = 0; i < imgsPerThread; i++) {
-                if (!checkCaseBounds || imgIdx + i * B_X < numImages) {
-                    for (int f = 0; f < filtersPerThread; f++) {
-                        target[f * numOutputs * numImages + i * B_X] = agg.output(prod[f][i], regionSize); 
-                    }
-                }
-            }
+        tidx.barrier.wait();
+      }
+    }
+    if (myOutputIdxY < outputsX && myOutputIdxX < outputsX) {
+      for (int i = 0; i < imgsPerThread; i++) {
+        if (!checkCaseBounds || imgIdx + i * B_X < numImages) {
+          for (int f = 0; f < filtersPerThread; f++) {
+            target[f * numOutputs * numImages + i * B_X] = agg.output(prod[f][i], regionSize); 
+          }
         }
-    });
+      }
+    }
+  });
 }
 
 /*
@@ -313,111 +309,111 @@ void spatialMaxPooling_updateOutput
     assert((imgsPerThread * bx) % 32 == 0);
     assert(numFilters % filtersPerThread == 0);
 
-        int blockX, blockY;
-        blockX = DIVUP(outputsX, 4) * DIVUP(numImages, bx*imgsPerThread);
-        blockY = DIVUP(outputsX, 4) * numFilters / filtersPerThread;
+    int blockX, blockY;
+    blockX = DIVUP(outputsX, 4) * DIVUP(numImages, bx*imgsPerThread);
+    blockY = DIVUP(outputsX, 4) * numFilters / filtersPerThread;
 
-        if (imgsPerThread == 8) {
-                if (filtersPerThread == 1) {
-                    if (checkCaseBounds) {
-                        //gpuFuncSetCacheConfig(kLocalPool2<Pooler, 8, 8, 1, true>, gpuFuncCachePreferShared);
-                        kLocalPool2<Pooler, 8, 8, 1, true>(images, targets,
-                                                    imgSize, numFilters, numImages, subsX, startX, outputsX, pooler,
-                                                    blockX, blockY);
-                    } else {
-                        //gpuFuncSetCacheConfig(kLocalPool2<Pooler, 8, 8, 1, false>, gpuFuncCachePreferShared);
-                        kLocalPool2<Pooler, 8, 8, 1, false>(images, targets,
-                                                    imgSize, numFilters, numImages, subsX, startX, outputsX, pooler,
-                                                    blockX, blockY);
-                    }
-                } else if (filtersPerThread == 2) {
-                    if (checkCaseBounds) {
-                        //gpuFuncSetCacheConfig(kLocalPool2<Pooler, 8, 8, 2, true>, gpuFuncCachePreferShared);
-                        kLocalPool2<Pooler, 8, 8, 2, true>(images, targets,
-                                                    imgSize, numFilters, numImages, subsX, startX, outputsX, pooler,
-                                                    blockX, blockY);
-                    } else {
-                        //gpuFuncSetCacheConfig(kLocalPool2<Pooler, 8, 8, 2, false>, gpuFuncCachePreferShared);
-                        kLocalPool2<Pooler, 8, 8, 2, false>(images, targets,
-                                                    imgSize, numFilters, numImages, subsX, startX, outputsX, pooler,
-                                                    blockX, blockY);
-                    }
-                } else if (filtersPerThread == 3) {
-                    if (checkCaseBounds) {
-                        //gpuFuncSetCacheConfig(kLocalPool2<Pooler, 8, 8, 3, true>, gpuFuncCachePreferShared);
-                        kLocalPool2<Pooler, 8, 8, 3, true>(images, targets,
-                                                    imgSize, numFilters, numImages, subsX, startX, outputsX, pooler,
-                                                    blockX, blockY);
-                    } else {
-                        //gpuFuncSetCacheConfig(kLocalPool2<Pooler, 8, 8, 3, false>, gpuFuncCachePreferShared);
-                        kLocalPool2<Pooler, 8, 8, 3, false>(images, targets,
-                                                    imgSize, numFilters, numImages, subsX, startX, outputsX, pooler,
-                                                    blockX, blockY);
-                    }
-                } else if (filtersPerThread == 4) {
-                    if (checkCaseBounds) {
-                        //gpuFuncSetCacheConfig(kLocalPool2<Pooler, 8, 8, 4, true>, gpuFuncCachePreferShared);
-                        kLocalPool2<Pooler, 8, 8, 4, true>(images, targets,
-                                                    imgSize, numFilters, numImages, subsX, startX, outputsX, pooler,
-                                                    blockX, blockY);
-                    } else {
-                        //gpuFuncSetCacheConfig(kLocalPool2<Pooler, 8, 8, 4, false>, gpuFuncCachePreferShared);
-                        kLocalPool2<Pooler, 8, 8, 4, false>(images, targets,
-                                                    imgSize, numFilters, numImages, subsX, startX, outputsX, pooler,
-                                                    blockX, blockY);
-                    }
+    if (imgsPerThread == 8) {
+            if (filtersPerThread == 1) {
+                if (checkCaseBounds) {
+                    //gpuFuncSetCacheConfig(kLocalPool2<Pooler, 8, 8, 1, true>, gpuFuncCachePreferShared);
+                    kLocalPool2<Pooler, 8, 8, 1, true>(images, targets,
+                                                imgSize, numFilters, numImages, subsX, startX, outputsX, pooler,
+                                                blockX, blockY);
+                } else {
+                    //gpuFuncSetCacheConfig(kLocalPool2<Pooler, 8, 8, 1, false>, gpuFuncCachePreferShared);
+                    kLocalPool2<Pooler, 8, 8, 1, false>(images, targets,
+                                                imgSize, numFilters, numImages, subsX, startX, outputsX, pooler,
+                                                blockX, blockY);
                 }
-        } else if (imgsPerThread == 4) {
-                if (filtersPerThread == 1) {
-                    if (checkCaseBounds) {
-                        //gpuFuncSetCacheConfig(kLocalPool2<Pooler, 8, 4, 1, true>, gpuFuncCachePreferShared);
-                        kLocalPool2<Pooler, 8, 4, 1, true>(images, targets,
-                                                    imgSize, numFilters, numImages, subsX, startX, outputsX, pooler,
-                                                    blockX, blockY);
-                    } else {
-                        //gpuFuncSetCacheConfig(kLocalPool2<Pooler, 8, 4, 1, false>, gpuFuncCachePreferShared);
-                        kLocalPool2<Pooler, 8, 4, 1, false>(images, targets,
-                                                    imgSize, numFilters, numImages, subsX, startX, outputsX, pooler,
-                                                    blockX, blockY);
-                    }
-                } else if (filtersPerThread == 2) {
-                    if (checkCaseBounds) {
-                        //gpuFuncSetCacheConfig(kLocalPool2<Pooler, 8, 4, 2, true>, gpuFuncCachePreferShared);
-                        kLocalPool2<Pooler, 8, 4, 2, true>(images, targets,
-                                                    imgSize, numFilters, numImages, subsX, startX, outputsX, pooler,
-                                                    blockX, blockY);
-                    } else {
-                        //gpuFuncSetCacheConfig(kLocalPool2<Pooler, 8, 4, 2, false>, gpuFuncCachePreferShared);
-                        kLocalPool2<Pooler, 8, 4, 2, false>(images, targets,
-                                                    imgSize, numFilters, numImages, subsX, startX, outputsX, pooler,
-                                                    blockX, blockY);
-                    }
-                } else if (filtersPerThread == 3) {
-                    if (checkCaseBounds) {
-                        //gpuFuncSetCacheConfig(kLocalPool2<Pooler, 8, 4, 3, true>, gpuFuncCachePreferShared);
-                        kLocalPool2<Pooler, 8, 4, 3, true>(images, targets,
-                                                    imgSize, numFilters, numImages, subsX, startX, outputsX, pooler,
-                                                    blockX, blockY);
-                    } else {
-                        //gpuFuncSetCacheConfig(kLocalPool2<Pooler, 8, 4, 3, false>, gpuFuncCachePreferShared);
-                        kLocalPool2<Pooler, 8, 4, 3, false>(images, targets,
-                                                    imgSize, numFilters, numImages, subsX, startX, outputsX, pooler,
-                                                    blockX, blockY);
-                    }
-                } else if (filtersPerThread == 4) {
-                    if (checkCaseBounds) {
-                        //gpuFuncSetCacheConfig(kLocalPool2<Pooler, 8, 4, 4, true>, gpuFuncCachePreferShared);
-                        kLocalPool2<Pooler, 8, 4, 4, true>(images, targets,
-                                                    imgSize, numFilters, numImages, subsX, startX, outputsX, pooler,
-                                                    blockX, blockY);
-                    } else {
-                        //gpuFuncSetCacheConfig(kLocalPool2<Pooler, 8, 4, 4, false>, gpuFuncCachePreferShared);
-                        kLocalPool2<Pooler, 8, 4, 4, false>(images, targets,
-                                                    imgSize, numFilters, numImages, subsX, startX, outputsX, pooler,
-                                                    blockX, blockY);
-                    }
+            } else if (filtersPerThread == 2) {
+                if (checkCaseBounds) {
+                    //gpuFuncSetCacheConfig(kLocalPool2<Pooler, 8, 8, 2, true>, gpuFuncCachePreferShared);
+                    kLocalPool2<Pooler, 8, 8, 2, true>(images, targets,
+                                                imgSize, numFilters, numImages, subsX, startX, outputsX, pooler,
+                                                blockX, blockY);
+                } else {
+                    //gpuFuncSetCacheConfig(kLocalPool2<Pooler, 8, 8, 2, false>, gpuFuncCachePreferShared);
+                    kLocalPool2<Pooler, 8, 8, 2, false>(images, targets,
+                                                imgSize, numFilters, numImages, subsX, startX, outputsX, pooler,
+                                                blockX, blockY);
+                }
+            } else if (filtersPerThread == 3) {
+                if (checkCaseBounds) {
+                    //gpuFuncSetCacheConfig(kLocalPool2<Pooler, 8, 8, 3, true>, gpuFuncCachePreferShared);
+                    kLocalPool2<Pooler, 8, 8, 3, true>(images, targets,
+                                                imgSize, numFilters, numImages, subsX, startX, outputsX, pooler,
+                                                blockX, blockY);
+                } else {
+                    //gpuFuncSetCacheConfig(kLocalPool2<Pooler, 8, 8, 3, false>, gpuFuncCachePreferShared);
+                    kLocalPool2<Pooler, 8, 8, 3, false>(images, targets,
+                                                imgSize, numFilters, numImages, subsX, startX, outputsX, pooler,
+                                                blockX, blockY);
+                }
+            } else if (filtersPerThread == 4) {
+                if (checkCaseBounds) {
+                    //gpuFuncSetCacheConfig(kLocalPool2<Pooler, 8, 8, 4, true>, gpuFuncCachePreferShared);
+                    kLocalPool2<Pooler, 8, 8, 4, true>(images, targets,
+                                                imgSize, numFilters, numImages, subsX, startX, outputsX, pooler,
+                                                blockX, blockY);
+                } else {
+                    //gpuFuncSetCacheConfig(kLocalPool2<Pooler, 8, 8, 4, false>, gpuFuncCachePreferShared);
+                    kLocalPool2<Pooler, 8, 8, 4, false>(images, targets,
+                                                imgSize, numFilters, numImages, subsX, startX, outputsX, pooler,
+                                                blockX, blockY);
                 }
             }
+    } else if (imgsPerThread == 4) {
+            if (filtersPerThread == 1) {
+                if (checkCaseBounds) {
+                    //gpuFuncSetCacheConfig(kLocalPool2<Pooler, 8, 4, 1, true>, gpuFuncCachePreferShared);
+                    kLocalPool2<Pooler, 8, 4, 1, true>(images, targets,
+                                                imgSize, numFilters, numImages, subsX, startX, outputsX, pooler,
+                                                blockX, blockY);
+                } else {
+                    //gpuFuncSetCacheConfig(kLocalPool2<Pooler, 8, 4, 1, false>, gpuFuncCachePreferShared);
+                    kLocalPool2<Pooler, 8, 4, 1, false>(images, targets,
+                                                imgSize, numFilters, numImages, subsX, startX, outputsX, pooler,
+                                                blockX, blockY);
+                }
+            } else if (filtersPerThread == 2) {
+                if (checkCaseBounds) {
+                    //gpuFuncSetCacheConfig(kLocalPool2<Pooler, 8, 4, 2, true>, gpuFuncCachePreferShared);
+                    kLocalPool2<Pooler, 8, 4, 2, true>(images, targets,
+                                                imgSize, numFilters, numImages, subsX, startX, outputsX, pooler,
+                                                blockX, blockY);
+                } else {
+                    //gpuFuncSetCacheConfig(kLocalPool2<Pooler, 8, 4, 2, false>, gpuFuncCachePreferShared);
+                    kLocalPool2<Pooler, 8, 4, 2, false>(images, targets,
+                                                imgSize, numFilters, numImages, subsX, startX, outputsX, pooler,
+                                                blockX, blockY);
+                }
+            } else if (filtersPerThread == 3) {
+                if (checkCaseBounds) {
+                    //gpuFuncSetCacheConfig(kLocalPool2<Pooler, 8, 4, 3, true>, gpuFuncCachePreferShared);
+                    kLocalPool2<Pooler, 8, 4, 3, true>(images, targets,
+                                                imgSize, numFilters, numImages, subsX, startX, outputsX, pooler,
+                                                blockX, blockY);
+                } else {
+                    //gpuFuncSetCacheConfig(kLocalPool2<Pooler, 8, 4, 3, false>, gpuFuncCachePreferShared);
+                    kLocalPool2<Pooler, 8, 4, 3, false>(images, targets,
+                                                imgSize, numFilters, numImages, subsX, startX, outputsX, pooler,
+                                                blockX, blockY);
+                }
+            } else if (filtersPerThread == 4) {
+                if (checkCaseBounds) {
+                    //gpuFuncSetCacheConfig(kLocalPool2<Pooler, 8, 4, 4, true>, gpuFuncCachePreferShared);
+                    kLocalPool2<Pooler, 8, 4, 4, true>(images, targets,
+                                                imgSize, numFilters, numImages, subsX, startX, outputsX, pooler,
+                                                blockX, blockY);
+                } else {
+                    //gpuFuncSetCacheConfig(kLocalPool2<Pooler, 8, 4, 4, false>, gpuFuncCachePreferShared);
+                    kLocalPool2<Pooler, 8, 4, 4, false>(images, targets,
+                                                imgSize, numFilters, numImages, subsX, startX, outputsX, pooler,
+                                                blockX, blockY);
+                }
+            }
+        }
     } else {
         
         int filtersPerThread = numFilters % 8 == 0 ? 2 : 1;

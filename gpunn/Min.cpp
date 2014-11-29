@@ -18,10 +18,7 @@ void min_output(float *input, float *output, float *indices, unsigned int inpSz,
   {
     long o = tidx.global[0];
     if (o >= nrows) return;
-    // input offset:
     long i = o * ncols;
-    // move pointers
-    //input = input + i;
     // compute min:
     float min = avInp[i];
     long argmin = 0;
@@ -102,7 +99,7 @@ static int gpunn_Min_updateOutput(lua_State *L)
 
   // kernel:
   min_output(input_data, output_data, indices_data, THGPUTensor_nElement(input),
-            THGPUTensor_nElement(output), THGPUTensor_nElement(indices), nrows, ncols, nblocks);
+             THGPUTensor_nElement(output), THGPUTensor_nElement(indices), nrows, ncols, nblocks);
 
   // final cut:
   THGPUTensor_free(input); 
@@ -135,7 +132,7 @@ static int gpunn_Min_updateGradInput(lua_State *L)
 
   // kernel:
   min_gradInput(gradInput_data, gradOutput_data, indices_data, THGPUTensor_nElement(gradInput),
-               THGPUTensor_nElement(gradOutput), THGPUTensor_nElement(indices), nrows, ncols, nblocks);
+                THGPUTensor_nElement(gradOutput), THGPUTensor_nElement(indices), nrows, ncols, nblocks);
 
   return 1;
 }

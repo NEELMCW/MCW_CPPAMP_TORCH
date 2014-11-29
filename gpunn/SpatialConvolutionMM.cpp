@@ -17,111 +17,109 @@ void im2col_kernel(const int n, THGPUTensor* data_im, const int height, const in
                    const int ksize_w, const int pad_h, const int pad_w, const int stride_h, const int stride_w,
                    const int height_col, const int width_col, THGPUTensor* data_col)
 {
-    Concurrency::array_view<float,1> avData_im(THGPUTensor_nElement(data_im), THGPUTensor_data(data_im));
-    Concurrency::array_view<float,1> avData_col(THGPUTensor_nElement(data_col), THGPUTensor_data(data_col));
-    unsigned grdSz = (n + 255) & ~255;
-    Concurrency::extent<1> grdExt(grdSz);
-    Concurrency::tiled_extent<256> t_ext(grdExt);
-    Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<256> tidx) restrict(amp)
+  Concurrency::array_view<float,1> avData_im(THGPUTensor_nElement(data_im), THGPUTensor_data(data_im));
+  Concurrency::array_view<float,1> avData_col(THGPUTensor_nElement(data_col), THGPUTensor_data(data_col));
+  unsigned grdSz = (n + 255) & ~255;
+  Concurrency::extent<1> grdExt(grdSz);
+  Concurrency::tiled_extent<256> t_ext(grdExt);
+  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<256> tidx) restrict(amp)
+  {
+    //for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < (n); i += blockDim.x * gridDim.x)
+    float dataCol = 0;
+    float dataIm = 0;
+    for (int i = tidx.global[0]; i < (n); i += t_ext[0])
     {
-        //for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < (n); i += blockDim.x * gridDim.x)
-        float dataCol = 0;
-        float dataIm = 0;
-        for (int i = tidx.global[0]; i < (n); i += t_ext[0])
+      int w_out = i % width_col;
+      i /= width_col;
+      int h_out = i % height_col;
+      int channel_in = i / height_col;
+      int channel_out = channel_in * ksize_h * ksize_w;
+      int h_in = h_out * stride_h - pad_h;
+      int w_in = w_out * stride_w - pad_w;
+      dataCol += (channel_out * height_col + h_out) * width_col + w_out;
+      dataIm += (channel_in * height + h_in) * width + w_in;
+      for (int p = 0; p < ksize_h; ++p)
+      {
+        for (int j = 0; j < ksize_w; ++j)
         {
-            int w_out = i % width_col;
-            i /= width_col;
-            int h_out = i % height_col;
-            int channel_in = i / height_col;
-            int channel_out = channel_in * ksize_h * ksize_w;
-            int h_in = h_out * stride_h - pad_h;
-            int w_in = w_out * stride_w - pad_w;
-            dataCol += (channel_out * height_col + h_out) * width_col + w_out;
-            dataIm += (channel_in * height + h_in) * width + w_in;
-            for (int p = 0; p < ksize_h; ++p)
-            {
-                for (int j = 0; j < ksize_w; ++j)
-                {
-                    int h = h_in + p;
-                    int w = w_in + j;
-                    avData_col[dataCol] = (h >= 0 && w >= 0 && h < height && w < width) ? avData_im[ dataIm + p * width + j] : 0;
-                    dataCol += height_col * width_col;
-                }
-            }
+          int h = h_in + p;
+          int w = w_in + j;
+          avData_col[dataCol] = (h >= 0 && w >= 0 && h < height && w < width) ? avData_im[ dataIm + p * width + j] : 0;
+          dataCol += height_col * width_col;
         }
-    });
-    avData_im.synchronize();
-
+      }
+    }
+  });
+  avData_im.synchronize();
 }
 
 void im2col(THGPUTensor* data_im, const int channels, const int height, const int width,
             const int ksize_h, const int ksize_w, const int pad_h, const int pad_w,
             const int stride_h, const int stride_w, THGPUTensor* data_col)
 {
-    // We are going to launch channels * height_col * width_col kernels, each
-    // kernel responsible for copying a single-channel grid.
-    int height_col = (height + 2 * pad_h - ksize_h) / stride_h + 1;
-    int width_col = (width + 2 * pad_w - ksize_w) / stride_w + 1;
-    int num_kernels = channels * height_col * width_col;
-    //std::cout<<"Im2Col num_kernels:"<<num_kernels<<std::endl;
-    // Launch
-    im2col_kernel(num_kernels, data_im, height, width, ksize_h, ksize_w, pad_h, pad_w, stride_h, stride_w, height_col, width_col, data_col);
+  // We are going to launch channels * height_col * width_col kernels, each
+  // kernel responsible for copying a single-channel grid.
+  int height_col = (height + 2 * pad_h - ksize_h) / stride_h + 1;
+  int width_col = (width + 2 * pad_w - ksize_w) / stride_w + 1;
+  int num_kernels = channels * height_col * width_col;
+  //std::cout<<"Im2Col num_kernels:"<<num_kernels<<std::endl;
+  // Launch
+  im2col_kernel(num_kernels, data_im, height, width, ksize_h, ksize_w, pad_h, pad_w, stride_h, stride_w, height_col, width_col, data_col);
 }
 
 void col2im_kernel(const int n, THGPUTensor* data_col, const int height, const int width, const int channels,
                    const int patch_h, const int patch_w, const int pad_h, const int pad_w, const int stride_h,
                    const int stride_w, const int height_col, const int width_col, THGPUTensor* data_im)
 {
-    Concurrency::array_view<float,1> avData_im(THGPUTensor_nElement(data_im), THGPUTensor_data(data_im));
-    Concurrency::array_view<float,1> avData_col(THGPUTensor_nElement(data_col), THGPUTensor_data(data_col));
-    unsigned grdSz = (n + 255) & ~255;
-    Concurrency::extent<1> grdExt(grdSz);
-    Concurrency::tiled_extent<256> t_ext(grdExt);
-    Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<256> tidx) restrict(amp)
+  Concurrency::array_view<float,1> avData_im(THGPUTensor_nElement(data_im), THGPUTensor_data(data_im));
+  Concurrency::array_view<float,1> avData_col(THGPUTensor_nElement(data_col), THGPUTensor_data(data_col));
+  unsigned grdSz = (n + 255) & ~255;
+  Concurrency::extent<1> grdExt(grdSz);
+  Concurrency::tiled_extent<256> t_ext(grdExt);
+  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<256> tidx) restrict(amp)
+  {
+    //for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < (n); i += blockDim.x * gridDim.x)
+    //GPU_KERNEL_LOOP(i, n) {
+    for (int i = tidx.global[0]; i < (n); i += t_ext[0])
     {
-       //for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < (n); i += blockDim.x * gridDim.x)
-        //GPU_KERNEL_LOOP(i, n) {
-        for (int i = tidx.global[0]; i < (n); i += t_ext[0])
+      float val = 0.0;
+      int w = i % width + pad_w;
+      int h = (i / width) % height + pad_h;
+      int c = i / (width * height);
+      // compute the start and end of the output
+      int w_col_start = (w < patch_w) ? 0 : (w - patch_w) / stride_w + 1;
+      int w_col_end = Concurrency::fast_math::fmin(w / stride_w + 1, width_col);
+      int h_col_start = (h < patch_h) ? 0 : (h - patch_h) / stride_h + 1;
+      int h_col_end = Concurrency::fast_math::fmin(h / stride_h + 1, height_col);
+      // equivalent implementation
+      int offset = (c * patch_h * patch_w + h * patch_w + w) * height_col * width_col;
+      int coeff_h_col = (1 - stride_h * patch_w * height_col) * width_col;
+      int coeff_w_col = (1 - stride_w * height_col * width_col);
+      for (int h_col = h_col_start; h_col < h_col_end; ++h_col) 
+      {
+        for (int w_col = w_col_start; w_col < w_col_end; ++w_col) 
         {
-            float val = 0.0;
-            int w = i % width + pad_w;
-            int h = (i / width) % height + pad_h;
-            int c = i / (width * height);
-            // compute the start and end of the output
-            int w_col_start = (w < patch_w) ? 0 : (w - patch_w) / stride_w + 1;
-            int w_col_end = Concurrency::fast_math::fmin(w / stride_w + 1, width_col);
-            int h_col_start = (h < patch_h) ? 0 : (h - patch_h) / stride_h + 1;
-            int h_col_end = Concurrency::fast_math::fmin(h / stride_h + 1, height_col);
-            // equivalent implementation
-            int offset = (c * patch_h * patch_w + h * patch_w + w) * height_col * width_col;
-            int coeff_h_col = (1 - stride_h * patch_w * height_col) * width_col;
-            int coeff_w_col = (1 - stride_w * height_col * width_col);
-            for (int h_col = h_col_start; h_col < h_col_end; ++h_col) 
-            {
-                for (int w_col = w_col_start; w_col < w_col_end; ++w_col) 
-                {
-                    val += avData_col[offset + h_col * coeff_h_col + w_col * coeff_w_col];
-                }
-            }
-            avData_im[i] = val;
+          val += avData_col[offset + h_col * coeff_h_col + w_col * coeff_w_col];
         }
-     
-    });
-    avData_im.synchronize();
+      }
+      avData_im[i] = val;
+    }
+
+  });
+  avData_im.synchronize();
 }
 
 void col2im(THGPUTensor* data_col, const int channels, const int height, const int width,
             const int patch_h, const int patch_w, const int pad_h, const int pad_w,
             const int stride_h, const int stride_w, THGPUTensor* data_im)
 {
-    int height_col = (height + 2 * pad_h - patch_h) / stride_h + 1;
-    int width_col = (width + 2 * pad_w - patch_w) / stride_w + 1;
-    int num_kernels = channels * height * width;
-    // To avoid involving atomic operations, we will launch one kernel per
-    // bottom dimension, and then in the kernel add up the top dimensions.
-    //std::cout<<"Col2Im num_kernels:"<<num_kernels<<std::endl;
-       col2im_kernel(num_kernels, data_col, height, width, channels, patch_h, patch_w,
-                  pad_h, pad_w, stride_h, stride_w, height_col, width_col, data_im);
+  int height_col = (height + 2 * pad_h - patch_h) / stride_h + 1;
+  int width_col = (width + 2 * pad_w - patch_w) / stride_w + 1;
+  int num_kernels = channels * height * width;
+  // To avoid involving atomic operations, we will launch one kernel per
+  // bottom dimension, and then in the kernel add up the top dimensions.
+   col2im_kernel(num_kernels, data_col, height, width, channels, patch_h, patch_w,
+                 pad_h, pad_w, stride_h, stride_w, height_col, width_col, data_im);
 }
 
 static int gpunn_SpatialConvolutionMM_updateOutput(lua_State *L) {

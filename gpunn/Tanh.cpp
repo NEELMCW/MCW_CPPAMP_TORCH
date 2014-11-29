@@ -28,7 +28,6 @@ static int gpunn_Tanh_updateOutput(lua_State *L)
   bolt::amp::device_vector<float> output_data(THGPUTensor_data(output), THGPUTensor_data(output) + THGPUTensor_nElement(output));
   bolt::amp::device_vector<float> input_data(THGPUTensor_data(input), THGPUTensor_data(input) + THGPUTensor_nElement(input));
   bolt::amp::transform(input_data.begin(), input_data.end(), output_data.begin(), tanhupdateOutput_functor());
- 
 
   THGPUTensor_free(input);
   return 1;

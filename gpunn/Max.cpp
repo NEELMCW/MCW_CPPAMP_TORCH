@@ -18,10 +18,8 @@ void max_output(float *input, float *output, float *indices, unsigned int inpSz,
   {
     long o = tidx.global[0];
     if (o >= nrows) return;
-    // input offset:
     long i = o * ncols;
-    // move pointers
-    //input = input + i;
+
     // compute max:
     float max = avInp[i];
     long argmax = 0;
@@ -101,7 +99,7 @@ static int gpunn_Max_updateOutput(lua_State *L)
 
   // kernel:
   max_output(input_data, output_data, indices_data, THGPUTensor_nElement(input),
-            THGPUTensor_nElement(output), THGPUTensor_nElement(indices), nrows, ncols, nblocks);
+             THGPUTensor_nElement(output), THGPUTensor_nElement(indices), nrows, ncols, nblocks);
 
   // final cut:
   THGPUTensor_free(input); 
@@ -134,7 +132,7 @@ static int gpunn_Max_updateGradInput(lua_State *L)
 
   // kernel:
   max_gradInput(gradInput_data, gradOutput_data, indices_data, THGPUTensor_nElement(gradInput),
-               THGPUTensor_nElement(gradOutput), THGPUTensor_nElement(indices), nrows, ncols, nblocks);
+                THGPUTensor_nElement(gradOutput), THGPUTensor_nElement(indices), nrows, ncols, nblocks);
 
   return 1;
 }

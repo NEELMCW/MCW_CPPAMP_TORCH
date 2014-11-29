@@ -66,7 +66,6 @@ void conv_weight_acts_c(THGPUTensor* images, THGPUTensor* hidActs, THGPUTensor* 
     const int moduleIdx = partialSum * outputModuleIdx;
     const int blockFilterIdx = B_X * (tidx.tile[2] % filterBlocksPerModule);
 
-//    const int moduleStride = (imgSize - filterSize + 1) / numModulesX; 
     const int numModules = numModulesY * numModulesX;
 
     const int blockPixelOffset = tidx.tile[1] * B_Y * pixelsPerThread;
