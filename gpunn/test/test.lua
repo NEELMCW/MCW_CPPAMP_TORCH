@@ -1851,7 +1851,7 @@ function gpunntest.SoftMax_backward()
    mytester:assertlt(error:abs():max(), precision_backward, 'error on state (backward) ')
 end
 
---[[function gpunntest.LogSoftMax_forward()
+function gpunntest.LogSoftMax_forward()
    local size = math.random(1,256)
 
    local tm = {}
@@ -1879,7 +1879,7 @@ end
 
    local error = resgpu:float() - groundtruth
    mytester:assertlt(error:abs():max(), precision_forward*10, 'error on state (forward) ')
-end]]--
+end
 
 function gpunntest.LogSoftMax_backward()
    local size = math.random(1,256)

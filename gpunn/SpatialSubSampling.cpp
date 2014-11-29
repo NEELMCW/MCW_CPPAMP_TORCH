@@ -13,7 +13,7 @@ void subsample(THGPUTensor *inputTensor, THGPUTensor *outputTensor, THGPUTensor 
   // output size
   int output_w = (input_w - kW) / dW + 1;
   int output_h = (input_h - kH) / dH + 1;
-  int yBlocks = (int)(16L / xBlocks);
+  int yBlocks = (int)(16L / input_n);
   yBlocks = yBlocks < 1 ? 1 : yBlocks;
   Concurrency::array_view<float,1> avInput(Concurrency::extent<1>(inputTensor->storage->size), THGPUTensor_data(inputTensor));
   Concurrency::array_view<float,1> avOutput(Concurrency::extent<1>(outputTensor->storage->size), THGPUTensor_data(outputTensor));
