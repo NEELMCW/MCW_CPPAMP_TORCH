@@ -20,22 +20,22 @@ void THGPUInit()
   THGPUBlas_init(count, device);
 
   int i,j;
-  for(i=0; i < count; ++i)
+  for (i=0; i < count; ++i)
   {
     THGPUCheck(gpuSetDevice(i));
     for (j=0; j < count; ++j)
     {
-      if(i != j)
+      if (i != j)
       {
         int can = 0;
         THGPUCheck(gpuDeviceCanAccessPeer(&can, i, j));
-        if(can)
+        if (can)
           THGPUCheck(gpuDeviceEnablePeerAccess(j, 0));
       }
     }
   }
   THGPUCheck(gpuSetDevice(device));*/
-	
+
     cl_int err;
     cl_platform_id platform = 0;
     cl_context_properties props[3] = { CL_CONTEXT_PLATFORM, 0, 0 };
@@ -81,15 +81,15 @@ void THGPUGetGridSize(int *nBlockPerColumn_, int *nBlockPerRow_, int *nThreadPer
   long nBlockPerColumn = 0L;
   long nBlockPerRow = 0L;
 
-  if(size % nThreadPerBlock)
+  if (size % nThreadPerBlock)
     nBlockPerGrid++;
 
-  if(nBlockPerGrid <= 65535)
+  if (nBlockPerGrid <= 65535)
   {
     nBlockPerRow = nBlockPerGrid;
     nBlockPerColumn = 1;
   }
-  else if(nBlockPerGrid <= (65355L * 65355L))
+  else if (nBlockPerGrid <= (65355L * 65355L))
   {
     unsigned int uiSqrt = (unsigned int)(sqrt((float)nBlockPerGrid));
     nBlockPerRow = uiSqrt;

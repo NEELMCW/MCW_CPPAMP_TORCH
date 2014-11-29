@@ -25,21 +25,21 @@ void THGPUTensor_copyFloat(THGPUTensor *self, struct THFloatTensor *src)
 }
 
 /* everything comes down to copy to a tensor of floats */
-#define IMPLEMENT_TH_CUDA_TENSOR_COPY(TYPEC)                            \
-void THGPUTensor_copy##TYPEC(THGPUTensor *self, struct TH##TYPEC##Tensor *src) \
-{                                                                       \
+#define IMPLEMENT_TH_CUDA_TENSOR_COPY(TYPEC)                                                          \
+void THGPUTensor_copy##TYPEC(THGPUTensor *self, struct TH##TYPEC##Tensor *src)                        \
+{                                                                                                     \
   THArgCheck(THGPUTensor_nElement(self) == TH##TYPEC##Tensor_nElement(src), 2, "sizes do not match"); \
-                                                                        \
-  {                                                                     \
-    THLongStorage *size = TH##TYPEC##Tensor_newSizeOf(src);             \
-    THFloatTensor *srcf = THFloatTensor_newWithSize(size, NULL);        \
-                                                                        \
-    THFloatTensor_copy##TYPEC(srcf, src);                               \
-    THGPUTensor_copyFloat(self, srcf);                                 \
-                                                                        \
-    THLongStorage_free(size);                                           \
-    THFloatTensor_free(srcf);                                           \
-  }                                                                     \
+                                                                                                      \
+  {                                                                                                   \
+    THLongStorage *size = TH##TYPEC##Tensor_newSizeOf(src);                                           \
+    THFloatTensor *srcf = THFloatTensor_newWithSize(size, NULL);                                      \
+                                                                                                      \
+    THFloatTensor_copy##TYPEC(srcf, src);                                                             \
+    THGPUTensor_copyFloat(self, srcf);                                                                \
+                                                                                                      \
+    THLongStorage_free(size);                                                                         \
+    THFloatTensor_free(srcf);                                                                         \
+  }                                                                                                   \
 }
 
 IMPLEMENT_TH_CUDA_TENSOR_COPY(Byte)
@@ -68,22 +68,22 @@ void THFloatTensor_copyGPU(THFloatTensor *self, struct THGPUTensor *src)
   }
 }
 
-#define IMPLEMENT_TH_CUDA_TENSOR_COPY_TO(TYPEC)                         \
-  void TH##TYPEC##Tensor_copyGPU(TH##TYPEC##Tensor *self, struct THGPUTensor *src) \
-  {                                                                     \
-    THArgCheck(TH##TYPEC##Tensor_nElement(self) == THGPUTensor_nElement(src), 2, "sizes do not match"); \
-                                                                        \
-    {                                                                   \
-      THLongStorage *size = THGPUTensor_newSizeOf(src);                \
-      THFloatTensor *srcf = THFloatTensor_newWithSize(size, NULL);      \
-                                                                        \
-      THFloatTensor_copyGPU(srcf, src);                                \
-      TH##TYPEC##Tensor_copyFloat(self, srcf);                          \
-                                                                        \
-      THLongStorage_free(size);                                         \
-      THFloatTensor_free(srcf);                                         \
-    }                                                                   \
-  }
+#define IMPLEMENT_TH_CUDA_TENSOR_COPY_TO(TYPEC)                                                       \
+void TH##TYPEC##Tensor_copyGPU(TH##TYPEC##Tensor *self, struct THGPUTensor *src)                      \
+{                                                                                                     \
+  THArgCheck(TH##TYPEC##Tensor_nElement(self) == THGPUTensor_nElement(src), 2, "sizes do not match"); \
+                                                                                                      \
+  {                                                                                                   \
+    THLongStorage *size = THGPUTensor_newSizeOf(src);                                                 \
+    THFloatTensor *srcf = THFloatTensor_newWithSize(size, NULL);                                      \
+                                                                                                      \
+    THFloatTensor_copyGPU(srcf, src);                                                                 \
+    TH##TYPEC##Tensor_copyFloat(self, srcf);                                                          \
+                                                                                                      \
+    THLongStorage_free(size);                                                                         \
+    THFloatTensor_free(srcf);                                                                         \
+  }                                                                                                   \
+}
 
 IMPLEMENT_TH_CUDA_TENSOR_COPY_TO(Byte)
 IMPLEMENT_TH_CUDA_TENSOR_COPY_TO(Char)

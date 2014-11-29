@@ -144,16 +144,16 @@ void THGPUStorage_copyFloat(THGPUStorage *self, struct THFloatStorage *src)
   THGPUStorage_rawCopy(self, src->data);
 }
 
-#define TH_CUDA_STORAGE_IMPLEMENT_COPY(TYPEC)                           \
-  void THGPUStorage_copy##TYPEC(THGPUStorage *self, struct TH##TYPEC##Storage *src) \
-  {                                                                     \
-    THFloatStorage *buffer;                                             \
-    THArgCheck(self->size == src->size, 2, "size does not match");      \
-    buffer = THFloatStorage_newWithSize(src->size);                     \
-    THFloatStorage_copy##TYPEC(buffer, src);                            \
-    THGPUStorage_copyFloat(self, buffer);                              \
-    THFloatStorage_free(buffer);                                        \
-  }
+#define TH_CUDA_STORAGE_IMPLEMENT_COPY(TYPEC)                                     \
+void THGPUStorage_copy##TYPEC(THGPUStorage *self, struct TH##TYPEC##Storage *src) \
+{                                                                                 \
+  THFloatStorage *buffer;                                                         \
+  THArgCheck(self->size == src->size, 2, "size does not match");                  \
+  buffer = THFloatStorage_newWithSize(src->size);                                 \
+  THFloatStorage_copy##TYPEC(buffer, src);                                        \
+  THGPUStorage_copyFloat(self, buffer);                                           \
+  THFloatStorage_free(buffer);                                                    \
+}
 
 TH_CUDA_STORAGE_IMPLEMENT_COPY(Byte)
 TH_CUDA_STORAGE_IMPLEMENT_COPY(Char)
@@ -170,16 +170,16 @@ void THFloatStorage_copyGPU(THFloatStorage *self, struct THGPUStorage *src)
   copy(arrSrc, avSelfCopy);
 }
 
-#define TH_CUDA_STORAGE_IMPLEMENT_COPYTO(TYPEC)                           \
-  void TH##TYPEC##Storage_copyGPU(TH##TYPEC##Storage *self, struct THGPUStorage *src) \
-  {                                                                     \
-    THFloatStorage *buffer;                                             \
-    THArgCheck(self->size == src->size, 2, "size does not match");      \
-    buffer = THFloatStorage_newWithSize(src->size);                     \
-    THFloatStorage_copyGPU(buffer, src);                               \
-    TH##TYPEC##Storage_copyFloat(self, buffer);                         \
-    THFloatStorage_free(buffer);                                        \
-  }
+#define TH_CUDA_STORAGE_IMPLEMENT_COPYTO(TYPEC)                                     \
+void TH##TYPEC##Storage_copyGPU(TH##TYPEC##Storage *self, struct THGPUStorage *src) \
+{                                                                                   \
+  THFloatStorage *buffer;                                                           \
+  THArgCheck(self->size == src->size, 2, "size does not match");                    \
+  buffer = THFloatStorage_newWithSize(src->size);                                   \
+  THFloatStorage_copyGPU(buffer, src);                                              \
+  TH##TYPEC##Storage_copyFloat(self, buffer);                                       \
+  THFloatStorage_free(buffer);                                                      \
+}
 
 TH_CUDA_STORAGE_IMPLEMENT_COPYTO(Byte)
 TH_CUDA_STORAGE_IMPLEMENT_COPYTO(Char)

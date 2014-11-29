@@ -174,32 +174,32 @@ void THCRandom_setRNGState(THGPURNGState* state, THByteTensor *rng_state)
   memcpy(&state->current_gen->initial_seed, THByteTensor_data(rng_state) + states_size, seed_size);*/
 }
 
-#define GENERATE_KERNEL1(NAME, ARG1, CURAND_FUNC, TRANSFORM)                                               \
-void NAME(int size, THGPUTensor *result, ARG1)                                                            \
-{                                                                                                          \
-  std::mt19937 gen;                                                                                        \
+#define GENERATE_KERNEL1(NAME, ARG1, CURAND_FUNC, TRANSFORM)                                             \
+void NAME(int size, THGPUTensor *result, ARG1)                                                           \
+{                                                                                                        \
+  std::mt19937 gen;                                                                                      \
   Concurrency::array_view<float, 1> avResult(THGPUTensor_nElement(result), THGPUTensor_data(result));    \
-  for (int i = 0; i < size; i++) {                                                                         \
-    std::CURAND_FUNC<float> rand(0.0, 0.9);                                                                  \
-    float x = rand(gen);                                                                                   \
-    x = TRANSFORM;                                                                                         \
-    avResult[i] = x;                                                                                       \
-  }                                                                                                        \
-  avResult.synchronize();                                                                                  \
+  for (int i = 0; i < size; i++) {                                                                       \
+    std::CURAND_FUNC<float> rand(0.0, 0.9);                                                              \
+    float x = rand(gen);                                                                                 \
+    x = TRANSFORM;                                                                                       \
+    avResult[i] = x;                                                                                     \
+  }                                                                                                      \
+  avResult.synchronize();                                                                                \
 }
 
-#define GENERATE_KERNEL2(NAME, ARG1, ARG2, CURAND_FUNC, TRANSFORM)                                         \
-void NAME(int size, THGPUTensor *result, ARG1, ARG2)                                                      \
-{                                                                                                          \
-  std::mt19937 gen;                                                                                        \
+#define GENERATE_KERNEL2(NAME, ARG1, ARG2, CURAND_FUNC, TRANSFORM)                                       \
+void NAME(int size, THGPUTensor *result, ARG1, ARG2)                                                     \
+{                                                                                                        \
+  std::mt19937 gen;                                                                                      \
   Concurrency::array_view<float, 1> avResult(THGPUTensor_nElement(result), THGPUTensor_data(result));    \
-  for (int i = 0; i < size; i++) {                                                                         \
-    std::CURAND_FUNC<float> rand(0, 0.9);                                                                  \
-    float x = rand(gen);                                                                                   \
-    x = TRANSFORM;                                                                                         \
-    avResult[i] = x;                                                                                       \
-  }                                                                                                        \
-  avResult.synchronize();                                                                                  \
+  for (int i = 0; i < size; i++) {                                                                       \
+    std::CURAND_FUNC<float> rand(0, 0.9);                                                                \
+    float x = rand(gen);                                                                                 \
+    x = TRANSFORM;                                                                                       \
+    avResult[i] = x;                                                                                     \
+  }                                                                                                      \
+  avResult.synchronize();                                                                                \
 }
 
 GENERATE_KERNEL2(generate_uniform, double a, double b, uniform_real_distribution, x * (b-a) + a)
@@ -217,7 +217,8 @@ void generate_log_normal(int size, THGPUTensor *result, float mean, float stddev
 {
   std::mt19937 gen;
   Concurrency::array_view<float, 1> avResult(THGPUTensor_nElement(result), THGPUTensor_data(result));
-  for (int i = 0; i < size; i++) {
+  for (int i = 0; i < size; i++)
+  {
     std::lognormal_distribution<float> rand(mean, stddev);
     float x = rand(gen);
     avResult[i] = x;
@@ -233,8 +234,7 @@ void THGPUTensor_uniform(THGPURNGState* state, THGPUTensor *self_, double a, dou
   long size = THGPUTensor_nElement(self);
   float *data = THGPUTensor_data(self);
 
-  generate_uniform(
-      size, self, a, b);
+  generate_uniform(size, self, a, b);
 
   THGPUTensor_freeCopyTo(self, self_);
 };
@@ -245,8 +245,7 @@ void THGPUTensor_bernoulli(THGPURNGState* state, THGPUTensor *self_, double p)
   long size = THGPUTensor_nElement(self);
   float *data = THGPUTensor_data(self);
 
-  generate_bernoulli(
-       size, self, p);
+  generate_bernoulli(size, self, p);
 
   THGPUTensor_freeCopyTo(self, self_);
 };
@@ -257,8 +256,7 @@ void THGPUTensor_normal(THGPURNGState* state, THGPUTensor *self_, double mean, d
   long size = THGPUTensor_nElement(self);
   float *data = THGPUTensor_data(self);
 
-  generate_normal(
-       size, self, mean, stdv);
+  generate_normal(size, self, mean, stdv);
 
   THGPUTensor_freeCopyTo(self, self_);
 };
@@ -269,8 +267,7 @@ void THGPUTensor_logNormal(THGPURNGState* state, THGPUTensor *self_, double mean
   long size = THGPUTensor_nElement(self);
   float *data = THGPUTensor_data(self);
 
-  generate_log_normal(
-      size, self, mean, stdv);
+  generate_log_normal(size, self, mean, stdv);
 
   THGPUTensor_freeCopyTo(self, self_);
 };
@@ -281,8 +278,7 @@ void THGPUTensor_geometric(THGPURNGState* state, THGPUTensor *self_, double p)
   long size = THGPUTensor_nElement(self);
   float *data = THGPUTensor_data(self);
 
-  generate_geometric(
-       size, self, p);
+  generate_geometric(size, self, p);
 
   THGPUTensor_freeCopyTo(self, self_);
 };
@@ -293,8 +289,7 @@ void THGPUTensor_exponential(THGPURNGState* state, THGPUTensor *self_, double la
   long size = THGPUTensor_nElement(self);
   float *data = THGPUTensor_data(self);
 
-  generate_exponential(
-      size, self, lambda);
+  generate_exponential(size, self, lambda);
 
   THGPUTensor_freeCopyTo(self, self_);
 };
@@ -305,8 +300,7 @@ void THGPUTensor_cauchy(THGPURNGState* state, THGPUTensor *self_, double median,
   long size = THGPUTensor_nElement(self);
   float *data = THGPUTensor_data(self);
 
-  generate_cauchy(
-       size, self, median, sigma);
+  generate_cauchy(size, self, median, sigma);
 
   THGPUTensor_freeCopyTo(self, self_);
 };

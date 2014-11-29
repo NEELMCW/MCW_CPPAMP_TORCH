@@ -147,7 +147,8 @@ void THGPUTensor_cadd(THGPUTensor *self_, THGPUTensor* src1, float value, THGPUT
   {
     THGPUTensor *self = THGPUTensor_newContiguous(self_);
 
-    if (self_ != src1) {
+    if (self_ != src1)
+    {
       src1 = THGPUTensor_newContiguous(src1);
       THGPUTensor_copy(self, src1);
       THGPUTensor_free(src1);
@@ -210,101 +211,97 @@ void THGPUTensor_cdiv(THGPUTensor *self_, THGPUTensor *src1, THGPUTensor *src2)
 
 void THGPUTensor_kernel_addcmul(float *data, float value, float *src1, float *src2, long size, const int nThreadPerBlock, int nBlockPerRow, int nBlockPerColumn)
 {
-    Concurrency::array_view<float,1> src1Data(Concurrency::extent<1>(size),src1);
-    Concurrency::array_view<float,1> src2Data(Concurrency::extent<1>(size),src2);
-    Concurrency::array_view<float,1> Data(Concurrency::extent<1>(size),data);
-    const int nthreads = 256;
-    nBlockPerRow = (nBlockPerRow + (nthreads -1)) & ~(nthreads -1);
-    Concurrency::extent<2> gridExt(nBlockPerColumn,nBlockPerRow);
-   
-    Concurrency::tiled_extent<1,nthreads> t_ext(gridExt);
- 
-    Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1,nthreads>tidx) restrict(amp)
+  Concurrency::array_view<float,1> src1Data(Concurrency::extent<1>(size),src1);
+  Concurrency::array_view<float,1> src2Data(Concurrency::extent<1>(size),src2);
+  Concurrency::array_view<float,1> Data(Concurrency::extent<1>(size),data);
+  const int nthreads = 256;
+  nBlockPerRow = (nBlockPerRow + (nthreads -1)) & ~(nthreads -1);
+  Concurrency::extent<2> gridExt(nBlockPerColumn,nBlockPerRow);
+  Concurrency::tiled_extent<1,nthreads> t_ext(gridExt);
+
+  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1,nthreads>tidx) restrict(amp)
+  {
+    long k = (((tidx.tile[0] * t_ext[1]/t_ext.tile_dim1) + tidx.tile[1]) * t_ext.tile_dim1) + tidx.local[1];
+    if(k < size)
     {
-        long k = (((tidx.tile[0] * t_ext[1]/t_ext.tile_dim1) + tidx.tile[1]) * t_ext.tile_dim1) + tidx.local[1];
-        if(k < size)
-        {
-            Data[Concurrency::index<1>(k)] += value*src1Data[Concurrency::index<1>(k)]*src2Data[Concurrency::index<1>(k)];
-        }
-      
-    });
-    Data.synchronize();
-    src1Data.synchronize();
-    src2Data.synchronize();
+      Data[Concurrency::index<1>(k)] += value*src1Data[Concurrency::index<1>(k)]*src2Data[Concurrency::index<1>(k)];
+    }
+
+  });
+  Data.synchronize();
+  src1Data.synchronize();
+  src2Data.synchronize();
 }
 
 
 void THGPUTensor_addcmul(THGPUTensor *self_, THGPUTensor* t, float value, THGPUTensor *src1, THGPUTensor *src2)
 {
-
   if(self_ != t)
   {
     THGPUTensor_resizeAs(self_, t);
     THGPUTensor_copy(self_, t);
   }
 
-    THGPUTensor_resizeAs(self_, src1);
-    THArgCheck(THGPUTensor_nElement(src1) == THGPUTensor_nElement(src2), 3, "size do not match");
-  
-    THGPUTensor *self = THGPUTensor_newContiguous(self_);
-    THGPUTensor *temp1 = src1;
-    THGPUTensor *temp2 = src2;
-    long size = THGPUTensor_nElement(self);
-    src1 = THGPUTensor_newContiguous(src1);
-    src2 = THGPUTensor_newContiguous(src2);
+  THGPUTensor_resizeAs(self_, src1);
+  THArgCheck(THGPUTensor_nElement(src1) == THGPUTensor_nElement(src2), 3, "size do not match");
 
-    int nBlockPerRow, nBlockPerColumn, nThreadPerBlock;
-    THGPUGetGridSize(&nBlockPerRow, &nBlockPerColumn, &nThreadPerBlock, size);
+  THGPUTensor *self = THGPUTensor_newContiguous(self_);
+  THGPUTensor *temp1 = src1;
+  THGPUTensor *temp2 = src2;
+  long size = THGPUTensor_nElement(self);
+  src1 = THGPUTensor_newContiguous(src1);
+  src2 = THGPUTensor_newContiguous(src2);
 
-    THGPUTensor_kernel_addcmul(THGPUTensor_data(self), value, THGPUTensor_data(src1), THGPUTensor_data(src2), size, nThreadPerBlock, nBlockPerRow,nBlockPerColumn);
+  int nBlockPerRow, nBlockPerColumn, nThreadPerBlock;
+  THGPUGetGridSize(&nBlockPerRow, &nBlockPerColumn, &nThreadPerBlock, size);
 
-    THGPUTensor_copy(self_, self);
-    if (src1 != temp1)
-    {
-        THGPUStorage_free(src1->storage);
-        THGPUTensor_free(src1);
-    }
-    if (src2 != temp2)
-    {
-        THGPUStorage_free(src2->storage);
-        THGPUTensor_free(src2);
-    }
-    if (self != self_)
-    {
-        THGPUStorage_free(self->storage);
-        THGPUTensor_free(self);
-    }
+  THGPUTensor_kernel_addcmul(THGPUTensor_data(self), value, THGPUTensor_data(src1), THGPUTensor_data(src2), size, nThreadPerBlock, nBlockPerRow,nBlockPerColumn);
+
+  THGPUTensor_copy(self_, self);
+  if (src1 != temp1)
+  {
+    THGPUStorage_free(src1->storage);
+    THGPUTensor_free(src1);
+  }
+  if (src2 != temp2)
+  {
+    THGPUStorage_free(src2->storage);
+    THGPUTensor_free(src2);
+  }
+  if (self != self_)
+  {
+    THGPUStorage_free(self->storage);
+    THGPUTensor_free(self);
+  }
 }
 
 void THGPUTensor_kernel_addcdiv(float *data, float value, float *src1, float *src2, long size, const int nThreadPerBlock, int nBlockPerRow, int nBlockPerColumn)
 {
+  Concurrency::array_view<float,1> src1Data(Concurrency::extent<1>(size),src1);
+  Concurrency::array_view<float,1> src2Data(Concurrency::extent<1>(size),src2);
+  Concurrency::array_view<float,1> Data(Concurrency::extent<1>(size),data);
 
-  
-    Concurrency::array_view<float,1> src1Data(Concurrency::extent<1>(size),src1);
-    Concurrency::array_view<float,1> src2Data(Concurrency::extent<1>(size),src2);
-    Concurrency::array_view<float,1> Data(Concurrency::extent<1>(size),data);
+  const int nthreads = 256;
+  nBlockPerRow = (nBlockPerRow + (nthreads -1)) & ~(nthreads -1);
+  Concurrency::extent<2> gridExt(nBlockPerColumn,nBlockPerRow);
+  Concurrency::tiled_extent<1,nthreads> t_ext(gridExt);
 
-    const int nthreads = 256;
-    nBlockPerRow = (nBlockPerRow + (nthreads -1)) & ~(nthreads -1);
-    Concurrency::extent<2> gridExt(nBlockPerColumn,nBlockPerRow);
-    Concurrency::tiled_extent<1,nthreads> t_ext(gridExt);
+  bolt::amp::device_vector<float> divided_data(size);
+  bolt::amp::device_vector<float> Dsrc1_data(src1, src1+ size);
+  bolt::amp::device_vector<float> Dsrc2_data(src2, src2+ size);
 
-    bolt::amp::device_vector<float> divided_data(size);
-    bolt::amp::device_vector<float> Dsrc1_data(src1, src1+ size);
-    bolt::amp::device_vector<float> Dsrc2_data(src2, src2+ size);
+  bolt::amp::transform(Dsrc1_data.begin(), Dsrc1_data.end(), Dsrc2_data.begin(), divided_data.begin(), bolt::amp::divides<float>());
 
-    bolt::amp::transform(Dsrc1_data.begin(), Dsrc1_data.end(), Dsrc2_data.begin(), divided_data.begin(), bolt::amp::divides<float>());
-
-    Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1,nthreads>tidx) restrict(amp)
+  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1,nthreads>tidx) restrict(amp)
+  {
+    long k = (((tidx.tile[0] * t_ext[1]/t_ext.tile_dim1) + tidx.tile[1]) * t_ext.tile_dim1) + tidx.local[1];
+    if(k < size)
     {
-        long k = (((tidx.tile[0] * t_ext[1]/t_ext.tile_dim1) + tidx.tile[1]) * t_ext.tile_dim1) + tidx.local[1];
-        if(k < size)
-        {
-            Data[Concurrency::index<1>(k)] += (float) value * divided_data[k]; 
-        }
-      
-    });
-    Data.synchronize();
+      Data[Concurrency::index<1>(k)] += (float) value * divided_data[k]; 
+    }
+
+  });
+  Data.synchronize();
 }
 
 
@@ -318,34 +315,33 @@ void THGPUTensor_addcdiv(THGPUTensor *self_, THGPUTensor *t, float value, THGPUT
   THGPUTensor_resizeAs(self_, src1);
   THArgCheck(THGPUTensor_nElement(src1) == THGPUTensor_nElement(src2), 3, "size do not match");
 
-        THGPUTensor *self = THGPUTensor_newContiguous(self_);
-        THGPUTensor *temp1 = src1;
-        THGPUTensor *temp2 = src2;
-        long size = THGPUTensor_nElement(self);
-        src1 = THGPUTensor_newContiguous(src1);
-        src2 = THGPUTensor_newContiguous(src2);
+  THGPUTensor *self = THGPUTensor_newContiguous(self_);
+  THGPUTensor *temp1 = src1;
+  THGPUTensor *temp2 = src2;
+  long size = THGPUTensor_nElement(self);
+  src1 = THGPUTensor_newContiguous(src1);
+  src2 = THGPUTensor_newContiguous(src2);
 
-        int nBlockPerRow, nBlockPerColumn, nThreadPerBlock;
-        THGPUGetGridSize(&nBlockPerRow, &nBlockPerColumn, &nThreadPerBlock, size);
+  int nBlockPerRow, nBlockPerColumn, nThreadPerBlock;
+  THGPUGetGridSize(&nBlockPerRow, &nBlockPerColumn, &nThreadPerBlock, size);
+  THGPUTensor_kernel_addcdiv(THGPUTensor_data(self), value, THGPUTensor_data(src1), THGPUTensor_data(src2), size, nThreadPerBlock, nBlockPerRow,nBlockPerColumn);
 
-        THGPUTensor_kernel_addcdiv(THGPUTensor_data(self), value, THGPUTensor_data(src1), THGPUTensor_data(src2), size, nThreadPerBlock, nBlockPerRow,nBlockPerColumn);
-
-        THGPUTensor_copy(self_, self);
-        if (src1 != temp1)
-        {
-            THGPUStorage_free(src1->storage);
-            THGPUTensor_free(src1);
-        }
-        if (src2 != temp2)
-        {
-            THGPUStorage_free(src2->storage);
-            THGPUTensor_free(src2);
-        }
-        if (self != self_)
-        {
-            THGPUStorage_free(self->storage);
-            THGPUTensor_free(self);
-        }
+  THGPUTensor_copy(self_, self);
+  if (src1 != temp1)
+  {
+    THGPUStorage_free(src1->storage);
+    THGPUTensor_free(src1);
+  }
+  if (src2 != temp2)
+  {
+    THGPUStorage_free(src2->storage);
+    THGPUTensor_free(src2);
+  }
+  if (self != self_)
+  {
+    THGPUStorage_free(self->storage);
+    THGPUTensor_free(self);
+  }
 }
 
 float THGPUTensor_dot(THGPUTensor *self, THGPUTensor *src)
@@ -403,13 +399,13 @@ float THGPUTensor_prodall(THGPUTensor *self)
 
 
 struct dim4 {
-    unsigned arr[4];
+  unsigned arr[4];
 
-    dim4(unsigned init=0) {
-        for(unsigned i=0; i<4; i++) { arr[i] = init; }
-    }
+  dim4(unsigned init=0) {
+    for(unsigned i=0; i<4; i++) { arr[i] = init; }
+  }
 
-    unsigned& operator[](const unsigned& idx) { return arr[idx]; }
+  unsigned& operator[](const unsigned& idx) { return arr[idx]; }
 };
 
 
@@ -544,7 +540,7 @@ void THGPUTensor_kernel_transformReduceInnermostDim(THGPUTensor *tgt, THGPUTenso
           {
             sbuf[tidx.local[1]][tidx.local[2]] = init;
             unsigned col = bCol + tidx.local[2];
-            if(row < avSize[1] && col < avSize[0]) 
+            if (row < avSize[1] && col < avSize[0]) 
             {
               sbuf[tidx.local[1]][tidx.local[2]] = unary_op(avSrc[z * avSrc_stride[3] + x * avSrc_stride[2] + row * avSrc_stride[1] + col]);
             }
@@ -610,7 +606,8 @@ void THGPUTensor_transformReduceInnermostDim(THGPUTensor *tgt, THGPUTensor *src,
 
 template<class UnaryFunction, class BinaryFunction>
 void THGPUTensor_transformReduceDim(THGPUTensor *self_, THGPUTensor *src,
-        long dimension, UnaryFunction unary_op, float init, BinaryFunction binary_op)
+                                    long dimension, UnaryFunction unary_op,
+                                    float init, BinaryFunction binary_op)
 {
   THArgCheck(dimension >= 0 && dimension < THGPUTensor_nDimension(src), 3, "dimension out of range");
   THArgCheck(THGPUTensor_nDimension(src) <= 4, 2, "too many dimensions (>4)");
@@ -623,9 +620,11 @@ void THGPUTensor_transformReduceDim(THGPUTensor *self_, THGPUTensor *src,
   THGPUTensor *self = THGPUTensor_newContiguous(self_);
   src = THGPUTensor_newContiguous(src);
 
-  if(dimension == THGPUTensor_nDimension(src)-1) {
+  if (dimension == THGPUTensor_nDimension(src)-1)
+  {
     THGPUTensor_transformReduceInnermostDim(self, src, unary_op, init, binary_op);
-  } else {
+  } else
+  {
     THGPUTensor_transformReduceOuterDim(self, src, dimension, unary_op, init, binary_op);
   }
 
@@ -667,46 +666,46 @@ void THGPUTensor_min(THGPUTensor *self, THGPUTensor* indices, THGPUTensor *src, 
 
 void THGPUTensor_addmv(THGPUTensor *r_, float beta, THGPUTensor *t, float alpha, THGPUTensor *mat, THGPUTensor *vec)
 {
-  if( (mat->nDimension != 2) || (vec->nDimension != 1) )
+  if ( (mat->nDimension != 2) || (vec->nDimension != 1) )
     THError("matrix and vector expected");
 
-  if( mat->size[1] != vec->size[0] )
+  if ( mat->size[1] != vec->size[0] )
     THError("size mismatch");
 
-  if(t->nDimension != 1)
+  if (t->nDimension != 1)
     THError("size mismatch");
 
-  if(t->size[0] != mat->size[0])
+  if (t->size[0] != mat->size[0])
     THError("size mismatch");
 
-  if(r_ != t)
+  if (r_ != t)
   {
     THGPUTensor_resizeAs(r_, t);
     THGPUTensor_copy(r_, t);
   }
 
-  if(mat->stride[0] == 1)
+  if (mat->stride[0] == 1)
   {
     THFloatBlas_gemv('n', mat->size[0], mat->size[1],
-                    alpha, THGPUTensor_data(mat), mat->stride[1],
-                    THGPUTensor_data(vec), vec->stride[0],
-                  beta, THGPUTensor_data(r_), r_->stride[0]);
+                     alpha, THGPUTensor_data(mat), mat->stride[1],
+                     THGPUTensor_data(vec), vec->stride[0],
+                     beta, THGPUTensor_data(r_), r_->stride[0]);
   }
-  else if(mat->stride[1] == 1)
+  else if (mat->stride[1] == 1)
   {
     THFloatBlas_gemv('t',  mat->size[1], mat->size[0],
-                  alpha, THGPUTensor_data(mat), mat->stride[0],
-                  THGPUTensor_data(vec), vec->stride[0],
-                  beta, THGPUTensor_data(r_), r_->stride[0]);
+                     alpha, THGPUTensor_data(mat), mat->stride[0],
+                     THGPUTensor_data(vec), vec->stride[0],
+                     beta, THGPUTensor_data(r_), r_->stride[0]);
   }
   else
   {
     THGPUTensor *cmat = THGPUTensor_newContiguous(mat);
 
     THFloatBlas_gemv('t',  mat->size[1], mat->size[0],
-                  alpha, THGPUTensor_data(cmat), cmat->stride[0],
-                  THGPUTensor_data(vec), vec->stride[0],
-                  beta, THGPUTensor_data(r_), r_->stride[0]);
+                     alpha, THGPUTensor_data(cmat), cmat->stride[0],
+                     THGPUTensor_data(vec), vec->stride[0],
+                     beta, THGPUTensor_data(r_), r_->stride[0]);
 
     THGPUTensor_free(cmat);
   }
@@ -717,28 +716,28 @@ void THGPUTensor_addmm(THGPUTensor *r_, float beta, THGPUTensor *t, float alpha,
   char transpose_r, transpose_m1, transpose_m2;
   THGPUTensor *r__, *m1_, *m2_;
 
-  if( (m1->nDimension != 2) || (m2->nDimension != 2) )
+  if ( (m1->nDimension != 2) || (m2->nDimension != 2) )
     THError("matrix and matrix expected");
 
-  if(t->nDimension != 2)
+  if (t->nDimension != 2)
     THError("size mismatch");
 
-  if( (t->size[0] != m1->size[0]) || (t->size[1] != m2->size[1]) || (m1->size[1] != m2->size[0]) )
+  if ( (t->size[0] != m1->size[0]) || (t->size[1] != m2->size[1]) || (m1->size[1] != m2->size[0]) )
     THError("size mismatch");
 
-  if(t != r_)
+  if (t != r_)
   {
     THGPUTensor_resizeAs(r_, t);
     THGPUTensor_copy(r_, t);
   }
 
   /* r_ */
-  if(r_->stride[0] == 1)
+  if (r_->stride[0] == 1)
   {
     transpose_r = 'n';
     r__ = r_;
   }
-  else if(r_->stride[1] == 1)
+  else if (r_->stride[1] == 1)
   {
     THGPUTensor *swap = m2;
     m2 = m1;
@@ -756,12 +755,12 @@ void THGPUTensor_addmm(THGPUTensor *r_, float beta, THGPUTensor *t, float alpha,
   }
 
   /* m1 */
-  if(m1->stride[(transpose_r == 'n' ? 0 : 1)] == 1)
+  if (m1->stride[(transpose_r == 'n' ? 0 : 1)] == 1)
   {
     transpose_m1 = 'n';
     m1_ = m1;
   }
-  else if(m1->stride[(transpose_r == 'n' ? 1 : 0)] == 1)
+  else if (m1->stride[(transpose_r == 'n' ? 1 : 0)] == 1)
   {
     transpose_m1 = 't';
     m1_ = m1;
@@ -773,12 +772,12 @@ void THGPUTensor_addmm(THGPUTensor *r_, float beta, THGPUTensor *t, float alpha,
   }
 
   /* m2 */
-  if(m2->stride[(transpose_r == 'n' ? 0 : 1)] == 1)
+  if (m2->stride[(transpose_r == 'n' ? 0 : 1)] == 1)
   {
     transpose_m2 = 'n';
     m2_ = m2;
   }
-  else if(m2->stride[(transpose_r == 'n' ? 1 : 0)] == 1)
+  else if (m2->stride[(transpose_r == 'n' ? 1 : 0)] == 1)
   {
     transpose_m2 = 't';
     m2_ = m2;
@@ -791,100 +790,100 @@ void THGPUTensor_addmm(THGPUTensor *r_, float beta, THGPUTensor *t, float alpha,
 
   /* do the operation */
   THFloatBlas_gemm(transpose_m1,
-                transpose_m2,
-                r__->size[(transpose_r == 'n' ? 0 : 1)],
-                r__->size[(transpose_r == 'n' ? 1 : 0)],
-                m1_->size[(transpose_r == 'n' ? 1 : 0)],
-                alpha,
-                THGPUTensor_data(m1_),
-                (transpose_m1 == 'n' ? m1_->stride[(transpose_r == 'n' ? 1 : 0)] : m1_->stride[(transpose_r == 'n' ? 0 : 1)]),
-                THGPUTensor_data(m2_),
-                (transpose_m2 == 'n' ? m2_->stride[(transpose_r == 'n' ? 1 : 0)] : m2_->stride[(transpose_r == 'n' ? 0 : 1)]),
-                beta,
-                THGPUTensor_data(r__),
-                r__->stride[(transpose_r == 'n' ? 1 : 0)]);
+                   transpose_m2,
+                   r__->size[(transpose_r == 'n' ? 0 : 1)],
+                   r__->size[(transpose_r == 'n' ? 1 : 0)],
+                   m1_->size[(transpose_r == 'n' ? 1 : 0)],
+                   alpha,
+                   THGPUTensor_data(m1_),
+                   (transpose_m1 == 'n' ? m1_->stride[(transpose_r == 'n' ? 1 : 0)] : m1_->stride[(transpose_r == 'n' ? 0 : 1)]),
+                   THGPUTensor_data(m2_),
+                   (transpose_m2 == 'n' ? m2_->stride[(transpose_r == 'n' ? 1 : 0)] : m2_->stride[(transpose_r == 'n' ? 0 : 1)]),
+                   beta,
+                   THGPUTensor_data(r__),
+                   r__->stride[(transpose_r == 'n' ? 1 : 0)]);
 
   /* free intermediate variables */
-  if(m1_ != m1)
+  if (m1_ != m1)
     THGPUTensor_free(m1_);
 
-  if(m2_ != m2)
+  if (m2_ != m2)
     THGPUTensor_free(m2_);
 
-  if(r__ != r_)
+  if (r__ != r_)
     THGPUTensor_freeCopyTo(r__, r_);
 }
 
 void THGPUTensor_addr(THGPUTensor *r_, float beta, THGPUTensor *t, float alpha, THGPUTensor *vec1, THGPUTensor *vec2)
 {
-  if( (vec1->nDimension != 1) || (vec2->nDimension != 1) )
+  if ( (vec1->nDimension != 1) || (vec2->nDimension != 1) )
     THError("vector and vector expected");
 
-  if(t->nDimension != 2)
+  if (t->nDimension != 2)
     THError("size mismatch");
 
-  if( (t->size[0] != vec1->size[0]) || (t->size[1] != vec2->size[0]) )
+  if ( (t->size[0] != vec1->size[0]) || (t->size[1] != vec2->size[0]) )
     THError("size mismatch");
 
-  if(r_ != t)
+  if (r_ != t)
   {
     THGPUTensor_resizeAs(r_, t);
     THGPUTensor_copy(r_, t);
   }
 
-  if(beta != 1)
+  if (beta != 1)
     THGPUTensor_mul(r_, r_, beta);
 
-  if(r_->stride[0] == 1)
+  if (r_->stride[0] == 1)
   {
     THFloatBlas_ger(vec1->size[0], vec2->size[0],
-                 alpha, THGPUTensor_data(vec1), vec1->stride[0],
-                 THGPUTensor_data(vec2), vec2->stride[0],
-                 THGPUTensor_data(r_), r_->stride[1]);
+                    alpha, THGPUTensor_data(vec1), vec1->stride[0],
+                    THGPUTensor_data(vec2), vec2->stride[0],
+                    THGPUTensor_data(r_), r_->stride[1]);
   }
-  else if(r_->stride[1] == 1)
+  else if (r_->stride[1] == 1)
   {
     THFloatBlas_ger(vec2->size[0], vec1->size[0],
-                 alpha, THGPUTensor_data(vec2), vec2->stride[0],
-                 THGPUTensor_data(vec1), vec1->stride[0],
-                 THGPUTensor_data(r_), r_->stride[0]);
+                    alpha, THGPUTensor_data(vec2), vec2->stride[0],
+                    THGPUTensor_data(vec1), vec1->stride[0],
+                    THGPUTensor_data(r_), r_->stride[0]);
   }
   else
   {
     THGPUTensor *cr = THGPUTensor_newClone(r_);
 
     THFloatBlas_ger(vec2->size[0], vec1->size[0],
-                 alpha, THGPUTensor_data(vec2), vec2->stride[0],
-                 THGPUTensor_data(vec1), vec1->stride[0],
-                 THGPUTensor_data(cr), cr->stride[0]);
+                    alpha, THGPUTensor_data(vec2), vec2->stride[0],
+                    THGPUTensor_data(vec1), vec1->stride[0],
+                    THGPUTensor_data(cr), cr->stride[0]);
 
     THGPUTensor_freeCopyTo(cr, r_);
   }
 }
 
-#define IMPLEMENT_CUDA_TENSOR_BASIC_FUNC(NAME, CFUNC)                        \
-  struct NAME##_functor                                                      \
-  {                                                                          \
-    float operator()(const float& x) const               \
-    {                                                                        \
-      return CFUNC(x);                                                       \
-    }                                                                        \
-  };                                                                         \
-                                                                             \
-  void THGPUTensor_##NAME(THGPUTensor *self_, THGPUTensor *src)           \
-  {                                                                          \
-    THGPUTensor_resizeAs(self_, src);                                       \
-    THGPUTensor *self = THGPUTensor_newContiguous(self_);                  \
-    src = THGPUTensor_newContiguous(src);                                   \
-    long size = THGPUTensor_nElement(self);                                 \
-                                                                             \
-    bolt::amp::device_vector<float> self_data(THGPUTensor_data(self), THGPUTensor_data(self)+THGPUTensor_nElement(self));\
-    bolt::amp::device_vector<float> src_data(THGPUTensor_data(src), THGPUTensor_data(src)+THGPUTensor_nElement(src));\
-    bolt::amp::transform(src_data.begin(), src_data.end(), self_data.begin(),NAME##_functor());\
-                                                                             \
-    THGPUTensor_free(src);                                                  \
-    THGPUTensor_freeCopyTo(self, self_);                                    \
-  }
+#define IMPLEMENT_CUDA_TENSOR_BASIC_FUNC(NAME, CFUNC)                                                                   \
+struct NAME##_functor                                                                                                   \
+{                                                                                                                       \
+  float operator()(const float& x) const                                                                                \
+  {                                                                                                                     \
+    return CFUNC(x);                                                                                                    \
+  }                                                                                                                     \
+};                                                                                                                      \
+                                                                                                                        \
+void THGPUTensor_##NAME(THGPUTensor *self_, THGPUTensor *src)                                                           \
+{                                                                                                                       \
+  THGPUTensor_resizeAs(self_, src);                                                                                     \
+  THGPUTensor *self = THGPUTensor_newContiguous(self_);                                                                 \
+  src = THGPUTensor_newContiguous(src);                                                                                 \
+  long size = THGPUTensor_nElement(self);                                                                               \
+                                                                                                                        \
+  bolt::amp::device_vector<float> self_data(THGPUTensor_data(self), THGPUTensor_data(self)+THGPUTensor_nElement(self)); \
+  bolt::amp::device_vector<float> src_data(THGPUTensor_data(src), THGPUTensor_data(src)+THGPUTensor_nElement(src));     \
+  bolt::amp::transform(src_data.begin(), src_data.end(), self_data.begin(),NAME##_functor());                           \
+                                                                                                                        \
+  THGPUTensor_free(src);                                                                                                \
+  THGPUTensor_freeCopyTo(self, self_);                                                                                  \
+}
 
 IMPLEMENT_CUDA_TENSOR_BASIC_FUNC(log, Concurrency::fast_math::log)
 IMPLEMENT_CUDA_TENSOR_BASIC_FUNC(log1p, Concurrency::precise_math::log1p)
@@ -912,8 +911,8 @@ struct pow_functor
 
   float operator()(const float& x) const restrict(amp,cpu)
   {
-      return Concurrency::fast_math::pow(x, value);
-      return 0;
+    return Concurrency::fast_math::pow(x, value);
+    return 0;
   }
 };
 
@@ -973,7 +972,7 @@ struct clamp_functor
 };
 
 void THGPUTensor_clamp(THGPUTensor *self_, THGPUTensor *src, float min_value,
-  float max_value)
+                       float max_value)
 {
   THArgCheck(THGPUTensor_nElement(self_) == THGPUTensor_nElement(src), 2, "sizes do not match");
   THGPUTensor *self = THGPUTensor_newContiguous(self_);
@@ -988,7 +987,7 @@ void THGPUTensor_clamp(THGPUTensor *self_, THGPUTensor *src, float min_value,
 
 struct sign_functor
 {
-    float operator()(const float &v) const restrict(amp,cpu) {
+  float operator()(const float &v) const restrict(amp,cpu) {
     return (v > 0) - (v < 0);
   }
 };
@@ -1260,46 +1259,46 @@ void THGPUTensor_norm(THGPUTensor* self, THGPUTensor* src, float value, long dim
 
 void THGPUTensor_kernel_renorm(THGPUTensor *data, const float value, const long size, const float maxnorm, long gridSz)
 {
-    Concurrency::array_view<float,1> avData(THGPUTensor_nElement(data),THGPUTensor_data(data));
-    //gridSz = (gridSz + 31 ) & ~31;
-    Concurrency::extent<1> grdExt(gridSz);
-    Concurrency::tiled_extent<32> t_ext(grdExt);
+  Concurrency::array_view<float,1> avData(THGPUTensor_nElement(data),THGPUTensor_data(data));
+  //gridSz = (gridSz + 31 ) & ~31;
+  Concurrency::extent<1> grdExt(gridSz);
+  Concurrency::tiled_extent<32> t_ext(grdExt);
 
-    Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<32>tidx) restrict(amp)
+  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<32>tidx) restrict(amp)
+  {
+    tile_static float buffer[32];
+    unsigned long tx = tidx.local[0];
+    long bx = tidx.tile[0];
+    long step = t_ext.tile_dim0;
+    float* dat = avData.data();
+    float *row = dat + size*bx;
+    buffer[tx] = 0;
+    // get norm of axis
+    for (long i=tx; i<size; i+=step)
     {
-        tile_static float buffer[32];
-        unsigned long tx = tidx.local[0];
-        long bx = tidx.tile[0];
-        long step = t_ext.tile_dim0;
-        float* dat = avData.data();
-        float *row = dat + size*bx;
-        buffer[tx] = 0;
-        // get norm of axis
-        for (long i=tx; i<size; i+=step)
-        {
-            buffer[tx] += Concurrency::fast_math::pow(Concurrency::fast_math::fabs(row[i]), value);
-        }
-        // add (reduce)
-        for (unsigned int stride = t_ext.tile_dim0 >> 1; stride > 0; stride >>= 1)
-        {
-            tidx.barrier.wait();
-            if (tx < stride)
-                buffer[tx] += buffer[tx+stride];
-        }
-        // clip norms
-        tidx.barrier.wait();
-        float norm = Concurrency::fast_math::pow(buffer[0], 1.0/value);
-        if (norm > maxnorm)
-        {
-            norm = maxnorm / (norm + 1e-7);
-            // renormalize
-            for (long i=tx; i<size; i+=step)
-            {
-                row[i] *= norm;
-            }
-        }
-    });
-    avData.synchronize();
+      buffer[tx] += Concurrency::fast_math::pow(Concurrency::fast_math::fabs(row[i]), value);
+    }
+    // add (reduce)
+    for (unsigned int stride = t_ext.tile_dim0 >> 1; stride > 0; stride >>= 1)
+    {
+      tidx.barrier.wait();
+      if (tx < stride)
+        buffer[tx] += buffer[tx+stride];
+    }
+    // clip norms
+    tidx.barrier.wait();
+    float norm = Concurrency::fast_math::pow(buffer[0], 1.0/value);
+    if (norm > maxnorm)
+    {
+      norm = maxnorm / (norm + 1e-7);
+      // renormalize
+      for (long i=tx; i<size; i+=step)
+      {
+        row[i] *= norm;
+      }
+    }
+  });
+  avData.synchronize();
 }
 
 void THGPUTensor_renorm(THGPUTensor* self, THGPUTensor* src, float value, long dimension, float maxnorm)
@@ -1362,111 +1361,108 @@ void THGPUTensor_randn(THGPURNGState* rng_state, THGPUTensor *r_, THLongStorage 
   THGPUTensor_normal(rng_state, r_, 0, 1);
 }
 
-void THGPUTensor_kernel_indexFill(
-   THGPUTensor *tensor, Concurrency::array<long>* stride, THGPUTensor *index, long src_nDim, 
-   int dim, long idx_size, long tensor_size, long size_dim, float val, long nblockx
+void THGPUTensor_kernel_indexFill(THGPUTensor *tensor, Concurrency::array<long>* stride, THGPUTensor *index, long src_nDim, 
+                                  int dim, long idx_size, long tensor_size, long size_dim, float val, long nblockx
 )
 {
-    Concurrency::array_view<float,1> srcTensor(THGPUTensor_nElement(tensor),THGPUTensor_data(tensor));
-    Concurrency::array_view<long,1> srcStride(*stride);
-    Concurrency::array_view<float,1> indx(THGPUTensor_nElement(index),THGPUTensor_data(index));
-    Concurrency::extent<2> gridExt(16,nblockx*16);
-    Concurrency::tiled_extent<16,16> t_ext(gridExt);
+  Concurrency::array_view<float,1> srcTensor(THGPUTensor_nElement(tensor),THGPUTensor_data(tensor));
+  Concurrency::array_view<long,1> srcStride(*stride);
+  Concurrency::array_view<float,1> indx(THGPUTensor_nElement(index),THGPUTensor_data(index));
+  Concurrency::extent<2> gridExt(16,nblockx*16);
+  Concurrency::tiled_extent<16,16> t_ext(gridExt);
 
-    Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<16,16>tidx) restrict(amp)
-    { 
-        //int thread_idx = blockIdx.x * blockDim.x * blockDim.y + threadIdx.y * blockDim.x + threadIdx.x;
-        int thread_idx = tidx.tile[1] * t_ext.tile_dim1 * t_ext.tile_dim0 + tidx.local[0] * t_ext.tile_dim1 + tidx.local[1];
+  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<16,16>tidx) restrict(amp)
+  {
+    //int thread_idx = blockIdx.x * blockDim.x * blockDim.y + threadIdx.y * blockDim.x + threadIdx.x;
+    int thread_idx = tidx.tile[1] * t_ext.tile_dim1 * t_ext.tile_dim0 + tidx.local[0] * t_ext.tile_dim1 + tidx.local[1];
+    long flat_size = tensor_size / idx_size; 
 
-        long flat_size = tensor_size / idx_size; 
-  
-        if (thread_idx < flat_size)
+    if (thread_idx < flat_size)
+    {
+      long coeff = 0;
+      for (int i=0; i<idx_size; i++)
+      {
+        int leftover = thread_idx;
+        int srcIdx = 0;
+        for (int d=0; d<src_nDim; d++)
         {
-            long coeff = 0;
-            for (int i=0; i<idx_size; i++)
-            {
-                int leftover = thread_idx;
-                int srcIdx = 0;
-                for (int d=0; d<src_nDim; d++)
-                {
-                    if (d < dim)
-                    {
-                        coeff = leftover / (srcStride[Concurrency::index<1>(d)] / size_dim);
-                        leftover -= coeff * (srcStride[Concurrency::index<1>(d)] / size_dim);
-                        srcIdx += coeff * srcStride[Concurrency::index<1>(d)];
-                    }
-                    else if (d > dim)
-                    {
-                        coeff = leftover / srcStride[Concurrency::index<1>(d)];
-                        leftover -= coeff * srcStride[Concurrency::index<1>(d)];
-                        srcIdx += coeff * srcStride[Concurrency::index<1>(d)];
-                    } 
-                }
-                srcTensor[(srcIdx + (int)((indx[i])-1)*srcStride[dim])] = val;        
-            }
+          if (d < dim)
+          {
+            coeff = leftover / (srcStride[Concurrency::index<1>(d)] / size_dim);
+            leftover -= coeff * (srcStride[Concurrency::index<1>(d)] / size_dim);
+            srcIdx += coeff * srcStride[Concurrency::index<1>(d)];
+          }
+          else if (d > dim)
+          {
+            coeff = leftover / srcStride[Concurrency::index<1>(d)];
+            leftover -= coeff * srcStride[Concurrency::index<1>(d)];
+            srcIdx += coeff * srcStride[Concurrency::index<1>(d)];
+          }
         }
-    });
-    srcTensor.synchronize();
-}	
+        srcTensor[(srcIdx + (int)((indx[i])-1)*srcStride[dim])] = val;        
+      }
+    }
+  });
+  srcTensor.synchronize();
+}
 
-void THGPUTensor_kernel_indexCopy(
-   float *res, float *src, Concurrency::array<long,1>* res_stride, float *index, long res_size, 
-   long res_nDim, int dim, long idx_size, long src_size, long size_dim, long nblockx)
+void THGPUTensor_kernel_indexCopy(float *res, float *src, Concurrency::array<long,1>* res_stride, float *index, long res_size, 
+                                  long res_nDim, int dim, long idx_size, long src_size, long size_dim, long nblockx)
 {
-    Concurrency::array_view<float,1> resTensor(Concurrency::extent<1>(res_size),res);
-    Concurrency::array_view<float,1> srcTensor(Concurrency::extent<1>(src_size),src);
-    Concurrency::array_view<long,1> resStride(*res_stride);
-    Concurrency::array_view<float,1> indx(Concurrency::extent<1>(idx_size),index);
+  Concurrency::array_view<float,1> resTensor(Concurrency::extent<1>(res_size),res);
+  Concurrency::array_view<float,1> srcTensor(Concurrency::extent<1>(src_size),src);
+  Concurrency::array_view<long,1> resStride(*res_stride);
+  Concurrency::array_view<float,1> indx(Concurrency::extent<1>(idx_size),index);
 
-    Concurrency::extent<2> gridExt(16,nblockx*16);
-    Concurrency::tiled_extent<16,16> t_ext(gridExt);
+  Concurrency::extent<2> gridExt(16,nblockx*16);
+  Concurrency::tiled_extent<16,16> t_ext(gridExt);
 
-    Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<16,16>tidx) restrict(amp)
-    { 
-        //int thread_idx = blockIdx.x * blockDim.x * blockDim.y + threadIdx.y * blockDim.x + threadIdx.x;
-        int thread_idx = tidx.tile[1] * t_ext.tile_dim1 * t_ext.tile_dim0 + tidx.local[0] * t_ext.tile_dim1 + tidx.local[1];
+  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<16,16>tidx) restrict(amp)
+  {
+    //int thread_idx = blockIdx.x * blockDim.x * blockDim.y + threadIdx.y * blockDim.x + threadIdx.x;
+    int thread_idx = tidx.tile[1] * t_ext.tile_dim1 * t_ext.tile_dim0 + tidx.local[0] * t_ext.tile_dim1 + tidx.local[1];
 
-        long flat_size = src_size / idx_size; 
-  
-        if (thread_idx < flat_size)
+    long flat_size = src_size / idx_size; 
+
+    if (thread_idx < flat_size)
+    {
+      long coeff = 0;
+      for (int i=0; i<idx_size; i++)
+      {
+        int leftover = thread_idx;
+        int targetIdx = 0;
+        int resIdx = 0;
+        for (int d=0; d<res_nDim; d++)
         {
-            long coeff = 0;
-            for (int i=0; i<idx_size; i++)
-            {
-                int leftover = thread_idx;
-                int targetIdx = 0;
-                int resIdx = 0;
-                for (int d=0; d<res_nDim; d++)
-                {
-                    if (d < dim)
-                    {
-                        long stride_d = (resStride[Concurrency::index<1>(d)]) / size_dim;
-                        coeff = leftover / stride_d;
-                        leftover -= coeff * stride_d;
-                        targetIdx += coeff * stride_d * idx_size;
-                        resIdx += coeff * (resStride[Concurrency::index<1>(d)]);
-                    }
-                    else if (d > dim)
-                    {
-                        coeff = leftover / (resStride[Concurrency::index<1>(d)]);
-                        leftover -= coeff * (resStride[Concurrency::index<1>(d)]);
-                        targetIdx += coeff * (resStride[Concurrency::index<1>(d)]);
-                        resIdx += coeff * (resStride[Concurrency::index<1>(d)]);
-                    } 
-                }
-                resTensor[Concurrency::index<1>(resIdx + ((int)(indx[Concurrency::index<1>(i)])-1)*(resStride[Concurrency::index<1>(dim)]))] = srcTensor[Concurrency::index<1>(targetIdx +(int) i*(resStride[Concurrency::index<1>(dim)]))];
-            }
+          if (d < dim)
+          {
+            long stride_d = (resStride[Concurrency::index<1>(d)]) / size_dim;
+            coeff = leftover / stride_d;
+            leftover -= coeff * stride_d;
+            targetIdx += coeff * stride_d * idx_size;
+            resIdx += coeff * (resStride[Concurrency::index<1>(d)]);
+          }
+          else if (d > dim)
+          {
+            coeff = leftover / (resStride[Concurrency::index<1>(d)]);
+            leftover -= coeff * (resStride[Concurrency::index<1>(d)]);
+            targetIdx += coeff * (resStride[Concurrency::index<1>(d)]);
+            resIdx += coeff * (resStride[Concurrency::index<1>(d)]);
+          }
         }
-     });
-     resTensor.synchronize();
-}	
+        resTensor[Concurrency::index<1>(resIdx + ((int)(indx[Concurrency::index<1>(i)])-1)*(resStride[Concurrency::index<1>(dim)]))] = srcTensor[Concurrency::index<1>(targetIdx +(int) i*(resStride[Concurrency::index<1>(dim)]))];
+      }
+    }
+  });
+   resTensor.synchronize();
+}
 
 void THGPUTensor_indexCopy(THGPUTensor *res_, int dim, THLongTensor *indices, THGPUTensor *src)
 {
-      THGPUTensor *indices_;
-      Concurrency::array<long,1> *stride_;
-      long nIndex = indices->size[0];
-      long nRes;
+  THGPUTensor *indices_;
+  Concurrency::array<long,1> *stride_;
+  long nIndex = indices->size[0];
+  long nRes;
   THArgCheck(indices->nDimension == 1, 3, "expecting vector of indices");
   THArgCheck(dim < src->nDimension, 4, "Indexing dim is out of bounds");
   THArgCheck(src->nDimension > 0, 2, "Source tensor is empty");
@@ -1477,20 +1473,18 @@ void THGPUTensor_indexCopy(THGPUTensor *res_, int dim, THLongTensor *indices, TH
   THGPUTensor_copyLong(indices_, indices);
 
   nRes = THGPUTensor_nElement(res_);
-  
-      /*dim3 nthreads(16, 16);*/
-      long nblockx = (long)(ceil((float)nRes / nIndex / (16*16)));
-        stride_ =  new Concurrency::array<long,1>(Concurrency::extent<1>(res_->nDimension),res_->stride);
 
-      THGPUTensor_kernel_indexCopy(
-        THGPUTensor_data(res_), THGPUTensor_data(src), 
-        stride_, THGPUTensor_data(indices_), nRes,
-        res_->nDimension, dim, nIndex, 
-        THGPUTensor_nElement(src), res_->size[dim],nblockx
-      );
+  /*dim3 nthreads(16, 16);*/
+  long nblockx = (long)(ceil((float)nRes / nIndex / (16*16)));
+  stride_ =  new Concurrency::array<long,1>(Concurrency::extent<1>(res_->nDimension),res_->stride);
 
-      delete stride_;
-      THGPUStorage_free(indices_->storage);
+  THGPUTensor_kernel_indexCopy(THGPUTensor_data(res_), THGPUTensor_data(src), 
+                               stride_, THGPUTensor_data(indices_), nRes,
+                               res_->nDimension, dim, nIndex, 
+                               THGPUTensor_nElement(src), res_->size[dim],nblockx);
+
+  delete stride_;
+  THGPUStorage_free(indices_->storage);
 }
 
 
@@ -1504,81 +1498,72 @@ void THGPUTensor_indexFill(THGPUTensor *res_, int dim, THLongTensor *indices, fl
   THArgCheck(indices->nDimension == 1, 3, "Index is supposed to be a vector");
   THArgCheck(dim < res_->nDimension,4,"Indexing dim is out of bounds");
   THArgCheck(res_->nDimension > 0, 2, "Source tensor is empty");
-  
+
   indices_ = THGPUTensor_newWithSize1d(nIndex);
   THGPUTensor_copyLong(indices_, indices);
-  
+
   nRes = THGPUTensor_nElement(res_) / res_->size[dim] * nIndex;
-      long nblockx = (long)(ceil((float)nRes / nIndex / (16 * 16)));
-      
-      stride_ =  new Concurrency::array<long,1>(Concurrency::extent<1>(res_->nDimension),res_->stride);
+  long nblockx = (long)(ceil((float)nRes / nIndex / (16 * 16)));
 
-  
-      THGPUTensor_kernel_indexFill(
-        res_, stride_, indices_, 
-        res_->nDimension, dim, nIndex, nRes, res_->size[dim], val, nblockx
-      );
+  stride_ =  new Concurrency::array<long,1>(Concurrency::extent<1>(res_->nDimension),res_->stride);
 
-     delete stride_;
-     THGPUStorage_free(indices_->storage);
-  
+  THGPUTensor_kernel_indexFill(res_, stride_, indices_, res_->nDimension, 
+                               dim, nIndex, nRes, res_->size[dim], val, nblockx);
 
+  delete stride_;
+  THGPUStorage_free(indices_->storage);
 }
 
-void THGPUTensor_kernel_indexSelect(
-   THGPUTensor *tensor, THGPUTensor *src, Concurrency::array<long>* src_stride, THGPUTensor *index, 
-   long src_nDim, int dim, long idx_size, long tensor_size, long src_size, long size_dim, long nblockx
-)
+void THGPUTensor_kernel_indexSelect(THGPUTensor *tensor, THGPUTensor *src, Concurrency::array<long>* src_stride, THGPUTensor *index, 
+                                    long src_nDim, int dim, long idx_size, long tensor_size, long src_size, long size_dim, long nblockx)
 {
-    Concurrency::array_view<float,1> resTensor(THGPUTensor_nElement(tensor),THGPUTensor_data(tensor));
-    Concurrency::array_view<float,1> srcTensor(THGPUTensor_nElement(src),THGPUTensor_data(src));
-    Concurrency::array_view<long,1> srcStride(*src_stride);
-    Concurrency::array_view<float,1> indx(THGPUTensor_nElement(index),THGPUTensor_data(index));
+  Concurrency::array_view<float,1> resTensor(THGPUTensor_nElement(tensor),THGPUTensor_data(tensor));
+  Concurrency::array_view<float,1> srcTensor(THGPUTensor_nElement(src),THGPUTensor_data(src));
+  Concurrency::array_view<long,1> srcStride(*src_stride);
+  Concurrency::array_view<float,1> indx(THGPUTensor_nElement(index),THGPUTensor_data(index));
 
-    Concurrency::extent<2> gridExt(16, nblockx * 16);
-    Concurrency::tiled_extent<16,16> t_ext(gridExt);
+  Concurrency::extent<2> gridExt(16, nblockx * 16);
+  Concurrency::tiled_extent<16,16> t_ext(gridExt);
 
-    Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<16,16>tidx) restrict(amp)
-    { 
-        //int thread_idx = blockIdx.x * blockDim.x * blockDim.y + threadIdx.y * blockDim.x + threadIdx.x;
-        int thread_idx = tidx.tile[1] * t_ext.tile_dim1 * t_ext.tile_dim0 + tidx.local[0] * t_ext.tile_dim1 + tidx.local[1];
+  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<16,16>tidx) restrict(amp)
+  {
+    //int thread_idx = blockIdx.x * blockDim.x * blockDim.y + threadIdx.y * blockDim.x + threadIdx.x;
+    int thread_idx = tidx.tile[1] * t_ext.tile_dim1 * t_ext.tile_dim0 + tidx.local[0] * t_ext.tile_dim1 + tidx.local[1];
 
-	    long flat_size = tensor_size / idx_size; 
-  
-	    if (thread_idx < flat_size)
-	    {
-		    long coeff = 0;
-		    for (int i=0; i<idx_size; i++)
-		    {
-		        int leftover = thread_idx;
-		        int targetIdx = 0;
-		        int srcIdx = 0;
-		        for (int d=0; d<src_nDim; d++)
-		        {
-			        if (d < dim)
-			        {
-			            long stride_d = srcStride[Concurrency::index<1>(d)] / size_dim;
-			            coeff = leftover / stride_d;
-			            leftover -= coeff * stride_d;
-			            targetIdx += coeff * stride_d * idx_size;
-			            srcIdx += coeff * srcStride[Concurrency::index<1>(d)];
-			        }
-			        else if (d > dim)
-			        {
-			            coeff = leftover / srcStride[Concurrency::index<1>(d)];
-			            leftover -= coeff * srcStride[Concurrency::index<1>(d)];
-			            targetIdx += coeff *srcStride[Concurrency::index<1>(d)];
-			            srcIdx += coeff * srcStride[Concurrency::index<1>(d)];
-			        } 
-		        }
-		        resTensor[targetIdx + i*srcStride[dim]] = srcTensor[srcIdx + ((int)(indx[i])-1)*srcStride[dim]];
-		    }
-	    }
-	});
-	resTensor.synchronize();
+    long flat_size = tensor_size / idx_size; 
+
+    if (thread_idx < flat_size)
+    {
+      long coeff = 0;
+      for (int i=0; i<idx_size; i++)
+      {
+        int leftover = thread_idx;
+        int targetIdx = 0;
+        int srcIdx = 0;
+        for (int d=0; d<src_nDim; d++)
+        {
+          if (d < dim)
+          {
+            long stride_d = srcStride[Concurrency::index<1>(d)] / size_dim;
+            coeff = leftover / stride_d;
+            leftover -= coeff * stride_d;
+            targetIdx += coeff * stride_d * idx_size;
+            srcIdx += coeff * srcStride[Concurrency::index<1>(d)];
+          }
+          else if (d > dim)
+          {
+            coeff = leftover / srcStride[Concurrency::index<1>(d)];
+            leftover -= coeff * srcStride[Concurrency::index<1>(d)];
+            targetIdx += coeff *srcStride[Concurrency::index<1>(d)];
+            srcIdx += coeff * srcStride[Concurrency::index<1>(d)];
+          }
+        }
+        resTensor[targetIdx + i*srcStride[dim]] = srcTensor[srcIdx + ((int)(indx[i])-1)*srcStride[dim]];
+      }
+    }
+  });
+  resTensor.synchronize();
 }
-	
-
 
 void THGPUTensor_indexSelect(THGPUTensor *res_, THGPUTensor *src, int dim, THLongTensor *indices)
 {
@@ -1602,20 +1587,17 @@ void THGPUTensor_indexSelect(THGPUTensor *res_, THGPUTensor *src, int dim, THLon
   THGPUTensor_copyLong(indices_, indices);
 
   nRes = THGPUTensor_nElement(res_);
-      long nblockx = (long)(ceil((float)nRes / nIndex/(16 * 16)));
-  
-      stride_ =  new Concurrency::array<long,1>(Concurrency::extent<1>(src->nDimension),src->stride);
-  
-      THGPUTensor_kernel_indexSelect(
-        res_, src, 
-        stride_, indices_, 
-        src->nDimension, dim, indices->size[0], nRes,THGPUTensor_nElement(src), src->size[dim],nblockx
-      );
-    
-      //THGPUCheck(gpuFree(stride_));
-      //THGPUTensor_free(indices_);
-      delete stride_;
-      THGPUStorage_free(indices_->storage);
-      THGPUTensor_free(indices_);
-      THLongStorage_free(newSize);
+  long nblockx = (long)(ceil((float)nRes / nIndex/(16 * 16)));
+
+  stride_ =  new Concurrency::array<long,1>(Concurrency::extent<1>(src->nDimension),src->stride);
+
+  THGPUTensor_kernel_indexSelect(res_, src, stride_, indices_, src->nDimension, dim, 
+                                 indices->size[0], nRes,THGPUTensor_nElement(src), src->size[dim],nblockx);
+
+  //THGPUCheck(gpuFree(stride_));
+  //THGPUTensor_free(indices_);
+  delete stride_;
+  THGPUStorage_free(indices_->storage);
+  THGPUTensor_free(indices_);
+  THLongStorage_free(newSize);
 }
