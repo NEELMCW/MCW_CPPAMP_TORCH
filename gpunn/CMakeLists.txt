@@ -12,11 +12,32 @@ LINK_DIRECTORIES("${Torch_INSTALL_LIB}")
 
 SET(src-camp init.cpp)
 
-SET (OPENCL_INC "/opt/AMDAPP/include/")
 
-SET(CLAMP_CXXFLAGS "-std=c++amp  -I/home/neelakandan/Downloads/mcw_cppamp/Bolt/include -I//home/neelakandan/Downloads/mcw_cppamp/build3/Bolt/superbuild/Bolt-build/include -I/home/neelakandan/Downloads/mcw_cppamp/cppamp-driver-ng/Bolt/include -I/home/neelakandan/Downloads/mcw_cppamp/build/Bolt/superbuild/Bolt-build/include/ -I/opt/AMDAPP/include -I/opt/AMDAPP/clBLAS/include -I/home/neelakandan/Downloads/mcw_cppamp/cppamp-driver-ng/include -I/home/neelakandan/Downloads/mcw_cppamp/cppamp-driver-ng/libc++/libcxx/include")
+# MCW CLAMP Specific. Version >= 0.3 is Must
+ # MCW CLAMP Specific. Version >= 0.3 is Must
+SET (OPENCL_INC "$ENV{AMDAPPSDKROOT}/include")
+SET (OPENCL_LIB "$ENV{AMDAPPSDKROOT}/lib/x86_64")
+SET (CLBLAS_INC "$ENV{CLBLASROOT}/include")
+SET (CLBLAS_LIB "$ENV{CLBLASROOT}/lib64/")
+SET (BOLT_SRC_INC "$ENV{BOLTROOT}/include/")
+SET (BOOST_SRC_INC "$ENV{MCWCPPAMPROOT}/master-build/Bolt/superbuild/external/boost/src/Boost/")
+SET (BOLT_VER_INC "$ENV{MCWCPPAMPROOT}/master-build/Bolt/superbuild/Bolt-build/include/")
+SET (PREFIX "$ENV{MCWCPPAMPROOT}/gmac_exp_build")
+SET (CLANG_AMP "${PREFIX}/compiler/bin/clang++")
+SET (CLAMP_CONFIG "${PREFIX}/build/Release/bin/clamp-config")
+execute_process(COMMAND ${CLAMP_CONFIG} --build --cxxflags
+    OUTPUT_VARIABLE CLAMP_CXXFLAGS)
+string(STRIP ${CLAMP_CXXFLAGS} CLAMP_CXXFLAGS)
+set (CLAMP_CXXFLAGS "${CLAMP_CXXFLAGS} -I${OPENCL_INC}")
+execute_process(COMMAND ${CLAMP_CONFIG} --build --ldflags
+    OUTPUT_VARIABLE CLAMP_LDFLAGS)
+string(STRIP ${CLAMP_LDFLAGS} CLAMP_LDFLAGS)
+set (CLAMP_CXXFLAGS "${CLAMP_CXXFLAGS} -I${OPENCL_INC} -I${CLBLAS_INC} -I${BOLT_SRC_INC} -I${BOLT_VER_INC} -I${BOOST_SRC_INC}")
+set (CLAMP_LDFLAGS "${CLAMP_LDFLAGS} -L${OPENCL_LIB} -L${CLBLAS_LIB}")
 
-SET(CLAMP_LDFLAGS  "-std=c++amp -fPIC -L/home/neelakandan/Downloads/mcw_cppamp/build/build/lib/ -L/opt/AMDAPP/lib/x86_64/ -L/opt/AMDAPP/clBLAS/lib64/ -L/home/neelakandan/Downloads/mcw_cppamp/build/build/lib -L/home/neelakandan/Downloads/mcw_cppamp/build/build/Release/lib -L/home/neelakandan/Downloads/mcw_cppamp/build/libc++/libcxx/lib -L/home/neelakandan/Downloads/mcw_cppamp/build/libc++/libcxxrt/lib -Wl,--rpath=/home/neelakandan/Downloads/mcw_cppamp/build/build/Release/lib:/home/neelakandan/Downloads/mcw_cppamp/build/libc++/libcxx/lib:/home/neelakandan/Downloads/mcw_cppamp/build/libc++/libcxxrt/lib -lOpenCL -lclBLAS -lc++ -lcxxrt -ldl -Wl,--whole-archive -lmcwamp -Wl,--no-whole-archive ")
+
+
+
 
 SET_PROPERTY(SOURCE init.cpp APPEND_STRING PROPERTY COMPILE_FLAGS " ${CLAMP_CXXFLAGS}")
 SET(luasrc init.lua test/test.lua)
