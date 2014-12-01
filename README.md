@@ -86,3 +86,13 @@ To set up bolt use the master branch of https://bitbucket.org/multicoreware/cppa
 (iv) **CLBLAS setup**:
 
 Extract the appropriate clBlas binary package from [here](https://github.com/clMathLibraries/clBLAS/releases)
+
+(V) **Building gputorch and gpunn:**
+
+Prior to building these packages the following environment variables need to be set using export command
+
+* AMDAPPSDKROOT=<path to AMD APP SDK>
+* CLBLASROOT=<path to clBLAS binary pack>
+* BOLTROOT =<path to Bolt Source> (copied from master branch)
+* MCWCPPAMPROOT=<path to mcw_cppamp dir>
+
