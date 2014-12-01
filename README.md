@@ -98,5 +98,9 @@ Prior to building these packages the following environment variables need to be 
 
 After this the following are the steps to build gputorch and gpunn
 
-1. cd mcw_torch7_core
-2. luarocks make rocks/
+Build Torch7 Core:
+  *  cd mcw_torch7_core
+  *  luarocks make rocks/torch-scm-1.rockspec
+Build NN pack
+  * cd mcw_nn
+  * luarocks make rocks/nn-scm-1.rockspec
