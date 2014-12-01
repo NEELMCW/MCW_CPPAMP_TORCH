@@ -45,11 +45,7 @@ Create a build directory and configure using CMake.
 
   * cd gmac_exp_build
 
-   * cmake ../src  (default options can be overridden on the command line:
-  cmake ../src \
-      -DCLANG_URL=https://bitbucket.org/multicoreware/cppamp-ng.git \
-      -DOPENCL_HEADER_DIR=/opt/AMDAPP/include \
-      -DOPENCL_LIBRARY_DIR=/opt/AMDAPP/lib/x86_64 \ )
+   * cmake ../src  (The gmac-exp branch expects the AMDAPP SDK in the path /opt/AMDAPP)
 
 Build the whole system. This will build clang and other libraries that require one time build.
 
@@ -57,7 +53,7 @@ Build the whole system. This will build clang and other libraries that require o
 
   * make                        (this builds llvm utilities)
  
-(iii)  Bolt Set up:
+(iii) ** Bolt Set up:**
 
 To set up bolt use the master branch of https://bitbucket.org/multicoreware/cppamp-driver-ng.git
 
@@ -67,7 +63,11 @@ To set up bolt use the master branch of https://bitbucket.org/multicoreware/cppa
 
  *  mkdir mcw_cppamp/master-build && cd mcw_cppamp/master-build
 
- * cmake ../src
+ * cmake ../src (default options can be overridden on the command line for master branch:
+  cmake ../src \
+      -DCLANG_URL=https://bitbucket.org/multicoreware/cppamp-ng.git \
+      -DOPENCL_HEADER_DIR=/opt/AMDAPP/include \
+      -DOPENCL_LIBRARY_DIR=/opt/AMDAPP/lib/x86_64 \ )
 
 *  make [-j #] world
 
@@ -83,6 +83,6 @@ To set up bolt use the master branch of https://bitbucket.org/multicoreware/cppa
 
 
 
-(iv) CLBLAS setup:
+(iv) **CLBLAS setup**:
 
 Extract the clBlas binary package from [here](https://github.com/clMathLibraries/clBLAS/releases) to /opt/clBlas
