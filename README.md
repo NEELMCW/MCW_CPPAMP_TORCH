@@ -96,3 +96,7 @@ Prior to building these packages the following environment variables need to be 
 * BOLTROOT =<path to Bolt Source> (copied from master branch)
 * MCWCPPAMPROOT=<path to mcw_cppamp dir>
 
+After this the following are the steps to build gputorch and gpunn
+
+1. cd mcw_torch7_core
+2. luarocks make rocks/
