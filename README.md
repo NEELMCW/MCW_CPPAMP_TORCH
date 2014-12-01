@@ -109,3 +109,30 @@ Build NN pack
   * cd mcw_nn
 
   * luarocks make rocks/nn-scm-1.rockspec
+
+Build gputorch pack
+
+  * cd gputorch
+
+  * luarocks make rocks/gputorch-scm-1.rockspec
+
+Build gpunn pack
+
+  * cd gpunn
+
+  * luarocks make rocks/gpunn-scm-1.rockspec
+
+
+Testing gputorch:
+
+* cd gputorch
+
+* th -lgputorch -e "gputorch.test()"
+
+
+Testing gpunn:
+
+* cd gputorch
+
+* th -lgpunn -e "nn.testgpu()"
+
