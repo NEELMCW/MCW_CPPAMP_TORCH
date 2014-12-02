@@ -758,7 +758,7 @@ function gpunntest.SpatialConvolutionMM_forward_single()
 end
 
 function gpunntest.SpatialConvolutionMM_forward_batch()
-   local bs = math.random(1,4) * 2 
+   local bs = math.random(1,4) * 2
    local from = math.random(1,32)
    local to = math.random(1,8) * 8
    local ki = math.random(3,15)
@@ -860,7 +860,7 @@ function gpunntest.SpatialConvolutionMM_backward_single()
 end
 
 function gpunntest.SpatialConvolutionMM_backward_batch()
-   local bs = math.random(1,4) * 3 
+   local bs = math.random(1,4) * 3
    local from = math.random(1,32)
    local to = math.random(1,8) * 8
    local ki = math.random(3,15)
@@ -962,8 +962,7 @@ end
    local error = resgpu:float() - groundtruth
    mytester:assertlt(error:abs():max(), precision_forward, 'error on state (forward) ')
 end]]--
-
---[[function gpunntest.SpatialConvolutionGPU_forward_batch()
+function gpunntest.SpatialConvolutionGPU_forward_batch()
    local bs = 32
    local from = 4 * math.random(1,4)
    local to = 32
@@ -1014,7 +1013,7 @@ end]]--
    mytester:assertlt(error:abs():max(), precision_forward, 'error on state (forward) ')
 end
 
-function gpunntest.SpatialConvolutionGPU_backward_batch()
+--[[function gpunntest.SpatialConvolutionGPU_backward_batch()
    local bs = 32
    local from = 4 * math.random(1,4)
    local to = 32
@@ -1082,7 +1081,6 @@ function gpunntest.SpatialConvolutionGPU_backward_batch()
    mytester:assertlt(werror:abs():max(), precision_backward, 'error on weight (backward) ')
    mytester:assertlt(berror:abs():max(), precision_backward, 'error on bias (backward) ')
 end]]--
-
 function gpunntest.SpatialSubSampling_forward()
    local from = math.random(1,64)
    local to = from
@@ -1982,7 +1980,6 @@ function gpunntest.LogSoftMax_backward_batch()
 
    mytester:assertlt(error:abs():max(), precision_backward, 'error on state (backward) ')
 end
-
 --[[function gpunntest.TemporalConvolution_forward()
    local from = math.random(1,64) -- inputFrameSize
    local to = math.random(1,64) -- outputFrameSize
@@ -2019,10 +2016,8 @@ end
 
    local error = resgpu:float() - groundtruth
    mytester:assertlt(error:abs():max(), precision_forward, 'error on state (forward) ')
-end
-
-
-function gpunntest.TemporalConvolution_forward_batch()
+end]]--
+--[[function gpunntest.TemporalConvolution_forward_batch()
    local bs = math.random(4,16)
    local from = math.random(1,64)
    local to = math.random(1,64)
