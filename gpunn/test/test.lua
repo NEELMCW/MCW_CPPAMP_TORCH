@@ -1614,7 +1614,7 @@ function gpunntest.SpatialMaxPoolingGPU_backward_batch()
    mytester:assertlt(error:abs():max(), precision_backward, 'error on state (backward) ')
 end
 
---[[function gpunntest.SpatialLPPooling_forward()
+function gpunntest.SpatialLPPooling_forward()
    local from = math.random(1,64)
    local to = from
    local pnorm = 2
@@ -1655,7 +1655,7 @@ end
    mytester:assertlt(error:abs():max(), precision_forward, 'error on state (forward) ')
 end
 
-function gpunntest.SpatialLPPooling_backward()
+--[[function gpunntest.SpatialLPPooling_backward()
    local from = math.random(1,64)
    local to = from
    local pnorm = 2
@@ -2233,53 +2233,6 @@ function gpunntest.Exp_backward()
    mytester:assertlt(error:abs():max(), precision_backward, 'error on state (backward) ')
 end
 
---[[function gpunntest.Dropout()
-   local p = 0.2 --prob of droping out a neuron
-   local input = torch.GPUTensor(1000):fill((1-p))
-   local module = nn.Dropout(p)
-   module:gpu()
-   -- version 2
-   local output = module:forward(input)
-   mytester:assert(math.abs(output:mean() - (1-p)) < 0.05, 'dropout output')
-   local gradInput = module:backward(input, input)
-   mytester:assert(math.abs(gradInput:mean() - (1-p)) < 0.05, 'dropout gradInput')
-   -- version 1 (old nnx version)
-   local input = input:fill(1)
-   local module = nn.Dropout(p,true)
-   module:gpu()
-   local output = module:forward(input)
-   mytester:assert(math.abs(output:mean() - (1-p)) < 0.05, 'dropout output')
-   local gradInput = module:backward(input, input)
-   mytester:assert(math.abs(gradInput:mean() - (1-p)) < 0.05, 'dropout gradInput')
-end
-
-function gpunntest.Dropout_forward()
-   local size = math.random(1,200)
-
-   local tm = {}
-   local title = string.format('Dropout forward %d -> %d', size, size)
-   times[title] = tm
-
-   local input = torch.randn(size)
-   local sconv = nn.Dropout()
-   local groundtruth = sconv:forward(input)
-   local a = torch.Timer()
-   for i = 1,nloop do
-      groundtruth = sconv:forward(input)
-   end
-   tm.cpu = a:time().real
-
-   input = input:gpu()
-   local gconv = nn.Dropout():gpu()
-   local resgpu = gconv:forward(input)
-   a:reset()
-   for i = 1,nloop do
-      resgpu = gconv:forward(input)
-   end
-   gputorch.synchronize()
-   tm.gpu = a:time().real
-
-end]]--
 
 function gpunntest.SoftPlus_forward()
    local size = math.random(1,100)
