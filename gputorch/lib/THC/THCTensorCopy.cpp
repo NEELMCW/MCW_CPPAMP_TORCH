@@ -159,7 +159,7 @@ void THGPUTensor_kernel_copy(THGPUTensor *self, THGPUTensor *src, Concurrency::a
                              int src_dim, long n_elem, long innerdim, int nblockx, int nblocky,
                              int nblockz)
 {
-  Concurrency::extent<3> copyExt(nblockz, nblocky, nblockx);
+  Concurrency::extent<3> copyExt(nblockz, nblocky *16, nblockx * 16);
   Concurrency::tiled_extent<1, 16, 16> t_ext(copyExt);
   Concurrency::array_view<long, 1> av_src_st(*src_st);
   Concurrency::array_view<long, 1> av_src_sz(*src_sz);
@@ -237,11 +237,11 @@ THC_API void THGPUTensor_copy(THGPUTensor *self, THGPUTensor *src)
   int number_blocks_dim_y = DIVUP(nblocks, nblocks_x * nblocks_y);
   int nblocks_z = number_blocks_dim_y;
 
-  nblocks_z = (nblocks_z + 15) & ~15;
+  /*nblocks_z = (nblocks_z + 15) & ~15;
 
   nblocks_x = (nblocks_x + 15) & ~15;
 
-  nblocks_y = (nblocks_y + 15) & ~15;
+  nblocks_y = (nblocks_y + 15) & ~15;*/
 
   THGPUTensor_kernel_copy(self, src,
                           d_self_sz, d_self_st, self_dim,
