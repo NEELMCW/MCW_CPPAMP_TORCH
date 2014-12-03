@@ -1368,7 +1368,7 @@ function gpunntest.SpatialMaxPooling_forward_batch()
    mytester:assertlt(error:abs():max(), precision_forward, 'error on state (forward) ')
 end
 
---[[function gpunntest.SpatialMaxPooling_backward()
+function gpunntest.SpatialMaxPooling_backward()
    local from = math.random(1,64)
    local to = from
    local ki = math.random(2,4)
@@ -1415,7 +1415,7 @@ end
    local error = resgpu:float() - groundgrad
 
    mytester:assertlt(error:abs():max(), precision_backward, 'error on state (backward) ')
-end]]--
+end
 
 function gpunntest.SpatialMaxPooling_backward_batch()
    local bs = math.random(4,10)
@@ -1468,7 +1468,7 @@ function gpunntest.SpatialMaxPooling_backward_batch()
    mytester:assertlt(error:abs():max(), precision_backward, 'error on state (backward) ')
 end
 
---[[function gpunntest.SpatialMaxPooling_backward_batch_atomic()
+function gpunntest.SpatialMaxPooling_backward_batch_atomic()
    local bs = math.random(4,10)
    local from = math.random(1,64)
    local to = from
@@ -1517,9 +1517,9 @@ end
    local error = resgpu:float() - groundgrad
 
    mytester:assertlt(error:abs():max(), precision_backward, 'error on state (backward) ')
-end]]--
+end
 
---[[function gpunntest.SpatialMaxPoolingGPU_forward_batch()
+function gpunntest.SpatialMaxPoolingGPU_forward_batch()
    local bs = 32
    local from = 16 * math.random(1,3)
    local to = from
@@ -1560,7 +1560,7 @@ end]]--
 
    local error = resgpu - groundtruth
    mytester:assertlt(error:abs():max(), precision_forward, 'error on state (forward) ')
-end]]--
+end
 
 function gpunntest.SpatialMaxPoolingGPU_backward_batch()
    local bs = 32
@@ -1747,9 +1747,6 @@ function gpunntest.mse()
       local gerr = cgin:float() - fgin
       mytester:assertlt(gerr:abs():max(), precision_forward, 'error  on gradInput')
 
-     --[[ mytester:assertlt(math.abs(fout-cout2), precision_forward, 'error  on output - 2')
-      local gerr2 = cgin2:float() - fgin
-      mytester:assertlt(gerr2:abs():max(), precision_forward, 'error  on gradInput -2')]]--
    end
 end
 

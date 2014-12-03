@@ -12,7 +12,6 @@ void maxpool(THGPUTensor *input, THGPUTensor *output, THGPUTensor *indices, int 
                         int kH, int kW, int dH, int dW,
                         int xblocks, int yblocks)
 {
-  //std::cout<<"inside Spatial Max pooling"<<std::endl;
   Concurrency::extent<3> copyExt(1,yblocks*8,xblocks*32);
   Concurrency::tiled_extent<1,8,32> t_ext(copyExt);
 
@@ -149,14 +148,14 @@ void atomicmaxgradinput(THGPUTensor *gradInput, THGPUTensor *gradOutput, THGPUTe
                         int input_n, int input_h, int input_w, int kH, int kW, int dH, int dW, int xblocks, int yblocks
 )
 {
-  Concurrency::extent<3> copyExt(1,yblocks*8,xblocks*32);
-  Concurrency::tiled_extent<1,8,32> t_ext(copyExt);
+  Concurrency::extent<3> copyExt(1,yblocks,xblocks);
+  Concurrency::tiled_extent<1,1,1> t_ext(copyExt);
 
   Concurrency::array_view<float,1>input_data(gradInput->storage->size,THGPUTensor_data(gradInput));
   Concurrency::array_view<float,1>indices_data(indices->storage->size,THGPUTensor_data(indices));
   Concurrency::array_view<float,1>output_data(gradOutput->storage->size,THGPUTensor_data(gradOutput));
 
-  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1,8,32> tidx) restrict(amp)
+  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1,1,1> tidx) restrict(amp)
   {
     // iterators
     int xx, yy;
@@ -294,7 +293,6 @@ static int gpunn_SpatialMaxPooling_updateGradInput(lua_State *L)
   int dW = luaT_getfieldcheckint(L, 1, "dW");
   int dH = luaT_getfieldcheckint(L, 1, "dH");
   bool atomic = (dW != kW) || (dH != kH); 
-  atomic = false;
   THGPUTensor *gradInput = (THGPUTensor *)luaT_getfieldcheckudata(L, 1, "gradInput", "torch.GPUTensor");
   THGPUTensor *indices = (THGPUTensor *)luaT_getfieldcheckudata(L, 1, "indices", "torch.GPUTensor");
 
