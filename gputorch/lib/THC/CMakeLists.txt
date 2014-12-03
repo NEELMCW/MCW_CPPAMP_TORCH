@@ -12,7 +12,7 @@ SET (BOOST_SRC_INC "$ENV{MCWCPPAMPROOT}/master-build/Bolt/superbuild/external/bo
 SET (BOLT_VER_INC "$ENV{MCWCPPAMPROOT}/master-build/Bolt/superbuild/Bolt-build/include/")
 SET (PREFIX "$ENV{MCWCPPAMPROOT}/gmac_exp_build")
 SET (CLANG_AMP "${PREFIX}/compiler/bin/clang++")
-SET (CLAMP_CONFIG "${PREFIX}/build/Release/bin/clamp-config")
+SET (CLAMP_CONFIG "${PREFIX}/build/bin/clamp-config")
 execute_process(COMMAND ${CLAMP_CONFIG} --build --cxxflags
     OUTPUT_VARIABLE CLAMP_CXXFLAGS)
 string(STRIP ${CLAMP_CXXFLAGS} CLAMP_CXXFLAGS)
