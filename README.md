@@ -41,9 +41,9 @@ Prepare a directory for work space.
 
 Create a build directory and configure using CMake.
 
-  *  mkdir gmac_exp_build
+  *  mkdir mcw_cppamp/gmac_exp_build
 
-  * cd gmac_exp_build
+  * cd mcw_cppamp/gmac_exp_build
 
    * cmake ../src  (The gmac-exp branch expects the AMDAPP SDK in the path /opt/AMDAPP)
 
@@ -132,7 +132,6 @@ Testing gputorch:
 
 Testing gpunn:
 
-* cd gputorch
+* cd gpunn
 
 * th -lgpunn -e "nn.testgpu()"
-
