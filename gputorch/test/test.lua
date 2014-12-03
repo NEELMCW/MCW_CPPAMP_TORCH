@@ -26,7 +26,7 @@ local function isEqual(a, b, tolerance, ...)
    local diff = a-b
    --print(diff)
    --tolerance = tolerance or 0.000001
-   tolerance = 0.01
+   tolerance = 0.1
    if type(a) == 'number' then
       return math.abs(diff) < tolerance
    else
