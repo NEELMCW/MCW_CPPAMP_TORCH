@@ -37,7 +37,6 @@ void filterActs_YxX_color(THGPUTensor* imageTensor, THGPUTensor* filterTensor, T
                           const int numModulesY, const int numModulesX,const int imgStride,const float scaleTargets,
                           const float scaleOutputs, const bool conv , int blockX, int blockY)
 {
-  std::cout<<"color"<<std::endl;
   Concurrency::array_view<float,1> avImages(Concurrency::extent<1>(imageTensor->storage->size), THGPUTensor_data(imageTensor));
   Concurrency::array_view<float,1> avFilters(Concurrency::extent<1>(filterTensor->storage->size), THGPUTensor_data(filterTensor));
   Concurrency::array_view<float,1> avTargets(Concurrency::extent<1>(targetTensor->storage->size), THGPUTensor_data(targetTensor));
@@ -233,7 +232,6 @@ void filterActs_YxX_sparse(THGPUTensor* imageTensor, THGPUTensor* filterTensor, 
                            const int numModulesX, const int imgStride, const int numImgColors, const int numGroups,
                            const float scaleTargets, const float scaleOutputs, const bool conv, int blockX, int blockY)
 {
-  std::cout<<"sparse"<<std::endl;
   Concurrency::array_view<float,1> avImages(Concurrency::extent<1>(imageTensor->storage->size), THGPUTensor_data(imageTensor));
   Concurrency::array_view<float,1> avFilters(Concurrency::extent<1>(filterTensor->storage->size), THGPUTensor_data(filterTensor));
   Concurrency::array_view<float,1> avTargets(Concurrency::extent<1>(targetTensor->storage->size), THGPUTensor_data(targetTensor));
