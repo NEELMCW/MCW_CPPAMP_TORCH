@@ -1599,5 +1599,4 @@ void THGPUTensor_indexSelect(THGPUTensor *res_, THGPUTensor *src, int dim, THLon
   delete stride_;
   THGPUStorage_free(indices_->storage);
   THGPUTensor_free(indices_);
-  THLongStorage_free(newSize);
 }
