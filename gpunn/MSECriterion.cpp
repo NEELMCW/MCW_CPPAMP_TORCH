@@ -91,7 +91,7 @@ static int gpunn_MSECriterion_updateGradInput(lua_State *L)
 
 #define MSECRITERION_THREADS 128
 
-void gpunn_MSECriterion_updateOutput_kernel(THGPUStorage* output, THGPUTensor *input, THGPUTensor *target, int nframe, int dim)
+void gpunn_MSECriterion_updateOutput_kernel(THGPUStorage* output, THGPUTensor *input, THGPUTensor *target, int nframe, int dim, int sizeAverage)
 {
   Concurrency::array_view<float,1> avInp(Concurrency::extent<1>(input->storage->size), THGPUTensor_data(input));
   Concurrency::array_view<float,1> avTarget(Concurrency::extent<1>(target->storage->size), THGPUTensor_data(target));
@@ -103,6 +103,9 @@ void gpunn_MSECriterion_updateOutput_kernel(THGPUStorage* output, THGPUTensor *i
     tile_static float buffer[MSECRITERION_THREADS];
     float *input_k = avInp.data();
     float *target_k = avTarget.data();
+    int k = tidx.tile[0];
+    input_k += k*dim;
+    target_k += k*dim;
 
     int i_start = tidx.local[0];
     int i_end = dim;
@@ -125,6 +128,8 @@ void gpunn_MSECriterion_updateOutput_kernel(THGPUStorage* output, THGPUTensor *i
       {
         avOutput[0] += buffer[i];
       }
+      if (sizeAverage)
+       avOutput[0] /= dim;
     }
   });
   avOutput.synchronize();
@@ -143,6 +148,11 @@ void gpunn_MSECriterion_updateGradInput_kernel(THGPUTensor *gradInput, THGPUTens
     float *target_k = avTarget.data();
     float *gradInput_k = avGradInput.data();
 
+    int k = tidx.tile[0];
+    gradInput_k += k*dim;
+    input_k += k*dim;
+    target_k += k*dim;
+
     int i_start = tidx.local[0];
     int i_end = dim;
     int i_step = t_ext.tile_dim0;
@@ -154,7 +164,7 @@ void gpunn_MSECriterion_updateGradInput_kernel(THGPUTensor *gradInput, THGPUTens
   avInp.synchronize();
 }
 
-static int gpunn_MSECriterion_updateOutput2(lua_State *L)
+/*static int gpunn_MSECriterion_updateOutput2(lua_State *L)
 {
   THGPUTensor *input = (THGPUTensor*)luaT_checkudata(L, 2, "torch.GPUTensor");
   THGPUTensor *target = (THGPUTensor*)luaT_checkudata(L, 3, "torch.GPUTensor");
@@ -183,6 +193,35 @@ static int gpunn_MSECriterion_updateOutput2(lua_State *L)
     THGPUTensor_free(target);
     target = NULL;
   }
+  THGPUStorage_free(output);
+
+  lua_pushstring(L, "output");
+  lua_pushvalue(L, -2);
+  lua_rawset(L, 1);
+
+  return 1;
+}*/
+
+static int gpunn_MSECriterion_updateOutput2(lua_State *L)
+{
+  THGPUTensor *input = (THGPUTensor*)luaT_checkudata(L, 2, "torch.GPUTensor");
+  THGPUTensor *target = (THGPUTensor*)luaT_checkudata(L, 3, "torch.GPUTensor");
+  int sizeAverage = luaT_getfieldcheckboolean(L, 1, "sizeAverage");
+  long size = THGPUTensor_nElement(input);
+
+  input = THGPUTensor_newContiguous(input);
+  target = THGPUTensor_newContiguous(target);
+
+  THGPUStorage *output = THGPUStorage_newWithSize(1);
+
+
+  gpunn_MSECriterion_updateOutput_kernel(output, input, target, 1, size, sizeAverage);
+
+  lua_pushnumber(L, THGPUStorage_get(output, 0));
+
+
+  THGPUTensor_free(input);
+  THGPUTensor_free(target);
   THGPUStorage_free(output);
 
   lua_pushstring(L, "output");
