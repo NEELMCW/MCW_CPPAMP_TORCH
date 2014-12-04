@@ -581,7 +581,7 @@ function gpunntest.Min_backward()
    mytester:assertlt(error:abs():max(), precision_backward, 'error on state (backward) ')
 end
 
---[[function gpunntest.Sum_forward()
+function gpunntest.Sum_forward()
    local size1 = math.random(1,1000)
    local size2 = math.random(2,100)
 
@@ -610,7 +610,7 @@ end
 
    local error = resgpu:float() - groundtruth
    mytester:assertlt(error:abs():max(), precision_forward, 'error on state (forward) ')
-end]]--
+end
 
 function gpunntest.Sum_backward()
    local size1 = math.random(1,1000)
@@ -648,7 +648,7 @@ function gpunntest.Sum_backward()
    mytester:assertlt(error:abs():max(), precision_backward, 'error on state (backward) ')
 end
 
---[[function gpunntest.Mean_forward()
+function gpunntest.Mean_forward()
    local size1 = math.random(1,1000)
    local size2 = math.random(2,100)
 
@@ -677,7 +677,7 @@ end
 
    local error = resgpu:float() - groundtruth
    mytester:assertlt(error:abs():max(), precision_forward, 'error on state (forward) ')
-end]]--
+end
 
 function gpunntest.Mean_backward()
    local size1 = math.random(1,1000)

@@ -520,17 +520,17 @@ void THGPUTensor_kernel_transformReduceInnermostDim(THGPUTensor *tgt, THGPUTenso
   Concurrency::array_view<unsigned int, 1> avSrc_stride(4, src_stride);
   Concurrency::array_view<unsigned int, 1> avTgt_stride(4, tgt_stride);
   Concurrency::array_view<unsigned int, 1> avSize(4, size);
-  Concurrency::extent<3> grdExt(gridConf[2], gridConf[1] * 16, gridConf[0] *16);
-  Concurrency::tiled_extent<1, 16, 16> t_ext(grdExt);
+  Concurrency::extent<3> grdExt(gridConf[2], gridConf[1] * 8, gridConf[0] *32);
+  Concurrency::tiled_extent<1, 8, 32> t_ext(grdExt);
 
-  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1, 16, 16> tidx) restrict(amp)
+  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1, 8, 32> tidx) restrict(amp)
   {
-    tile_static float sbuf[16][16]; // 8kB
+    tile_static float sbuf[16][32]; // 8kB
     for (unsigned z = tidx.tile[0]; z < avSize[3] ; z += t_ext[0]/tidx.tile_dim0)
     {
       for (unsigned x = tidx.tile[2]; x < avSize[2] ; x += t_ext[2]/tidx.tile_dim2)
       {
-        for (unsigned bRow = tidx.tile_origin[1]; bRow < avSize[1]; bRow += t_ext[1]) 
+        for (unsigned bRow = tidx.tile[1] * tidx.tile_dim1; bRow < avSize[1]; bRow += t_ext[1]) 
         {
           float acc = init;
           unsigned row = bRow + tidx.local[1];
@@ -593,9 +593,9 @@ void THGPUTensor_transformReduceInnermostDim(THGPUTensor *tgt, THGPUTensor *src,
   //std::cout<<"InnerDim kernel"<<std::endl;
   unsigned nBlockPerRow = (size[1] + 16 - 1) / 16;
   unsigned maxGridDim = 1024; // anything < 64k is fine. The choice has no impact on performance.
-  gridConfig[0]= Concurrency::fast_math::fmin(maxGridDim, size[2]);
-  gridConfig[1]= Concurrency::fast_math::fmin(maxGridDim, nBlockPerRow);
-  gridConfig[2] = Concurrency::fast_math::fmin(maxGridDim, size[3]);
+  gridConfig[0]= std::min(maxGridDim, size[2]);
+  gridConfig[1]= std::min(maxGridDim, nBlockPerRow);
+  gridConfig[2] = std::min(maxGridDim, size[3]);
   THGPUTensor_kernel_transformReduceInnermostDim(tgt, src,
                                                  THGPUTensor_nElement(tgt), THGPUTensor_nElement(src),
                                                  src_stride, tgt_stride, size, unary_op, init,
