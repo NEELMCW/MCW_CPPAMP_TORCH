@@ -12,14 +12,14 @@ void maxpool(THGPUTensor *input, THGPUTensor *output, THGPUTensor *indices, int 
                         int kH, int kW, int dH, int dW,
                         int xblocks, int yblocks)
 {
-  Concurrency::extent<3> copyExt(1,yblocks*8,xblocks*32);
-  Concurrency::tiled_extent<1,8,32> t_ext(copyExt);
+  Concurrency::extent<2> copyExt(yblocks*8,xblocks*32);
+  Concurrency::tiled_extent<8,32> t_ext(copyExt);
 
   Concurrency::array_view<float,1>input_data(input->storage->size,THGPUTensor_data(input));
   Concurrency::array_view<float,1>indices_data(indices->storage->size,THGPUTensor_data(indices));
   Concurrency::array_view<float,1>output_data(output->storage->size,THGPUTensor_data(output));
 
-  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1,8,32> tidx) restrict(amp)
+  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<8,32> tidx) restrict(amp)
   {
     // iterators
     int xx, yy;
@@ -29,16 +29,16 @@ void maxpool(THGPUTensor *input, THGPUTensor *output, THGPUTensor *indices, int 
     const int output_h = (input_h - kH) / dH + 1;
 
     // compute offsets based on thread/block ID
-    int o = tidx.tile[2];
+    int o = tidx.tile[1];
     int i = o;
 
-    int xx_start = tidx.local[2];
+    int xx_start = tidx.local[1];
     int xx_end = output_w;
-    const int xx_step = tidx.tile_dim2;
+    const int xx_step = tidx.tile_dim1;
 
-    int yy_start = tidx.tile_dim1*tidx.tile[1] + tidx.local[1];
+    int yy_start = tidx.tile_dim0*tidx.tile[0] + tidx.local[0];
     int yy_end = output_h;
-    const int yy_step = t_ext[1];
+    const int yy_step = t_ext[0];
 
     // select input/output plane
 
@@ -88,14 +88,14 @@ void maxpool(THGPUTensor *input, THGPUTensor *output, THGPUTensor *indices, int 
 void maxgradinput(THGPUTensor *gradInput, THGPUTensor *gradOutput, THGPUTensor *indices, int nOutputCols, int nOutputRows,
                   int input_n, int input_h, int input_w, int kH, int kW, int dH, int dW, int xblocks, int yblocks)
 {
-  Concurrency::extent<3> copyExt(1,yblocks*8,xblocks*32);
-  Concurrency::tiled_extent<1,8,32> t_ext(copyExt);
+  Concurrency::extent<2> copyExt(yblocks*8,xblocks*32);
+  Concurrency::tiled_extent<8,32> t_ext(copyExt);
 
   Concurrency::array_view<float,1>input_data(gradInput->storage->size,THGPUTensor_data(gradInput));
   Concurrency::array_view<float,1>indices_data(indices->storage->size,THGPUTensor_data(indices));
   Concurrency::array_view<float,1>output_data(gradOutput->storage->size,THGPUTensor_data(gradOutput));
 
-  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1,8,32> tidx) restrict(amp)
+  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<8,32> tidx) restrict(amp)
   {
     // iterators
     int xx, yy;
@@ -105,16 +105,16 @@ void maxgradinput(THGPUTensor *gradInput, THGPUTensor *gradOutput, THGPUTensor *
     int output_h = (input_h - kH) / dH + 1;
 
     // compute offsets based on thread/block ID
-    int o = tidx.tile[2];
+    int o = tidx.tile[1];
     int i = o;
 
-    int xx_start = tidx.local[2];
+    int xx_start = tidx.local[1];
     int xx_end = output_w;
-    const int xx_step = tidx.tile_dim2;
+    const int xx_step = tidx.tile_dim1;
 
-    int yy_start = tidx.tile_dim1*tidx.tile[1] + tidx.local[1];
+    int yy_start = tidx.tile_dim0*tidx.tile[0] + tidx.local[0];
     int yy_end = output_h;
-    const int yy_step = t_ext[1];
+    const int yy_step = t_ext[0];
 
     int gradOutput = o*output_w*output_h;
     int gradInput = i*input_w*input_h;
@@ -148,14 +148,14 @@ void atomicmaxgradinput(THGPUTensor *gradInput, THGPUTensor *gradOutput, THGPUTe
                         int input_n, int input_h, int input_w, int kH, int kW, int dH, int dW, int xblocks, int yblocks
 )
 {
-  Concurrency::extent<3> copyExt(1,yblocks,xblocks);
-  Concurrency::tiled_extent<1,1,1> t_ext(copyExt);
+  Concurrency::extent<2> copyExt(yblocks,xblocks);
+  Concurrency::tiled_extent<1,1> t_ext(copyExt);
 
   Concurrency::array_view<float,1>input_data(gradInput->storage->size,THGPUTensor_data(gradInput));
   Concurrency::array_view<float,1>indices_data(indices->storage->size,THGPUTensor_data(indices));
   Concurrency::array_view<float,1>output_data(gradOutput->storage->size,THGPUTensor_data(gradOutput));
 
-  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1,1,1> tidx) restrict(amp)
+  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1,1> tidx) restrict(amp)
   {
     // iterators
     int xx, yy;
@@ -165,16 +165,16 @@ void atomicmaxgradinput(THGPUTensor *gradInput, THGPUTensor *gradOutput, THGPUTe
     int output_h = (input_h - kH) / dH + 1;
 
     // compute offsets based on thread/block ID
-    int o = tidx.tile[2];
+    int o = tidx.tile[1];
     int i = o;
 
-    int xx_start = tidx.local[2];
+    int xx_start = tidx.local[1];
     int xx_end = output_w;
-    const int xx_step = tidx.tile_dim2;
+    const int xx_step = tidx.tile_dim1;
 
-    int yy_start = tidx.tile_dim1*tidx.tile[1] + tidx.local[1];
+    int yy_start = tidx.tile_dim0 *tidx.tile[0] + tidx.local[0];
     int yy_end = output_h;
-    const int yy_step = t_ext[1];
+    const int yy_step = t_ext[0];
 
     // select input/output plane
     int gradOutput = o*output_w*output_h;
