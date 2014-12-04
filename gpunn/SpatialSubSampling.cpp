@@ -19,9 +19,9 @@ void subsample(THGPUTensor *inputTensor, THGPUTensor *outputTensor, THGPUTensor 
   Concurrency::array_view<float,1> avOutput(Concurrency::extent<1>(outputTensor->storage->size), THGPUTensor_data(outputTensor));
   Concurrency::array_view<float,1> avWeight(Concurrency::extent<1>(weightTensor->storage->size), THGPUTensor_data(weightTensor));
   Concurrency::array_view<float,1> avBias(Concurrency::extent<1>(biasTensor->storage->size), THGPUTensor_data(biasTensor));
-  Concurrency::extent<3> grdExt(1, yBlocks * 8 , xBlocks * 32);
-  Concurrency::tiled_extent<1, 8, 32> t_ext(grdExt);
-  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1, 8, 32> tidx) restrict(amp)
+  Concurrency::extent<2> grdExt(yBlocks * 8 , xBlocks * 32);
+  Concurrency::tiled_extent<8, 32> t_ext(grdExt);
+  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<8, 32> tidx) restrict(amp)
   {
     float input = 0;
     float output= 0;
@@ -30,17 +30,17 @@ void subsample(THGPUTensor *inputTensor, THGPUTensor *outputTensor, THGPUTensor 
     // iterators
     int xx, yy;
     // compute offsets based on thread/block ID
-    int o = tidx.tile[2];
+    int o = tidx.tile[1];
     int i = o;
-    int k = tidx.tile[2] % input_n;
+    int k = tidx.tile[1] % input_n;
 
-    int xx_start = tidx.local[2];
+    int xx_start = tidx.local[1];
     int xx_end = output_w;
-    int xx_step = tidx.tile_dim2;
+    int xx_step = tidx.tile_dim1;
 
-    int yy_start = tidx.global[1]; //blockDim.y*blockIdx.y + threadIdx.y;
+    int yy_start = tidx.global[0]; //blockDim.y*blockIdx.y + threadIdx.y;
     int yy_end = output_h;
-    int yy_step = t_ext[1]; //blockDim.y*gridDim.y;
+    int yy_step = t_ext[0]; //blockDim.y*gridDim.y;
 
     // select input/output plane
     output = output + o*output_w*output_h;
@@ -95,37 +95,37 @@ void subgradweight(THGPUTensor *inputTensor, THGPUTensor *gradOutputTensor, THGP
   Concurrency::array_view<float,1> avGradOutput(Concurrency::extent<1>(gradOutputTensor->storage->size), THGPUTensor_data(gradOutputTensor));
   Concurrency::array_view<float,1> avGradWeight(Concurrency::extent<1>(gradWeightTensor->storage->size), THGPUTensor_data(gradWeightTensor));
   Concurrency::array_view<float,1> avGradBias(Concurrency::extent<1>(gradBiasTensor->storage->size), THGPUTensor_data(gradBiasTensor));
-  Concurrency::extent<3> grdExt(1, 8 , xBlocks * 32);
-  Concurrency::tiled_extent<1, 8, 32> t_ext(grdExt);
-  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1, 8, 32> tidx) restrict(amp)
+  Concurrency::extent<2> grdExt(8 , xBlocks * 32);
+  Concurrency::tiled_extent<8, 32> t_ext(grdExt);
+  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<8, 32> tidx) restrict(amp)
   {
     // iterators
     int xx, yy;
 
     // compute offsets based on thread/block ID
-    int o = tidx.tile[2];
+    int o = tidx.tile[1];
     int i = o;
-    int k = tidx.tile[2] % input_n;
+    int k = tidx.tile[1] % input_n;
 
     float input = (float)inputStride;
     float gradOutput= (float)outputStride;
     float gradWeight = 0;
     float gradBias = 0;
 
-    int xx_start = tidx.local[2];
+    int xx_start = tidx.local[1];
     int xx_end = output_w;
-    int xx_step = tidx.tile_dim2;
+    int xx_step = tidx.tile_dim1;
 
-    int yy_start = tidx.local[1];
+    int yy_start = tidx.local[0];
     int yy_end = output_h;
-    int yy_step = tidx.tile_dim1;
+    int yy_step = tidx.tile_dim0;
 
     // select input/output plane
     gradOutput = gradOutput + o*output_w*output_h;
     input = input + i*input_w*input_h;
 
     // thread ID
-    int tid = tidx.tile_dim2 * tidx.local[1] + tidx.local[2];
+    int tid = tidx.tile_dim1 * tidx.local[0] + tidx.local[1];
 
     // create array to hold partial sums
     tile_static float sums[GPU_MAX_THREADS];
@@ -153,25 +153,25 @@ void subgradweight(THGPUTensor *inputTensor, THGPUTensor *gradOutputTensor, THGP
     tidx.barrier.wait();
 
     // reduce: accumulate all partial sums to produce final gradWeight
-    if ((tidx.local[2] == 0) && (tidx.local[1] == 0))
+    if ((tidx.local[1] == 0) && (tidx.local[0] == 0))
     {
-      for (int i = 0; i < tidx.tile_dim2 * tidx.tile_dim1; i++)
+      for (int i = 0; i < tidx.tile_dim1 * tidx.tile_dim0; i++)
         avGradWeight[gradWeight+ k] += scale*sums[i];
     }
     tidx.barrier.wait();
 
     // compute gradBias
     sums[tid] = 0;
-    for (int i=tid; i<output_w*output_h; i+=(tidx.tile_dim2 * tidx.tile_dim1))
+    for (int i=tid; i<output_w*output_h; i+=(tidx.tile_dim1 * tidx.tile_dim0))
     {
       sums[tid] += avGradOutput[gradOutput + i];
     }
     tidx.barrier.wait();
 
     // reduce gradBias
-    if ((tidx.local[2] == 0) && (tidx.local[1] == 0))
+    if ((tidx.local[1] == 0) && (tidx.local[0] == 0))
     {
-      for (int i=0; i<(tidx.tile_dim2 * tidx.tile_dim1); i++)
+      for (int i=0; i<(tidx.tile_dim1 * tidx.tile_dim0); i++)
         avGradBias[gradBias+k] += scale*sums[i];
     }
   });
@@ -195,9 +195,9 @@ void subgradinput(THGPUTensor *gradInputTensor, THGPUTensor *gradOutputTensor, T
   Concurrency::array_view<float,1> avGradInput(Concurrency::extent<1>(gradInputTensor->storage->size), THGPUTensor_data(gradInputTensor));
   Concurrency::array_view<float,1> avGradOutput(Concurrency::extent<1>(gradOutputTensor->storage->size), THGPUTensor_data(gradOutputTensor));
   Concurrency::array_view<float,1> avWeight(Concurrency::extent<1>(weightTensor->storage->size), THGPUTensor_data(weightTensor));
-  Concurrency::extent<3> grdExt(1, yBlocks * 8 , xBlocks * 32);
-  Concurrency::tiled_extent<1, 8, 32> t_ext(grdExt);
-  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1, 8, 32> tidx) restrict(amp)
+  Concurrency::extent<2> grdExt(yBlocks * 8 , xBlocks * 32);
+  Concurrency::tiled_extent<8, 32> t_ext(grdExt);
+  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<8, 32> tidx) restrict(amp)
   {
     // iterators
     int xx, yy;
@@ -206,17 +206,17 @@ void subgradinput(THGPUTensor *gradInputTensor, THGPUTensor *gradOutputTensor, T
     float weight = 0;
 
     // compute offsets based on thread/block ID
-    int o = tidx.tile[2];
+    int o = tidx.tile[1];
     int i = o;
-    int k = tidx.tile[2] % input_n;
+    int k = tidx.tile[1] % input_n;
 
-    int xx_start = tidx.local[2];
+    int xx_start = tidx.local[1];
     int xx_end = output_w;
-    int xx_step = tidx.tile_dim2;
+    int xx_step = tidx.tile_dim1;
 
-    int yy_start = tidx.global[1];
+    int yy_start = tidx.global[0];
     int yy_end = output_h;
-    int yy_step = t_ext[1];
+    int yy_step = t_ext[0];
 
     // select input/output plane
     gradOutput = gradOutput + o*output_w*output_h;
