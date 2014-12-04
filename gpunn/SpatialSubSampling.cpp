@@ -11,8 +11,6 @@ void subsample(THGPUTensor *inputTensor, THGPUTensor *outputTensor, THGPUTensor 
                THGPUTensor *biasTensor ,int input_n, int input_h, int input_w, int kH, int kW, int dH, int dW, int xBlocks)
 {
   // output size
-  int output_w = (input_w - kW) / dW + 1;
-  int output_h = (input_h - kH) / dH + 1;
   int yBlocks = (int)(16L / input_n);
   yBlocks = yBlocks < 1 ? 1 : yBlocks;
   Concurrency::array_view<float,1> avInput(Concurrency::extent<1>(inputTensor->storage->size), THGPUTensor_data(inputTensor));
@@ -29,6 +27,8 @@ void subsample(THGPUTensor *inputTensor, THGPUTensor *outputTensor, THGPUTensor 
     float bias = 0;
     // iterators
     int xx, yy;
+    int output_w = (input_w - kW) / dW + 1;
+    int output_h = (input_h - kH) / dH + 1;
     // compute offsets based on thread/block ID
     int o = tidx.tile[1];
     int i = o;
