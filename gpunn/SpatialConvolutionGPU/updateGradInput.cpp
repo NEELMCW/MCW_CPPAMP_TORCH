@@ -33,7 +33,7 @@ void img_acts_color(THGPUTensor* hidActsTensor, THGPUTensor* filterTensor, THGPU
                     const int filterSize, const int imgSizeY, const int imgSizeX,
                     const int paddingStart, const int moduleStride,
                     const float scaleTargets, const float scaleOutputs,
-                    int blockX, int blockY, int numFilterColors)
+                    int blockX, int blockY, int numFilterColors, int bx)
 {
   Concurrency::array_view<float,1> avhidActs(Concurrency::extent<1>(hidActsTensor->storage->size), THGPUTensor_data(hidActsTensor));
   Concurrency::array_view<float,1> avFilters(Concurrency::extent<1>(filterTensor->storage->size), THGPUTensor_data(filterTensor));
@@ -236,26 +236,18 @@ void img_acts_mediumcolor(THGPUTensor* hidActsTensor, THGPUTensor* filterTensor,
                           const int filterSize, const int imgSizeY, const int imgSizeX, const int paddingStart,
                           const int moduleStride, const int numImgColors, const int numGroups,
                           const float scaleTargets, const float scaleOutputs,
-                          int blockX, int blockY)
+                          int blockX, int blockY, int bx)
 {
   const int numFilterColors = numImgColors / numGroups;
 
   Concurrency::array_view<float,1> avhidActs(Concurrency::extent<1>(hidActsTensor->storage->size), THGPUTensor_data(hidActsTensor));
   Concurrency::array_view<float,1> avFilters(Concurrency::extent<1>(filterTensor->storage->size), THGPUTensor_data(filterTensor));
   Concurrency::array_view<float,1> avTargets(Concurrency::extent<1>(targetTensor->storage->size), THGPUTensor_data(targetTensor));
-#if (numFilterColors % 8 == 0)
-  blockX = (blockX + 31) &~31;
-  blockY = (blockY + 3) &~3;
-  Concurrency::extent<3> grdExt(1, blockY, blockX);
+  if (bx==32)
+{
+  Concurrency::extent<3> grdExt(1, blockY * 4, blockX * 32);
   Concurrency::tiled_extent<1, 4, 32> t_ext(grdExt);
   Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1, 4, 32> tidx) restrict(amp)
-#else
-  blockX = (blockX + 15) &~15;
-  blockY = (blockY + 15) &~15;
-  Concurrency::extent<3> grdExt(1, blockY, blockX);
-  Concurrency::tiled_extent<1, 16, 16> t_ext(grdExt);
-  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1, 16, 16> tidx) restrict(amp)
-#endif
   {
     float hidActs = 0;//avhidActs.data();
     float targets = 0;//avFilters.data();
@@ -412,6 +404,170 @@ void img_acts_mediumcolor(THGPUTensor* hidActsTensor, THGPUTensor* filterTensor,
       }
     }
   });
+}
+else
+{
+  Concurrency::extent<3> grdExt(1, blockY* 16, blockX * 16);
+  Concurrency::tiled_extent<1, 16, 16> t_ext(grdExt);
+  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1, 16, 16> tidx) restrict(amp)
+
+  {
+    float hidActs = 0;//avhidActs.data();
+    float targets = 0;//avFilters.data();
+    float filters = 0;//avTargets.data();
+
+    tile_static float shFilters[colorsPerThread*16][16 + 1];
+    tile_static float shHidActs[16][16*imgsPerThread];
+
+    const int numImgBlocks = DIVUP(numImages,16*imgsPerThread);
+    const int blockCaseIdx = (tidx.tile[2] % numImgBlocks) * 16*imgsPerThread;
+
+    const int imgColorIdx = (tidx.tile[2] / numImgBlocks) * colorsPerThread; // color idx globally
+    const int blockGroupIdx = imgColorIdx / numFilterColors;
+    const int filterColorIdx = imgColorIdx % numFilterColors; // color idx within group
+    const int numFiltersPerGroup = numFilters / numGroups;
+    const int blockFilterIdx = blockGroupIdx * numFiltersPerGroup;
+    
+    const int numRegionsX = DIVUP(imgSizeX, 4);
+    const int blockRegionIdx = tidx.tile[1];
+    const int blockRegionIdxX = blockRegionIdx % numRegionsX;
+    const int blockRegionIdxY = blockRegionIdx / numRegionsX;
+    const int blockRegionLeft = blockRegionIdxX * 4;
+    const int blockRegionTop = blockRegionIdxY * 4;
+    const int pxYInRegion = tidx.local[1] / 4, pxXInRegion = tidx.local[1] % 4;
+    const int pxY = blockRegionTop + pxYInRegion;
+    const int pxX = blockRegionLeft + pxXInRegion;
+    const int pxIdx = pxY * imgSizeX + pxX;
+    const bool isPxInImg = pxY < imgSizeY && pxX < imgSizeX;
+    const unsigned int numModules = numModulesY * numModulesX;
+    const int filterPixels = filterSize * filterSize;
+    const int imgPixels = imgSizeY * imgSizeX;
+    const int t_idx = tidx.local[1] * 16 + tidx.local[2];
+    const int loadY = t_idx / 32, loadX = t_idx % 32;
+
+    hidActs += blockCaseIdx + (blockFilterIdx + loadY) * numImages * numModules + loadX;
+    filters += blockFilterIdx + filterColorIdx * filterPixels * numFilters + tidx.local[2];
+    targets += imgColorIdx * imgPixels * numImages + pxIdx * numImages + blockCaseIdx + tidx.local[2];
+
+    float prod[colorsPerThread][imgsPerThread];
+    for (int c = 0; c < colorsPerThread; c++)
+    {
+      for (int i = 0; i < imgsPerThread; i++)
+      {
+        prod[c][i] = 0;
+      }
+    }
+    const int startY = blockRegionTop - paddingStart < filterSize ? 0
+                        : 1 + (blockRegionTop - paddingStart - filterSize) / moduleStride;
+    const int endY = MIN(numModulesY, 1 + (blockRegionTop + 3 - paddingStart) / moduleStride);
+    const int startX = blockRegionLeft - paddingStart < filterSize ? 0
+                        : 1 + (blockRegionLeft - paddingStart - filterSize) / moduleStride;
+    const int endX = MIN(numModulesX, 1 + (blockRegionLeft + 3 - paddingStart) / moduleStride);
+
+    float* shFilterLoad = &shFilters[tidx.local[1]][tidx.local[2]];
+    float* shHidActLoad = &shHidActs[loadY][loadX];
+
+    for (int my = startY; my < endY; my++)
+    {
+      const int moduleTop = paddingStart + my * moduleStride;
+      const int pxInModuleY = pxY - moduleTop;
+
+      for (int mx = startX; mx < endX; mx++)
+      {
+        const int moduleIdx = my * numModulesX + mx;
+        const int moduleLeft = paddingStart + mx * moduleStride;
+        const int pxInModuleX = pxX - moduleLeft;
+
+        const bool isPxInModule = pxInModuleY >= 0 && pxInModuleY < filterSize && pxInModuleX >= 0 && pxInModuleX < filterSize;
+        const int pxIdxInModule = pxInModuleY * filterSize + pxInModuleX;
+
+        for (int f = 0; f < numFiltersPerGroup; f += 16)
+        {
+          // multipply with 16 filters at a time
+          // Now the threads split up into half-warps, and each half-warp decides if it's interested.
+          //const float* hLoad = &avhidActs[hidActs + (moduleIdx + f * numModules) * numImages];
+          for (int i = 0; i < imgsPerThread * 16; i += 32)
+          {
+            if (!checkCaseBounds || blockCaseIdx + loadX + i < numImages)
+            {
+              for (int j = 0; j < 16; j += 8)
+              {
+                // load 16 rows of imgsPerThread*16 cols, 8 * 32 elements at a time.
+                shHidActLoad[j * 16 * imgsPerThread + i] = avhidActs[hidActs + (moduleIdx + f * numModules) * numImages +j * numModules * numImages + i];
+              }
+            }
+            else
+            {
+              for (int j = 0; j < 16; j += 8)
+              { // load 16 rows of imgsPerThread*16 cols, 8 * 32 elements at a time.
+                shHidActLoad[j * 16 * imgsPerThread + i] = 0;
+              }
+            }
+          }
+
+          if (isPxInImg && isPxInModule) {
+            // This half-warp is interested, so it's going to load the weights from this module to its pixel.
+         
+            // Not fully coalesced read :(
+            // But taking out this read entirely only reduces the runtime by ~2.8%, so it isn't costing me much.
+            // const float* fLoad = conv ? &avFilters[filters +pxIdxInModule * numFilters + f]
+            //                           : &avFilters[ filters +moduleIdx * numFilterColors * filterPixels * numFilters + pxIdxInModule * numFilters + f];
+            for (int c = 0; c < colorsPerThread; c++)
+            {
+              shFilterLoad[c * 16 * (16 + 1)] = (conv ? avFilters[filters +pxIdxInModule * numFilters + f + c * filterPixels * numFilters]: avFilters[ filters +moduleIdx * numFilterColors * filterPixels * numFilters + pxIdxInModule * numFilters + f + c * filterPixels * numFilters]);
+            }
+          }
+          tidx.barrier.wait();
+          // Do some actual computation
+          if (isPxInImg && isPxInModule)
+          {
+            for (int c = 0; c < colorsPerThread; c++)
+            {
+              for (int w = 0; w < 16; w++)
+              {
+                for (int i = 0; i < imgsPerThread; i++)
+                {
+                  prod[c][i] += shFilters[tidx.local[1] + c * 16][w] * shHidActs[w][tidx.local[2] + i * 16];
+                }
+              }
+            }
+          }
+          tidx.barrier.wait();
+        }
+      }
+    }
+    // Not fully coalesced write :(... shmem (and fully coalesced) version is actually slightly slower, though
+    if (isPxInImg)
+    {
+      if (scale)
+      {
+        for (int i = 0; i < imgsPerThread; i++)
+        {
+          if (!checkCaseBounds || blockCaseIdx + tidx.local[2] + i * 16 < numImages)
+          {
+            for (int c = 0; c < colorsPerThread; c++)
+            {
+              avTargets[targets + c * imgPixels * numImages + i * 16] = scaleTargets * avTargets[targets + c * imgPixels * numImages + i * 16] + scaleOutputs * prod[c][i];
+            }
+          }
+        }
+      }
+      else
+      {
+        for (int i = 0; i < imgsPerThread; i++)
+        {
+          if (!checkCaseBounds || blockCaseIdx + tidx.local[2] + i * 16 < numImages)
+          {
+            for (int c = 0; c < colorsPerThread; c++)
+            {
+              avTargets[ targets + c * imgPixels * numImages + i * 16] = scaleOutputs * prod[c][i];
+            }
+          }
+        }
+      }
+    }
+  });
+}
   avTargets.synchronize();
 }
 
@@ -450,26 +606,18 @@ void conv_img_acts_manycolor(THGPUTensor* hidActsTensor, THGPUTensor* filterTens
                              const int numModulesY, const int numModulesX, const int numImages, const int numFilters,
                              const int filterSize, const int imgSizeY, const int imgSizeX, const int paddingStart, const int moduleStride,
                              const int numImgColors, const int numGroups, const float scaleTargets, const float scaleOutputs,
-                             int blockX, int blockY)
+                             int blockX, int blockY, int bx)
 {
   const int numFilterColors = numImgColors / numGroups;
 
   Concurrency::array_view<float,1> avhidActs(Concurrency::extent<1>(hidActsTensor->storage->size), THGPUTensor_data(hidActsTensor));
   Concurrency::array_view<float,1> avFilters(Concurrency::extent<1>(filterTensor->storage->size), THGPUTensor_data(filterTensor));
   Concurrency::array_view<float,1> avTargets(Concurrency::extent<1>(targetTensor->storage->size), THGPUTensor_data(targetTensor));
-#if (numFilterColors % 8 == 0)
-  blockX = (blockX + 31) &~31;
-  blockY = (blockY + 3) &~3;
-  Concurrency::extent<3> grdExt(1, blockY, blockX);
+if (bx==32)
+{
+  Concurrency::extent<3> grdExt(1, blockY * 4, blockX *32);
   Concurrency::tiled_extent<1, 4, 32> t_ext(grdExt);
   Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1, 4, 32> tidx) restrict(amp)
-#else
-  blockX = (blockX + 15) &~15;
-  blockY = (blockY + 15) &~15;
-  Concurrency::extent<3> grdExt(1, blockY, blockX);
-  Concurrency::tiled_extent<1, 16, 16> t_ext(grdExt);
-  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1, 16, 16> tidx) restrict(amp)
-#endif
   {
     float hidActs = 0; //avhidActs.data();
     float targets = 0; //avFilters.data();
@@ -609,6 +757,153 @@ void conv_img_acts_manycolor(THGPUTensor* hidActsTensor, THGPUTensor* filterTens
       }
     }
   });
+}
+else
+{
+  Concurrency::extent<3> grdExt(1, blockY * 16, blockX * 16);
+  Concurrency::tiled_extent<1, 16, 16> t_ext(grdExt);
+  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1, 16, 16> tidx) restrict(amp)
+
+  {
+    float hidActs = 0; //avhidActs.data();
+    float targets = 0; //avFilters.data();
+    float filters = 0; //avTargets.data();
+
+    tile_static float shFilters[colorsPerThread*B_Y][16 + 1]; // TODO: perhaps reconsider this 16
+    tile_static float shHidActs[16][B_X*imgsPerThread];
+
+    const int numImgBlocks = DIVUP(numImages,B_X*imgsPerThread);
+    const int blockCaseIdx = (tidx.tile[2] % numImgBlocks) * B_X*imgsPerThread;
+    const int imgColorIdx = (tidx.tile[2] / numImgBlocks) * B_Y*colorsPerThread; // color idx globally
+    const int numFilterColors = numImgColors / numGroups;
+    const int blockGroupIdx = imgColorIdx / numFilterColors;
+    const int filterColorIdx = imgColorIdx % numFilterColors; // color idx within group
+    const int numFiltersPerGroup = numFilters / numGroups;
+    const int blockFilterIdx = blockGroupIdx * numFiltersPerGroup;
+
+    const int blockPixelIdx = tidx.tile[1];
+    const int blockPixelIdxX = blockPixelIdx % imgSizeX;
+    const int blockPixelIdxY = blockPixelIdx / imgSizeX;
+
+    const int filterPixels = filterSize * filterSize;
+    const int imgPixels = imgSizeY * imgSizeX;
+    const int t_idx = tidx.local[1] * B_X + tidx.local[2];
+    const int hidActLoadY = t_idx / 32, hidActLoadX = t_idx % 32;
+    const int filtersLoadY = t_idx / 16, filtersLoadX = t_idx % 16;
+    const int numModules = numModulesY * numModulesX;
+
+    hidActs += blockCaseIdx + (blockFilterIdx + hidActLoadY) * numImages * numModules + hidActLoadX;
+    filters += blockFilterIdx + (filterColorIdx + filtersLoadY) * filterPixels * numFilters + filtersLoadX;
+    targets += (imgColorIdx + tidx.local[1]) * imgPixels * numImages + blockPixelIdx * numImages + blockCaseIdx + tidx.local[2];
+
+    float prod[colorsPerThread][imgsPerThread];
+    for (int c = 0; c < colorsPerThread; c++)
+    {
+        for (int i = 0; i < imgsPerThread; i++)
+        {
+            prod[c][i] = 0;
+        }
+    }
+
+    const int startY = blockPixelIdxY - paddingStart < filterSize ? 0
+                        : 1 + (blockPixelIdxY - paddingStart - filterSize) / moduleStride;
+    const int endY = MIN(numModulesY, 1 + (blockPixelIdxY - paddingStart) / moduleStride);
+    const int startX = blockPixelIdxX - paddingStart < filterSize ? 0
+                        : 1 + (blockPixelIdxX - paddingStart - filterSize) / moduleStride;
+    const int endX = MIN(numModulesX, 1 + (blockPixelIdxX - paddingStart) / moduleStride);
+
+    float* shFilterLoad = &shFilters[filtersLoadY][filtersLoadX];
+    float* shHidActLoad = &shHidActs[hidActLoadY][hidActLoadX];
+
+    for (int my = startY; my < endY; my++)
+    {
+      const int moduleTop = paddingStart + my * moduleStride;
+      const int pxInFilterY = blockPixelIdxY - moduleTop;
+
+      for (int mx = startX; mx < endX; mx++)
+      {
+        const int moduleIdx = my * numModulesX + mx;
+        const int moduleLeft = paddingStart + mx * moduleStride;
+        const int pxInFilterX = blockPixelIdxX - moduleLeft;
+            
+        const int pxIdxInFilter = pxInFilterY * filterSize + pxInFilterX;
+
+        for (int f = 0; f < numFiltersPerGroup; f += 16)
+        {
+          // multiply with 16 filters at a time
+          //const float* hLoad = &avhidActs[hidActs +(moduleIdx + f * numModules) * numImages];
+          for (int i = 0; i < imgsPerThread * B_X; i += 32)
+          {
+            if (!checkCaseBounds || blockCaseIdx + hidActLoadX + i < numImages)
+            {
+              for (int j = 0; j < 16; j += B_X*B_Y/32)
+              {
+                // load 16 rows of imgsPerThread*16 cols, 8 * 32 elements at a time.
+                shHidActLoad[j * B_X * imgsPerThread + i] = avhidActs[hidActs +(moduleIdx + f * numModules) * numImages +j * numModules * numImages + i];
+              }
+            }
+            else
+            {
+              for (int j = 0; j < 16; j += B_X*B_Y/32)
+              {
+                // load 16 rows of imgsPerThread*16 cols, 8 * 32 elements at a time.
+                shHidActLoad[j * B_X * imgsPerThread + i] = 0;
+              }
+            }
+          }
+          //const float* fLoad = conv ? &avFilters[filters + pxIdxInFilter * numFilters + f]
+          //                          : &avFilters[filters + moduleIdx * numFilterColors * filterPixels * numFilters + pxIdxInFilter * numFilters + f];
+          for (int i = 0; i < colorsPerThread*B_Y; i+= B_X*B_Y/16)
+          {
+            if ((colorsPerThread*B_Y) % (B_X*B_Y/16) == 0 || i + filtersLoadY < colorsPerThread*B_Y)
+            {
+              shFilterLoad[i * (16 + 1)] = (conv ? avFilters[filters + pxIdxInFilter * numFilters + f + i * filterPixels * numFilters]:avFilters[filters + moduleIdx * numFilterColors * filterPixels * numFilters + pxIdxInFilter * numFilters + f +  i * filterPixels * numFilters]);
+            }
+          }
+          tidx.barrier.wait();
+          // Do some actual computation
+          for (int c = 0; c < colorsPerThread; c++)
+          {
+            for (int w = 0; w < 16; w++)
+            {
+              for (int i = 0; i < imgsPerThread; i++)
+              {
+                prod[c][i] += shFilters[c * B_Y + tidx.local[1]][w] * shHidActs[w][tidx.local[2] + i * B_X];
+              }
+            }
+          }
+          tidx.barrier.wait();
+        }
+      }
+    }
+    if (scale)
+    {
+      for (int i = 0; i < imgsPerThread; i++)
+      {
+        if (!checkCaseBounds || blockCaseIdx + tidx.local[2] + i * B_X < numImages)
+        {
+          for (int c = 0; c < colorsPerThread; c++)
+          {
+            avTargets[targets + c * B_Y * imgPixels * numImages + i * B_X] = scaleTargets * avTargets[ targets + c * B_Y * imgPixels * numImages + i * B_X] + scaleOutputs * prod[c][i];
+          }
+        }
+      }
+    }
+    else
+    {
+      for (int i = 0; i < imgsPerThread; i++)
+      {
+        if (!checkCaseBounds || blockCaseIdx + tidx.local[2] + i * B_X < numImages)
+        {
+          for (int c = 0; c < colorsPerThread; c++)
+          {
+            avTargets[ targets + c * B_Y * imgPixels * numImages + i * B_X] = scaleOutputs * prod[c][i];
+          }
+        }
+      }
+    }
+  });
+}
   avTargets.synchronize();
 }
 
@@ -686,13 +981,13 @@ void spatialConv_updateGradInput( THGPUTensor *hidActs, THGPUTensor *filters, TH
                       {
                           //gpuFuncSetCacheConfig(conv_img_acts_manycolor<4, 32, 4, 4, false, true, true>, gpuFuncCachePreferShared);
                           conv_img_acts_manycolor<4, 32, 4, 4, false, true, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                       else
                       {
                           //gpuFuncSetCacheConfig(conv_img_acts_manycolor<4, 32, 4, 2, false, true, true>, gpuFuncCachePreferShared);
                           conv_img_acts_manycolor<4, 32, 4, 2, false, true, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                   }
                   else
@@ -701,13 +996,13 @@ void spatialConv_updateGradInput( THGPUTensor *hidActs, THGPUTensor *filters, TH
                       {
                           //gpuFuncSetCacheConfig(conv_img_acts_manycolor<4, 32, 4, 4, false, false, true>, gpuFuncCachePreferShared);
                           conv_img_acts_manycolor<4, 32, 4, 4, false, false, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                       else
                       {
                           //gpuFuncSetCacheConfig(conv_img_acts_manycolor<4, 32, 4, 2, false, false, true>, gpuFuncCachePreferShared);
                           conv_img_acts_manycolor<4, 32, 4, 2, false, false, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                   }
               }
@@ -719,13 +1014,13 @@ void spatialConv_updateGradInput( THGPUTensor *hidActs, THGPUTensor *filters, TH
                       {
                           //gpuFuncSetCacheConfig(conv_img_acts_manycolor<4, 32, 2, 4, false, true, true>, gpuFuncCachePreferShared);
                           conv_img_acts_manycolor<4, 32, 2, 4, false, true, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                       else
                       {
                           //gpuFuncSetCacheConfig(conv_img_acts_manycolor<4, 32, 2, 2, false, true, true>, gpuFuncCachePreferShared);
                           conv_img_acts_manycolor<4, 32, 2, 2, false, true, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                   }
                   else
@@ -734,13 +1029,13 @@ void spatialConv_updateGradInput( THGPUTensor *hidActs, THGPUTensor *filters, TH
                       {
                           //gpuFuncSetCacheConfig(conv_img_acts_manycolor<4, 32, 2, 4, false, false, true>, gpuFuncCachePreferShared);
                           conv_img_acts_manycolor<4, 32, 2, 4, false, false, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                       else
                       {
                           //gpuFuncSetCacheConfig(conv_img_acts_manycolor<4, 32, 2, 2, false, false, true>, gpuFuncCachePreferShared);
                           conv_img_acts_manycolor<4, 32, 2, 2, false, false, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                   }
               }
@@ -752,13 +1047,13 @@ void spatialConv_updateGradInput( THGPUTensor *hidActs, THGPUTensor *filters, TH
                       {
                           //gpuFuncSetCacheConfig(conv_img_acts_manycolor<4, 32, 1, 4, false, true, true>, gpuFuncCachePreferShared);
                           conv_img_acts_manycolor<4, 32, 1, 4, false, true, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                       else
                       {
                           //gpuFuncSetCacheConfig(conv_img_acts_manycolor<4, 32, 1, 2, false, true, true>, gpuFuncCachePreferShared);
                           conv_img_acts_manycolor<4, 32, 1, 2, false, true, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                   }
                   else
@@ -767,13 +1062,13 @@ void spatialConv_updateGradInput( THGPUTensor *hidActs, THGPUTensor *filters, TH
                       {
                           //gpuFuncSetCacheConfig(conv_img_acts_manycolor<4, 32, 1, 4, false, false, true>, gpuFuncCachePreferShared);
                           conv_img_acts_manycolor<4, 32, 1, 4, false, false, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                       else
                       {
                           //gpuFuncSetCacheConfig(conv_img_acts_manycolor<4, 32, 1, 2, false, false, true>, gpuFuncCachePreferShared);
                           conv_img_acts_manycolor<4, 32, 1, 2, false, false, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                   }
               }
@@ -788,13 +1083,13 @@ void spatialConv_updateGradInput( THGPUTensor *hidActs, THGPUTensor *filters, TH
                       {
                           //gpuFuncSetCacheConfig(img_acts_mediumcolor<8, 4, false, true, true>, gpuFuncCachePreferShared);
                           img_acts_mediumcolor<8, 4, false, true, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                       else
                       {
                           //gpuFuncSetCacheConfig(img_acts_mediumcolor<8, 2, false, true, true>, gpuFuncCachePreferShared);
                           img_acts_mediumcolor<8, 2, false, true, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                   }
                   else
@@ -803,13 +1098,13 @@ void spatialConv_updateGradInput( THGPUTensor *hidActs, THGPUTensor *filters, TH
                       {
                           //gpuFuncSetCacheConfig(img_acts_mediumcolor<8, 4, false, false, true>, gpuFuncCachePreferShared);
                           img_acts_mediumcolor<8, 4, false, false, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                       else
                       {
                           //gpuFuncSetCacheConfig(img_acts_mediumcolor<8, 2, false, false, true>, gpuFuncCachePreferShared);
                           img_acts_mediumcolor<8, 2, false, false, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                   }
               }
@@ -821,13 +1116,13 @@ void spatialConv_updateGradInput( THGPUTensor *hidActs, THGPUTensor *filters, TH
                       {
                           //gpuFuncSetCacheConfig(img_acts_mediumcolor<4, 4, false, true, true>, gpuFuncCachePreferShared);
                           img_acts_mediumcolor<4, 4, false, true, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                       else
                       {
                           //gpuFuncSetCacheConfig(img_acts_mediumcolor<4, 2, false, true, true>, gpuFuncCachePreferShared);
                           img_acts_mediumcolor<4, 2, false, true, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                   }
                   else
@@ -836,13 +1131,13 @@ void spatialConv_updateGradInput( THGPUTensor *hidActs, THGPUTensor *filters, TH
                       {
                           //gpuFuncSetCacheConfig(img_acts_mediumcolor<4, 4, false, false, true>, gpuFuncCachePreferShared);
                           img_acts_mediumcolor<4, 4, false, false, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                       else
                       {
                           //gpuFuncSetCacheConfig(img_acts_mediumcolor<4, 2, false, false, true>, gpuFuncCachePreferShared);
                           img_acts_mediumcolor<4, 2, false, false, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                   }
               }
@@ -854,13 +1149,13 @@ void spatialConv_updateGradInput( THGPUTensor *hidActs, THGPUTensor *filters, TH
                       {
                           //gpuFuncSetCacheConfig(img_acts_mediumcolor<2, 4, false, true, true>, gpuFuncCachePreferShared);
                           img_acts_mediumcolor<2, 4, false, true, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                       else
                       {
                           //gpuFuncSetCacheConfig(img_acts_mediumcolor<2, 2, false, true, true>, gpuFuncCachePreferShared);
                           img_acts_mediumcolor<2, 2, false, true, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                   }
                   else
@@ -869,13 +1164,13 @@ void spatialConv_updateGradInput( THGPUTensor *hidActs, THGPUTensor *filters, TH
                       {
                           //gpuFuncSetCacheConfig(img_acts_mediumcolor<2, 4, false, false, true>, gpuFuncCachePreferShared);
                           img_acts_mediumcolor<2, 4, false, false, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                       else
                       {
                           //gpuFuncSetCacheConfig(img_acts_mediumcolor<2, 2, false, false, true>, gpuFuncCachePreferShared);
                           img_acts_mediumcolor<2, 2, false, false, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                   }
               }
@@ -890,19 +1185,19 @@ void spatialConv_updateGradInput( THGPUTensor *hidActs, THGPUTensor *filters, TH
                       {
                           //gpuFuncSetCacheConfig(img_acts_color<8, 1, false, true, true>, gpuFuncCachePreferShared);
                           img_acts_color<8, 1, false, true, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors,threadX);
                       }
                       else if (numFilterColors == 2)
                       {
                           //gpuFuncSetCacheConfig(img_acts_color<8, 2, false, true, true>, gpuFuncCachePreferShared);
                           img_acts_color<8, 2, false, true, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors,threadX);
                       }
                       else if (numFilterColors == 3)
                       {
                           //gpuFuncSetCacheConfig(img_acts_color<8, 3, false, true, true>, gpuFuncCachePreferShared);
                           img_acts_color<8, 3, false, true, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors,threadX);
                       }
                   }
                   else
@@ -911,19 +1206,19 @@ void spatialConv_updateGradInput( THGPUTensor *hidActs, THGPUTensor *filters, TH
                       {
                           //gpuFuncSetCacheConfig(img_acts_color<8, 1, false, false, true>, gpuFuncCachePreferShared);
                           img_acts_color<8, 1, false, false, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors,threadX);
                       }
                       else if (numFilterColors == 2)
                       {
                           //gpuFuncSetCacheConfig(img_acts_color<8, 2, false, false, true>, gpuFuncCachePreferShared);
                           img_acts_color<8, 2, false, false, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors,threadX);
                       }
                       else if (numFilterColors == 3)
                       {
                           //gpuFuncSetCacheConfig(img_acts_color<8, 3, false, false, true>, gpuFuncCachePreferShared);
                           img_acts_color<8, 3, false, false, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors,threadX);
                       }
                   }
               }
@@ -935,19 +1230,19 @@ void spatialConv_updateGradInput( THGPUTensor *hidActs, THGPUTensor *filters, TH
                       {
                           //gpuFuncSetCacheConfig(img_acts_color<4, 1, false, true, true>, gpuFuncCachePreferShared);
                           img_acts_color<4, 1, false, true, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors,threadX);
                       }
                       else if (numFilterColors == 2)
                       {
                           //gpuFuncSetCacheConfig(img_acts_color<4, 2, false, true, true>, gpuFuncCachePreferShared);
                           img_acts_color<4, 2, false, true, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors,threadX);
                       }
                       else if (numFilterColors == 3)
                       {
                           //gpuFuncSetCacheConfig(img_acts_color<4, 3, false, true, true>, gpuFuncCachePreferShared);
                           img_acts_color<4, 3, false, true, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors,threadX);
                       }
                   }
                   else
@@ -956,19 +1251,19 @@ void spatialConv_updateGradInput( THGPUTensor *hidActs, THGPUTensor *filters, TH
                       {
                           //gpuFuncSetCacheConfig(img_acts_color<4, 1, false, false, true>, gpuFuncCachePreferShared);
                           img_acts_color<4, 1, false, false, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors,threadX);
                       }
                       else if (numFilterColors == 2)
                       {
                           //gpuFuncSetCacheConfig(img_acts_color<4, 2, false, false, true>, gpuFuncCachePreferShared);
                           img_acts_color<4, 2, false, false, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors,threadX);
                       }
                       else if (numFilterColors == 3)
                       {
                           //gpuFuncSetCacheConfig(img_acts_color<4, 3, false, false, true>, gpuFuncCachePreferShared);
                           img_acts_color<4, 3, false, false, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors,threadX);
                       }
                   }
               }
@@ -980,19 +1275,19 @@ void spatialConv_updateGradInput( THGPUTensor *hidActs, THGPUTensor *filters, TH
                       {
                           //gpuFuncSetCacheConfig(img_acts_color<2, 1, false, true, true>, gpuFuncCachePreferShared);
                           img_acts_color<2, 1, false, true, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors,threadX);
                       }
                       else if (numFilterColors == 2)
                       {
                           //gpuFuncSetCacheConfig(img_acts_color<2, 2, false, true, true>, gpuFuncCachePreferShared);
                           img_acts_color<2, 2, false, true, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors,threadX);
                       }
                       else if (numFilterColors == 3)
                       {
                           //gpuFuncSetCacheConfig(img_acts_color<2, 3, false, true, true>, gpuFuncCachePreferShared);
                           img_acts_color<2, 3, false, true, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors,threadX);
                       }
                   }
                   else
@@ -1001,19 +1296,19 @@ void spatialConv_updateGradInput( THGPUTensor *hidActs, THGPUTensor *filters, TH
                       {
                           //gpuFuncSetCacheConfig(img_acts_color<2, 1, false, false, true>, gpuFuncCachePreferShared);
                           img_acts_color<2, 1, false, false, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors,threadX);
                       }
                       else if (numFilterColors == 2)
                       {
                           //gpuFuncSetCacheConfig(img_acts_color<2, 2, false, false, true>, gpuFuncCachePreferShared);
                           img_acts_color<2, 2, false, false, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors,threadX);
                       }
                       else if (numFilterColors == 3)
                       {
                           //gpuFuncSetCacheConfig(img_acts_color<2, 3, false, false, true>, gpuFuncCachePreferShared);
                           img_acts_color<2, 3, false, false, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors,threadX);
                       }
                   }
               }
@@ -1031,13 +1326,13 @@ void spatialConv_updateGradInput( THGPUTensor *hidActs, THGPUTensor *filters, TH
                       {
                           //gpuFuncSetCacheConfig(conv_img_acts_manycolor<4, 32, 4, 4, true, true, true>, gpuFuncCachePreferShared);
                           conv_img_acts_manycolor<4, 32, 4, 4, true, true, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                       else
                       {
                           //gpuFuncSetCacheConfig(conv_img_acts_manycolor<4, 32, 4, 2, true, true, true>, gpuFuncCachePreferShared);
                           conv_img_acts_manycolor<4, 32, 4, 2, true, true, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                   }
                   else
@@ -1046,13 +1341,13 @@ void spatialConv_updateGradInput( THGPUTensor *hidActs, THGPUTensor *filters, TH
                       {
                           //gpuFuncSetCacheConfig(conv_img_acts_manycolor<4, 32, 4, 4, true, false, true>, gpuFuncCachePreferShared);
                           conv_img_acts_manycolor<4, 32, 4, 4, true, false, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                       else
                       {
                           //gpuFuncSetCacheConfig(conv_img_acts_manycolor<4, 32, 4, 2, true, false, true>, gpuFuncCachePreferShared);
                           conv_img_acts_manycolor<4, 32, 4, 2, true, false, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                   }
               }
@@ -1064,13 +1359,13 @@ void spatialConv_updateGradInput( THGPUTensor *hidActs, THGPUTensor *filters, TH
                       {
                           //gpuFuncSetCacheConfig(conv_img_acts_manycolor<4, 32, 2, 4, true, true, true>, gpuFuncCachePreferShared);
                           conv_img_acts_manycolor<4, 32, 2, 4, true, true, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                       else
                       {
                           //gpuFuncSetCacheConfig(conv_img_acts_manycolor<4, 32, 2, 2, true, true, true>, gpuFuncCachePreferShared);
                           conv_img_acts_manycolor<4, 32, 2, 2, true, true, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                   }
                   else
@@ -1079,13 +1374,13 @@ void spatialConv_updateGradInput( THGPUTensor *hidActs, THGPUTensor *filters, TH
                       {
                           //gpuFuncSetCacheConfig(conv_img_acts_manycolor<4, 32, 2, 4, true, false, true>, gpuFuncCachePreferShared);
                           conv_img_acts_manycolor<4, 32, 2, 4, true, false, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                       else
                       {
                           //gpuFuncSetCacheConfig(conv_img_acts_manycolor<4, 32, 2, 2, true, false, true>, gpuFuncCachePreferShared);
                           conv_img_acts_manycolor<4, 32, 2, 2, true, false, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                   }
               }
@@ -1097,13 +1392,13 @@ void spatialConv_updateGradInput( THGPUTensor *hidActs, THGPUTensor *filters, TH
                       {
                           //gpuFuncSetCacheConfig(conv_img_acts_manycolor<4, 32, 1, 4, true, true, true>, gpuFuncCachePreferShared);
                           conv_img_acts_manycolor<4, 32, 1, 4, true, true, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                       else
                       {
                           //gpuFuncSetCacheConfig(conv_img_acts_manycolor<4, 32, 1, 2, true, true, true>, gpuFuncCachePreferShared);
                           conv_img_acts_manycolor<4, 32, 1, 2, true, true, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                   }
                   else
@@ -1112,13 +1407,13 @@ void spatialConv_updateGradInput( THGPUTensor *hidActs, THGPUTensor *filters, TH
                       {
                           //gpuFuncSetCacheConfig(conv_img_acts_manycolor<4, 32, 1, 4, true, false, true>, gpuFuncCachePreferShared);
                           conv_img_acts_manycolor<4, 32, 1, 4, true, false, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                       else
                       {
                           //gpuFuncSetCacheConfig(conv_img_acts_manycolor<4, 32, 1, 2, true, false, true>, gpuFuncCachePreferShared);
                           conv_img_acts_manycolor<4, 32, 1, 2, true, false, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                   }
               }
@@ -1133,13 +1428,13 @@ void spatialConv_updateGradInput( THGPUTensor *hidActs, THGPUTensor *filters, TH
                       {
                           //gpuFuncSetCacheConfig(img_acts_mediumcolor<8, 4, true, true, true>, gpuFuncCachePreferShared);
                           img_acts_mediumcolor<8, 4, true, true, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                       else
                       {
                           //gpuFuncSetCacheConfig(img_acts_mediumcolor<8, 2, true, true, true>, gpuFuncCachePreferShared);
                           img_acts_mediumcolor<8, 2, true, true, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                   }
                   else
@@ -1148,13 +1443,13 @@ void spatialConv_updateGradInput( THGPUTensor *hidActs, THGPUTensor *filters, TH
                       {
                           //gpuFuncSetCacheConfig(img_acts_mediumcolor<8, 4, true, false, true>, gpuFuncCachePreferShared);
                           img_acts_mediumcolor<8, 4, true, false, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                       else
                       {
                           //gpuFuncSetCacheConfig(img_acts_mediumcolor<8, 2, true, false, true>, gpuFuncCachePreferShared);
                           img_acts_mediumcolor<8, 2, true, false, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                   }
               }
@@ -1166,13 +1461,13 @@ void spatialConv_updateGradInput( THGPUTensor *hidActs, THGPUTensor *filters, TH
                       {
                           //gpuFuncSetCacheConfig(img_acts_mediumcolor<4, 4, true, true, true>, gpuFuncCachePreferShared);
                           img_acts_mediumcolor<4, 4, true, true, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                       else
                       {
                           //gpuFuncSetCacheConfig(img_acts_mediumcolor<4, 2, true, true, true>, gpuFuncCachePreferShared);
                           img_acts_mediumcolor<4, 2, true, true, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                   }
                   else
@@ -1181,13 +1476,13 @@ void spatialConv_updateGradInput( THGPUTensor *hidActs, THGPUTensor *filters, TH
                       {
                           //gpuFuncSetCacheConfig(img_acts_mediumcolor<4, 4, true, false, true>, gpuFuncCachePreferShared);
                           img_acts_mediumcolor<4, 4, true, false, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                       else
                       {
                           //gpuFuncSetCacheConfig(img_acts_mediumcolor<4, 2, true, false, true>, gpuFuncCachePreferShared);
                           img_acts_mediumcolor<4, 2, true, false, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                   }
               }
@@ -1199,13 +1494,13 @@ void spatialConv_updateGradInput( THGPUTensor *hidActs, THGPUTensor *filters, TH
                       {
                           //gpuFuncSetCacheConfig(img_acts_mediumcolor<2, 4, true, true, true>, gpuFuncCachePreferShared);
                           img_acts_mediumcolor<2, 4, true, true, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                       else
                       {
                           //gpuFuncSetCacheConfig(img_acts_mediumcolor<2, 2, true, true, true>, gpuFuncCachePreferShared);
                           img_acts_mediumcolor<2, 2, true, true, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                   }
                   else
@@ -1214,13 +1509,13 @@ void spatialConv_updateGradInput( THGPUTensor *hidActs, THGPUTensor *filters, TH
                       {
                           //gpuFuncSetCacheConfig(img_acts_mediumcolor<2, 4, true, false, true>, gpuFuncCachePreferShared);
                           img_acts_mediumcolor<2, 4, true, false, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                       else
                       {
                           //gpuFuncSetCacheConfig(img_acts_mediumcolor<2, 2, true, false, true>, gpuFuncCachePreferShared);
                           img_acts_mediumcolor<2, 2, true, false, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                   }
               }
@@ -1235,19 +1530,19 @@ void spatialConv_updateGradInput( THGPUTensor *hidActs, THGPUTensor *filters, TH
                       {
                           //gpuFuncSetCacheConfig(img_acts_color<8, 1, true, true, true>, gpuFuncCachePreferShared);
                           img_acts_color<8, 1, true, true, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors,threadX);
                       }
                       else if (numFilterColors == 2)
                       {
                           //gpuFuncSetCacheConfig(img_acts_color<8, 2, true, true, true>, gpuFuncCachePreferShared);
                           img_acts_color<8, 2, true, true, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors,threadX);
                       }
                       else if (numFilterColors == 3)
                       {
                           //gpuFuncSetCacheConfig(img_acts_color<8, 3, true, true, true>, gpuFuncCachePreferShared);
                           img_acts_color<8, 3, true, true, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors,threadX);
                       }
                   }
                   else
@@ -1256,19 +1551,19 @@ void spatialConv_updateGradInput( THGPUTensor *hidActs, THGPUTensor *filters, TH
                       {
                           //gpuFuncSetCacheConfig(img_acts_color<8, 1, true, false, true>, gpuFuncCachePreferShared);
                           img_acts_color<8, 1, true, false, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors,threadX);
                       }
                       else if (numFilterColors == 2)
                       {
                           //gpuFuncSetCacheConfig(img_acts_color<8, 2, true, false, true>, gpuFuncCachePreferShared);
                           img_acts_color<8, 2, true, false, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors,threadX);
                       } 
                       else if (numFilterColors == 3)
                       {
                           //gpuFuncSetCacheConfig(img_acts_color<8, 3, true, false, true>, gpuFuncCachePreferShared);
                           img_acts_color<8, 3, true, false, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors,threadX);
                       }
                   }
               } 
@@ -1280,19 +1575,19 @@ void spatialConv_updateGradInput( THGPUTensor *hidActs, THGPUTensor *filters, TH
                       {
                           //gpuFuncSetCacheConfig(img_acts_color<4, 1, true, true, true>, gpuFuncCachePreferShared);
                           img_acts_color<4, 1, true, true, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors,threadX);
                       }
                       else if (numFilterColors == 2)
                       {
                           //gpuFuncSetCacheConfig(img_acts_color<4, 2, true, true, true>, gpuFuncCachePreferShared);
                           img_acts_color<4, 2, true, true, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors,threadX);
                       }
                       else if (numFilterColors == 3)
                       {
                           //gpuFuncSetCacheConfig(img_acts_color<4, 3, true, true, true>, gpuFuncCachePreferShared);
                           img_acts_color<4, 3, true, true, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors,threadX);
                       }
                   }
                   else
@@ -1301,19 +1596,19 @@ void spatialConv_updateGradInput( THGPUTensor *hidActs, THGPUTensor *filters, TH
                       {
                           //gpuFuncSetCacheConfig(img_acts_color<4, 1, true, false, true>, gpuFuncCachePreferShared);
                           img_acts_color<4, 1, true, false, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors,threadX);
                       }
                       else if (numFilterColors == 2)
                       {
                           //gpuFuncSetCacheConfig(img_acts_color<4, 2, true, false, true>, gpuFuncCachePreferShared);
                           img_acts_color<4, 2, true, false, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors,threadX);
                       }
                       else if (numFilterColors == 3)
                       {
                           //gpuFuncSetCacheConfig(img_acts_color<4, 3, true, false, true>, gpuFuncCachePreferShared);
                           img_acts_color<4, 3, true, false, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors,threadX);
                       }
                   }
               }
@@ -1325,19 +1620,19 @@ void spatialConv_updateGradInput( THGPUTensor *hidActs, THGPUTensor *filters, TH
                       {
                           //gpuFuncSetCacheConfig(img_acts_color<2, 1, true, true, true>, gpuFuncCachePreferShared);
                           img_acts_color<2, 1, true, true, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors,threadX);
                       }
                       else if (numFilterColors == 2)
                       {
                           //gpuFuncSetCacheConfig(img_acts_color<2, 2, true, true, true>, gpuFuncCachePreferShared);
                           img_acts_color<2, 2, true, true, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors,threadX);
                       }
                       else if (numFilterColors == 3)
                       {
                           //gpuFuncSetCacheConfig(img_acts_color<2, 3, true, true, true>, gpuFuncCachePreferShared);
                           img_acts_color<2, 3, true, true, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors,threadX);
                       }
                   }
                   else
@@ -1346,19 +1641,19 @@ void spatialConv_updateGradInput( THGPUTensor *hidActs, THGPUTensor *filters, TH
                       {
                           //gpuFuncSetCacheConfig(img_acts_color<2, 1, true, false, true>, gpuFuncCachePreferShared);
                           img_acts_color<2, 1, true, false, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors,threadX);
                       }
                       else if (numFilterColors == 2)
                       {
                           //gpuFuncSetCacheConfig(img_acts_color<2, 2, true, false, true>, gpuFuncCachePreferShared);
                           img_acts_color<2, 2, true, false, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors,threadX);
                       }
                       else if (numFilterColors == 3)
                       {
                           //gpuFuncSetCacheConfig(img_acts_color<2, 3, true, false, true>, gpuFuncCachePreferShared);
                           img_acts_color<2, 3, true, false, true> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors,threadX);
                       }
                   }
               }
@@ -1379,13 +1674,13 @@ void spatialConv_updateGradInput( THGPUTensor *hidActs, THGPUTensor *filters, TH
                       {
                           //gpuFuncSetCacheConfig(conv_img_acts_manycolor<4, 32, 4, 4, false, true, false>, gpuFuncCachePreferShared);
                           conv_img_acts_manycolor<4, 32, 4, 4, false, true, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                       else
                       {
                           //gpuFuncSetCacheConfig(conv_img_acts_manycolor<4, 32, 4, 2, false, true, false>, gpuFuncCachePreferShared);
                           conv_img_acts_manycolor<4, 32, 4, 2, false, true, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                   }
                   else
@@ -1394,13 +1689,13 @@ void spatialConv_updateGradInput( THGPUTensor *hidActs, THGPUTensor *filters, TH
                       {
                           //gpuFuncSetCacheConfig(conv_img_acts_manycolor<4, 32, 4, 4, false, false, false>, gpuFuncCachePreferShared);
                           conv_img_acts_manycolor<4, 32, 4, 4, false, false, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                       else
                       {
                           //gpuFuncSetCacheConfig(conv_img_acts_manycolor<4, 32, 4, 2, false, false, false>, gpuFuncCachePreferShared);
                           conv_img_acts_manycolor<4, 32, 4, 2, false, false, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                   }
               }
@@ -1412,13 +1707,13 @@ void spatialConv_updateGradInput( THGPUTensor *hidActs, THGPUTensor *filters, TH
                       {
                           //gpuFuncSetCacheConfig(conv_img_acts_manycolor<4, 32, 2, 4, false, true, false>, gpuFuncCachePreferShared);
                           conv_img_acts_manycolor<4, 32, 2, 4, false, true, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                       else
                       {
                           //gpuFuncSetCacheConfig(conv_img_acts_manycolor<4, 32, 2, 2, false, true, false>, gpuFuncCachePreferShared);
                           conv_img_acts_manycolor<4, 32, 2, 2, false, true, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                   }
                   else
@@ -1427,13 +1722,13 @@ void spatialConv_updateGradInput( THGPUTensor *hidActs, THGPUTensor *filters, TH
                       {
                           //gpuFuncSetCacheConfig(conv_img_acts_manycolor<4, 32, 2, 4, false, false, false>, gpuFuncCachePreferShared);
                           conv_img_acts_manycolor<4, 32, 2, 4, false, false, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                       else
                       {
                           //gpuFuncSetCacheConfig(conv_img_acts_manycolor<4, 32, 2, 2, false, false, false>, gpuFuncCachePreferShared);
                           conv_img_acts_manycolor<4, 32, 2, 2, false, false, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                   }
               }
@@ -1445,13 +1740,13 @@ void spatialConv_updateGradInput( THGPUTensor *hidActs, THGPUTensor *filters, TH
                       {
                           //gpuFuncSetCacheConfig(conv_img_acts_manycolor<4, 32, 1, 4, false, true, false>, gpuFuncCachePreferShared);
                           conv_img_acts_manycolor<4, 32, 1, 4, false, true, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                       else
                       {
                           //gpuFuncSetCacheConfig(conv_img_acts_manycolor<4, 32, 1, 2, false, true, false>, gpuFuncCachePreferShared);
                           conv_img_acts_manycolor<4, 32, 1, 2, false, true, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                   }
                   else
@@ -1460,13 +1755,13 @@ void spatialConv_updateGradInput( THGPUTensor *hidActs, THGPUTensor *filters, TH
                       {
                           //gpuFuncSetCacheConfig(conv_img_acts_manycolor<4, 32, 1, 4, false, false, false>, gpuFuncCachePreferShared);
                           conv_img_acts_manycolor<4, 32, 1, 4, false, false, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                       else
                       {
                           //gpuFuncSetCacheConfig(conv_img_acts_manycolor<4, 32, 1, 2, false, false, false>, gpuFuncCachePreferShared);
                           conv_img_acts_manycolor<4, 32, 1, 2, false, false, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                   }
               }
@@ -1481,13 +1776,13 @@ void spatialConv_updateGradInput( THGPUTensor *hidActs, THGPUTensor *filters, TH
                       {
                           //gpuFuncSetCacheConfig(img_acts_mediumcolor<8, 4, false, true, false>, gpuFuncCachePreferShared);
                           img_acts_mediumcolor<8, 4, false, true, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                       else
                       {
                           //gpuFuncSetCacheConfig(img_acts_mediumcolor<8, 2, false, true, false>, gpuFuncCachePreferShared);
                           img_acts_mediumcolor<8, 2, false, true, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                   }
                   else
@@ -1496,13 +1791,13 @@ void spatialConv_updateGradInput( THGPUTensor *hidActs, THGPUTensor *filters, TH
                       {
                           //gpuFuncSetCacheConfig(img_acts_mediumcolor<8, 4, false, false, false>, gpuFuncCachePreferShared);
                           img_acts_mediumcolor<8, 4, false, false, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                       else
                       {
                           //gpuFuncSetCacheConfig(img_acts_mediumcolor<8, 2, false, false, false>, gpuFuncCachePreferShared);
                           img_acts_mediumcolor<8, 2, false, false, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                   }
               }
@@ -1514,13 +1809,13 @@ void spatialConv_updateGradInput( THGPUTensor *hidActs, THGPUTensor *filters, TH
                       {
                           //gpuFuncSetCacheConfig(img_acts_mediumcolor<4, 4, false, true, false>, gpuFuncCachePreferShared);
                           img_acts_mediumcolor<4, 4, false, true, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                       else
                       {
                           //gpuFuncSetCacheConfig(img_acts_mediumcolor<4, 2, false, true, false>, gpuFuncCachePreferShared);
                           img_acts_mediumcolor<4, 2, false, true, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                   }
                   else
@@ -1529,13 +1824,13 @@ void spatialConv_updateGradInput( THGPUTensor *hidActs, THGPUTensor *filters, TH
                       {
                           //gpuFuncSetCacheConfig(img_acts_mediumcolor<4, 4, false, false, false>, gpuFuncCachePreferShared);
                           img_acts_mediumcolor<4, 4, false, false, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                       else
                       {
                           //gpuFuncSetCacheConfig(img_acts_mediumcolor<4, 2, false, false, false>, gpuFuncCachePreferShared);
                           img_acts_mediumcolor<4, 2, false, false, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                   }
               }
@@ -1547,13 +1842,13 @@ void spatialConv_updateGradInput( THGPUTensor *hidActs, THGPUTensor *filters, TH
                       {
                           //gpuFuncSetCacheConfig(img_acts_mediumcolor<2, 4, false, true, false>, gpuFuncCachePreferShared);
                           img_acts_mediumcolor<2, 4, false, true, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                       else
                       {
                           //gpuFuncSetCacheConfig(img_acts_mediumcolor<2, 2, false, true, false>, gpuFuncCachePreferShared);
                           img_acts_mediumcolor<2, 2, false, true, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                   }
                   else
@@ -1562,13 +1857,13 @@ void spatialConv_updateGradInput( THGPUTensor *hidActs, THGPUTensor *filters, TH
                       {
                           //gpuFuncSetCacheConfig(img_acts_mediumcolor<2, 4, false, false, false>, gpuFuncCachePreferShared);
                           img_acts_mediumcolor<2, 4, false, false, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                       else
                       {
                           //gpuFuncSetCacheConfig(img_acts_mediumcolor<2, 2, false, false, false>, gpuFuncCachePreferShared);
                           img_acts_mediumcolor<2, 2, false, false, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                   }
               }
@@ -1583,19 +1878,19 @@ void spatialConv_updateGradInput( THGPUTensor *hidActs, THGPUTensor *filters, TH
                       {
                           //gpuFuncSetCacheConfig(img_acts_color<8, 1, false, true, false>, gpuFuncCachePreferShared);
                           img_acts_color<8, 1, false, true, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors,threadX);
                       }
                       else if (numFilterColors == 2)
                       {
                           //gpuFuncSetCacheConfig(img_acts_color<8, 2, false, true, false>, gpuFuncCachePreferShared);
                           img_acts_color<8, 2, false, true, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors,threadX);
                       }
                       else if (numFilterColors == 3)
                       {
                           //gpuFuncSetCacheConfig(img_acts_color<8, 3, false, true, false>, gpuFuncCachePreferShared);
                           img_acts_color<8, 3, false, true, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors,threadX);
                       }
                   }
                   else
@@ -1604,19 +1899,19 @@ void spatialConv_updateGradInput( THGPUTensor *hidActs, THGPUTensor *filters, TH
                       {
                           //gpuFuncSetCacheConfig(img_acts_color<8, 1, false, false, false>, gpuFuncCachePreferShared);
                           img_acts_color<8, 1, false, false, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors,threadX);
                       }
                       else if (numFilterColors == 2)
                       {
                           //gpuFuncSetCacheConfig(img_acts_color<8, 2, false, false, false>, gpuFuncCachePreferShared);
                           img_acts_color<8, 2, false, false, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors,threadX);
                       }
                       else if (numFilterColors == 3)
                       {
                           //gpuFuncSetCacheConfig(img_acts_color<8, 3, false, false, false>, gpuFuncCachePreferShared);
                           img_acts_color<8, 3, false, false, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors,threadX);
                       }
                   }
               }
@@ -1628,19 +1923,19 @@ void spatialConv_updateGradInput( THGPUTensor *hidActs, THGPUTensor *filters, TH
                       {
                           //gpuFuncSetCacheConfig(img_acts_color<4, 1, false, true, false>, gpuFuncCachePreferShared);
                           img_acts_color<4, 1, false, true, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors,threadX);
                       }
                       else if (numFilterColors == 2)
                       {
                           //gpuFuncSetCacheConfig(img_acts_color<4, 2, false, true, false>, gpuFuncCachePreferShared);
                           img_acts_color<4, 2, false, true, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors,threadX);
                       }
                       else if (numFilterColors == 3)
                       {
                           //gpuFuncSetCacheConfig(img_acts_color<4, 3, false, true, false>, gpuFuncCachePreferShared);
                           img_acts_color<4, 3, false, true, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors,threadX);
                       }
                   }
                   else
@@ -1649,19 +1944,19 @@ void spatialConv_updateGradInput( THGPUTensor *hidActs, THGPUTensor *filters, TH
                       {
                           //gpuFuncSetCacheConfig(img_acts_color<4, 1, false, false, false>, gpuFuncCachePreferShared);
                           img_acts_color<4, 1, false, false, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors,threadX);
                       }
                       else if (numFilterColors == 2)
                       {
                           //gpuFuncSetCacheConfig(img_acts_color<4, 2, false, false, false>, gpuFuncCachePreferShared);
                           img_acts_color<4, 2, false, false, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors,threadX);
                       }
                       else if (numFilterColors == 3)
                       {
                           //gpuFuncSetCacheConfig(img_acts_color<4, 3, false, false, false>, gpuFuncCachePreferShared);
                           img_acts_color<4, 3, false, false, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors,threadX);
                       }
                   }
               }
@@ -1673,19 +1968,19 @@ void spatialConv_updateGradInput( THGPUTensor *hidActs, THGPUTensor *filters, TH
                       {
                           //gpuFuncSetCacheConfig(img_acts_color<2, 1, false, true, false>, gpuFuncCachePreferShared);
                           img_acts_color<2, 1, false, true, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors,threadX);
                       }
                       else if (numFilterColors == 2)
                       {
                           //gpuFuncSetCacheConfig(img_acts_color<2, 2, false, true, false>, gpuFuncCachePreferShared);
                           img_acts_color<2, 2, false, true, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors,threadX);
                       }
                       else if (numFilterColors == 3)
                       {
                           //gpuFuncSetCacheConfig(img_acts_color<2, 3, false, true, false>, gpuFuncCachePreferShared);
                           img_acts_color<2, 3, false, true, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors,threadX);
                       }
                   }
                   else
@@ -1694,19 +1989,19 @@ void spatialConv_updateGradInput( THGPUTensor *hidActs, THGPUTensor *filters, TH
                       {
                           //gpuFuncSetCacheConfig(img_acts_color<2, 1, false, false, false>, gpuFuncCachePreferShared);
                           img_acts_color<2, 1, false, false, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors,threadX);
                       }
                       else if (numFilterColors == 2)
                       {
                           //gpuFuncSetCacheConfig(img_acts_color<2, 2, false, false, false>, gpuFuncCachePreferShared);
                           img_acts_color<2, 2, false, false, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors,threadX);
                       }
                       else if (numFilterColors == 3)
                       {
                           //gpuFuncSetCacheConfig(img_acts_color<2, 3, false, false, false>, gpuFuncCachePreferShared);
                           img_acts_color<2, 3, false, false, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors,threadX);
                       }
                   }
               }
@@ -1724,13 +2019,13 @@ void spatialConv_updateGradInput( THGPUTensor *hidActs, THGPUTensor *filters, TH
                       {
                           //gpuFuncSetCacheConfig(conv_img_acts_manycolor<4, 32, 4, 4, true, true, false>, gpuFuncCachePreferShared);
                           conv_img_acts_manycolor<4, 32, 4, 4, true, true, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                       else
                       {
                           //gpuFuncSetCacheConfig(conv_img_acts_manycolor<4, 32, 4, 2, true, true, false>, gpuFuncCachePreferShared);
                           conv_img_acts_manycolor<4, 32, 4, 2, true, true, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                   }
                   else
@@ -1739,13 +2034,13 @@ void spatialConv_updateGradInput( THGPUTensor *hidActs, THGPUTensor *filters, TH
                       {
                           //gpuFuncSetCacheConfig(conv_img_acts_manycolor<4, 32, 4, 4, true, false, false>, gpuFuncCachePreferShared);
                           conv_img_acts_manycolor<4, 32, 4, 4, true, false, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                       else
                       {
                           //gpuFuncSetCacheConfig(conv_img_acts_manycolor<4, 32, 4, 2, true, false, false>, gpuFuncCachePreferShared);
                           conv_img_acts_manycolor<4, 32, 4, 2, true, false, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                   }
               }
@@ -1757,13 +2052,13 @@ void spatialConv_updateGradInput( THGPUTensor *hidActs, THGPUTensor *filters, TH
                       {
                           //gpuFuncSetCacheConfig(conv_img_acts_manycolor<4, 32, 2, 4, true, true, false>, gpuFuncCachePreferShared);
                           conv_img_acts_manycolor<4, 32, 2, 4, true, true, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                       else
                       {
                           //gpuFuncSetCacheConfig(conv_img_acts_manycolor<4, 32, 2, 2, true, true, false>, gpuFuncCachePreferShared);
                           conv_img_acts_manycolor<4, 32, 2, 2, true, true, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                   }
                   else
@@ -1772,13 +2067,13 @@ void spatialConv_updateGradInput( THGPUTensor *hidActs, THGPUTensor *filters, TH
                       {
                           //gpuFuncSetCacheConfig(conv_img_acts_manycolor<4, 32, 2, 4, true, false, false>, gpuFuncCachePreferShared);
                           conv_img_acts_manycolor<4, 32, 2, 4, true, false, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                       else
                       {
                           //gpuFuncSetCacheConfig(conv_img_acts_manycolor<4, 32, 2, 2, true, false, false>, gpuFuncCachePreferShared);
                           conv_img_acts_manycolor<4, 32, 2, 2, true, false, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                   }
               }
@@ -1790,13 +2085,13 @@ void spatialConv_updateGradInput( THGPUTensor *hidActs, THGPUTensor *filters, TH
                       {
                           //gpuFuncSetCacheConfig(conv_img_acts_manycolor<4, 32, 1, 4, true, true, false>, gpuFuncCachePreferShared);
                           conv_img_acts_manycolor<4, 32, 1, 4, true, true, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                       else
                       {
                           //gpuFuncSetCacheConfig(conv_img_acts_manycolor<4, 32, 1, 2, true, true, false>, gpuFuncCachePreferShared);
                           conv_img_acts_manycolor<4, 32, 1, 2, true, true, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                   }
                   else
@@ -1805,13 +2100,13 @@ void spatialConv_updateGradInput( THGPUTensor *hidActs, THGPUTensor *filters, TH
                       {
                           //gpuFuncSetCacheConfig(conv_img_acts_manycolor<4, 32, 1, 4, true, false, false>, gpuFuncCachePreferShared);
                           conv_img_acts_manycolor<4, 32, 1, 4, true, false, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                       else
                       {
                           //gpuFuncSetCacheConfig(conv_img_acts_manycolor<4, 32, 1, 2, true, false, false>, gpuFuncCachePreferShared);
                           conv_img_acts_manycolor<4, 32, 1, 2, true, false, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                   }
               }
@@ -1826,13 +2121,13 @@ void spatialConv_updateGradInput( THGPUTensor *hidActs, THGPUTensor *filters, TH
                       {
                           //gpuFuncSetCacheConfig(img_acts_mediumcolor<8, 4, true, true, false>, gpuFuncCachePreferShared);
                           img_acts_mediumcolor<8, 4, true, true, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                       else
                       {
                           //gpuFuncSetCacheConfig(img_acts_mediumcolor<8, 2, true, true, false>, gpuFuncCachePreferShared);
                           img_acts_mediumcolor<8, 2, true, true, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                   }
                   else
@@ -1841,13 +2136,13 @@ void spatialConv_updateGradInput( THGPUTensor *hidActs, THGPUTensor *filters, TH
                       {
                           //gpuFuncSetCacheConfig(img_acts_mediumcolor<8, 4, true, false, false>, gpuFuncCachePreferShared);
                           img_acts_mediumcolor<8, 4, true, false, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                       else
                       {
                           //gpuFuncSetCacheConfig(img_acts_mediumcolor<8, 2, true, false, false>, gpuFuncCachePreferShared);
                           img_acts_mediumcolor<8, 2, true, false, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                   }
               }
@@ -1859,13 +2154,13 @@ void spatialConv_updateGradInput( THGPUTensor *hidActs, THGPUTensor *filters, TH
                       {
                           //gpuFuncSetCacheConfig(img_acts_mediumcolor<4, 4, true, true, false>, gpuFuncCachePreferShared);
                           img_acts_mediumcolor<4, 4, true, true, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                       else
                       {
                           //gpuFuncSetCacheConfig(img_acts_mediumcolor<4, 2, true, true, false>, gpuFuncCachePreferShared);
                           img_acts_mediumcolor<4, 2, true, true, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                   }
                   else
@@ -1874,13 +2169,13 @@ void spatialConv_updateGradInput( THGPUTensor *hidActs, THGPUTensor *filters, TH
                       {
                           //gpuFuncSetCacheConfig(img_acts_mediumcolor<4, 4, true, false, false>, gpuFuncCachePreferShared);
                           img_acts_mediumcolor<4, 4, true, false, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                       else
                       {
                           //gpuFuncSetCacheConfig(img_acts_mediumcolor<4, 2, true, false, false>, gpuFuncCachePreferShared);
                           img_acts_mediumcolor<4, 2, true, false, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                   }
               }
@@ -1892,13 +2187,13 @@ void spatialConv_updateGradInput( THGPUTensor *hidActs, THGPUTensor *filters, TH
                       {
                           //gpuFuncSetCacheConfig(img_acts_mediumcolor<2, 4, true, true, false>, gpuFuncCachePreferShared);
                           img_acts_mediumcolor<2, 4, true, true, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                       else
                       {
                           //gpuFuncSetCacheConfig(img_acts_mediumcolor<2, 2, true, true, false>, gpuFuncCachePreferShared);
                           img_acts_mediumcolor<2, 2, true, true, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                   }
                   else
@@ -1907,13 +2202,13 @@ void spatialConv_updateGradInput( THGPUTensor *hidActs, THGPUTensor *filters, TH
                       {
                           //gpuFuncSetCacheConfig(img_acts_mediumcolor<2, 4, true, false, false>, gpuFuncCachePreferShared);
                           img_acts_mediumcolor<2, 4, true, false, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                       else
                       {
                           //gpuFuncSetCacheConfig(img_acts_mediumcolor<2, 2, true, false, false>, gpuFuncCachePreferShared);
                           img_acts_mediumcolor<2, 2, true, false, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, numImgColors, numGroups, scaleTargets, scaleOutput, blockX, blockY,threadX);
                       }
                   }
               }
@@ -1928,19 +2223,19 @@ void spatialConv_updateGradInput( THGPUTensor *hidActs, THGPUTensor *filters, TH
                       {
                           //gpuFuncSetCacheConfig(img_acts_color<8, 1, true, true, false>, gpuFuncCachePreferShared);
                           img_acts_color<8, 1, true, true, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors,threadX);
                       }
                       else if (numFilterColors == 2)
                       {
                           //gpuFuncSetCacheConfig(img_acts_color<8, 2, true, true, false>, gpuFuncCachePreferShared);
                           img_acts_color<8, 2, true, true, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors,threadX);
                       }
                       else if (numFilterColors == 3)
                       {
                           //gpuFuncSetCacheConfig(img_acts_color<8, 3, true, true, false>, gpuFuncCachePreferShared);
                           img_acts_color<8, 3, true, true, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors,threadX);
                       }
                   }
                   else
@@ -1949,19 +2244,19 @@ void spatialConv_updateGradInput( THGPUTensor *hidActs, THGPUTensor *filters, TH
                       {
                           //gpuFuncSetCacheConfig(img_acts_color<8, 1, true, false, false>, gpuFuncCachePreferShared);
                           img_acts_color<8, 1, true, false, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors,threadX);
                       }
                       else if (numFilterColors == 2)
                       {
                           //gpuFuncSetCacheConfig(img_acts_color<8, 2, true, false, false>, gpuFuncCachePreferShared);
                           img_acts_color<8, 2, true, false, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors,threadX);
                       }
                       else if (numFilterColors == 3)
                       {
                           //gpuFuncSetCacheConfig(img_acts_color<8, 3, true, false, false>, gpuFuncCachePreferShared);
                           img_acts_color<8, 3, true, false, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors,threadX);
                       }
                   }
               }
@@ -1973,19 +2268,19 @@ void spatialConv_updateGradInput( THGPUTensor *hidActs, THGPUTensor *filters, TH
                       {
                           //gpuFuncSetCacheConfig(img_acts_color<4, 1, true, true, false>, gpuFuncCachePreferShared);
                           img_acts_color<4, 1, true, true, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors,threadX);
                       }
                       else if (numFilterColors == 2)
                       {
                           //gpuFuncSetCacheConfig(img_acts_color<4, 2, true, true, false>, gpuFuncCachePreferShared);
                           img_acts_color<4, 2, true, true, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors,threadX);
                       }
                       else if (numFilterColors == 3)
                       {
                           //gpuFuncSetCacheConfig(img_acts_color<4, 3, true, true, false>, gpuFuncCachePreferShared);
                           img_acts_color<4, 3, true, true, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors,threadX);
                       }
                   }
                   else
@@ -1994,19 +2289,19 @@ void spatialConv_updateGradInput( THGPUTensor *hidActs, THGPUTensor *filters, TH
                       {
                           //gpuFuncSetCacheConfig(img_acts_color<4, 1, true, false, false>, gpuFuncCachePreferShared);
                           img_acts_color<4, 1, true, false, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors,threadX);
                       }
                       else if (numFilterColors == 2)
                       {
                           //gpuFuncSetCacheConfig(img_acts_color<4, 2, true, false, false>, gpuFuncCachePreferShared);
                           img_acts_color<4, 2, true, false, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors,threadX);
                       }
                       else if (numFilterColors == 3)
                       {
                           //gpuFuncSetCacheConfig(img_acts_color<4, 3, true, false, false>, gpuFuncCachePreferShared);
                           img_acts_color<4, 3, true, false, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors,threadX);
                       }
                   }
               }
@@ -2018,19 +2313,19 @@ void spatialConv_updateGradInput( THGPUTensor *hidActs, THGPUTensor *filters, TH
                       {
                           //gpuFuncSetCacheConfig(img_acts_color<2, 1, true, true, false>, gpuFuncCachePreferShared);
                           img_acts_color<2, 1, true, true, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors,threadX);
                       }
                       else if (numFilterColors == 2)
                       {
                           //gpuFuncSetCacheConfig(img_acts_color<2, 2, true, true, false>, gpuFuncCachePreferShared);
                           img_acts_color<2, 2, true, true, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors,threadX);
                       }
                       else if (numFilterColors == 3)
                       {
                           //gpuFuncSetCacheConfig(img_acts_color<2, 3, true, true, false>, gpuFuncCachePreferShared);
                           img_acts_color<2, 3, true, true, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors,threadX);
                       }
                   }
                   else
@@ -2039,19 +2334,19 @@ void spatialConv_updateGradInput( THGPUTensor *hidActs, THGPUTensor *filters, TH
                       {
                           //gpuFuncSetCacheConfig(img_acts_color<2, 1, true, false, false>, gpuFuncCachePreferShared);
                           img_acts_color<2, 1, true, false, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors,threadX);
                       }
                       else if (numFilterColors == 2)
                       {
                           //gpuFuncSetCacheConfig(img_acts_color<2, 2, true, false, false>, gpuFuncCachePreferShared);
                           img_acts_color<2, 2, true, false, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors,threadX);
                       }
                       else if (numFilterColors == 3)
                       {
                           //gpuFuncSetCacheConfig(img_acts_color<2, 3, true, false, false>, gpuFuncCachePreferShared);
                           img_acts_color<2, 3, true, false, false> (hidActs, filters, targets,
-                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors);
+                                                              numModulesY, numModulesX, numImages, numFilters, filterSize, imgSizeY, imgSizeX, paddingStart, moduleStride, scaleTargets, scaleOutput, blockX, blockY, numFilterColors,threadX);
                       }
                   }
               }

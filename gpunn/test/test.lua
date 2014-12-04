@@ -1013,7 +1013,7 @@ function gpunntest.SpatialConvolutionGPU_forward_batch()
    mytester:assertlt(error:abs():max(), precision_forward, 'error on state (forward) ')
 end
 
---[[function gpunntest.SpatialConvolutionGPU_backward_batch()
+function gpunntest.SpatialConvolutionGPU_backward_batch()
    local bs = 32
    local from = 4 * math.random(1,4)
    local to = 32
@@ -1080,7 +1080,7 @@ end
    mytester:assertlt(error:abs():max(), precision_backward, 'error on state (backward) ')
    mytester:assertlt(werror:abs():max(), precision_backward, 'error on weight (backward) ')
    mytester:assertlt(berror:abs():max(), precision_backward, 'error on bias (backward) ')
-end]]--
+end
 function gpunntest.SpatialSubSampling_forward()
    local from = math.random(1,64)
    local to = from

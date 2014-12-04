@@ -39,7 +39,7 @@ void conv_weight_acts_c(THGPUTensor* images, THGPUTensor* hidActs, THGPUTensor* 
                        const int numModulesX, const int imgSizeY, const int imgSizeX,
                        const int filterSize, const int paddingStart, const int moduleStride,
                        const int imgStride, const int partialSum, const float scaleTargets,
-                       const float scaleOutputs, int nblocks_x, int nblocks_y)
+                       const float scaleOutputs, int nblocks_x, int nblocks_y, int bx)
 {
   Concurrency::array_view<float, 1> avImages(Concurrency::extent<1>(images->storage->size), THGPUTensor_data(images));
   Concurrency::array_view<float, 1> avHidActs(Concurrency::extent<1>(hidActs->storage->size), THGPUTensor_data(hidActs));
@@ -249,14 +249,16 @@ void conv_weight_acts_mc_mf(THGPUTensor* images, THGPUTensor* hidActs, THGPUTens
                            const int filterSize, const int paddingStart, const int moduleStride,
                            const int imgStride, const int numImgColors, const int numGroups,
                            const int partialSum, const float scaleTargets, const float scaleOutputs,
-                           int nblocks_x, int nblocks_y)
+                           int nblocks_x, int nblocks_y, int bx)
 {
   Concurrency::array_view<float, 1> avImages(Concurrency::extent<1>(images->storage->size), THGPUTensor_data(images));
   Concurrency::array_view<float, 1> avHidActs(Concurrency::extent<1>(hidActs->storage->size), THGPUTensor_data(hidActs));
   Concurrency::array_view<float, 1> avTargets(Concurrency::extent<1>(targets->storage->size), THGPUTensor_data(targets));
-  Concurrency::extent<3> grdExt(1, nblocks_y * 16, nblocks_x * 8);
-  Concurrency::tiled_extent<1, 16, 8> t_ext(grdExt);
-  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1, 16, 8> tidx) restrict(amp)
+  if(bx==32)
+  {
+  Concurrency::extent<3> grdExt(1, nblocks_y * 4, nblocks_x * 32);
+  Concurrency::tiled_extent<1, 4, 32> t_ext(grdExt);
+  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1, 4, 32> tidx) restrict(amp)
   {
     tile_static float shImages[colorsPerThread * B_Y][preloadCases]; // preload preloadCases cases of B_Y * pixelsPerThread pixels
     tile_static float shHidActs[filtersPerThread * B_X][preloadCases + 1]; // preload preloadCases cases of B_X hidacts
@@ -421,6 +423,177 @@ void conv_weight_acts_mc_mf(THGPUTensor* images, THGPUTensor* hidActs, THGPUTens
       }
     }
   });
+  }
+  else
+  {
+  Concurrency::extent<3> grdExt(1, nblocks_y * 8, nblocks_x * 16);
+  Concurrency::tiled_extent<1, 8, 16> t_ext(grdExt);
+  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1, 8, 16> tidx) restrict(amp)
+  {
+    tile_static float shImages[colorsPerThread * B_Y][preloadCases]; // preload preloadCases cases of B_Y * pixelsPerThread pixels
+    tile_static float shHidActs[filtersPerThread * B_X][preloadCases + 1]; // preload preloadCases cases of B_X hidacts
+    float* images = avImages.data();
+    float* hidActs = avHidActs.data();
+    float* targets = avTargets.data();
+
+    const int t_idx = B_X * tidx.local[1] + tidx.local[2];
+    const int loadY = t_idx / preloadCases, loadX = t_idx % preloadCases;
+
+    const int filterPixels = filterSize * filterSize;
+    const int imgPixels = imgSizeY * imgSizeX;
+
+    const int numFilterBlocks = numFilters / (B_X * filtersPerThread);
+    const int outputModuleIdx = tidx.tile[2] / numFilterBlocks;
+    const int moduleIdx = partialSum * outputModuleIdx;
+    const int blockFilterIdx = filtersPerThread * B_X * (tidx.tile[2] % numFilterBlocks);
+    const int numModules = numModulesY * numModulesX;
+
+    const int numFiltersPerGroup = numFilters / numGroups;
+    const int blockGroupIdx = blockFilterIdx / numFiltersPerGroup;
+    const int numFilterColors = numImgColors / numGroups;
+
+    const int blockPixelOffset = (tidx.tile[1] / (numFilterColors/colorsPerThread)) * B_Y;
+    const int filterColorIdx = (tidx.tile[1] % (numFilterColors/colorsPerThread)) * colorsPerThread;
+    const int imgColorIdx = filterColorIdx + blockGroupIdx * numFilterColors;
+
+    images += imgColorIdx * imgPixels * imgStride + loadX;
+
+    hidActs += moduleIdx * numImages
+            + blockFilterIdx * numImages * numModules
+            + loadY * numImages * numModules
+            + loadX;
+
+    targets += outputModuleIdx * numFilters * filterPixels * numFilterColors
+            + filterColorIdx * filterPixels * numFilters
+            + blockPixelOffset * numFilters
+            + blockFilterIdx
+            + tidx.local[1] * numFilters + tidx.local[2];
+
+    float* shHidActLoad = &shHidActs[loadY][loadX];
+    float* shImgLoad = &shImages[loadY][loadX];
+    float prod[colorsPerThread][filtersPerThread];
+
+    for (int c = 0; c < colorsPerThread; c++)
+    {
+      for (int f = 0; f < filtersPerThread; f++)
+      {
+        prod[c][f] = 0;
+      }
+    }
+    // This avoids doing a division in an inner loop
+    tile_static int pxDivs[B_Y];
+    if (t_idx < B_Y)
+    {
+      pxDivs[t_idx] = (((blockPixelOffset + t_idx) / filterSize) << 16) + (blockPixelOffset + t_idx) % filterSize;
+    }
+    tidx.barrier.wait();
+
+    for (int m = moduleIdx; m < moduleIdx + partialSum; m++)
+    {
+      const int imgLoadModPosY = paddingStart + (m / numModulesX) * moduleStride;
+      const int imgLoadModPosX = paddingStart + (m % numModulesX) * moduleStride;
+      for (int caseIdx = 0; caseIdx < numImages; caseIdx += preloadCases)
+      {
+        if (loadY < B_Y)
+        {
+          /*
+          * As long as B_Y * B_X is divisible by preloadCases this will loop the right
+          * number of times.
+          *
+          * This will load some images from filter pixels that don't exist (it'll set those to 0),
+          * but the code does not produce any output for those pixels (see last lines).
+          */
+
+          for (int y = 0; y < B_Y; y += (B_X * B_Y) / preloadCases)
+          {
+            // Make sure number of rows in the array is divisible by number of rows filled per iteration
+            if (B_Y % (B_X * B_Y / preloadCases) == 0 || y + loadY < B_Y)
+            {
+              const int pxIdx = loadY + y; // pixel idx in filter
+
+              if (pxIdx + blockPixelOffset < filterPixels && (!checkCaseBounds || caseIdx + loadX < numImages))
+              {
+                const int pxY = imgLoadModPosY + HI16(pxDivs[pxIdx]);//pxIdx / filterSize; // pixel x,y coords in image
+                const int pxX = imgLoadModPosX + LO16(pxDivs[pxIdx]);
+                if (pxY >= 0 && pxY < imgSizeY && pxX >= 0 && pxX < imgSizeX)
+                {
+                  const int pixIdx = (pxY * imgSizeX + pxX) * imgStride; // pixel idx in image
+
+                  for (int c = 0; c < colorsPerThread; c++)
+                  {
+                    shImgLoad[(y + c * B_Y) * preloadCases] = images[caseIdx + c * imgPixels * imgStride + pixIdx];
+                  }
+                }
+                else
+                {
+                  for (int c = 0; c < colorsPerThread; c++)
+                  {
+                    shImgLoad[(y + c * B_Y) * preloadCases] = 0;
+                  }
+                }
+              }
+              else
+              {
+                for (int c = 0; c < colorsPerThread; c++)
+                {
+                  shImgLoad[(y + c * B_Y) * preloadCases] = 0;
+                }
+              }
+            }
+          }
+        }
+        if (loadY < B_X * filtersPerThread && (!checkCaseBounds || caseIdx + loadX < numImages)) 
+        {
+          for (int y = 0; y < B_X * filtersPerThread; y += (B_X * B_Y) / preloadCases)
+          {
+            // Make sure number of rows in the array is divisible by number of rows filled per iteration
+            if ((B_X * filtersPerThread) % (B_X * B_Y / preloadCases) == 0 || y + loadY < B_X * filtersPerThread)
+            {
+              shHidActLoad[y * (preloadCases + 1)] = hidActs[caseIdx + y * numImages * numModules];
+            }
+          }
+        }
+        tidx.barrier.wait();
+
+        for (int c = 0; c < colorsPerThread; c++)
+        {
+          for (int i = 0; i < preloadCases; i++)
+          {
+            for (int f = 0; f < filtersPerThread; f++)
+            {
+              prod[c][f] += shImages[tidx.local[1] + c * B_Y][i] * shHidActs[tidx.local[2] + f * B_X][i];
+            }
+          }
+        }
+        tidx.barrier.wait();
+      }
+      hidActs += numImages;
+    }
+    if (blockPixelOffset + tidx.local[1] < filterPixels)
+    {
+      if (scale)
+      {
+        for (int f = 0; f < filtersPerThread; f++)
+        {
+          for (int c = 0; c < colorsPerThread; c++)
+          {
+            targets[c * filterPixels * numFilters + f * B_X] = scaleTargets * targets[c * filterPixels * numFilters + f * B_X] + scaleOutputs * prod[c][f];
+          }
+        }
+      }
+      else
+      {
+        for (int f = 0; f < filtersPerThread; f++)
+        {
+          for (int c = 0; c < colorsPerThread; c++)
+          {
+            targets[c * filterPixels * numFilters + f * B_X] = scaleOutputs * prod[c][f];
+          }
+        }
+      }
+    }
+  });
+  }
 }
 
 /*
@@ -523,7 +696,7 @@ void spatialConv_accGradParameters(
                                                                 paddingStart, moduleStride, imgStride,
                                                                 numImgColors, numGroups, partialSum,
                                                                 scaleTargets, scaleOutput, blocks_x,
-                                                                blocks_y);
+                                                                blocks_y,bx);
           }
           else
           {
@@ -534,7 +707,7 @@ void spatialConv_accGradParameters(
                                                                  paddingStart, moduleStride, imgStride,
                                                                  numImgColors, numGroups, partialSum,
                                                                  scaleTargets, scaleOutput, blocks_x,
-                                                                 blocks_y);
+                                                                 blocks_y,bx);
           }
         }
         else
@@ -548,7 +721,7 @@ void spatialConv_accGradParameters(
                                                                 paddingStart, moduleStride, imgStride,
                                                                 numImgColors, numGroups, partialSum,
                                                                 scaleTargets, scaleOutput, blocks_x,
-                                                                blocks_y);
+                                                                blocks_y,bx);
           }
           else
           {
@@ -559,7 +732,7 @@ void spatialConv_accGradParameters(
                                                                  paddingStart, moduleStride, imgStride,
                                                                  numImgColors, numGroups, partialSum,
                                                                  scaleTargets, scaleOutput, blocks_x,
-                                                                 blocks_y);
+                                                                 blocks_y,bx);
           }
         }
       }
@@ -576,7 +749,7 @@ void spatialConv_accGradParameters(
                                                                 paddingStart, moduleStride, imgStride,
                                                                 numImgColors, numGroups, partialSum,
                                                                 scaleTargets, scaleOutput, blocks_x,
-                                                                blocks_y);
+                                                                blocks_y,bx);
           }
           else
           {
@@ -587,7 +760,7 @@ void spatialConv_accGradParameters(
                                                                  paddingStart, moduleStride, imgStride,
                                                                  numImgColors, numGroups, partialSum,
                                                                  scaleTargets, scaleOutput, blocks_x,
-                                                                 blocks_y);
+                                                                 blocks_y,bx);
           }
         }
         else
@@ -601,7 +774,7 @@ void spatialConv_accGradParameters(
                                                                 paddingStart, moduleStride, imgStride,
                                                                 numImgColors, numGroups, partialSum,
                                                                 scaleTargets, scaleOutput, blocks_x,
-                                                                blocks_y);
+                                                                blocks_y,bx);
           }
           else
           {
@@ -612,7 +785,7 @@ void spatialConv_accGradParameters(
                                                                  paddingStart, moduleStride, imgStride,
                                                                  numImgColors, numGroups, partialSum,
                                                                  scaleTargets, scaleOutput, blocks_x,
-                                                                 blocks_y);
+                                                                 blocks_y,bx);
           }
         }
       }
@@ -629,7 +802,7 @@ void spatialConv_accGradParameters(
                                                                 paddingStart, moduleStride, imgStride,
                                                                 numImgColors, numGroups, partialSum,
                                                                 scaleTargets, scaleOutput, blocks_x,
-                                                                blocks_y);
+                                                                blocks_y,bx);
           }
           else
           {
@@ -640,7 +813,7 @@ void spatialConv_accGradParameters(
                                                                  paddingStart, moduleStride, imgStride,
                                                                  numImgColors, numGroups, partialSum,
                                                                  scaleTargets, scaleOutput, blocks_x,
-                                                                 blocks_y);
+                                                                 blocks_y,bx);
           }
         }
         else
@@ -654,7 +827,7 @@ void spatialConv_accGradParameters(
                                                                 paddingStart, moduleStride, imgStride,
                                                                 numImgColors, numGroups, partialSum,
                                                                 scaleTargets, scaleOutput, blocks_x,
-                                                                blocks_y);
+                                                                blocks_y,bx);
           }
           else
           {
@@ -665,7 +838,7 @@ void spatialConv_accGradParameters(
                                                                  paddingStart, moduleStride, imgStride,
                                                                  numImgColors, numGroups, partialSum,
                                                                  scaleTargets, scaleOutput, blocks_x,
-                                                                 blocks_y);
+                                                                 blocks_y,bx);
           }
         }
       }
@@ -685,7 +858,7 @@ void spatialConv_accGradParameters(
                                                                paddingStart, moduleStride, imgStride,
                                                                numImgColors, numGroups, partialSum,
                                                                scaleTargets, scaleOutput, blocks_x,
-                                                               blocks_y);
+                                                               blocks_y,bx);
           }
           else
           {
@@ -696,7 +869,7 @@ void spatialConv_accGradParameters(
                                                                 paddingStart, moduleStride, imgStride,
                                                                 numImgColors, numGroups, partialSum,
                                                                 scaleTargets, scaleOutput, blocks_x,
-                                                                blocks_y);
+                                                                blocks_y,bx);
           }
         }
         else
@@ -710,7 +883,7 @@ void spatialConv_accGradParameters(
                                                                paddingStart, moduleStride, imgStride,
                                                                numImgColors, numGroups, partialSum,
                                                                scaleTargets, scaleOutput, blocks_x,
-                                                               blocks_y);
+                                                               blocks_y,bx);
           }
           else
           {
@@ -721,7 +894,7 @@ void spatialConv_accGradParameters(
                                                                 paddingStart, moduleStride, imgStride,
                                                                 numImgColors, numGroups, partialSum,
                                                                 scaleTargets, scaleOutput, blocks_x,
-                                                                blocks_y);
+                                                                blocks_y,bx);
           }
         }
       }
@@ -738,7 +911,7 @@ void spatialConv_accGradParameters(
                                                                paddingStart, moduleStride, imgStride,
                                                                numImgColors, numGroups, partialSum,
                                                                scaleTargets, scaleOutput, blocks_x,
-                                                               blocks_y);
+                                                               blocks_y,bx);
           }
           else
           {
@@ -749,7 +922,7 @@ void spatialConv_accGradParameters(
                                                                 paddingStart, moduleStride, imgStride,
                                                                 numImgColors, numGroups, partialSum,
                                                                 scaleTargets, scaleOutput, blocks_x,
-                                                                blocks_y);
+                                                                blocks_y,bx);
           }
         }
         else
@@ -763,7 +936,7 @@ void spatialConv_accGradParameters(
                                                                paddingStart, moduleStride, imgStride,
                                                                numImgColors, numGroups, partialSum,
                                                                scaleTargets, scaleOutput, blocks_x,
-                                                               blocks_y);
+                                                               blocks_y,bx);
           }
           else
           {
@@ -774,7 +947,7 @@ void spatialConv_accGradParameters(
                                                                 paddingStart, moduleStride, imgStride,
                                                                 numImgColors, numGroups, partialSum,
                                                                 scaleTargets, scaleOutput, blocks_x,
-                                                                blocks_y);
+                                                                blocks_y,bx);
            }
          }
        }
@@ -791,7 +964,7 @@ void spatialConv_accGradParameters(
                                                                paddingStart, moduleStride, imgStride,
                                                                numImgColors, numGroups, partialSum,
                                                                scaleTargets, scaleOutput, blocks_x,
-                                                               blocks_y);
+                                                               blocks_y,bx);
           }
           else
           {
@@ -802,7 +975,7 @@ void spatialConv_accGradParameters(
                                                                 paddingStart, moduleStride, imgStride,
                                                                 numImgColors, numGroups, partialSum,
                                                                 scaleTargets, scaleOutput, blocks_x,
-                                                                blocks_y);
+                                                                blocks_y,bx);
           }
         }
         else
@@ -816,7 +989,7 @@ void spatialConv_accGradParameters(
                                                                paddingStart, moduleStride, imgStride,
                                                                numImgColors, numGroups, partialSum,
                                                                scaleTargets, scaleOutput, blocks_x,
-                                                               blocks_y);
+                                                               blocks_y,bx);
           }
           else
           {
@@ -827,7 +1000,7 @@ void spatialConv_accGradParameters(
                                                                 paddingStart, moduleStride, imgStride,
                                                                 numImgColors, numGroups, partialSum,
                                                                 scaleTargets, scaleOutput, blocks_x,
-                                                                blocks_y);
+                                                                blocks_y,bx);
           }
         }
       }
@@ -851,7 +1024,7 @@ void spatialConv_accGradParameters(
                                                             imgSizeY, imgSizeX, filterSize,
                                                             paddingStart, moduleStride, imgStride,
                                                             partialSum, scaleTargets, scaleOutput,
-                                                            blocks_x, blocks_y);
+                                                            blocks_x, blocks_y,bx);
           }
           else
           {
@@ -861,7 +1034,7 @@ void spatialConv_accGradParameters(
                                                             imgSizeY, imgSizeX, filterSize,
                                                             paddingStart, moduleStride, imgStride,
                                                             partialSum, scaleTargets, scaleOutput,
-                                                            blocks_x, blocks_y);
+                                                            blocks_x, blocks_y,bx);
           }
         }
         else
@@ -874,7 +1047,7 @@ void spatialConv_accGradParameters(
                                                              imgSizeY, imgSizeX, filterSize,
                                                              paddingStart, moduleStride, imgStride,
                                                              partialSum, scaleTargets, scaleOutput,
-                                                             blocks_x, blocks_y);
+                                                             blocks_x, blocks_y,bx);
           }
           else
           {
@@ -884,7 +1057,7 @@ void spatialConv_accGradParameters(
                                                              imgSizeY, imgSizeX, filterSize,
                                                              paddingStart, moduleStride, imgStride,
                                                              partialSum, scaleTargets, scaleOutput,
-                                                             blocks_x, blocks_y);
+                                                             blocks_x, blocks_y,bx);
           }
         }
       }
@@ -900,7 +1073,7 @@ void spatialConv_accGradParameters(
                                                             imgSizeY, imgSizeX, filterSize,
                                                             paddingStart, moduleStride, imgStride,
                                                             partialSum, scaleTargets, scaleOutput,
-                                                            blocks_x, blocks_y);
+                                                            blocks_x, blocks_y,bx);
           }
           else
           {
@@ -910,7 +1083,7 @@ void spatialConv_accGradParameters(
                                                             imgSizeY, imgSizeX, filterSize,
                                                             paddingStart, moduleStride, imgStride,
                                                             partialSum, scaleTargets, scaleOutput,
-                                                            blocks_x, blocks_y);
+                                                            blocks_x, blocks_y,bx);
           }
         }
         else
@@ -923,7 +1096,7 @@ void spatialConv_accGradParameters(
                                                              imgSizeY, imgSizeX, filterSize,
                                                              paddingStart, moduleStride, imgStride,
                                                              partialSum, scaleTargets, scaleOutput,
-                                                             blocks_x, blocks_y);
+                                                             blocks_x, blocks_y,bx);
           }
           else
           {
@@ -933,7 +1106,7 @@ void spatialConv_accGradParameters(
                                                              imgSizeY, imgSizeX, filterSize,
                                                              paddingStart, moduleStride, imgStride,
                                                              partialSum, scaleTargets, scaleOutput,
-                                                             blocks_x, blocks_y);
+                                                             blocks_x, blocks_y,bx);
           }
         }
       }
@@ -949,7 +1122,7 @@ void spatialConv_accGradParameters(
                                                             imgSizeY, imgSizeX, filterSize,
                                                             paddingStart, moduleStride, imgStride,
                                                             partialSum, scaleTargets, scaleOutput,
-                                                            blocks_x, blocks_y);
+                                                            blocks_x, blocks_y,bx);
           }
           else
           {
@@ -959,7 +1132,7 @@ void spatialConv_accGradParameters(
                                                             imgSizeY, imgSizeX, filterSize,
                                                             paddingStart, moduleStride, imgStride,
                                                             partialSum, scaleTargets, scaleOutput,
-                                                            blocks_x, blocks_y);
+                                                            blocks_x, blocks_y,bx);
           }
         }
         else
@@ -972,7 +1145,7 @@ void spatialConv_accGradParameters(
                                                              imgSizeY, imgSizeX, filterSize,
                                                              paddingStart, moduleStride, imgStride,
                                                              partialSum, scaleTargets, scaleOutput,
-                                                             blocks_x, blocks_y);
+                                                             blocks_x, blocks_y,bx);
           }
           else
           {
@@ -982,7 +1155,7 @@ void spatialConv_accGradParameters(
                                                              imgSizeY, imgSizeX, filterSize,
                                                              paddingStart, moduleStride, imgStride,
                                                              partialSum, scaleTargets, scaleOutput,
-                                                             blocks_x, blocks_y);
+                                                             blocks_x, blocks_y,bx);
           }
         }
       }
@@ -1003,7 +1176,7 @@ void spatialConv_accGradParameters(
                                                            imgSizeY, imgSizeX, filterSize,
                                                            paddingStart, moduleStride, imgStride,
                                                            partialSum, scaleTargets, scaleOutput,
-                                                           blocks_x, blocks_y);
+                                                           blocks_x, blocks_y,bx);
           }
           else
           {
@@ -1013,7 +1186,7 @@ void spatialConv_accGradParameters(
                                                            imgSizeY, imgSizeX, filterSize,
                                                            paddingStart, moduleStride, imgStride,
                                                            partialSum, scaleTargets, scaleOutput,
-                                                           blocks_x, blocks_y);
+                                                           blocks_x, blocks_y,bx);
           }
         }
         else
@@ -1026,7 +1199,7 @@ void spatialConv_accGradParameters(
                                                             imgSizeY, imgSizeX, filterSize,
                                                             paddingStart, moduleStride, imgStride,
                                                             partialSum, scaleTargets, scaleOutput,
-                                                            blocks_x, blocks_y);
+                                                            blocks_x, blocks_y,bx);
           }
           else
           {
@@ -1036,7 +1209,7 @@ void spatialConv_accGradParameters(
                                                             imgSizeY, imgSizeX, filterSize,
                                                             paddingStart, moduleStride, imgStride,
                                                             partialSum, scaleTargets, scaleOutput,
-                                                            blocks_x, blocks_y);
+                                                            blocks_x, blocks_y,bx);
           }
         }
       }
@@ -1052,7 +1225,7 @@ void spatialConv_accGradParameters(
                                                            imgSizeY, imgSizeX, filterSize,
                                                            paddingStart, moduleStride, imgStride,
                                                            partialSum, scaleTargets, scaleOutput,
-                                                           blocks_x, blocks_y);
+                                                           blocks_x, blocks_y,bx);
           }
           else
           {
@@ -1062,7 +1235,7 @@ void spatialConv_accGradParameters(
                                                            imgSizeY, imgSizeX, filterSize,
                                                            paddingStart, moduleStride, imgStride,
                                                            partialSum, scaleTargets, scaleOutput,
-                                                           blocks_x, blocks_y);
+                                                           blocks_x, blocks_y,bx);
           }
         }
         else
@@ -1075,7 +1248,7 @@ void spatialConv_accGradParameters(
                                                             imgSizeY, imgSizeX, filterSize,
                                                             paddingStart, moduleStride, imgStride,
                                                             partialSum, scaleTargets, scaleOutput,
-                                                            blocks_x, blocks_y);
+                                                            blocks_x, blocks_y,bx);
           }
           else
           {
@@ -1085,7 +1258,7 @@ void spatialConv_accGradParameters(
                                                             imgSizeY, imgSizeX, filterSize,
                                                             paddingStart, moduleStride, imgStride,
                                                             partialSum, scaleTargets, scaleOutput,
-                                                            blocks_x, blocks_y);
+                                                            blocks_x, blocks_y,bx);
           }
         }
       }
@@ -1101,7 +1274,7 @@ void spatialConv_accGradParameters(
                                                            imgSizeY, imgSizeX, filterSize,
                                                            paddingStart, moduleStride, imgStride,
                                                            partialSum, scaleTargets, scaleOutput,
-                                                           blocks_x, blocks_y);
+                                                           blocks_x, blocks_y,bx);
           }
           else
           {
@@ -1111,7 +1284,7 @@ void spatialConv_accGradParameters(
                                                            imgSizeY, imgSizeX, filterSize,
                                                            paddingStart, moduleStride, imgStride,
                                                            partialSum, scaleTargets, scaleOutput,
-                                                           blocks_x, blocks_y);
+                                                           blocks_x, blocks_y,bx);
           }
         }
         else
@@ -1124,7 +1297,7 @@ void spatialConv_accGradParameters(
                                                             imgSizeY, imgSizeX, filterSize,
                                                             paddingStart, moduleStride, imgStride,
                                                             partialSum, scaleTargets, scaleOutput,
-                                                            blocks_x, blocks_y);
+                                                            blocks_x, blocks_y,bx);
           }
           else
           {
@@ -1134,7 +1307,7 @@ void spatialConv_accGradParameters(
                                                             imgSizeY, imgSizeX, filterSize,
                                                             paddingStart, moduleStride, imgStride,
                                                             partialSum, scaleTargets, scaleOutput,
-                                                            blocks_x, blocks_y);
+                                                            blocks_x, blocks_y,bx);
           }
         }
       }
