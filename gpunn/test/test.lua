@@ -919,7 +919,7 @@ function gpunntest.SpatialConvolutionMM_backward_batch()
    mytester:assertlt(berror:abs():max(), precision_backward, 'error on bias (backward) ')
 end
 
---[[function gpunntest.SpatialConvolutionMM_BHWD_forward_batch()
+function gpunntest.SpatialConvolutionMM_BHWD_forward_batch()
    local bs = math.random(1,4) * 4
    local from = math.random(1,32)
    local to = math.random(1,8) * 8
@@ -946,7 +946,7 @@ end
    end
    tm.cpu = a:time().real
 
-   input = input:gpu():transpose(2,3):transpose(3,4):contiguous()
+   input = input:gpu()--:transpose(2,3):transpose(3,4):contiguous()
    local gconv = nn.SpatialConvolutionMM_BHWD(from,to,ki,kj,si,sj):gpu()
    gconv.weight = sconv.weight:gpu()
    gconv.bias = sconv.bias:gpu()
@@ -957,11 +957,10 @@ end
    end
    gputorch.synchronize()
    tm.gpu = a:time().real
-   resgpu = resgpu:transpose(4,3):transpose(3,2):contiguous()
-
+   --resgpu = resgpu:transpose(4,3):transpose(3,2):contiguous()
    local error = resgpu:float() - groundtruth
    mytester:assertlt(error:abs():max(), precision_forward, 'error on state (forward) ')
-end]]--
+end
 function gpunntest.SpatialConvolutionGPU_forward_batch()
    local bs = 32
    local from = 4 * math.random(1,4)
@@ -1088,8 +1087,8 @@ function gpunntest.SpatialSubSampling_forward()
    local kj = math.random(2,4)
    local si = math.random(2,4)
    local sj = math.random(2,4)
-   local outi = math.random(1,64)
-   local outj = math.random(1,64)
+   local outi = math.random(32,256)
+   local outj = math.random(32,256)
    local ini = (outi-1)*si+ki
    local inj = (outj-1)*sj+kj
 
@@ -1123,7 +1122,7 @@ function gpunntest.SpatialSubSampling_forward()
    mytester:assertlt(error:abs():max(), precision_forward, 'error on state (forward) ')
 end
 
-function gpunntest.SpatialSubSampling_forward_batch()
+--[[function gpunntest.SpatialSubSampling_forward_batch()
    local bs = math.random(4,10)
    local from = math.random(1,64)
    local to = from
@@ -1131,8 +1130,8 @@ function gpunntest.SpatialSubSampling_forward_batch()
    local kj = math.random(2,4)
    local si = math.random(2,4)
    local sj = math.random(2,4)
-   local outi = math.random(1,64)
-   local outj = math.random(1,64)
+   local outi = math.random(32,256)
+   local outj = math.random(32,256)
    local ini = (outi-1)*si+ki
    local inj = (outj-1)*sj+kj
 
@@ -1164,7 +1163,7 @@ function gpunntest.SpatialSubSampling_forward_batch()
 
    local error = resgpu:float() - groundtruth
    mytester:assertlt(error:abs():max(), precision_forward, 'error on state (forward) ')
-end
+end]]--
 
 function gpunntest.SpatialSubSampling_backward()
    local from = math.random(1,64)
@@ -1655,7 +1654,7 @@ function gpunntest.SpatialLPPooling_forward()
    mytester:assertlt(error:abs():max(), precision_forward, 'error on state (forward) ')
 end
 
-function gpunntest.SpatialLPPooling_backward()
+--[[function gpunntest.SpatialLPPooling_backward()
    local from = math.random(1,64)
    local to = from
    local pnorm = 2
@@ -1703,7 +1702,7 @@ function gpunntest.SpatialLPPooling_backward()
    local error = resgpu:float() - groundgrad
 
    mytester:assertlt(error:abs():max(), precision_backward, 'error on state (backward) ')
-end
+end]]--
 
 function gpunntest.mse()
    for sizeAverage = 0, 1 do

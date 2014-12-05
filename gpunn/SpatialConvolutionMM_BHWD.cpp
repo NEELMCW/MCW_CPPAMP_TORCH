@@ -14,185 +14,165 @@ inline int GET_BLOCKS(const int N) {
   return (N + GPU_NUM_THREADS - 1) / GPU_NUM_THREADS;
 }
 
-
-// Kernel for fast unfold+copy
-// (borrowed from Caffe: https://github.com/BVLC/caffe/blob/master/src/caffe/layers/conv_layer.cu)
-void imt2col_kernel(const int n, THGPUTensor* data_im, int offset,
-        const int height, const int width, const int ksize, const int pad,
-        const int stride, const int channels,
-        const int height_col, const int width_col,
-        const int bidx, const int batch,
-        THGPUTensor* data_col) {
-
+void imt2col_kernel(const int n, THGPUTensor* data_im, const int height, const int width, const int ksize_h,
+                   const int ksize_w, const int pad_h, const int pad_w, const int stride_h, const int stride_w,
+                   const int height_col, const int width_col, THGPUTensor* data_col)
+{
   Concurrency::array_view<float,1> avData_im(THGPUTensor_nElement(data_im), THGPUTensor_data(data_im));
   Concurrency::array_view<float,1> avData_col(THGPUTensor_nElement(data_col), THGPUTensor_data(data_col));
-  //unsigned grdSz = (n + 255) & ~255;
-  unsigned int grdSz = GET_BLOCKS(n);
-  Concurrency::extent<1> grdExt(grdSz * 256);
+  unsigned grdSz = (n + 255) & ~255;
+  Concurrency::extent<1> grdExt(grdSz);
   Concurrency::tiled_extent<256> t_ext(grdExt);
   Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<256> tidx) restrict(amp)
   {
-    float data_col=0;
-    float data_im = offset;
-    GPU_KERNEL_LOOP(index, n) {
-        int w_out = index % width_col;
-        index /= width_col;
-        int h_out = index % height_col;
-        int channel_in = index / height_col;
-        int channel_out = channel_in * ksize * ksize;
-        int h_in = h_out * stride - pad;
-        int w_in = w_out * stride - pad;
-        data_col += ((channel_out * batch + bidx) * height_col + h_out) * width_col + w_out;
-        data_im += ((bidx * height + h_in) * width + w_in) * channels + channel_in;
-        for (int i = 0; i < ksize; ++i) {
-            for (int j = 0; j < ksize; ++j) {
-                int h = h_in + i;
-                int w = w_in + j;
-                avData_col[data_col] = (h >= 0 && w >= 0 && h < height && w < width) ?
-                    avData_im[data_im + (i * width + j) * channels] : 0;
-                data_col += batch * height_col * width_col;
-            }
+    //for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < (n); i += blockDim.x * gridDim.x)
+    float dataCol = 0;
+    float dataIm = 0;
+    for (int i = tidx.global[0]; i < (n); i += t_ext[0])
+    {
+      int w_out = i % width_col;
+      i /= width_col;
+      int h_out = i % height_col;
+      int channel_in = i / height_col;
+      int channel_out = channel_in * ksize_h * ksize_w;
+      int h_in = h_out * stride_h - pad_h;
+      int w_in = w_out * stride_w - pad_w;
+      dataCol += (channel_out * height_col + h_out) * width_col + w_out;
+      dataIm += (channel_in * height + h_in) * width + w_in;
+      for (int p = 0; p < ksize_h; ++p)
+      {
+        for (int j = 0; j < ksize_w; ++j)
+        {
+          int h = h_in + p;
+          int w = w_in + j;
+          avData_col[dataCol] = (h >= 0 && w >= 0 && h < height && w < width) ? avData_im[ dataIm + p * width + j] : 0;
+          dataCol += height_col * width_col;
         }
+      }
     }
- });
-avData_col.synchronize();
+  });
+  avData_im.synchronize();
 }
 
-void imt2col(THGPUTensor* data_im, const int offset, const int channels,
-        const int height, const int width, const int ksize, const int pad,
-        const int stride, const int batch, THGPUTensor* data_col) {
-    // We are going to launch channels * height_col * width_col kernels, each
-    // kernel responsible for copying a single-channel grid.
-    int height_col = (height + 2 * pad - ksize) / stride + 1;
-    int width_col = (width + 2 * pad - ksize) / stride + 1;
-    int num_kernels = channels * height_col * width_col;
-    // Launch
-    for (int bidx = 0; bidx < batch; bidx++) {
-        imt2col_kernel(
-            num_kernels, data_im, offset, height, width, ksize,
-            pad, stride, channels,
-            height_col, width_col, bidx, batch,
-            data_col
-        );
-    }
+void imt2col(THGPUTensor* data_im, const int channels, const int height, const int width,
+            const int ksize_h, const int ksize_w, const int pad_h, const int pad_w,
+            const int stride_h, const int stride_w, THGPUTensor* data_col)
+{
+  // We are going to launch channels * height_col * width_col kernels, each
+  // kernel responsible for copying a single-channel grid.
+  int height_col = (height + 2 * pad_h - ksize_h) / stride_h + 1;
+  int width_col = (width + 2 * pad_w - ksize_w) / stride_w + 1;
+  int num_kernels = channels * height_col * width_col;
+  //std::cout<<"Im2Col num_kernels:"<<num_kernels<<std::endl;
+  // Launch
+  im2col_kernel(num_kernels, data_im, height, width, ksize_h, ksize_w, pad_h, pad_w, stride_h, stride_w, height_col, width_col, data_col);
 }
 
 static int gpunn_SpatialConvolutionMM_BHWD_updateOutput(lua_State *L) {
-    // Input
-    THGPUTensor *input = (THGPUTensor*)luaT_checkudata(L, 2, "torch.GPUTensor");
+  // Input
+  THGPUTensor *input = (THGPUTensor*)luaT_checkudata(L, 2, "torch.GPUTensor");
 
-    // Params:
-    int dW = luaT_getfieldcheckint(L, 1, "dW");
-    int dH = luaT_getfieldcheckint(L, 1, "dH");
-    int kW = luaT_getfieldcheckint(L, 1, "kW");
-    int kH = luaT_getfieldcheckint(L, 1, "kH");
-    int nInputPlane = luaT_getfieldcheckint(L, 1, "nInputPlane");
-    int nOutputPlane = luaT_getfieldcheckint(L, 1, "nOutputPlane");
-    int padding = luaT_getfieldcheckint(L, 1, "padding");
+  // Params:
+  int dW = luaT_getfieldcheckint(L, 1, "dW");
+  int dH = luaT_getfieldcheckint(L, 1, "dH");
+  int kW = luaT_getfieldcheckint(L, 1, "kW");
+  int kH = luaT_getfieldcheckint(L, 1, "kH");
+  int nInputPlane = luaT_getfieldcheckint(L, 1, "nInputPlane");
+  int nOutputPlane = luaT_getfieldcheckint(L, 1, "nOutputPlane");
+  int padding = luaT_getfieldcheckint(L, 1, "padding");
 
-    THGPUTensor *weight = (THGPUTensor*)luaT_getfieldcheckudata(L, 1, "weight", "torch.GPUTensor");
-    THGPUTensor *bias = (THGPUTensor*)luaT_getfieldcheckudata(L, 1, "bias", "torch.GPUTensor");
-    THGPUTensor *columns = (THGPUTensor*)luaT_getfieldcheckudata(L, 1, "finput", "torch.GPUTensor");
-    THGPUTensor *output = (THGPUTensor*)luaT_getfieldcheckudata(L, 1, "output", "torch.GPUTensor");
+  THGPUTensor *weight = (THGPUTensor*)luaT_getfieldcheckudata(L, 1, "weight", "torch.GPUTensor");
+  THGPUTensor *bias = (THGPUTensor*)luaT_getfieldcheckudata(L, 1, "bias", "torch.GPUTensor");
+  THGPUTensor *columns = (THGPUTensor*)luaT_getfieldcheckudata(L, 1, "finput", "torch.GPUTensor");
+  THGPUTensor *ones = (THGPUTensor*)luaT_getfieldcheckudata(L, 1, "fgradInput", "torch.GPUTensor");
+  THGPUTensor *output = (THGPUTensor*)luaT_getfieldcheckudata(L, 1, "output", "torch.GPUTensor");
 
-    /*const int device = THGPUTensor_getDevice(weight);
-    luaL_argcheck(L, THGPUTensor_getDevice(bias) == device, 1,
-                  "weight and bias need to be on the same device");
-    luaL_argcheck(L, THGPUTensor_getDevice(output) == device
-                  || THGPUTensor_getDevice(output) == -1, 1,
-                  "weight and output need to be on the same device");
-    luaL_argcheck(L, THGPUTensor_getDevice(input) == device, 2,
-                  "weight and input need to be on the same device");*/
+  luaL_argcheck(L, input->nDimension == 3 || input->nDimension == 4, 2, "3D or 4D (batch mode) tensor is expected");
+
+  long inputWidth   = input->size[3];
+  long inputHeight  = input->size[2];
+  long outputWidth  = (inputWidth - kW) / dW + 1;
+  long outputHeight = (inputHeight - kH) / dH + 1;
 
 
-    luaL_argcheck(L, input->nDimension == 3 || input->nDimension == 4, 2, "3D or 4D (batch mode) tensor is expected");
+  // Batch size + input planes
+  long batchSize = input->size[0];
 
-    int dimw = 1;
-    int dimh = 0;
-    if (input->nDimension == 4) {
-        dimw++;
-        dimh++;
-    }
-    long inputWidth   = input->size[dimw];
-    long inputHeight  = input->size[dimh];
-    long outputWidth  = (inputWidth - kW) / dW + 1;
-    long outputHeight = (inputHeight - kH) / dH + 1;
+  // Resize output
+  THGPUTensor_resize4d(output, batchSize, nOutputPlane, outputHeight, outputWidth);
 
-    luaL_argcheck(L, kW == kH, 1, "filters must be square (kW == kH)");
-    luaL_argcheck(L, dW == dH, 1, "stride must be square (dW == dH)");
+  // Resize temporary columns
+  THGPUTensor_resize2d(columns, nInputPlane*kW*kH, outputHeight*outputWidth);
 
-    if (input->nDimension == 3) {
+  // Define a buffer of ones, for bias accumulation
+  // Note: this buffer can be shared with other modules, it only ever gets increased,
+  // and always contains ones.
+  if (ones->nDimension != 2 || ones->size[0]*ones->size[1] < outputHeight*outputWidth) {
+    // Resize plane and fill with ones...
+    THGPUTensor_resize2d(ones, outputHeight, outputWidth);
+    THGPUTensor_fill(ones, 1);
+  }
 
-        // implementation in progress...
+  // Helpers
+  THGPUTensor *input_n = THGPUTensor_new();
+  THGPUTensor *output_n = THGPUTensor_new();
 
-    } else {
-        // Batch size + input planes
-        long batchSize = input->size[0];
-        luaL_argcheck(L, batchSize == 1 || batchSize % 4 == 0, 1, "batch size should be a multiple of 4 or equal to 1");
-        luaL_argcheck(L, nOutputPlane % 8 == 0, 1, "nOutputPlane should be a multiple of 8");
+  // For each elt in batch, do:
+  for (int elt = 0; elt < batchSize; elt ++) {
+    // Matrix mulitply per output:
+    THGPUTensor_select(input_n, input, 0, elt);
+    THGPUTensor_select(output_n, output, 0, elt);
 
-        // Step batch (inner loop)
-        // This variable defines how many samples are processed in //, in the inner loop
-        int stepBatchSize = 1;
-        if (batchSize % 4 == 0) {
-            stepBatchSize = 4;
-        }
+    // Do Bias first:
+    // M,N,K are dims of matrix A and B
+    // (see http://docs.nvidia.com/gpu/cublas/#cublas-lt-t-gt-gemm)
+    long m_ = nOutputPlane;
+    long n_ = outputHeight * outputWidth;
+    long k_ = 1;
 
-        // Resize output
-        THGPUTensor_resize4d(output, batchSize, outputHeight, outputWidth, nOutputPlane);
+    // Do GEMM (note: this is a bit confusing because gemm assumes column-major matrices)
+    THFloatBlas_gemm(
+        't', 'n',
+        n_, m_, k_,
+        1,
+        THGPUTensor_data(ones), k_,
+        THGPUTensor_data(bias), k_,
+        0,
+        THGPUTensor_data(output_n), n_
+    );
 
-        // Resize temporary columns
-        THGPUTensor_resize2d(columns, kH*kW*nInputPlane, stepBatchSize*outputHeight*outputWidth);
+    // Extract columns:
+    im2col(
+        input_n,
+        nInputPlane, inputHeight, inputWidth, kH, kW, padding, padding, dH, dW,
+        columns
+    );
 
-        // Add bias first
-        // TODO: replace this by more efficient, custom kernel
-        long k;
-        THGPUTensor *outputPlane = THGPUTensor_new();
-        for(k=0; k<nOutputPlane; k++) {
-            THGPUTensor_select(outputPlane, output, 3, k);
-            THGPUTensor_fill(outputPlane, THGPUTensor_get1d(bias, k));
-        }
-        THGPUTensor_free(outputPlane);
+    // M,N,K are dims of matrix A and B
+    // (see http://docs.nvidia.com/gpu/cublas/#cublas-lt-t-gt-gemm)
+    long m = weight->size[0];
+    long n = columns->size[1];
+    long k = weight->size[1];
 
-        // Helper
-        THGPUTensor *output_n = THGPUTensor_new();
+    // Do GEMM (note: this is a bit confusing because gemm assumes column-major matrices)
+    THFloatBlas_gemm(
+        'n', 'n',
+        n, m, k,
+        1,
+        THGPUTensor_data(columns), n,
+        THGPUTensor_data(weight), k,
+        1,
+        THGPUTensor_data(output_n), n
+    );
+  }
 
-        // For each elt in batch, do:
-        for (int elt = 0; elt < batchSize; elt += stepBatchSize) {
-            // Extract columns:
-            imt2col(
-                input , elt * inputHeight * inputWidth * nInputPlane,
-                nInputPlane, inputHeight, inputWidth, kW, padding, dW, stepBatchSize,
-                columns
-            );
+  // Free
+  THGPUTensor_free(input_n);
+  THGPUTensor_free(output_n);
 
-            // Matrix mulitply per output:
-            THGPUTensor_narrow(output_n, output, 0, elt, stepBatchSize);
 
-            // M,N,K are dims of matrix A and B
-            // (see http://docs.nvidia.com/GPU/cublas/#cublas-lt-t-gt-gemm)
-            long m = weight->size[0];
-            long n = columns->size[1];
-            long k = weight->size[1];
-
-            // Do GEMM_BHWD (note: this is a bit confusing because gemm assumes column-major matrices)
-            THFloatBlas_gemm(
-                't', 't',
-                m, n, k,
-                1,
-                THGPUTensor_data(weight), k,
-                THGPUTensor_data(columns), n,
-                1,
-                THGPUTensor_data(output_n), m
-            );
-        }
-
-        // Free
-        THGPUTensor_free(output_n);
-    }
-
-    // return output
-    return 1;
+  // return output
+  return 1;
 }
 
 static int gpunn_SpatialConvolutionMM_BHWD_updateGradInput(lua_State *L) {
@@ -218,3 +198,4 @@ static void gpunn_SpatialConvolutionMM_BHWD_init(lua_State *L)
     luaT_registeratname(L, gpunn_SpatialConvolutionMM_BHWD__, "nn");
     lua_pop(L,1);
 }
+
