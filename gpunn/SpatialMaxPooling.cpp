@@ -36,7 +36,7 @@ void maxpool(THGPUTensor *input, THGPUTensor *output, THGPUTensor *indices, int 
     int xx_end = output_w;
     const int xx_step = tidx.tile_dim1;
 
-    int yy_start = tidx.tile_dim0*tidx.tile[0] + tidx.local[0];
+    int yy_start = tidx.global[0];
     int yy_end = output_h;
     const int yy_step = t_ext[0];
 
@@ -72,8 +72,8 @@ void maxpool(THGPUTensor *input, THGPUTensor *output, THGPUTensor *indices, int 
         }
         // Update output and argmax
         output_data[ptr_output] = max;
-        indices_data[ptr_ind_x] = (float)argmax_x + 1;
-        indices_data[ptr_ind_y] = (float)argmax_y + 1;
+        indices_data[ptr_ind_x] = argmax_x + 1;
+        indices_data[ptr_ind_y] = argmax_y + 1;
       }
     }
     });
