@@ -363,7 +363,7 @@ static int gpunn_SpatialSubSampling_updateGradInput(lua_State *L)
     int xBlocks = nInputPlane * nbatch;
     subgradinput (gradInput, gradOutput, weight, nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW, xBlocks);
   }
-  return 0;
+  return 1;
 }
 
 static int gpunn_SpatialSubSampling_accGradParameters(lua_State *L)
