@@ -919,7 +919,7 @@ function gpunntest.SpatialConvolutionMM_backward_batch()
    mytester:assertlt(berror:abs():max(), precision_backward, 'error on bias (backward) ')
 end
 
---[[function gpunntest.SpatialConvolutionMM_BHWD_forward_batch()
+function gpunntest.SpatialConvolutionMM_BHWD_forward_batch()
    local bs = math.random(1,4) * 4
    local from = math.random(1,32)
    local to = math.random(1,8) * 8
@@ -946,7 +946,7 @@ end
    end
    tm.cpu = a:time().real
 
-   input = input:gpu():transpose(2,3):transpose(3,4):contiguous()
+   input = input:gpu()--:transpose(2,3):transpose(3,4):contiguous()
    local gconv = nn.SpatialConvolutionMM_BHWD(from,to,ki,kj,si,sj):gpu()
    gconv.weight = sconv.weight:gpu()
    gconv.bias = sconv.bias:gpu()
@@ -957,11 +957,10 @@ end
    end
    gputorch.synchronize()
    tm.gpu = a:time().real
-   resgpu = resgpu:transpose(4,3):transpose(3,2):contiguous()
-
+   --resgpu = resgpu:transpose(4,3):transpose(3,2):contiguous()
    local error = resgpu:float() - groundtruth
    mytester:assertlt(error:abs():max(), precision_forward, 'error on state (forward) ')
-end]]--
+end
 function gpunntest.SpatialConvolutionGPU_forward_batch()
    local bs = 32
    local from = 4 * math.random(1,4)
