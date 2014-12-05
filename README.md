@@ -14,6 +14,7 @@ This repository hosts the C++ AMP backend implementation project for  [torch7](h
 * **Ubuntu Pack**: libc6-dev-i386
 * **AMD APP SDK** : Ver 2.9.1 launched on 18/8/2014 from [here](http://developer.amd.com/tools-and-sdks/opencl-zone/amd-accelerated-parallel-processing-app-sdk/)
 * **clBLAS**: ver 2-2.0 from [here](https://github.com/clMathLibraries/clBLAS/releases)
+* **AMD Driver installer**: amd-driver-installer-14.301.1001-x86.x86_64
 
 
 ##Building and set up:    
@@ -95,6 +96,7 @@ Prior to building these packages the following environment variables need to be 
 * CLBLASROOT=<path to clBLAS binary pack>
 * BOLTROOT =<path to Bolt Source> (copied from master branch)
 * MCWCPPAMPROOT=<path to mcw_cppamp dir>
+* LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CLBLASROOT/lib64
 
 After this the following are the steps to build gputorch and gpunn
 
