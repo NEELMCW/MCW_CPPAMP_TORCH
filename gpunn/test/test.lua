@@ -1087,8 +1087,8 @@ function gpunntest.SpatialSubSampling_forward()
    local kj = math.random(2,4)
    local si = math.random(2,4)
    local sj = math.random(2,4)
-   local outi = math.random(32,256)
-   local outj = math.random(32,256)
+   local outi = math.random(1,64)
+   local outj = math.random(1,64)
    local ini = (outi-1)*si+ki
    local inj = (outj-1)*sj+kj
 
@@ -1122,7 +1122,7 @@ function gpunntest.SpatialSubSampling_forward()
    mytester:assertlt(error:abs():max(), precision_forward, 'error on state (forward) ')
 end
 
---[[function gpunntest.SpatialSubSampling_forward_batch()
+function gpunntest.SpatialSubSampling_forward_batch()
    local bs = math.random(4,10)
    local from = math.random(1,64)
    local to = from
@@ -1130,8 +1130,8 @@ end
    local kj = math.random(2,4)
    local si = math.random(2,4)
    local sj = math.random(2,4)
-   local outi = math.random(32,256)
-   local outj = math.random(32,256)
+   local outi = math.random(1,64)
+   local outj = math.random(1,64)
    local ini = (outi-1)*si+ki
    local inj = (outj-1)*sj+kj
 
@@ -1163,7 +1163,7 @@ end
 
    local error = resgpu:float() - groundtruth
    mytester:assertlt(error:abs():max(), precision_forward, 'error on state (forward) ')
-end]]--
+end
 
 function gpunntest.SpatialSubSampling_backward()
    local from = math.random(1,64)
@@ -1621,8 +1621,8 @@ function gpunntest.SpatialLPPooling_forward()
    local kj = math.random(2,4)
    local si = ki
    local sj = kj
-   local outi = math.random(32,256)
-   local outj = math.random(32,256)
+   local outi = math.random(1,64)
+   local outj = math.random(1,64)
    local ini = (outi-1)*si+ki
    local inj = (outj-1)*sj+kj
 
@@ -1654,7 +1654,7 @@ function gpunntest.SpatialLPPooling_forward()
    mytester:assertlt(error:abs():max(), precision_forward, 'error on state (forward) ')
 end
 
---[[function gpunntest.SpatialLPPooling_backward()
+function gpunntest.SpatialLPPooling_backward()
    local from = math.random(1,64)
    local to = from
    local pnorm = 2
@@ -1702,7 +1702,7 @@ end
    local error = resgpu:float() - groundgrad
 
    mytester:assertlt(error:abs():max(), precision_backward, 'error on state (backward) ')
-end]]--
+end
 
 function gpunntest.mse()
    for sizeAverage = 0, 1 do
