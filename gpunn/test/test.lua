@@ -1335,8 +1335,8 @@ function gpunntest.SpatialMaxPooling_forward_batch()
    local kj = math.random(2,4)
    local si = math.random(2,4)
    local sj = math.random(2,4)
-   local outi = math.random(32,256)
-   local outj = math.random(32,256)
+   local outi = math.random(1,64)
+   local outj = math.random(1,64)
    local ini = (outi-1)*si+ki
    local inj = (outj-1)*sj+kj
 
@@ -1982,6 +1982,7 @@ function gpunntest.LogSoftMax_backward_batch()
 
    mytester:assertlt(error:abs():max(), precision_backward, 'error on state (backward) ')
 end
+
 --[[function gpunntest.TemporalConvolution_forward()
    local from = math.random(1,64) -- inputFrameSize
    local to = math.random(1,64) -- outputFrameSize
@@ -2019,6 +2020,7 @@ end
    local error = resgpu:float() - groundtruth
    mytester:assertlt(error:abs():max(), precision_forward, 'error on state (forward) ')
 end]]--
+
 --[[function gpunntest.TemporalConvolution_forward_batch()
    local bs = math.random(4,16)
    local from = math.random(1,64)
@@ -2266,7 +2268,7 @@ function gpunntest.SoftPlus_forward()
    mytester:assertlt(error:abs():max(), precision_forward, 'error on state (forward) ')
 end
 
---[[function gpunntest.SoftPlus_backward()
+function gpunntest.SoftPlus_backward()
    local size = math.random(1,100)
 
    local tm = {}
@@ -2299,7 +2301,7 @@ end
    local error = resgpu:float() - groundgrad
 
    mytester:assertlt(error:abs():max(), precision_backward, 'error on state (backward) ')
-end]]--
+end
 
 function gpunntest.SpatialUpSamplingNearest_forward()
    local f = torch.random(3, 15)
@@ -2466,7 +2468,7 @@ function nn.testgpu(tests)
    mytester:add(gpunntest)
    mytester:run(tests)
    torch.setdefaulttensortype(oldtype)
-   print ''
+--[[   print ''
    print ' ------------------------------------------------------------------------------------------------'
    print '|  Module                                                                          |  Speedup    |'
    print ' ------------------------------------------------------------------------------------------------'
@@ -2474,5 +2476,5 @@ function nn.testgpu(tests)
       local str = string.format('| %-80s | %4.2f        |', module, (tm.cpu / (tm.gpu or 1e6)))
       print(str)
    end
-   print ' ------------------------------------------------------------------------------------------------'
+   print ' ------------------------------------------------------------------------------------------------']]--
 end

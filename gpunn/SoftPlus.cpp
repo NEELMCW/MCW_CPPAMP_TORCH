@@ -45,7 +45,7 @@ struct softPlusupdateGradInput_functor
   const float threshold;
   const float beta;
 
-  softPlusupdateGradInput_functor(float threshold_, float beta_) restrict(amp,cpu) : threshold(threshold_), beta(beta_) {}
+  softPlusupdateGradInput_functor(float threshold_, float beta_)restrict(amp,cpu): threshold(threshold_), beta(beta_) {}
 
   float operator()(const float& output, const float& gradOutput) const restrict(amp,cpu)
   {
@@ -68,10 +68,10 @@ static int gpunn_SoftPlus_updateGradInput(lua_State *L)
   gradOutput = THGPUTensor_newContiguous(gradOutput);
   THGPUTensor_resizeAs(gradInput, output);
 
-   bolt::amp::device_vector<float> input_data(THGPUTensor_data(input), THGPUTensor_data(input)+THGPUTensor_nElement(input));
+   bolt::amp::device_vector<float> output_data(THGPUTensor_data(output), THGPUTensor_data(output)+THGPUTensor_nElement(output));
    bolt::amp::device_vector<float> gradOutput_data(THGPUTensor_data(gradOutput), THGPUTensor_data(gradOutput)+THGPUTensor_nElement(gradOutput));
    bolt::amp::device_vector<float> gradInput_data(THGPUTensor_data(gradInput), THGPUTensor_data(gradInput)+THGPUTensor_nElement(gradInput));
-   bolt::amp::transform(input_data.begin(), input_data.end(), gradOutput_data.begin(),gradInput_data.begin(), softPlusupdateGradInput_functor(threshold,beta));
+   bolt::amp::transform(output_data.begin(), output_data.end(), gradOutput_data.begin(),gradInput_data.begin(), softPlusupdateGradInput_functor(threshold,beta));
 
   THGPUTensor_free(gradOutput);
   return 1;
