@@ -601,7 +601,7 @@ end
 
 function test.addmv()
    local sizes = {
-     -- {2,1},
+      {2,1},
       {1,2},
       {1,1},
       {3,4},
@@ -637,7 +637,7 @@ end
    end
 end]]--
 
---[[function test.addr()
+function test.addr()
    local sizes = {
       {2,1},
       {1,2},
@@ -654,7 +654,7 @@ end]]--
       local b = torch.randn(m)
       compareFloatAndGPUTensorArgs(c, 'addr', torch.normal(), a, b)
    end
-end]]--
+end
 
 function test.addmm()
    local sizes = {
