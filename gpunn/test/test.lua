@@ -1291,8 +1291,8 @@ function gpunntest.SpatialMaxPooling_forward()
    local kj = math.random(2,4)
    local si = math.random(1,4)
    local sj = math.random(1,4)
-   local outi = math.random(32,256)
-   local outj = math.random(32,256)
+   local outi = math.random(1,64)
+   local outj = math.random(1,64)
    local ini = (outi-1)*si+ki
    local inj = (outj-1)*sj+kj
 
@@ -1982,13 +1982,24 @@ function gpunntest.LogSoftMax_backward_batch()
    mytester:assertlt(error:abs():max(), precision_backward, 'error on state (backward) ')
 end
 
---[[function gpunntest.TemporalConvolution_forward()
+function gpunntest.TemporalConvolution_forward()
    local from = math.random(1,64) -- inputFrameSize
    local to = math.random(1,64) -- outputFrameSize
    local ki = math.random(3,15) -- kernelWidth (kW)
    local si = math.random(1,2) -- stepSize (dW)
    local outi = math.random(1,256) -- nOutputFrame
    local ini = (outi-1)*si+ki -- nInputFrame
+ 
+   --[[print('from')
+   print(from)
+   print('to')
+   print(to)
+   print('ki')
+   print(ki)
+   print('si')
+   print(si)
+   print('outi')
+   print(outi)]]--
 
    local tm = {}
    local title = string.format('TemporalConvolution.forward %dx%d o %d -> %dx%d [s: %d]',
@@ -2018,9 +2029,9 @@ end
 
    local error = resgpu:float() - groundtruth
    mytester:assertlt(error:abs():max(), precision_forward, 'error on state (forward) ')
-end]]--
+end
 
---[[function gpunntest.TemporalConvolution_forward_batch()
+function gpunntest.TemporalConvolution_forward_batch()
    local bs = math.random(4,16)
    local from = math.random(1,64)
    local to = math.random(1,64)
@@ -2057,9 +2068,9 @@ end]]--
 
    local error = resgpu:float() - groundtruth
    mytester:assertlt(error:abs():max(), precision_forward, 'error on state (forward) ')
-end]]--
+end
 
---[[function gpunntest.TemporalConvolution_backward()
+function gpunntest.TemporalConvolution_backward()
   local from = math.random(1,64)
    local to = math.random(1,64)
    local ki = math.random(3,15)
@@ -2113,9 +2124,9 @@ end]]--
    mytester:assertlt(error:abs():max(), precision_backward, 'error on state (backward) ')
    mytester:assertlt(werror:abs():max(), precision_backward, 'error on weight (backward) ')
    mytester:assertlt(berror:abs():max(), precision_backward, 'error on bias (backward) ')
-end]]--
+end
 
---[[function gpunntest.TemporalConvolution_backward_batch()
+function gpunntest.TemporalConvolution_backward_batch()
    local bs = math.random(4,16)
    local from = math.random(1,64)
    local to = math.random(1,64)
@@ -2169,7 +2180,7 @@ end]]--
    mytester:assertlt(error:abs():max(), precision_backward, 'error on state (backward) ')
    mytester:assertlt(werror:abs():max(), precision_backward, 'error on weight (backward) ')
    mytester:assertlt(berror:abs():max(), precision_backward, 'error on bias (backward) ')
-end]]--
+end
 
 function gpunntest.Exp_forward()
    local size = math.random(1,100)
