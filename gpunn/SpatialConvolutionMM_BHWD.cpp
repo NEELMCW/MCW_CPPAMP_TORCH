@@ -131,7 +131,7 @@ static int gpunn_SpatialConvolutionMM_BHWD_updateOutput(lua_State *L) {
     long k_ = 1;
 
     // Do GEMM (note: this is a bit confusing because gemm assumes column-major matrices)
-    THFloatBlas_gemm(
+    THGPUBlas_gemm(
         't', 'n',
         n_, m_, k_,
         1,
@@ -155,7 +155,7 @@ static int gpunn_SpatialConvolutionMM_BHWD_updateOutput(lua_State *L) {
     long k = weight->size[1];
 
     // Do GEMM (note: this is a bit confusing because gemm assumes column-major matrices)
-    THFloatBlas_gemm(
+    THGPUBlas_gemm(
         'n', 'n',
         n, m, k,
         1,

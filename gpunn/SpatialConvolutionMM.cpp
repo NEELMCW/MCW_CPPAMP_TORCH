@@ -192,7 +192,7 @@ static int gpunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
     long k_ = 1;
 
     // Do GEMM (note: this is a bit confusing because gemm assumes column-major matrices)
-    THFloatBlas_gemm(
+    THGPUBlas_gemm(
         't', 'n',
         n_, m_, k_,
         1,
@@ -216,7 +216,7 @@ static int gpunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
     long k = weight->size[1];
 
     // Do GEMM (note: this is a bit confusing because gemm assumes column-major matrices)
-    THFloatBlas_gemm(
+    THGPUBlas_gemm(
         'n', 'n',
         n, m, k,
         1,
@@ -302,7 +302,7 @@ static int gpunn_SpatialConvolutionMM_updateGradInput(lua_State *L) {
     long k = weight->size[0];
 
     // Do GEMM (note: this is a bit confusing because gemm assumes column-major matrices)
-    THFloatBlas_gemm(
+    THGPUBlas_gemm(
         'n', 't',
         n, m, k,
         1,
@@ -408,7 +408,7 @@ static int gpunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
     long k = columns->size[1];
 
     // Do GEMM (note: this is a bit confusing because gemm assumes column-major matrices)
-    THFloatBlas_gemm(
+    THGPUBlas_gemm(
         't', 'n',
         n, m, k,
         scale,
@@ -425,7 +425,7 @@ static int gpunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
     long k_ = outputHeight * outputWidth;
 
     // Do GEMV (note: this is a bit confusing because gemv assumes column-major matrices)
-    THFloatBlas_gemv(
+    THGPUBlas_gemv(
         't',
         k_, m_,
         scale,
