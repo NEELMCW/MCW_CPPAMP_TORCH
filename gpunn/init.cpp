@@ -34,6 +34,7 @@
 #include "SoftPlus.cpp"
 #include "Exp.cpp"
 #include "SpatialUpSamplingNearest.cpp"
+#include "SpatialAveragePooling.cpp"
 
 LUA_EXTERNC DLL_EXPORT int luaopen_libgpunn(lua_State *L);
 
@@ -67,6 +68,7 @@ int luaopen_libgpunn(lua_State *L)
   gpunn_SoftPlus_init(L);
   gpunn_Exp_init(L);
   gpunn_SpatialUpSamplingNearest_init(L);
+  gpunn_SpatialAveragePooling_init(L);
 
   return 1;
 }
