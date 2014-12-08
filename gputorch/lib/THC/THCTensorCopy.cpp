@@ -2,6 +2,16 @@
 #include "THGeneral.h"
 #include "THCTensor.h"
 #include <iostream>
+#include "bolt/amp/functional.h"
+#include "bolt/amp/fill.h"
+#include "bolt/amp/device_vector.h"
+#include "bolt/amp/transform.h"
+#include "bolt/amp/transform_reduce.h"
+#include "bolt/amp/reduce.h"
+#include "bolt/amp/copy.h"
+#include "bolt/amp/inner_product.h"
+#include "amp_math.h"
+
 
 using namespace std;
 
@@ -216,40 +226,43 @@ THC_API void THGPUTensor_copy(THGPUTensor *self, THGPUTensor *src)
     
   Concurrency::array_view<float,1> avSelf(Concurrency::extent<1>(self->storage->size),self->storage->data);
 
-  Concurrency::array<long, 1> *d_self_sz, *d_self_st, *d_src_sz, *d_src_st;
-  int self_dim, src_dim;
-  long size = THGPUTensor_nElement(self);
-  long innermostdim;
+  if(THGPUTensor_isContiguous(self) && THGPUTensor_isContiguous(src))
+  {
+    bolt::amp::device_vector<float> srcVec(THGPUTensor_data(src),THGPUTensor_data(src) + THGPUTensor_nElement(src));
+    bolt::amp::device_vector<float> desVec(THGPUTensor_data(self),THGPUTensor_data(self) + THGPUTensor_nElement(self));
+    bolt::amp::copy(srcVec.begin(),srcVec.end(),desVec.begin());
+  }
+  else
+  {
+    Concurrency::array<long, 1> *d_self_sz, *d_self_st, *d_src_sz, *d_src_st;
+    int self_dim, src_dim;
+    long size = THGPUTensor_nElement(self);
+    long innermostdim;
 
-  THGPUTensor_computesz(src, &d_src_sz, &d_src_st, &src_dim, &innermostdim);
-  THGPUTensor_computesz(self, &d_self_sz, &d_self_st, &self_dim, &innermostdim);
+    THGPUTensor_computesz(src, &d_src_sz, &d_src_st, &src_dim, &innermostdim);
+    THGPUTensor_computesz(self, &d_self_sz, &d_self_st, &self_dim, &innermostdim);
 
-  int nblocks = ceil((float)size / (16 * innermostdim ));
+    int nblocks = ceil((float)size / (16 * innermostdim ));
 
-  // if nblocks greater than 65535 then we need to open a second dimension
-  #define __MAX_NUM_BLOCKS_PER_GRID_DIM__ 65535
+    // if nblocks greater than 65535 then we need to open a second dimension
+    #define __MAX_NUM_BLOCKS_PER_GRID_DIM__ 65535
 
-  // The configuration below can deal with Tensors 
-  // of size up to 65535 * 65535 * 65535 * 16 elements.
-  int nblocks_x = (nblocks > __MAX_NUM_BLOCKS_PER_GRID_DIM__) ? __MAX_NUM_BLOCKS_PER_GRID_DIM__ : nblocks;
-  int number_blocks_dim_x = DIVUP(nblocks, nblocks_x);
-  int nblocks_y = (number_blocks_dim_x > __MAX_NUM_BLOCKS_PER_GRID_DIM__) ? __MAX_NUM_BLOCKS_PER_GRID_DIM__ : number_blocks_dim_x;
-  int number_blocks_dim_y = DIVUP(nblocks, nblocks_x * nblocks_y);
-  int nblocks_z = number_blocks_dim_y;
+    // The configuration below can deal with Tensors 
+    // of size up to 65535 * 65535 * 65535 * 16 elements.
+    int nblocks_x = (nblocks > __MAX_NUM_BLOCKS_PER_GRID_DIM__) ? __MAX_NUM_BLOCKS_PER_GRID_DIM__ : nblocks;
+    int number_blocks_dim_x = DIVUP(nblocks, nblocks_x);
+    int nblocks_y = (number_blocks_dim_x > __MAX_NUM_BLOCKS_PER_GRID_DIM__) ? __MAX_NUM_BLOCKS_PER_GRID_DIM__ : number_blocks_dim_x;
+    int number_blocks_dim_y = DIVUP(nblocks, nblocks_x * nblocks_y);
+    int nblocks_z = number_blocks_dim_y;
 
-  /*nblocks_z = (nblocks_z + 15) & ~15;
-
-  nblocks_x = (nblocks_x + 15) & ~15;
-
-  nblocks_y = (nblocks_y + 15) & ~15;*/
-
-  THGPUTensor_kernel_copy(self, src,
+    THGPUTensor_kernel_copy(self, src,
                           d_self_sz, d_self_st, self_dim,
                           d_src_sz, d_src_st, src_dim,
                           size, innermostdim, nblocks_x, nblocks_y, nblocks_z);
 
-  delete d_self_st; 
-  delete d_self_sz;
-  delete d_src_st;
-  delete d_src_sz;
+    delete d_self_st; 
+    delete d_self_sz;
+    delete d_src_st;
+    delete d_src_sz;
+  }
 }
