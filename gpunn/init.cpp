@@ -9,6 +9,7 @@
 #include <thrust/device_ptr.h>*/
 
 #include "HardTanh.cpp"
+#include "L1Cost.cpp"
 #include "Tanh.cpp"
 #include "Max.cpp"
 #include "Min.cpp"
@@ -45,6 +46,7 @@ int luaopen_libgpunn(lua_State *L)
   gpunn_Max_init(L);
   gpunn_Min_init(L);
   gpunn_HardTanh_init(L);
+  gpunn_L1Cost_init(L);
   gpunn_LogSoftMax_init(L);
   gpunn_SoftMax_init(L);
   gpunn_TemporalConvolution_init(L);
