@@ -35,6 +35,7 @@
 #include "Exp.cpp"
 #include "SpatialUpSamplingNearest.cpp"
 #include "SpatialAveragePooling.cpp"
+#include "ClassNLLCriterion.cpp"
 
 LUA_EXTERNC DLL_EXPORT int luaopen_libgpunn(lua_State *L);
 
@@ -69,6 +70,6 @@ int luaopen_libgpunn(lua_State *L)
   gpunn_Exp_init(L);
   gpunn_SpatialUpSamplingNearest_init(L);
   gpunn_SpatialAveragePooling_init(L);
-
+  gpunn_ClassNLLCriterion_init(L);
   return 1;
 }
