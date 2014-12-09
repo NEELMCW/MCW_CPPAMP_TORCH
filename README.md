@@ -137,3 +137,7 @@ Testing gpunn:
 * cd gpunn
 
 * th -lgpunn -e "nn.testgpu()"
+
+Running FaceBook Benchmark:
+
+* tar -xvf 
