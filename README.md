@@ -140,4 +140,12 @@ Testing gpunn:
 
 Running FaceBook Benchmark:
 
-* tar -xvf 
+* tar -xvf imagenet-barebones.tar.gz
+
+* cd imagenet-barebones
+
+* th -i runMetaData.lua
+
+* exit Torch prompt
+
+* th -lgpunn -i main.lua
