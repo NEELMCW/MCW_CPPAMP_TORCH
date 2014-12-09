@@ -283,9 +283,6 @@ void THGPUBlas_gemv(char trans, long m, long n, float alpha, float *a, long lda,
 
   int transa_ = ((trans == 't') || (trans == 'T'));
 
-  std::cout<<"\n CodeN"<<n<<std::endl;
-  std::cout<<"\n CodeM"<<m<<std::endl;
-
   if (n == 1)
     lda = m;
 
@@ -294,17 +291,14 @@ void THGPUBlas_gemv(char trans, long m, long n, float alpha, float *a, long lda,
   clblasTranspose op;
   if (trans == 't')
   {
-    std::cout<<"Trans"<<std::endl;
     op = clblasTrans;
   }
   else if (trans == 'n')
   {
-    std::cout<<"NoTrans"<<std::endl;
     op = clblasNoTrans;
   }
   else if (trans == 'c')
   {
-    std::cout<<"ConjTrans"<<std::endl;
     op = clblasConjTrans;
   }
   clblasOrder order = clblasColumnMajor;
