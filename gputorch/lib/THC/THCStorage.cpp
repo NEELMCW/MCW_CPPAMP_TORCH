@@ -1,5 +1,7 @@
 #include "THCStorage.h"
 #include "THCGeneral.h"
+#include "bolt/amp/device_vector.h"
+#include "bolt/amp/fill.h"
 
 void THGPUStorage_set(THGPUStorage *self, long index, float value)
 {
@@ -190,12 +192,7 @@ TH_CUDA_STORAGE_IMPLEMENT_COPYTO(Double)
 
 void THGPUStorage_fill(THGPUStorage *self, float value)
 {
-  Concurrency::array_view<float, 1> srcData(Concurrency::extent<1>(self->size), self->data);
-  Concurrency::parallel_for_each(srcData.get_extent(), [=] (Concurrency::index<1> idx) restrict(amp)
-  {
-    srcData[idx] = value; 
-  });
-  srcData.synchronize();
+  bolt::amp::fill(self->data, self->data+self->size, value);
 }
 
 void THGPUStorage_resize(THGPUStorage *self, long size)
@@ -217,21 +214,9 @@ void THGPUStorage_resize(THGPUStorage *self, long size)
   }
   else
   {
-    Concurrency::array<float, 1> *data = NULL;
-    // Resizing the extent
-    Concurrency::extent<1> eA(size);
-    // Allocating device array of resized value
-    data =  new Concurrency::array<float>(eA);
-    long copySize = THMin(self->size, size);
-    Concurrency::extent<1> copyExt(copySize);
-    Concurrency::array_view<float, 1> srcData(copyExt, self->data);
-    Concurrency::array_view<float, 1> desData(data->section(copyExt));
-    Concurrency::copy(srcData, desData);
-    Concurrency::array<float,1> delSelf (Concurrency::extent<1>(self->size), self->data);
-    delSelf.~array();
-    delete (Concurrency::array<float> *)self->allocatorContext;
-    self->allocatorContext = (void *)data;
-    self->data = desData.data();
+    bolt::amp::device_vector<float> Dself(self->data, self->data + self->size);
+    Dself.resize(size);
+    self->data = Dself.getBuffer().data();
     self->size = size;
   }
 }

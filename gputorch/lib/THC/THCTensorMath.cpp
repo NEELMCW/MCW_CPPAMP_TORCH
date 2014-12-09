@@ -21,8 +21,7 @@
 void THGPUTensor_fill(THGPUTensor *self_, float value)
 {
   THGPUTensor *self = THGPUTensor_newContiguous(self_);
-  bolt::amp::device_vector<float> Dself(self->storage->data,self->storage->data + self->storage->size);
-  bolt::amp::fill(Dself.begin(),Dself.end(),value);
+  THGPUStorage_fill(self->storage,value);
   THGPUTensor_copy(self_, self);
   if (self != self_)
   {
@@ -34,8 +33,7 @@ void THGPUTensor_fill(THGPUTensor *self_, float value)
 void THGPUTensor_zero(THGPUTensor *self_)
 {
   THGPUTensor *self = THGPUTensor_newContiguous(self_);
-  bolt::amp::device_vector<float> Dself(self->storage->data,self->storage->data + self->storage->size);
-  bolt::amp::fill(Dself.begin(),Dself.end(),0);
+  THGPUStorage_fill(self->storage,0);
   THGPUTensor_copy(self_, self);
   if (self != self_)
   {
@@ -59,7 +57,6 @@ void THGPUTensor_ones(THGPUTensor *r_, THLongStorage *size)
 
 void THGPUTensor_reshape(THGPUTensor *r_, THGPUTensor *t, THLongStorage *size)
 {
-  //std::cout<<"Inside Reshape"<<std::endl;
   THGPUTensor_resize(r_, size, NULL);
   THGPUTensor_copy(r_, t);
 }
