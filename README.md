@@ -46,7 +46,7 @@ Create a build directory and configure using CMake.
 
   * cd mcw_cppamp/gmac_exp_build
 
-   * cmake ../src  (The gmac-exp branch expects the AMDAPP SDK in the path /opt/AMDAPP)
+   * cmake ../src -DCMAKE_BUILD_TYPE=Release (The gmac-exp branch expects the AMDAPP SDK in the path /opt/AMDAPP)
 
 Build the whole system. This will build clang and other libraries that require one time build.
 
