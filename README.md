@@ -131,6 +131,14 @@ Testing gputorch:
 
 * th -lgputorch -e "gputorch.test()"
 
+If fails, run the following to get detailed messages if any,
+ 
+```
+#!python
+ th
+ require ('gputorch')
+```
+
 
 Testing gpunn:
 
