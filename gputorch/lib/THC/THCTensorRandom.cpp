@@ -185,7 +185,6 @@ void NAME(int size, THGPUTensor *result, ARG1)                                  
     x = TRANSFORM;                                                                                       \
     avResult[i] = x;                                                                                     \
   }                                                                                                      \
-  avResult.synchronize();                                                                                \
 }
 
 #define GENERATE_KERNEL2(NAME, ARG1, ARG2, CURAND_FUNC, TRANSFORM)                                       \
@@ -199,7 +198,6 @@ void NAME(int size, THGPUTensor *result, ARG1, ARG2)                            
     x = TRANSFORM;                                                                                       \
     avResult[i] = x;                                                                                     \
   }                                                                                                      \
-  avResult.synchronize();                                                                                \
 }
 
 GENERATE_KERNEL2(generate_uniform, double a, double b, uniform_real_distribution, x * (b-a) + a)
@@ -223,7 +221,6 @@ void generate_log_normal(int size, THGPUTensor *result, float mean, float stddev
     float x = rand(gen);
     avResult[i] = x;
   }
-  avResult.synchronize();
 }
 
 

@@ -215,7 +215,6 @@ void THGPUTensor_kernel_copy(THGPUTensor *self, THGPUTensor *src, Concurrency::a
       }
     }
   });
-  av_dst.synchronize();
 }
 
 THC_API void THGPUTensor_copy(THGPUTensor *self, THGPUTensor *src)
