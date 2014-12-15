@@ -225,9 +225,6 @@ void THGPUTensor_kernel_addcmul(float *data, float value, float *src1, float *sr
     }
 
   });
-  Data.synchronize();
-  src1Data.synchronize();
-  src2Data.synchronize();
 }
 
 
@@ -298,7 +295,6 @@ void THGPUTensor_kernel_addcdiv(float *data, float value, float *src1, float *sr
     }
 
   });
-  Data.synchronize();
 }
 
 
@@ -459,7 +455,6 @@ void THGPUTensor_kernel_transformReduceOuterDim(THGPUTensor *tgt, THGPUTensor *s
       }
     }
   });
-  avTgt.synchronize();
 }
 
 template<class BinaryFunction, class UnaryFunction>
@@ -568,7 +563,6 @@ void THGPUTensor_kernel_transformReduceInnermostDim(THGPUTensor *tgt, THGPUTenso
       }
     }
   });
-  avTgt.synchronize();
 }
 
 template<class UnaryFunction, class BinaryFunction>
@@ -1295,7 +1289,6 @@ void THGPUTensor_kernel_renorm(THGPUTensor *data, const float value, const long 
       }
     }
   });
-  avData.synchronize();
 }
 
 void THGPUTensor_renorm(THGPUTensor* self, THGPUTensor* src, float value, long dimension, float maxnorm)
@@ -1400,7 +1393,6 @@ void THGPUTensor_kernel_indexFill(THGPUTensor *tensor, Concurrency::array<long>*
       }
     }
   });
-  srcTensor.synchronize();
 }
 
 void THGPUTensor_kernel_indexCopy(float *res, float *src, Concurrency::array<long,1>* res_stride, float *index, long res_size, 
@@ -1451,7 +1443,6 @@ void THGPUTensor_kernel_indexCopy(float *res, float *src, Concurrency::array<lon
       }
     }
   });
-   resTensor.synchronize();
 }
 
 void THGPUTensor_indexCopy(THGPUTensor *res_, int dim, THLongTensor *indices, THGPUTensor *src)
@@ -1559,7 +1550,6 @@ void THGPUTensor_kernel_indexSelect(THGPUTensor *tensor, THGPUTensor *src, Concu
       }
     }
   });
-  resTensor.synchronize();
 }
 
 void THGPUTensor_indexSelect(THGPUTensor *res_, THGPUTensor *src, int dim, THLongTensor *indices)
