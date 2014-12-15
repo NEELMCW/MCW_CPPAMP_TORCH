@@ -22,8 +22,8 @@ float THGPUStorage_get(const THGPUStorage *self, long index)
 THGPUStorage* THGPUStorage_new(void)
 {
   THGPUStorage *storage = (THGPUStorage *)THAlloc(sizeof(THGPUStorage));
-  storage->allocatorContext = new Concurrency::array<float, 1>(Concurrency::extent<1>(1));
-  Concurrency::array_view<float>avData(*(Concurrency::array<float, 1>*)storage->allocatorContext);
+  storage->allocatorContext = new Concurrency::array_view<float, 1>(Concurrency::extent<1>(1));
+  Concurrency::array_view<float>avData(*(Concurrency::array_view<float, 1>*)storage->allocatorContext);
   storage->data = avData.data();
   storage->size = 1;
   storage->refcount = 1;
@@ -40,8 +40,8 @@ THGPUStorage* THGPUStorage_newWithSize(long size)
     THGPUStorage *storage = (THGPUStorage *)THAlloc(sizeof(THGPUStorage));
     Concurrency::extent<1> eA(size);
     // Allocating device array of given size
-    storage->allocatorContext = new Concurrency::array<float>(eA);
-    Concurrency::array_view<float>avData(*(Concurrency::array<float>*)storage->allocatorContext);
+    storage->allocatorContext = new Concurrency::array_view<float>(eA);
+    Concurrency::array_view<float>avData(*(Concurrency::array_view<float>*)storage->allocatorContext);
     storage->data = avData.data();
     storage->size = size;
     storage->refcount = 1;
@@ -97,8 +97,8 @@ THGPUStorage* THGPUStorage_newWithMapping(const char *fileName, long size, int i
 THGPUStorage* THGPUStorage_newWithData(float *data, long size)
 {
   THGPUStorage *storage = (THGPUStorage *)THAlloc(sizeof(THGPUStorage));
-  storage->allocatorContext = new Concurrency::array<float>(Concurrency::extent<1>(size), data);
-  Concurrency::array_view<float> avData(*(Concurrency::array<float>*)storage->allocatorContext);
+  storage->allocatorContext = new Concurrency::array_view<float>(Concurrency::extent<1>(size), data);
+  Concurrency::array_view<float> avData(*(Concurrency::array_view<float>*)storage->allocatorContext);
   storage->data = avData.data();
   storage->size = size;
   storage->refcount = 1;
@@ -123,13 +123,13 @@ void THGPUStorage_free(THGPUStorage *self)
     {
       if (self->allocatorContext)
       {
-        delete (Concurrency::array<float> *)self->allocatorContext;
+        delete (Concurrency::array_view<float> *)self->allocatorContext;
         self->allocatorContext = NULL;
       }
       if (self->data)
       {
-        Concurrency::array<float, 1> delSelf (Concurrency::extent<1>(self->size), self->data);
-        delSelf.~array();
+        Concurrency::array_view<float, 1> delSelf (Concurrency::extent<1>(self->size), self->data);
+        delSelf.~array_view();
         self->data = NULL;
         self->size = 0;
         self->refcount =0;
@@ -167,7 +167,7 @@ TH_CUDA_STORAGE_IMPLEMENT_COPY(Double)
 void THFloatStorage_copyGPU(THFloatStorage *self, struct THGPUStorage *src)
 {
   THArgCheck(self->size == src->size, 2, "size does not match");
-  Concurrency::array<float, 1> arrSrc(Concurrency::extent<1>(self->size), src->data);
+  Concurrency::array_view<float, 1> arrSrc(Concurrency::extent<1>(self->size), src->data);
   Concurrency::array_view<float, 1> avSelfCopy(Concurrency::extent<1>(self->size), self->data);
   copy(arrSrc, avSelfCopy);
 }
@@ -206,8 +206,8 @@ void THGPUStorage_resize(THGPUStorage *self, long size)
   {
     if (self->flag & TH_STORAGE_FREEMEM)
     {
-      Concurrency::array<float, 1> delSelf (Concurrency::extent<1>(self->size), self->data);
-      delSelf.~array();
+      Concurrency::array_view<float, 1> delSelf (Concurrency::extent<1>(self->size), self->data);
+      delSelf.~array_view();
     }
     self->data = NULL;
     self->size = 0;
@@ -223,7 +223,7 @@ void THGPUStorage_resize(THGPUStorage *self, long size)
 
 void THGPUStorage_rawCopy(THGPUStorage *self, float *src)
 {
-  Concurrency::array<float> arrSrc(Concurrency::extent<1>(self->size), src);
+  Concurrency::array_view<float> arrSrc(Concurrency::extent<1>(self->size), src);
   Concurrency::array_view<float> avSelfCopy(Concurrency::extent<1>(self->size), self->data);
   Concurrency::copy(arrSrc, avSelfCopy);
 }
@@ -231,7 +231,7 @@ void THGPUStorage_rawCopy(THGPUStorage *self, float *src)
 void THGPUStorage_copy(THGPUStorage *self, THGPUStorage *src)
 {
   THArgCheck(self->size == src->size, 2, "size does not match");
-  Concurrency::array<float> arrSrc(Concurrency::extent<1>(self->size), src->data);
+  Concurrency::array_view<float> arrSrc(Concurrency::extent<1>(self->size), src->data);
   Concurrency::array_view<float> avSelfCopy(Concurrency::extent<1>(self->size), self->data);
   Concurrency::copy(arrSrc, avSelfCopy);
 }
@@ -239,7 +239,7 @@ void THGPUStorage_copy(THGPUStorage *self, THGPUStorage *src)
 void THGPUStorage_copyGPU(THGPUStorage *self, THGPUStorage *src)
 {
   THArgCheck(self->size == src->size, 2, "size does not match");
-  Concurrency::array<float> arrSrc(Concurrency::extent<1>(self->size), src->data);
+  Concurrency::array_view<float> arrSrc(Concurrency::extent<1>(self->size), src->data);
   Concurrency::array_view<float> avSelfCopy(Concurrency::extent<1>(self->size), self->data);
   Concurrency::copy(arrSrc, avSelfCopy);
 }
