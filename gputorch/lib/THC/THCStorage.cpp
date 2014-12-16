@@ -198,7 +198,6 @@ void THGPUStorage_fill(THGPUStorage *self, float value)
 void THGPUStorage_resize(THGPUStorage *self, long size)
 {
   THArgCheck(size >= 0, 2, "invalid size");
-  std::cout<<"Resize invoked"<<std::endl;
 
   if (!(self->flag & TH_STORAGE_RESIZABLE))
     return;
