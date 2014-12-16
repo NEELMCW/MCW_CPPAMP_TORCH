@@ -198,6 +198,7 @@ void THGPUStorage_fill(THGPUStorage *self, float value)
 void THGPUStorage_resize(THGPUStorage *self, long size)
 {
   THArgCheck(size >= 0, 2, "invalid size");
+  std::cout<<"Resize invoked"<<std::endl;
 
   if (!(self->flag & TH_STORAGE_RESIZABLE))
     return;
@@ -214,9 +215,21 @@ void THGPUStorage_resize(THGPUStorage *self, long size)
   }
   else
   {
-    bolt::amp::device_vector<float> Dself(self->data, self->data + self->size);
-    Dself.resize(size);
-    self->data = Dself.getBuffer().data();
+    Concurrency::array_view<float, 1> *data = NULL;
+    // Resizing the extent
+    Concurrency::extent<1> eA(size);
+    // Allocating device array of resized value
+    data =  new Concurrency::array_view<float>(eA);
+    long copySize = THMin(self->size, size);
+    Concurrency::extent<1> copyExt(copySize);
+    Concurrency::array_view<float, 1> srcData(copyExt, self->data);
+    Concurrency::array_view<float, 1> desData(data->section(copyExt));
+    Concurrency::copy(srcData, desData);
+    Concurrency::array_view<float,1> delSelf (Concurrency::extent<1>(self->size), self->data);
+    delSelf.~array_view();
+    delete (Concurrency::array_view<float> *)self->allocatorContext;
+    self->allocatorContext = (void *)data;
+    self->data = desData.data();
     self->size = size;
   }
 }
