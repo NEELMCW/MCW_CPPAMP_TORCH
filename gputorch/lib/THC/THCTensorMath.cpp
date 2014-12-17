@@ -417,19 +417,14 @@ struct dim4 {
  */
 
 template<class BinaryFunction, class UnaryFunction>
-void THGPUTensor_kernel_transformReduceOuterDim(THGPUTensor *tgt, THGPUTensor *src_,
+void THGPUTensor_kernel_transformReduceOuterDim(Concurrency::array_view<float, 1> &avTgt, Concurrency::array_view<float, 1> &avSrc,
                                                 unsigned int tgtSz, unsigned int srcSz,
-                                                unsigned int src_stride[], unsigned int tgt_stride[],
-                                                unsigned int size[], UnaryFunction unary_op,
+                                                Concurrency::array_view<unsigned int, 1> &avSrc_stride, Concurrency::array_view<unsigned int, 1> &avTgt_stride,
+                                                Concurrency::array_view<unsigned int, 1> &avSize, UnaryFunction unary_op,
                                                 float init, BinaryFunction binary_op,
                                                 unsigned int gridConf[])
 {
   const size_t reduce = 3;
-  Concurrency::array_view<float, 1> avTgt(THGPUTensor_nElement(tgt), THGPUTensor_data(tgt));
-  Concurrency::array_view<float, 1> avSrc(THGPUTensor_nElement(src_), THGPUTensor_data(src_));
-  Concurrency::array_view<unsigned int, 1> avSrc_stride(4, src_stride);
-  Concurrency::array_view<unsigned int, 1> avTgt_stride(4, tgt_stride);
-  Concurrency::array_view<unsigned int, 1> avSize(4, size);
   gridConf[0] = (gridConf[0] + 255) & ~255;
   Concurrency::extent<3> grdExt(gridConf[2], gridConf[1], gridConf[0]);
   Concurrency::tiled_extent<1, 1, 256> t_ext(grdExt);
@@ -477,9 +472,17 @@ void THGPUTensor_transformReduceOuterDim(THGPUTensor *tgt, THGPUTensor *src, lon
   gridConfig[0] = Concurrency::fast_math::fmin(maxGridDim, nBlockPerColumn);
   gridConfig[1] = Concurrency::fast_math::fmin(maxGridDim, size[1]);
   gridConfig[2] = Concurrency::fast_math::fmin(maxGridDim, size[2]);
-  THGPUTensor_kernel_transformReduceOuterDim(tgt,
-                                             src, THGPUTensor_nElement(src), THGPUTensor_nElement(tgt),
-                                             src_stride, tgt_stride, size, unary_op, init, binary_op,gridConfig);
+
+  Concurrency::array_view<float, 1> *pavTgt = static_cast<Concurrency::array_view<float, 1> *>(tgt->storage->allocatorContext);
+  Concurrency::array_view<float, 1> *pavSrc = static_cast<Concurrency::array_view<float, 1> *>(src->storage->allocatorContext);
+  Concurrency::array_view<unsigned int, 1> avSrc_stride(4, src_stride);
+  Concurrency::array_view<unsigned int, 1> avTgt_stride(4, tgt_stride);
+  Concurrency::array_view<unsigned int, 1> avSize(4, size);
+
+
+  THGPUTensor_kernel_transformReduceOuterDim(*pavTgt,
+                                             *pavSrc, THGPUTensor_nElement(src), THGPUTensor_nElement(tgt),
+                                             avSrc_stride, avTgt_stride, avSize, unary_op, init, binary_op,gridConfig);
 }
 
 
@@ -497,17 +500,12 @@ void THGPUTensor_transformReduceOuterDim(THGPUTensor *tgt, THGPUTensor *src, lon
  */
 
 template<class UnaryFunction, class BinaryFunction>
-void THGPUTensor_kernel_transformReduceInnermostDim(THGPUTensor *tgt, THGPUTensor *src_,unsigned int tgtSz,
-                                                    unsigned int srcSz, unsigned int src_stride[],
-                                                    unsigned int tgt_stride[], unsigned int size[],
+void THGPUTensor_kernel_transformReduceInnermostDim(Concurrency::array_view<float, 1> &avTgt, Concurrency::array_view<float, 1> &avSrc, unsigned int tgtSz,
+                                                    unsigned int srcSz, Concurrency::array_view<unsigned int, 1> &avSrc_stride, Concurrency::array_view<unsigned int, 1> &avTgt_stride,
+                                                    Concurrency::array_view<unsigned int, 1> &avSize,
                                                     UnaryFunction unary_op, float init,
                                                     BinaryFunction binary_op, unsigned int gridConf[])
 {
-  Concurrency::array_view<float, 1> avTgt(THGPUTensor_nElement(tgt), THGPUTensor_data(tgt));
-  Concurrency::array_view<float, 1> avSrc(THGPUTensor_nElement(src_), THGPUTensor_data(src_));
-  Concurrency::array_view<unsigned int, 1> avSrc_stride(4, src_stride);
-  Concurrency::array_view<unsigned int, 1> avTgt_stride(4, tgt_stride);
-  Concurrency::array_view<unsigned int, 1> avSize(4, size);
   Concurrency::extent<3> grdExt(gridConf[2], gridConf[1] * 8, gridConf[0] *32);
   Concurrency::tiled_extent<1, 8, 32> t_ext(grdExt);
 
@@ -583,9 +581,16 @@ void THGPUTensor_transformReduceInnermostDim(THGPUTensor *tgt, THGPUTensor *src,
   gridConfig[0]= std::min(maxGridDim, size[2]);
   gridConfig[1]= std::min(maxGridDim, nBlockPerRow);
   gridConfig[2] = std::min(maxGridDim, size[3]);
-  THGPUTensor_kernel_transformReduceInnermostDim(tgt, src,
+
+  Concurrency::array_view<float, 1> *pavTgt = static_cast<Concurrency::array_view<float, 1> *>(tgt->storage->allocatorContext);
+  Concurrency::array_view<float, 1> *pavSrc = static_cast<Concurrency::array_view<float, 1> *>(src->storage->allocatorContext);  
+  Concurrency::array_view<unsigned int, 1> avSrc_stride(4, src_stride);
+  Concurrency::array_view<unsigned int, 1> avTgt_stride(4, tgt_stride);
+  Concurrency::array_view<unsigned int, 1> avSize(4, size);
+  
+  THGPUTensor_kernel_transformReduceInnermostDim(*pavTgt, *pavSrc,
                                                  THGPUTensor_nElement(tgt), THGPUTensor_nElement(src),
-                                                 src_stride, tgt_stride, size, unary_op, init,
+                                                 avSrc_stride, avTgt_stride, avSize, unary_op, init,
                                                  binary_op, gridConfig);
 }
 
