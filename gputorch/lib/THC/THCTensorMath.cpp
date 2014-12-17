@@ -206,11 +206,8 @@ void THGPUTensor_cdiv(THGPUTensor *self_, THGPUTensor *src1, THGPUTensor *src2)
   
 }
 
-void THGPUTensor_kernel_addcmul(float *data, float value, float *src1, float *src2, long size, const int nThreadPerBlock, int nBlockPerRow, int nBlockPerColumn)
+void THGPUTensor_kernel_addcmul( Concurrency::array_view<float,1> &Data, float value, Concurrency::array_view<float,1>&src1Data, Concurrency::array_view<float,1>&src2Data, long size, const int nThreadPerBlock, int nBlockPerRow, int nBlockPerColumn)
 {
-  Concurrency::array_view<float,1> src1Data(Concurrency::extent<1>(size),src1);
-  Concurrency::array_view<float,1> src2Data(Concurrency::extent<1>(size),src2);
-  Concurrency::array_view<float,1> Data(Concurrency::extent<1>(size),data);
   const int nthreads = 256;
   nBlockPerRow = (nBlockPerRow + (nthreads -1)) & ~(nthreads -1);
   Concurrency::extent<2> gridExt(nBlockPerColumn,nBlockPerRow);
@@ -249,7 +246,11 @@ void THGPUTensor_addcmul(THGPUTensor *self_, THGPUTensor* t, float value, THGPUT
   int nBlockPerRow, nBlockPerColumn, nThreadPerBlock;
   THGPUGetGridSize(&nBlockPerRow, &nBlockPerColumn, &nThreadPerBlock, size);
 
-  THGPUTensor_kernel_addcmul(THGPUTensor_data(self), value, THGPUTensor_data(src1), THGPUTensor_data(src2), size, nThreadPerBlock, nBlockPerRow,nBlockPerColumn);
+  Concurrency::array_view<float,1> *pavData = static_cast<Concurrency::array_view<float,1> *>(self->storage->allocatorContext);
+  Concurrency::array_view<float,1> *pavSrc1 = static_cast<Concurrency::array_view<float,1> *>(src1->storage->allocatorContext);
+  Concurrency::array_view<float,1> *pavSrc2 = static_cast<Concurrency::array_view<float,1> *>(src2->storage->allocatorContext);
+
+  THGPUTensor_kernel_addcmul(*pavData, value, *pavSrc1, *pavSrc2, size, nThreadPerBlock, nBlockPerRow,nBlockPerColumn);
 
   THGPUTensor_copy(self_, self);
   if (src1 != temp1)
