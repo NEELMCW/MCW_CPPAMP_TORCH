@@ -1244,9 +1244,8 @@ void THGPUTensor_norm(THGPUTensor* self, THGPUTensor* src, float value, long dim
   }
 }
 
-void THGPUTensor_kernel_renorm(THGPUTensor *data, const float value, const long size, const float maxnorm, long gridSz)
+void THGPUTensor_kernel_renorm(Concurrency::array_view<float, 1> &avData, const float value, const long size, const float maxnorm, long gridSz)
 {
-  Concurrency::array_view<float,1> avData(THGPUTensor_nElement(data),THGPUTensor_data(data));
   //gridSz = (gridSz + 31 ) & ~31;
   Concurrency::extent<1> grdExt(gridSz);
   Concurrency::tiled_extent<32> t_ext(grdExt);
@@ -1299,7 +1298,9 @@ void THGPUTensor_renorm(THGPUTensor* self, THGPUTensor* src, float value, long d
   THArgCheck(THGPUTensor_nDimension(src) > 1, 1, "need at least 2 dimensions");
   long gridSize = data->size[0] * 32;
 
-  THGPUTensor_kernel_renorm(data, value, size, maxnorm, gridSize);
+  Concurrency::array_view<float, 1> *pavData = static_cast<Concurrency::array_view<float, 1> *>(data->storage->allocatorContext);
+
+  THGPUTensor_kernel_renorm(*pavData, value, size, maxnorm, gridSize);
 
   THGPUTensor_free(src_);
   self_ = THGPUTensor_newTranspose(data, dimension, 0);
