@@ -270,29 +270,19 @@ void THGPUTensor_addcmul(THGPUTensor *self_, THGPUTensor* t, float value, THGPUT
   }
 }
 
-void THGPUTensor_kernel_addcdiv(float *data, float value, float *src1, float *src2, long size, const int nThreadPerBlock, int nBlockPerRow, int nBlockPerColumn)
+void THGPUTensor_kernel_addcdiv(Concurrency::array_view<float, 1> &Data, float value, Concurrency::array_view<float, 1> &src1Data, Concurrency::array_view<float, 1> &src2Data, long size, const int nThreadPerBlock, int nBlockPerRow, int nBlockPerColumn)
 {
-  Concurrency::array_view<float,1> src1Data(Concurrency::extent<1>(size),src1);
-  Concurrency::array_view<float,1> src2Data(Concurrency::extent<1>(size),src2);
-  Concurrency::array_view<float,1> Data(Concurrency::extent<1>(size),data);
-
   const int nthreads = 256;
   nBlockPerRow = (nBlockPerRow + (nthreads -1)) & ~(nthreads -1);
   Concurrency::extent<2> gridExt(nBlockPerColumn,nBlockPerRow);
   Concurrency::tiled_extent<1,nthreads> t_ext(gridExt);
-
-  bolt::amp::device_vector<float> divided_data(size);
-  bolt::amp::device_vector<float> Dsrc1_data(src1, src1+ size);
-  bolt::amp::device_vector<float> Dsrc2_data(src2, src2+ size);
-
-  bolt::amp::transform(Dsrc1_data.begin(), Dsrc1_data.end(), Dsrc2_data.begin(), divided_data.begin(), bolt::amp::divides<float>());
 
   Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1,nthreads>tidx) restrict(amp)
   {
     long k = (((tidx.tile[0] * t_ext[1]/t_ext.tile_dim1) + tidx.tile[1]) * t_ext.tile_dim1) + tidx.local[1];
     if(k < size)
     {
-      Data[Concurrency::index<1>(k)] += (float) value * divided_data[k]; 
+      Data[Concurrency::index<1>(k)] += (float) value * (src1Data[k] / src2Data[k]); 
     }
 
   });
@@ -318,7 +308,12 @@ void THGPUTensor_addcdiv(THGPUTensor *self_, THGPUTensor *t, float value, THGPUT
 
   int nBlockPerRow, nBlockPerColumn, nThreadPerBlock;
   THGPUGetGridSize(&nBlockPerRow, &nBlockPerColumn, &nThreadPerBlock, size);
-  THGPUTensor_kernel_addcdiv(THGPUTensor_data(self), value, THGPUTensor_data(src1), THGPUTensor_data(src2), size, nThreadPerBlock, nBlockPerRow,nBlockPerColumn);
+
+  Concurrency::array_view<float, 1> *pavData = static_cast<Concurrency::array_view<float, 1> *>(self->storage->allocatorContext);
+  Concurrency::array_view<float, 1> *pavSrc1 = static_cast<Concurrency::array_view<float, 1> *>(src1->storage->allocatorContext);
+  Concurrency::array_view<float, 1> *pavSrc2 = static_cast<Concurrency::array_view<float, 1> *>(src2->storage->allocatorContext);
+
+  THGPUTensor_kernel_addcdiv(*pavData, value, *pavSrc1, *pavSrc2, size, nThreadPerBlock, nBlockPerRow,nBlockPerColumn);
 
   THGPUTensor_copy(self_, self);
   if (src1 != temp1)
@@ -1503,14 +1498,8 @@ void THGPUTensor_indexFill(THGPUTensor *res_, int dim, THLongTensor *indices, fl
   THGPUStorage_free(indices_->storage);
 }
 
-void THGPUTensor_kernel_indexSelect(THGPUTensor *tensor, THGPUTensor *src, Concurrency::array<long>* src_stride, THGPUTensor *index, 
-                                    long src_nDim, int dim, long idx_size, long tensor_size, long src_size, long size_dim, long nblockx)
+void THGPUTensor_kernel_indexSelect(Concurrency::array_view<float, 1> &resTensor, Concurrency::array_view<float, 1> &srcTensor, Concurrency::array_view<long, 1> &srcStride, Concurrency::array_view<float, 1> &indx, long src_nDim, int dim, long idx_size, long tensor_size, long src_size, long size_dim, long nblockx)
 {
-  Concurrency::array_view<float,1> resTensor(THGPUTensor_nElement(tensor),THGPUTensor_data(tensor));
-  Concurrency::array_view<float,1> srcTensor(THGPUTensor_nElement(src),THGPUTensor_data(src));
-  Concurrency::array_view<long,1> srcStride(*src_stride);
-  Concurrency::array_view<float,1> indx(THGPUTensor_nElement(index),THGPUTensor_data(index));
-
   Concurrency::extent<2> gridExt(16, nblockx * 16);
   Concurrency::tiled_extent<16,16> t_ext(gridExt);
 
@@ -1557,7 +1546,7 @@ void THGPUTensor_indexSelect(THGPUTensor *res_, THGPUTensor *src, int dim, THLon
 {
   THLongStorage *newSize;
   THGPUTensor *indices_;
-  Concurrency::array<long> *stride_;
+  Concurrency::array_view<long> *stride_;
   long nIndex = indices->size[0];
   long nRes;
   
@@ -1577,9 +1566,13 @@ void THGPUTensor_indexSelect(THGPUTensor *res_, THGPUTensor *src, int dim, THLon
   nRes = THGPUTensor_nElement(res_);
   long nblockx = (long)(ceil((float)nRes / nIndex/(16 * 16)));
 
-  stride_ =  new Concurrency::array<long,1>(Concurrency::extent<1>(src->nDimension),src->stride);
+  stride_ =  new Concurrency::array_view<long,1>(Concurrency::extent<1>(src->nDimension),src->stride);
 
-  THGPUTensor_kernel_indexSelect(res_, src, stride_, indices_, src->nDimension, dim, 
+  Concurrency::array_view<float, 1> *pavRes = static_cast<Concurrency::array_view<float, 1> *>(res_->storage->allocatorContext);
+  Concurrency::array_view<float, 1> *pavSrc = static_cast<Concurrency::array_view<float, 1> *>(src->storage->allocatorContext);
+  Concurrency::array_view<float, 1> *pavInd = static_cast<Concurrency::array_view<float, 1> *>(indices_->storage->allocatorContext);
+
+  THGPUTensor_kernel_indexSelect(*pavRes, *pavSrc, *stride_, *pavInd, src->nDimension, dim, 
                                  indices->size[0], nRes,THGPUTensor_nElement(src), src->size[dim],nblockx);
 
   //THGPUCheck(gpuFree(stride_));
