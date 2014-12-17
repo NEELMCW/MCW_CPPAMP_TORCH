@@ -1347,13 +1347,10 @@ void THGPUTensor_randn(THGPURNGState* rng_state, THGPUTensor *r_, THLongStorage 
   THGPUTensor_normal(rng_state, r_, 0, 1);
 }
 
-void THGPUTensor_kernel_indexFill(THGPUTensor *tensor, Concurrency::array<long>* stride, THGPUTensor *index, long src_nDim, 
+void THGPUTensor_kernel_indexFill(Concurrency::array_view<float, 1> &srcTensor, Concurrency::array_view<long> &srcStride, Concurrency::array_view<float, 1> &indx, long src_nDim, 
                                   int dim, long idx_size, long tensor_size, long size_dim, float val, long nblockx
 )
 {
-  Concurrency::array_view<float,1> srcTensor(THGPUTensor_nElement(tensor),THGPUTensor_data(tensor));
-  Concurrency::array_view<long,1> srcStride(*stride);
-  Concurrency::array_view<float,1> indx(THGPUTensor_nElement(index),THGPUTensor_data(index));
   Concurrency::extent<2> gridExt(16,nblockx*16);
   Concurrency::tiled_extent<16,16> t_ext(gridExt);
 
@@ -1391,14 +1388,8 @@ void THGPUTensor_kernel_indexFill(THGPUTensor *tensor, Concurrency::array<long>*
   });
 }
 
-void THGPUTensor_kernel_indexCopy(float *res, float *src, Concurrency::array<long,1>* res_stride, float *index, long res_size, 
-                                  long res_nDim, int dim, long idx_size, long src_size, long size_dim, long nblockx)
+void THGPUTensor_kernel_indexCopy(Concurrency::array_view<float, 1> &resTensor, Concurrency::array_view<float, 1> &srcTensor, Concurrency::array_view<long,1> &resStride, Concurrency::array_view<float, 1> &indx, long res_size, long res_nDim, int dim, long idx_size, long src_size, long size_dim, long nblockx)
 {
-  Concurrency::array_view<float,1> resTensor(Concurrency::extent<1>(res_size),res);
-  Concurrency::array_view<float,1> srcTensor(Concurrency::extent<1>(src_size),src);
-  Concurrency::array_view<long,1> resStride(*res_stride);
-  Concurrency::array_view<float,1> indx(Concurrency::extent<1>(idx_size),index);
-
   Concurrency::extent<2> gridExt(16,nblockx*16);
   Concurrency::tiled_extent<16,16> t_ext(gridExt);
 
@@ -1444,7 +1435,7 @@ void THGPUTensor_kernel_indexCopy(float *res, float *src, Concurrency::array<lon
 void THGPUTensor_indexCopy(THGPUTensor *res_, int dim, THLongTensor *indices, THGPUTensor *src)
 {
   THGPUTensor *indices_;
-  Concurrency::array<long,1> *stride_;
+  Concurrency::array_view<long,1> *stride_;
   long nIndex = indices->size[0];
   long nRes;
   THArgCheck(indices->nDimension == 1, 3, "expecting vector of indices");
@@ -1460,10 +1451,14 @@ void THGPUTensor_indexCopy(THGPUTensor *res_, int dim, THLongTensor *indices, TH
 
   /*dim3 nthreads(16, 16);*/
   long nblockx = (long)(ceil((float)nRes / nIndex / (16*16)));
-  stride_ =  new Concurrency::array<long,1>(Concurrency::extent<1>(res_->nDimension),res_->stride);
+  stride_ =  new Concurrency::array_view<long,1>(Concurrency::extent<1>(res_->nDimension),res_->stride);
 
-  THGPUTensor_kernel_indexCopy(THGPUTensor_data(res_), THGPUTensor_data(src), 
-                               stride_, THGPUTensor_data(indices_), nRes,
+  Concurrency::array_view<float, 1> *pavRes = static_cast<Concurrency::array_view<float, 1> *>(res_->storage->allocatorContext);
+  Concurrency::array_view<float, 1> *pavSrc = static_cast<Concurrency::array_view<float, 1> *>(src->storage->allocatorContext);
+  Concurrency::array_view<float, 1> *pavInd = static_cast<Concurrency::array_view<float, 1> *>(indices_->storage->allocatorContext);
+
+  THGPUTensor_kernel_indexCopy(*pavRes, *pavSrc, 
+                               *stride_, *pavInd, nRes,
                                res_->nDimension, dim, nIndex, 
                                THGPUTensor_nElement(src), res_->size[dim],nblockx);
 
@@ -1475,7 +1470,7 @@ void THGPUTensor_indexCopy(THGPUTensor *res_, int dim, THLongTensor *indices, TH
 void THGPUTensor_indexFill(THGPUTensor *res_, int dim, THLongTensor *indices, float val)
 {
   THGPUTensor *indices_;
-  Concurrency::array<long,1> *stride_;
+  Concurrency::array_view<long,1> *stride_;
   long nIndex = indices->size[0];
   long nRes;
 
@@ -1489,9 +1484,12 @@ void THGPUTensor_indexFill(THGPUTensor *res_, int dim, THLongTensor *indices, fl
   nRes = THGPUTensor_nElement(res_) / res_->size[dim] * nIndex;
   long nblockx = (long)(ceil((float)nRes / nIndex / (16 * 16)));
 
-  stride_ =  new Concurrency::array<long,1>(Concurrency::extent<1>(res_->nDimension),res_->stride);
+  stride_ =  new Concurrency::array_view<long,1>(Concurrency::extent<1>(res_->nDimension),res_->stride);
 
-  THGPUTensor_kernel_indexFill(res_, stride_, indices_, res_->nDimension, 
+  Concurrency::array_view<float, 1> *pavRes = static_cast<Concurrency::array_view<float, 1> *>(res_->storage->allocatorContext);
+  Concurrency::array_view<float, 1> *pavInd = static_cast<Concurrency::array_view<float, 1> *>(indices_->storage->allocatorContext);
+
+  THGPUTensor_kernel_indexFill(*pavRes, *stride_, *pavInd, res_->nDimension, 
                                dim, nIndex, nRes, res_->size[dim], val, nblockx);
 
   delete stride_;
