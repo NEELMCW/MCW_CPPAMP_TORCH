@@ -30,17 +30,13 @@
  * matrix vector product like: y <- Ax + beta*y
  */
 template <bool swapkernel, int T_kernel_h, int T_kernel_w>
-void THGPUTensor_kernel_conv2generic(THGPUTensor *input, THGPUTensor *kernel, THGPUTensor *output,
+void THGPUTensor_kernel_conv2generic(Concurrency::array_view<float, 1> &input_data, Concurrency::array_view<float, 1> &kernel_data, Concurrency::array_view<float, 1> &output_data,
                                      int input_n, int input_h, int input_w,
                                      int kernel_n, int kernel_h, int kernel_w,
                                      long stride_h, long stride_w, int nOutputPlane, int yblocks)
 {
   Concurrency::extent<3> copyExt(1, yblocks * 16, nOutputPlane * 16);
   Concurrency::tiled_extent<1,16,16> t_ext(copyExt);
-
-  Concurrency::array_view<float,1>input_data(Concurrency::extent<1>(input->storage->size),THGPUTensor_data(input));
-  Concurrency::array_view<float,1>kernel_data(Concurrency::extent<1>(kernel->storage->size),THGPUTensor_data(kernel));
-  Concurrency::array_view<float,1>output_data(Concurrency::extent<1>(output->storage->size),THGPUTensor_data(output));
 
   Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1,16,16> tidx) restrict(amp)
   {
@@ -280,11 +276,15 @@ void THGPUTensor_conv2Dmv(THGPUTensor *output, float beta, THGPUTensor *t_,
   int yblocks = (int)(16L / nOutputPlane);
   yblocks = yblocks < 1 ? 1 : yblocks;
 
+  Concurrency::array_view<float, 1> *pavInput = static_cast<Concurrency::array_view<float, 1> *> (input->storage->allocatorContext);
+  Concurrency::array_view<float, 1> *pavKernel = static_cast<Concurrency::array_view<float, 1> *> (kernel->storage->allocatorContext);
+  Concurrency::array_view<float, 1> *pavOutput = static_cast<Concurrency::array_view<float, 1> *> (output->storage->allocatorContext);
+
   // convolution: xcorr2 or conv2
   if (type[1] == 'X') {
 #define X_CONV_KERNEL(dim)                                              \
     THGPUTensor_kernel_conv2generic <false, (dim), (dim)>(              \
-        input, kernel, output,                                          \
+        *pavInput, *pavKernel, *pavOutput,                              \
         nInputPlane, nInputRows, nInputCols,                            \
         nOutputPlane*nInputPlane, nKernelRows, nKernelCols,             \
         srow, scol, nOutputPlane, yblocks);                             \
@@ -294,7 +294,7 @@ void THGPUTensor_conv2Dmv(THGPUTensor *output, float beta, THGPUTensor *t_,
   } else { // 'c'
 #define C_CONV_KERNEL(dim)                                              \
     THGPUTensor_kernel_conv2generic <true, (dim), (dim)>(               \
-        input, kernel, output,                                          \
+        *pavInput, *pavKernel, *pavOutput,                              \
         nInputPlane, nInputRows, nInputCols,                            \
         nOutputPlane*nInputPlane, nKernelRows, nKernelCols,             \
         srow, scol, nOutputPlane, yblocks);                             \
@@ -401,11 +401,15 @@ void THGPUTensor_conv2Dmm(THGPUTensor *output, float beta, THGPUTensor *t_,
   int yblocks = (int)(16L / nOutputPlane);
   yblocks = yblocks < 1 ? 1 : yblocks;
 
+  Concurrency::array_view<float, 1> *pavInput = static_cast<Concurrency::array_view<float, 1> *>(input->storage->allocatorContext);
+  Concurrency::array_view<float, 1> *pavKernel = static_cast<Concurrency::array_view<float, 1> *>(kernel->storage->allocatorContext);
+  Concurrency::array_view<float, 1> *pavOutput = static_cast<Concurrency::array_view<float, 1> *>(output->storage->allocatorContext);
+
   // convolution: xcorr2 or conv2
   if (type[1] == 'X') {
 #define X_CONV_KERNEL(dim)                                              \
     THGPUTensor_kernel_conv2generic <false, (dim), (dim)>(              \
-        input, kernel, output,                                          \
+        *pavInput, *pavKernel, *pavOutput,                              \
         nInputPlane, nInputRows, nInputCols,                            \
         nOutputPlane*nInputPlane, nKernelRows, nKernelCols,             \
         srow, scol, nOutputPlane, yblocks);
@@ -416,7 +420,7 @@ void THGPUTensor_conv2Dmm(THGPUTensor *output, float beta, THGPUTensor *t_,
   } else { // 'c'
 #define C_CONV_KERNEL(dim)                                              \
     THGPUTensor_kernel_conv2generic <true, (dim), (dim)>(               \
-        input, kernel, output,                                          \
+        *pavInput, *pavKernel, *pavOutput,                              \
         nInputPlane, nInputRows, nInputCols,                            \
         nOutputPlane*nInputPlane, nKernelRows, nKernelCols,             \
         srow, scol, nOutputPlane, yblocks);                             \
