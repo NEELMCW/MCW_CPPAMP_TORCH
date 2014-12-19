@@ -6,16 +6,16 @@
 void THGPUStorage_set(THGPUStorage *self, long index, float value)
 {
   THArgCheck((index >= 0) && (index < self->size), 2, "index out of bounds");
-  Concurrency::array_view<float> avData(Concurrency::extent<1>(self->size), self->data);
-  avData[Concurrency::index<1>(index)] = value;
+  Concurrency::array_view<float> *avData = static_cast<Concurrency::array_view<float> *>(self->allocatorContext);
+  (*avData)[Concurrency::index<1>(index)] = value;
 }
 
 float THGPUStorage_get(const THGPUStorage *self, long index)
 {
   float value;
   THArgCheck((index >= 0) && (index < self->size), 2, "index out of bounds");
-  Concurrency::array_view<float> avData(Concurrency::extent<1>(self->size), self->data);
-  value = avData[Concurrency::index<1>(index)];
+  Concurrency::array_view<float> *avData = static_cast<Concurrency::array_view<float> *>(self->allocatorContext);
+  value = (*avData)[Concurrency::index<1>(index)];
   return value;
 }
 
