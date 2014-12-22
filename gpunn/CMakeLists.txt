@@ -61,6 +61,10 @@ INSTALL(
   DESTINATION "${Torch_INSTALL_LUA_PATH_SUBDIR}/gpunn")
 
 ADD_EXECUTABLE(gpunn.test test/test.cpp)
-#SET_PROPERTY(TARGET nn APPEND_STRING PROPERTY LINK_FLAGS "-L/usr/local/lib/lua/5.1/")
 TARGET_LINK_LIBRARIES(gpunn.test luaT THC TH luajit)
 SET_PROPERTY(TARGET gpunn.test APPEND_STRING PROPERTY LINK_FLAGS " -I/usr/local/include -I./test")
+
+
+ADD_EXECUTABLE(fbtest test/fbtest.cpp)
+TARGET_LINK_LIBRARIES(fbtest luaT THC TH luajit)
+SET_PROPERTY(TARGET fbtest APPEND_STRING PROPERTY LINK_FLAGS " -I/usr/local/include -I./test")
