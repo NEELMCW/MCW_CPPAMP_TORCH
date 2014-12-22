@@ -53,3 +53,7 @@ ADD_TORCH_PACKAGE(gputorch "${src}" "${luasrc}")
 
 SET_PROPERTY(TARGET gputorch APPEND_STRING PROPERTY LINK_FLAGS " ${CLAMP_LDFLAGS} ${CLAMP_SHAREDFLAGS}")
 TARGET_LINK_LIBRARIES(gputorch luaT THC)
+
+ADD_EXECUTABLE(gputorch.test test/test.cpp)
+TARGET_LINK_LIBRARIES(gputorch.test qlua qtlua luajit m)
+SET_PROPERTY(TARGET gputorch.test APPEND_STRING PROPERTY LINK_FLAGS " -I/usr/local/include -I./test")
