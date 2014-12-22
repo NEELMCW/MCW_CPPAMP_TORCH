@@ -163,14 +163,20 @@ static void THGPUTensor_computesz(THGPUTensor *self, Concurrency::array_view<lon
   *dim_ = dim;
 }
 
-void THGPUTensor_kernel_copy(Concurrency::array_view<float>& av_dst, Concurrency::array_view<float> &av_src, Concurrency::array_view<long, 1> &av_dst_sz,
-                             Concurrency::array_view<long, 1> &av_dst_st, int dst_dim, 
-                             Concurrency::array_view<long, 1> &av_src_sz, Concurrency::array_view<long, 1> &av_src_st,
+void THGPUTensor_kernel_copy(THGPUTensor *self, THGPUTensor *src, Concurrency::array_view<long, 1> *dst_sz,
+                             Concurrency::array_view<long, 1> *dst_st, int dst_dim, 
+                             Concurrency::array_view<long, 1> *src_sz, Concurrency::array_view<long, 1> *src_st,
                              int src_dim, long n_elem, long innerdim, int nblockx, int nblocky,
                              int nblockz)
 {
   Concurrency::extent<3> copyExt(nblockz, nblocky *16, nblockx * 16);
   Concurrency::tiled_extent<1, 16, 16> t_ext(copyExt);
+  Concurrency::array_view<long, 1> av_src_st(*src_st);
+  Concurrency::array_view<long, 1> av_src_sz(*src_sz);
+  Concurrency::array_view<long, 1> av_dst_st(*dst_st);
+  Concurrency::array_view<long, 1> av_dst_sz(*dst_sz);
+  Concurrency::array_view<float, 1> av_dst(self->storage->size, THGPUTensor_data(self));
+  Concurrency::array_view<float, 1> av_src(src->storage->size, THGPUTensor_data(src));
 
   //Copy Kernel
   Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1, 16, 16> tidx) restrict(amp)
@@ -216,6 +222,8 @@ THC_API void THGPUTensor_copy(THGPUTensor *self, THGPUTensor *src)
   THArgCheck(THGPUTensor_nElement(self) == THGPUTensor_nElement(src), 2, "sizes do not match");
 
   if (THGPUTensor_nDimension(self) == 0) return;
+
+  Concurrency::array_view<float,1> avSelf(Concurrency::extent<1>(self->storage->size),self->storage->data);
     
   if(THGPUTensor_isContiguous(self) && THGPUTensor_isContiguous(src))
   {
@@ -246,12 +254,9 @@ THC_API void THGPUTensor_copy(THGPUTensor *self, THGPUTensor *src)
     int number_blocks_dim_y = DIVUP(nblocks, nblocks_x * nblocks_y);
     int nblocks_z = number_blocks_dim_y;
 
-    Concurrency::array_view<float,1>* pavDest= static_cast<Concurrency::array_view<float> *>(self->storage->allocatorContext);
-    Concurrency::array_view<float,1>* pavSrc= static_cast<Concurrency::array_view<float> *>(src->storage->allocatorContext);
-
-    THGPUTensor_kernel_copy(*pavDest, *pavSrc,
-                          *d_self_sz, *d_self_st, self_dim,
-                          *d_src_sz, *d_src_st, src_dim,
+    THGPUTensor_kernel_copy(self, src,
+                           d_self_sz, d_self_st, self_dim,
+                           d_src_sz, d_src_st, src_dim,
                           size, innermostdim, nblocks_x, nblocks_y, nblocks_z);
 
     delete d_self_st; 
