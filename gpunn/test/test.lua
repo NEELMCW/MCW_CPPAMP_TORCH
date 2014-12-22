@@ -4,6 +4,14 @@ local precision_backward = 1e-2
 local nloop = 1
 local times = {}
 
+local runtests = false
+require 'nn'
+
+if not gputorch then
+  require 'gputorch'
+  runtests=true
+end
+
 --e.g.: th -lgpunn -e "nn.testgpu{'copies'}"
 --NW
 function gpunntest.copies()
@@ -2742,7 +2750,7 @@ function nn.testgpu(tests)
    mytester:add(gpunntest)
    mytester:run(tests)
    torch.setdefaulttensortype(oldtype)
---[[   print ''
+   print ''
    print ' ------------------------------------------------------------------------------------------------'
    print '|  Module                                                                          |  Speedup    |'
    print ' ------------------------------------------------------------------------------------------------'
@@ -2750,5 +2758,10 @@ function nn.testgpu(tests)
       local str = string.format('| %-80s | %4.2f        |', module, (tm.cpu / (tm.gpu or 1e6)))
       print(str)
    end
-   print ' ------------------------------------------------------------------------------------------------']]--
+   print ' ------------------------------------------------------------------------------------------------'
+end
+
+if runtests then 
+  require 'gpunn'
+  nn.testgpu()
 end
