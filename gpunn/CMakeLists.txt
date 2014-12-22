@@ -20,9 +20,9 @@ SET (OPENCL_LIB "$ENV{AMDAPPSDKROOT}/lib/x86_64")
 SET (CLBLAS_INC "$ENV{CLBLASROOT}/include")
 SET (CLBLAS_LIB "$ENV{CLBLASROOT}/lib64/")
 SET (BOLT_SRC_INC "$ENV{BOLTROOT}/include/")
-SET (BOOST_SRC_INC "$ENV{MCWCPPAMPROOT}/master-build/Bolt/superbuild/external/boost/src/Boost/")
-SET (BOLT_VER_INC "$ENV{MCWCPPAMPROOT}/master-build/Bolt/superbuild/Bolt-build/include/")
-SET (PREFIX "$ENV{MCWCPPAMPROOT}/gmac_exp_build")
+SET (BOOST_SRC_INC "$ENV{MCWCPPAMPROOT}/build3/Bolt/superbuild/external/boost/src/Boost/")
+SET (BOLT_VER_INC "$ENV{MCWCPPAMPROOT}/build3/Bolt/superbuild/Bolt-build/include/")
+SET (PREFIX "$ENV{MCWCPPAMPROOT}/gmac_exp_build_cache")
 SET (CLANG_AMP "${PREFIX}/compiler/bin/clang++")
 SET (CLAMP_CONFIG "${PREFIX}/build/Release/bin/clamp-config")
 execute_process(COMMAND ${CLAMP_CONFIG} --build --cxxflags
@@ -59,3 +59,8 @@ INSTALL(
   FILES
   ${luasrc}
   DESTINATION "${Torch_INSTALL_LUA_PATH_SUBDIR}/gpunn")
+
+ADD_EXECUTABLE(gpunn.test test/test.cpp)
+#SET_PROPERTY(TARGET nn APPEND_STRING PROPERTY LINK_FLAGS "-L/usr/local/lib/lua/5.1/")
+TARGET_LINK_LIBRARIES(gpunn.test luaT THC TH luajit)
+SET_PROPERTY(TARGET gpunn.test APPEND_STRING PROPERTY LINK_FLAGS " -I/usr/local/include -I./test")
