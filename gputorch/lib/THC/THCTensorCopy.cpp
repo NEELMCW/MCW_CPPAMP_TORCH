@@ -153,10 +153,8 @@ static void THGPUTensor_computesz(THGPUTensor *self, Concurrency::array_view<lon
     }
   }
 
-  Concurrency::array_view<long, 1> avSZh(nDim, szh);
-  Concurrency::array_view<long, 1> avStr(nDim, sth);
-  Concurrency::copy(avSZh, **sz_);
-  Concurrency::copy(avStr, **st_);
+  Concurrency::copy(szh, **sz_);
+  Concurrency::copy(sth, **st_);
   THFree(szh);
   THFree(sth);
 
@@ -177,7 +175,6 @@ void THGPUTensor_kernel_copy(THGPUTensor *self, THGPUTensor *src, Concurrency::a
   Concurrency::array_view<long, 1> av_dst_sz(*dst_sz);
   Concurrency::array_view<float, 1> av_dst(self->storage->size, THGPUTensor_data(self));
   Concurrency::array_view<float, 1> av_src(src->storage->size, THGPUTensor_data(src));
-
   //Copy Kernel
   Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1, 16, 16> tidx) restrict(amp)
   {
