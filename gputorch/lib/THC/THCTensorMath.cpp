@@ -1502,8 +1502,9 @@ void THGPUTensor_indexFill(THGPUTensor *res_, int dim, THLongTensor *indices, fl
   THGPUStorage_free(indices_->storage);
 }
 
-void THGPUTensor_kernel_indexSelect(Concurrency::array_view<float, 1> &resTensor, Concurrency::array_view<float, 1> &srcTensor, Concurrency::array_view<long, 1> &srcStride, Concurrency::array_view<float, 1> &indx, long src_nDim, int dim, long idx_size, long tensor_size, long src_size, long size_dim, long nblockx)
+void THGPUTensor_kernel_indexSelect(Concurrency::array_view<float, 1> &resTensor, Concurrency::array_view<float, 1> &srcTensor, Concurrency::array_view<long, 1> &srcStride, THLongTensor *indices, long src_nDim, int dim, long idx_size, long tensor_size, long src_size, long size_dim, long nblockx)
 {
+  Concurrency::array_view<long,1> indx(indices->storage->size, indices->storage->data);
   Concurrency::extent<2> gridExt(16, nblockx * 16);
   Concurrency::tiled_extent<16,16> t_ext(gridExt);
 
@@ -1557,16 +1558,12 @@ void THGPUTensor_indexSelect(THGPUTensor *res_, THGPUTensor *src, int dim, THLon
   THArgCheck(indices->nDimension == 1, 3, "expecting vector of indices");
   THArgCheck(dim < src->nDimension, 4, "Indexing dim is out of bounds");
   THArgCheck(src->nDimension > 0, 2, "Source tensor is empty");
-  
   newSize = THLongStorage_newWithSize(src->nDimension);
   THLongStorage_rawCopy(newSize, src->size);
   newSize->data[dim] = nIndex;
   THGPUTensor_resize(res_, newSize, NULL);
   THLongStorage_free(newSize);
   
-  indices_ = THGPUTensor_newWithSize1d(nIndex);
-  THGPUTensor_copyLong(indices_, indices);
-
   nRes = THGPUTensor_nElement(res_);
   long nblockx = (long)(ceil((float)nRes / nIndex/(16 * 16)));
 
@@ -1574,14 +1571,9 @@ void THGPUTensor_indexSelect(THGPUTensor *res_, THGPUTensor *src, int dim, THLon
 
   Concurrency::array_view<float, 1> *pavRes = static_cast<Concurrency::array_view<float, 1> *>(res_->storage->allocatorContext);
   Concurrency::array_view<float, 1> *pavSrc = static_cast<Concurrency::array_view<float, 1> *>(src->storage->allocatorContext);
-  Concurrency::array_view<float, 1> *pavInd = static_cast<Concurrency::array_view<float, 1> *>(indices_->storage->allocatorContext);
 
-  THGPUTensor_kernel_indexSelect(*pavRes, *pavSrc, *stride_, *pavInd, src->nDimension, dim, 
+  THGPUTensor_kernel_indexSelect(*pavRes, *pavSrc, *stride_, indices, src->nDimension, dim, 
                                  indices->size[0], nRes,THGPUTensor_nElement(src), src->size[dim],nblockx);
 
-  //THGPUCheck(gpuFree(stride_));
-  //THGPUTensor_free(indices_);
   delete stride_;
-  THGPUStorage_free(indices_->storage);
-  THGPUTensor_free(indices_);
 }
