@@ -37,8 +37,6 @@ void max_output(float *input, float *output, float *indices, unsigned int inpSz,
     avOut[o] = max;
     avInD[o] =(float) argmax + 1;
   });
-  avOut.synchronize();
-  avInD.synchronize();
 }
 
 void max_gradInput(float *input, float *output, float *indices, unsigned int inputSz, unsigned int outSz,
@@ -62,7 +60,6 @@ void max_gradInput(float *input, float *output, float *indices, unsigned int inp
     long idx = (long)avInD[o] - 1;
     avInp[i + idx] = avOut[o];
   });
-  avInp.synchronize();
 }
 
 static int gpunn_Max_updateOutput(lua_State *L)

@@ -77,8 +77,6 @@ void maxpool(THGPUTensor *input, THGPUTensor *output, THGPUTensor *indices, int 
       }
     }
     });
-    output_data.synchronize();
-    indices_data.synchronize();
 }
 
 /*
@@ -136,7 +134,6 @@ void maxgradinput(THGPUTensor *gradInput, THGPUTensor *gradOutput, THGPUTensor *
       }
     }
   });
-  input_data.synchronize();
 }
 
 /*
@@ -200,7 +197,6 @@ void atomicmaxgradinput(THGPUTensor *gradInput, THGPUTensor *gradOutput, THGPUTe
       }
     }
   });
-input_data.synchronize();
 }
 
 static int gpunn_SpatialMaxPooling_updateOutput(lua_State *L)

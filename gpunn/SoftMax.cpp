@@ -76,7 +76,6 @@ void gpunn_SoftMax_updateOutput_kernel(THGPUTensor *output, THGPUTensor *input, 
     for (int i=i_start; i<i_end; i+=i_step)
       output_k[i] = output_k[i] / sum_k;
   });
-  avOutput.synchronize();
 }
 
 

@@ -51,7 +51,6 @@ void imt2col_kernel(const int n, THGPUTensor* data_im, const int height, const i
       }
     }
   });
-  avData_im.synchronize();
 }
 
 void imt2col(THGPUTensor* data_im, const int channels, const int height, const int width,
