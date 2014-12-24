@@ -4,13 +4,11 @@
  *    this function finds the max along the innermost dimension
  *    Nd input, (N-1)d output, (N-1)d argmax
  */
-void max_output(float *input, float *output, float *indices, unsigned int inpSz, unsigned int outSz,
+void max_output(Concurrency::array_view<float, 1> &avInp, Concurrency::array_view<float,1> &avOut, Concurrency::array_view<float,1> &avInD, unsigned int inpSz, unsigned int outSz,
                unsigned int indSz, long nrows, long ncols, unsigned int numBlocks)
 {
   // output offset:
-  Concurrency::array_view<float, 1> avInp(inpSz, input);
-  Concurrency::array_view<float, 1> avOut(outSz, output);
-  Concurrency::array_view<float, 1> avInD(indSz, indices);
+  
   Concurrency::extent<1> grdExt(numBlocks * 256);
   Concurrency::tiled_extent<256> t_ext(grdExt);
 
@@ -37,8 +35,6 @@ void max_output(float *input, float *output, float *indices, unsigned int inpSz,
     avOut[o] = max;
     avInD[o] =(float) argmax + 1;
   });
-  avOut.synchronize();
-  avInD.synchronize();
 }
 
 void max_gradInput(float *input, float *output, float *indices, unsigned int inputSz, unsigned int outSz,
@@ -86,10 +82,6 @@ static int gpunn_Max_updateOutput(lua_State *L)
   THGPUTensor_resize(indices, dim, NULL);
   THLongStorage_free(dim);
 
-  float *input_data = THGPUTensor_data(input);
-  float *output_data = THGPUTensor_data(output);
-  float *indices_data = THGPUTensor_data(indices);
-
   long nrows = THGPUTensor_nElement(output);
   long ncols = input->size[dimension];
 
@@ -97,8 +89,12 @@ static int gpunn_Max_updateOutput(lua_State *L)
   long nthreads = 256;
   long nblocks = ceil((float)nrows / nthreads);
 
+  Concurrency::array_view<float, 1> *pavInput = static_cast<Concurrency::array_view<float, 1> *>(input->storage->allocatorContext);
+  Concurrency::array_view<float, 1> *pavOutput = static_cast<Concurrency::array_view<float, 1> *>(output->storage->allocatorContext);
+  Concurrency::array_view<float, 1> *pavIndices = static_cast<Concurrency::array_view<float, 1> *>(indices->storage->allocatorContext);
+
   // kernel:
-  max_output(input_data, output_data, indices_data, THGPUTensor_nElement(input),
+  max_output(*pavInput, *pavOutput, *pavIndices, THGPUTensor_nElement(input),
              THGPUTensor_nElement(output), THGPUTensor_nElement(indices), nrows, ncols, nblocks);
 
   // final cut:
