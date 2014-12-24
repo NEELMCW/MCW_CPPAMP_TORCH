@@ -153,7 +153,7 @@ void THGPUTensor_cadd(THGPUTensor *self_, THGPUTensor* src1, float value, THGPUT
 
     src2 = THGPUTensor_newContiguous(src2);
 
-    THFloatBlas_axpy(THGPUTensor_nElement(self), value, THGPUTensor_data(src2), 1, THGPUTensor_data(self), 1);
+    THGPUBlas_axpy(THGPUTensor_nElement(self), value, THGPUTensor_data(src2), 1, THGPUTensor_data(self), 1);
 
     THGPUTensor_free(src2);
     THGPUTensor_freeCopyTo(self, self_);
@@ -781,7 +781,7 @@ void THGPUTensor_addmm(THGPUTensor *r_, float beta, THGPUTensor *t, float alpha,
   }
 
   /* do the operation */
-  THFloatBlas_gemm(transpose_m1,
+  THGPUBlas_gemm(transpose_m1,
                    transpose_m2,
                    r__->size[(transpose_r == 'n' ? 0 : 1)],
                    r__->size[(transpose_r == 'n' ? 1 : 0)],
