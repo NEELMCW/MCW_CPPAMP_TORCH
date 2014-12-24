@@ -132,7 +132,6 @@ void gpunn_MSECriterion_updateOutput_kernel(THGPUStorage* output, THGPUTensor *i
        avOutput[0] /= dim;
     }
   });
-  avOutput.synchronize();
 }
 
 void gpunn_MSECriterion_updateGradInput_kernel(THGPUTensor *gradInput, THGPUTensor *input, THGPUTensor *target, float norm, int nframe, int dim)
@@ -161,7 +160,6 @@ void gpunn_MSECriterion_updateGradInput_kernel(THGPUTensor *gradInput, THGPUTens
     for (int i=i_start; i<i_end; i+=i_step)
       gradInput_k[i] = norm*(input_k[i] - target_k[i]);
   });
-  avInp.synchronize();
 }
 
 /*static int gpunn_MSECriterion_updateOutput2(lua_State *L)

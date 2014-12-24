@@ -36,8 +36,6 @@ void min_output(float *input, float *output, float *indices, unsigned int inpSz,
     avOut[o] = min;
     avInD[o] =(float) argmin + 1;
   });
-  avOut.synchronize();
-  avInD.synchronize();
 }
 
 void min_gradInput(float *input, float *output, float *indices, unsigned int inputSz, unsigned int outSz,
@@ -62,7 +60,6 @@ void min_gradInput(float *input, float *output, float *indices, unsigned int inp
     long idx = (long)avInD[o] - 1;
     avInp[i + idx] = avOut[o];
   });
-  avInp.synchronize();
 }
 
 static int gpunn_Min_updateOutput(lua_State *L)

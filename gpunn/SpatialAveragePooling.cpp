@@ -59,7 +59,6 @@ void subsample(THGPUTensor  *inputTensor, THGPUTensor  *outputTensor,
       }
     }
   });
-  avOutput.synchronize();
 }
 
 static int gpunn_SpatialAveragePooling_updateOutput(lua_State *L)
@@ -167,7 +166,6 @@ void subgradinput(THGPUTensor *gradIpTensor, THGPUTensor *gradOpTensor, int inpu
       }
     }
   });
-  avGradInput.synchronize();
 }
 
 

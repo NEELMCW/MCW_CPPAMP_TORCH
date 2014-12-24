@@ -192,7 +192,6 @@ void filterActs_YxX_color(THGPUTensor* imageTensor, THGPUTensor* filterTensor, T
       }
     }
   });
-  avTargets.synchronize();
 }
 
 
@@ -398,7 +397,6 @@ void filterActs_YxX_sparse(THGPUTensor* imageTensor, THGPUTensor* filterTensor, 
       }
     }
   });
-  avTargets.synchronize();
 }
 
 /*

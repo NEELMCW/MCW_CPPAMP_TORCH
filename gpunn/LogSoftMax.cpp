@@ -75,7 +75,6 @@ void gpunn_LogSoftMax_updateOutput_kernel(THGPUTensor *output, THGPUTensor *inpu
     for (int i=i_start; i<i_end; i+=i_step)
       avOutput[k *dim + i] = avInp[k * dim +i] - logsum_k;
   });
-  avOutput.synchronize();
 }
 
 void gpunn_LogSoftMax_updateGradInput_kernel(THGPUTensor *gradInput, THGPUTensor *output, THGPUTensor *gradOutput, int nframe, int dim)

@@ -201,7 +201,6 @@ void img_acts_color(THGPUTensor* hidActsTensor, THGPUTensor* filterTensor, THGPU
       }
     }
   });
-  avTargets.synchronize();
 }
 /*
  * Block size: 16x16.
@@ -568,7 +567,6 @@ else
     }
   });
 }
-  avTargets.synchronize();
 }
 
 /*
@@ -904,7 +902,6 @@ else
     }
   });
 }
-  avTargets.synchronize();
 }
 
 /*
