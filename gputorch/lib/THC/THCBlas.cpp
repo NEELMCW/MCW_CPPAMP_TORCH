@@ -9,8 +9,6 @@ void THGPUBlas_init(int devices, int device)
   if (err != CL_SUCCESS)
   {
     printf("clblasSetup() failed with %d\n", err);
-    clReleaseCommandQueue(mqueue);
-    clReleaseContext(mcontext);
     return;
   }
 }
@@ -20,8 +18,6 @@ void THGPUBlas_shutdown()
   /* Finalize work with clblas. */
   clblasTeardown();
   /* Release OpenCL working objects. */
-  clReleaseCommandQueue(mqueue);
-  clReleaseContext(mcontext);
 }
 
 void THGPUBlas_setHandle(int device)
