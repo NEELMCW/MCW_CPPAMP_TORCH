@@ -1,9 +1,12 @@
-.*\.o$
-.*\.a$
-.*\.so$
-.*\.apk$
-.*\.swo$
-.*\.swp$
-.*\.org$
-syntax: glob
-standalone/source/THCampUpDownScale.h
+.*/.o$
+.*/.a$
+.*/.so$
+.*/.apk$
+.*/.swo$
+.*/.swp$
+.*/.org$
+gputorch/build/*
+gpunn/build/*
+mcw_torch7_core/build/*
+mcw_nn/build/*
+imagenet-barebones/*
