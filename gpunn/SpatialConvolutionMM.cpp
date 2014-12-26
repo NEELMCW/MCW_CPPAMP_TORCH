@@ -112,7 +112,6 @@ void col2im(Concurrency::array_view<float,1> &avData_col, const int channels, co
 }
 
 static int gpunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
-  std::cout<<"start"<<std::endl;
   // Input
   THGPUTensor *input = (THGPUTensor*)luaT_checkudata(L, 2, "torch.GPUTensor");
 
@@ -165,21 +164,21 @@ static int gpunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
   }
 
   // Helpers
-  THGPUTensor *output_n = THGPUTensor_new();
   Concurrency::array_view<float,1> avData_col(THGPUTensor_nElement(columns), THGPUTensor_data(columns));
   Concurrency::array_view<float,1> avData_im(THGPUTensor_nElement(input), THGPUTensor_data(input));
+  long m_ = nOutputPlane;
+  long n_ = outputHeight * outputWidth;
+  long k_ = 1;
+  long m = weight->size[0];
+  long n = columns->size[1];
+  long k = weight->size[1];
   // For each elt in batch, do:
   for (int elt = 0; elt < batchSize; elt ++) {
-  std::cout<<"one"<<std::endl;
     // Matrix mulitply per output:
-    THGPUTensor_select(output_n, output, 0, elt);
 
     // Do Bias first:
     // M,N,K are dims of matrix A and B
     // (see http://docs.nvidia.com/gpu/cublas/#cublas-lt-t-gt-gemm)
-    long m_ = nOutputPlane;
-    long n_ = outputHeight * outputWidth;
-    long k_ = 1;
 
     // Do GEMM (note: this is a bit confusing because gemm assumes column-major matrices)
     THGPUBlas_gemm(
@@ -189,7 +188,7 @@ static int gpunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
         THGPUTensor_data(ones), k_,
         THGPUTensor_data(bias), k_,
         0,
-        THGPUTensor_data(output_n), n_
+        output->storage->data + output->stride[0] * elt, n_
     );
     // Extract columns:
     im2col(
@@ -199,9 +198,6 @@ static int gpunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
     );
     // M,N,K are dims of matrix A and B
     // (see http://docs.nvidia.com/gpu/cublas/#cublas-lt-t-gt-gemm)
-    long m = weight->size[0];
-    long n = columns->size[1];
-    long k = weight->size[1];
 
     // Do GEMM (note: this is a bit confusing because gemm assumes column-major matrices)
     THGPUBlas_gemm(
@@ -211,20 +207,16 @@ static int gpunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
         THGPUTensor_data(columns), n,
         THGPUTensor_data(weight), k,
         1,
-        THGPUTensor_data(output_n), n
+        output->storage->data + output->stride[0] * elt, n
     );
-   std::cout<<"two"<<std::endl;
   }
 
-  // Free
-  THGPUTensor_free(output_n);
 
   // Resize output
   if (batch == 0) {
     THGPUTensor_resize3d(output, nOutputPlane, outputHeight, outputWidth);
     THGPUTensor_resize3d(input, nInputPlane, inputHeight, inputWidth);
   }
-  std::cout<<"end"<<std::endl;
   // return output
   return 1;
 }
@@ -272,16 +264,12 @@ static int gpunn_SpatialConvolutionMM_updateGradInput(lua_State *L) {
   THGPUTensor_resize2d(gradColumns, nInputPlane*kW*kH, outputHeight*outputWidth);
 
   // Helpers
-  THGPUTensor *input_n = THGPUTensor_new();
-  THGPUTensor *gradOutput_n = THGPUTensor_new();
 
   Concurrency::array_view<float,1> avData_col(THGPUTensor_nElement(gradColumns), THGPUTensor_data(gradColumns));
   Concurrency::array_view<float,1> avData_im(THGPUTensor_nElement(gradInput), THGPUTensor_data(gradInput));
   // For each elt in batch, do:
   for (int elt = 0; elt < batchSize; elt ++) {
     // Matrix mulitply per sample:
-    THGPUTensor_select(input_n, input, 0, elt);
-    THGPUTensor_select(gradOutput_n, gradOutput, 0, elt);
 
     // M,N,K are dims of matrix A and B
     // (see http://docs.nvidia.com/gpu/cublas/#cublas-lt-t-gt-gemm)
@@ -294,7 +282,7 @@ static int gpunn_SpatialConvolutionMM_updateGradInput(lua_State *L) {
         'n', 't',
         n, m, k,
         1,
-        THGPUTensor_data(gradOutput_n), n,
+        gradOutput->storage->data + gradOutput->stride[0] * elt, n,
         THGPUTensor_data(weight), m,
         0,
         THGPUTensor_data(gradColumns), n
@@ -309,8 +297,6 @@ static int gpunn_SpatialConvolutionMM_updateGradInput(lua_State *L) {
   }
 
   // Free
-  THGPUTensor_free(input_n);
-  THGPUTensor_free(gradOutput_n);
 
   // Resize output
   if (batch == 0) {
