@@ -45,10 +45,8 @@ void THGPUBlas_swap(long n, float *x, long incx, float *y, long incy)
     int lenX = 1 + (n-1)*abs(i_incx);
     int lenY = 1 + (n-1)*abs(i_incy);
 
-    bufX = clCreateBuffer(mcontext, CL_MEM_READ_WRITE, (lenX*sizeof(cl_float)), NULL, &err);
-    bufY = clCreateBuffer(mcontext, CL_MEM_READ_WRITE, (lenY*sizeof(cl_float)), NULL, &err);
-    err = clEnqueueWriteBuffer(mqueue, bufX, CL_TRUE, 0, (lenX*sizeof(cl_float)), x, 0, NULL, NULL);
-    err = clEnqueueWriteBuffer(mqueue, bufY, CL_TRUE, 0, (lenY*sizeof(cl_float)), y, 0, NULL, NULL);
+    bufX = clCreateBuffer(mcontext, CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR, (lenX*sizeof(cl_float)), x, &err);
+    bufY = clCreateBuffer(mcontext, CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR, (lenY*sizeof(cl_float)), y, &err);
     err = clblasSswap( i_n, bufX, 0, i_incx, bufY, 0, i_incy, 1, &mqueue, 0, NULL, &event);
 
     if (err != CL_SUCCESS) 
@@ -57,8 +55,6 @@ void THGPUBlas_swap(long n, float *x, long incx, float *y, long incy)
     }
     else
     {
-      /* Wait for calculations to be finished. */
-      err = clWaitForEvents(1, &event);
       /* Fetch results of calculations from GPU memory. */
       err = clEnqueueReadBuffer(mqueue, bufX, CL_TRUE, 0, (lenX*sizeof(float)), x, 0, NULL, NULL);
       err = clEnqueueReadBuffer(mqueue, bufY, CL_TRUE, 0, (lenY*sizeof(float)), y, 0, NULL, NULL);
@@ -89,8 +85,7 @@ void THGPUBlas_scal(long n, float a, float *x, long incx)
     cl_float alpha = (cl_float)a;
     int lenX = 1 + (n-1)*abs(i_incx);
 
-    bufX = clCreateBuffer(mcontext, CL_MEM_READ_WRITE, ( lenX * sizeof(float)), NULL, &err);
-    err = clEnqueueWriteBuffer(mqueue, bufX, CL_TRUE, 0, (lenX * sizeof(float)), x, 0, NULL, NULL);
+    bufX = clCreateBuffer(mcontext, CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR, ( lenX * sizeof(float)), x, &err);
 
     err = clblasSscal( i_n, alpha, bufX, 0, i_incx, 1, &mqueue, 0, NULL,  &event);
 
@@ -100,8 +95,6 @@ void THGPUBlas_scal(long n, float a, float *x, long incx)
     }
     else
     {
-      /* Wait for calculations to be finished. */
-      err = clWaitForEvents(1, &event);
       /* Fetch results of calculations from GPU memory. */
       err = clEnqueueReadBuffer(mqueue, bufX, CL_TRUE, 0, (lenX*sizeof(float)), x, 0, NULL, NULL);
     }
@@ -133,11 +126,9 @@ void THGPUBlas_copy(long n, float *x, long incx, float *y, long incy)
     int lenX = 1 + (n-1)*abs(i_incx);
     int lenY = 1 + (n-1)*abs(i_incy);
 
-    bufX = clCreateBuffer(mcontext, CL_MEM_READ_ONLY, (lenX*sizeof(float)), NULL, &err);
-    bufY = clCreateBuffer(mcontext, CL_MEM_READ_WRITE, (lenY*sizeof(float)), NULL, &err);
+    bufX = clCreateBuffer(mcontext, CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR, (lenX*sizeof(float)), x, &err);
+    bufY = clCreateBuffer(mcontext, CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR, (lenY*sizeof(float)), y, &err);
 
-    err = clEnqueueWriteBuffer(mqueue, bufX, CL_TRUE, 0, (lenX*sizeof(float)), x, 0, NULL, NULL);
-    err = clEnqueueWriteBuffer(mqueue, bufY, CL_TRUE, 0, (lenY*sizeof(float)), y, 0, NULL, NULL);
 
     /* Call clblas function. */
     err = clblasScopy( i_n, bufX, 0, i_incx, bufY, 0, i_incy, 1, &mqueue, 0, NULL, &event);
@@ -147,8 +138,6 @@ void THGPUBlas_copy(long n, float *x, long incx, float *y, long incy)
     }
     else
     {
-      /* Wait for calculations to be finished. */
-      err = clWaitForEvents(1, &event);
       /* Fetch results of calculations from GPU memory. */
       err = clEnqueueReadBuffer(mqueue, bufY, CL_TRUE, 0, (lenY*sizeof(float)), y, 0, NULL, NULL);
     }
@@ -230,15 +219,13 @@ float THGPUBlas_dot(long n, float *x, long incx, float *y, long incy)
 
     float result;
 
-    bufX = clCreateBuffer(mcontext, CL_MEM_READ_ONLY, (lenX*sizeof(float)), NULL, &err);
-    bufY = clCreateBuffer(mcontext, CL_MEM_READ_ONLY, (lenY*sizeof(float)), NULL, &err);
+    bufX = clCreateBuffer(mcontext, CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR, (lenX*sizeof(float)), x, &err);
+    bufY = clCreateBuffer(mcontext, CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR, (lenY*sizeof(float)), y, &err);
     // Allocate 1 element space for dotProduct
     bufDotP = clCreateBuffer(mcontext, CL_MEM_WRITE_ONLY, (sizeof(float)), NULL, &err);
     // Allocate minimum of N elements
     scratchBuff = clCreateBuffer(mcontext, CL_MEM_READ_WRITE, (n*sizeof(float)), NULL, &err);
 
-    err = clEnqueueWriteBuffer(mqueue, bufX, CL_TRUE, 0, (lenX*sizeof(float)), x, 0, NULL, NULL);
-    err = clEnqueueWriteBuffer(mqueue, bufY, CL_TRUE, 0, (lenY*sizeof(float)), y, 0, NULL, NULL);
 
     /* Call clblas function. */
     err = clblasSdot( i_n, bufDotP, 0, bufX, 0, i_incx, bufY, 0, i_incy, scratchBuff, 1, &mqueue, 0, NULL, &event);
@@ -249,7 +236,6 @@ float THGPUBlas_dot(long n, float *x, long incx, float *y, long incy)
     else
     {
       /* Wait for calculations to be finished. */
-      err = clWaitForEvents(1, &event);
       /* Fetch results of calculations from GPU memory. */
       err = clEnqueueReadBuffer(mqueue, bufDotP, CL_TRUE, 0, sizeof(float), &result, 0, NULL, NULL);
     }
@@ -316,12 +302,9 @@ void THGPUBlas_gemv(char trans, long m, long n, float alpha, float *a, long lda,
     //int lenM = m;
     //int lenN = n;
 
-    bufA = clCreateBuffer(mcontext, CL_MEM_READ_ONLY, lenM * lenN * sizeof(*a), NULL, &err);
-    bufX = clCreateBuffer(mcontext, CL_MEM_READ_ONLY, lenM * sizeof(*x), NULL, &err);
-    bufY = clCreateBuffer(mcontext, CL_MEM_READ_WRITE, lenN * sizeof(*y), NULL, &err);
-    err = clEnqueueWriteBuffer(mqueue, bufA, CL_TRUE, 0, lenM * lenN * sizeof(*a), a, 0, NULL, NULL);
-    err = clEnqueueWriteBuffer(mqueue, bufX, CL_TRUE, 0, lenM * sizeof(*x), x, 0, NULL, NULL);
-    err = clEnqueueWriteBuffer(mqueue, bufY, CL_TRUE, 0, lenN * sizeof(*y), y, 0, NULL, NULL);
+    bufA = clCreateBuffer(mcontext, CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR, lenM * lenN * sizeof(*a), a, &err);
+    bufX = clCreateBuffer(mcontext, CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR, lenM * sizeof(*x), x, &err);
+    bufY = clCreateBuffer(mcontext, CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR, lenN * sizeof(*y), y, &err);
 
     /* Call clblas extended function. */
     err = clblasSgemv(order, op, i_m , i_n , alpha, bufA, 0, i_lda, bufX, 0, i_incx, beta, bufY, 0, i_incy, 1, &mqueue, 0, NULL, &event);
@@ -332,8 +315,6 @@ void THGPUBlas_gemv(char trans, long m, long n, float alpha, float *a, long lda,
     }
     else
     {
-      /* Wait for calculations to be finished. */
-      err = clWaitForEvents(1, &event);
       /* Fetch results of calculations from GPU memory. */
       err = clEnqueueReadBuffer(mqueue, bufY, CL_TRUE, 0, lenN * sizeof(*y), y, 0, NULL, NULL);
     }
@@ -371,13 +352,10 @@ void THGPUBlas_ger(long m, long n, float alpha, float *x, long incx, float *y, l
     int lenN = 1 + (n-1)*abs(i_incy);
 
     /* Prepare OpenCL memory objects and place matrices inside them. */
-    bufA = clCreateBuffer(mcontext, CL_MEM_READ_WRITE, (m * i_lda * sizeof(float)), NULL, &err);
-    bufX = clCreateBuffer(mcontext, CL_MEM_READ_ONLY, lenM * sizeof(float), NULL, &err);
-    bufY = clCreateBuffer(mcontext, CL_MEM_READ_ONLY, lenN * sizeof(float), NULL, &err);
+    bufA = clCreateBuffer(mcontext, CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR, (m * i_lda * sizeof(float)), a, &err);
+    bufX = clCreateBuffer(mcontext, CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR, lenM * sizeof(float), x, &err);
+    bufY = clCreateBuffer(mcontext, CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR, lenN * sizeof(float), y, &err);
 
-    err = clEnqueueWriteBuffer(mqueue, bufA, CL_TRUE, 0, m * i_lda * sizeof(float), a, 0, NULL, NULL);
-    err = clEnqueueWriteBuffer(mqueue, bufX, CL_TRUE, 0, lenM * sizeof(float), x, 0, NULL, NULL);
-    err = clEnqueueWriteBuffer(mqueue, bufY, CL_TRUE, 0, lenN * sizeof(float), y, 0, NULL, NULL);
 
     /* Call clblas function. */
     err = clblasSger(order, i_m, i_n, alpha, bufX, 0, i_incx, bufY, 0, i_incy, bufA, 0, i_lda, 1, &mqueue, 0, NULL, &event);
@@ -387,8 +365,6 @@ void THGPUBlas_ger(long m, long n, float alpha, float *x, long incx, float *y, l
     }
     else
     {
-      /* Wait for calculations to be finished. */
-      err = clWaitForEvents(1, &event);
       /* Fetch results of calculations from GPU memory. */
       err = clEnqueueReadBuffer(mqueue, bufA, CL_TRUE, 0, (m * i_lda * sizeof(float)), a, 0, NULL, NULL);
     }
@@ -397,8 +373,6 @@ void THGPUBlas_ger(long m, long n, float alpha, float *x, long incx, float *y, l
     clReleaseMemObject(bufX);
     clReleaseMemObject(bufA);
 
-
-    //THCublasCheck(cublasSger(*current_handle, i_m, i_n, &alpha, x, i_incx, y, i_incy, a, i_lda));
     return;
   }
   THError("Cublas_ger only supports m, n, lda, incx, incy"
