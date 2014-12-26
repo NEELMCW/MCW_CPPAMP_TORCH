@@ -339,7 +339,7 @@ float THGPUTensor_dot(THGPUTensor *self, THGPUTensor *src)
   {
     self = THGPUTensor_newContiguous(self);
     src = THGPUTensor_newContiguous(src);
-    float result = THFloatBlas_dot(THGPUTensor_nElement(self),
+    float result = THGPUBlas_dot(THGPUTensor_nElement(self),
                                   THGPUTensor_data(self), 1,
                                   THGPUTensor_data(src), 1);
     THGPUTensor_free(src);
@@ -678,14 +678,14 @@ void THGPUTensor_addmv(THGPUTensor *r_, float beta, THGPUTensor *t, float alpha,
 
   if (mat->stride[0] == 1)
   {
-    THFloatBlas_gemv('n', mat->size[0], mat->size[1],
+    THGPUBlas_gemv('n', mat->size[0], mat->size[1],
                      alpha, THGPUTensor_data(mat), mat->stride[1],
                      THGPUTensor_data(vec), vec->stride[0],
                      beta, THGPUTensor_data(r_), r_->stride[0]);
   }
   else if (mat->stride[1] == 1)
   {
-    THFloatBlas_gemv('t',  mat->size[1], mat->size[0],
+    THGPUBlas_gemv('t',  mat->size[1], mat->size[0],
                      alpha, THGPUTensor_data(mat), mat->stride[0],
                      THGPUTensor_data(vec), vec->stride[0],
                      beta, THGPUTensor_data(r_), r_->stride[0]);
@@ -694,7 +694,7 @@ void THGPUTensor_addmv(THGPUTensor *r_, float beta, THGPUTensor *t, float alpha,
   {
     THGPUTensor *cmat = THGPUTensor_newContiguous(mat);
 
-    THFloatBlas_gemv('t',  mat->size[1], mat->size[0],
+    THGPUBlas_gemv('t',  mat->size[1], mat->size[0],
                      alpha, THGPUTensor_data(cmat), cmat->stride[0],
                      THGPUTensor_data(vec), vec->stride[0],
                      beta, THGPUTensor_data(r_), r_->stride[0]);
@@ -828,14 +828,14 @@ void THGPUTensor_addr(THGPUTensor *r_, float beta, THGPUTensor *t, float alpha, 
 
   if (r_->stride[0] == 1)
   {
-    THFloatBlas_ger(vec1->size[0], vec2->size[0],
+    THGPUBlas_ger(vec1->size[0], vec2->size[0],
                     alpha, THGPUTensor_data(vec1), vec1->stride[0],
                     THGPUTensor_data(vec2), vec2->stride[0],
                     THGPUTensor_data(r_), r_->stride[1]);
   }
   else if (r_->stride[1] == 1)
   {
-    THFloatBlas_ger(vec2->size[0], vec1->size[0],
+    THGPUBlas_ger(vec2->size[0], vec1->size[0],
                     alpha, THGPUTensor_data(vec2), vec2->stride[0],
                     THGPUTensor_data(vec1), vec1->stride[0],
                     THGPUTensor_data(r_), r_->stride[0]);
@@ -844,7 +844,7 @@ void THGPUTensor_addr(THGPUTensor *r_, float beta, THGPUTensor *t, float alpha, 
   {
     THGPUTensor *cr = THGPUTensor_newClone(r_);
 
-    THFloatBlas_ger(vec2->size[0], vec1->size[0],
+    THGPUBlas_ger(vec2->size[0], vec1->size[0],
                     alpha, THGPUTensor_data(vec2), vec2->stride[0],
                     THGPUTensor_data(vec1), vec1->stride[0],
                     THGPUTensor_data(cr), cr->stride[0]);
