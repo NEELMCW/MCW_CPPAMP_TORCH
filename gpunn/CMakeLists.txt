@@ -20,8 +20,8 @@ SET (OPENCL_LIB "$ENV{AMDAPPSDKROOT}/lib/x86_64")
 SET (CLBLAS_INC "$ENV{CLBLASROOT}/include")
 SET (CLBLAS_LIB "$ENV{CLBLASROOT}/lib64/")
 SET (BOLT_SRC_INC "$ENV{BOLTROOT}/include/")
-SET (BOOST_SRC_INC "$ENV{MCWCPPAMPROOT}/build3/Bolt/superbuild/external/boost/src/Boost/")
-SET (BOLT_VER_INC "$ENV{MCWCPPAMPROOT}/build3/Bolt/superbuild/Bolt-build/include/")
+SET (BOOST_SRC_INC "$ENV{MCWCPPAMPROOT}/master-build/Bolt/superbuild/external/boost/src/Boost/")
+SET (BOLT_VER_INC "$ENV{MCWCPPAMPROOT}/master-build/Bolt/superbuild/Bolt-build/include/")
 SET (PREFIX "$ENV{MCWCPPAMPROOT}/gmac_exp_build_cache")
 SET (CLANG_AMP "${PREFIX}/compiler/bin/clang++")
 SET (CLAMP_CONFIG "${PREFIX}/build/Release/bin/clamp-config")
@@ -64,7 +64,19 @@ ADD_EXECUTABLE(gpunn.test test/test.cpp)
 TARGET_LINK_LIBRARIES(gpunn.test luaT THC TH luajit)
 SET_PROPERTY(TARGET gpunn.test APPEND_STRING PROPERTY LINK_FLAGS " -I/usr/local/include -I./test")
 
+# get imagenet-barebones folder path
+set (fbpath ${CMAKE_CURRENT_SOURCE_DIR}/../imagenet-barebones)
+set (gpunnpath ${CMAKE_CURRENT_SOURCE_DIR})
 
-ADD_EXECUTABLE(fbtest test/fbtest.cpp)
-TARGET_LINK_LIBRARIES(fbtest luaT THC TH luajit)
-SET_PROPERTY(TARGET fbtest APPEND_STRING PROPERTY LINK_FLAGS " -I/usr/local/include -I./test")
+if(EXISTS "${fbpath}" AND EXISTS "${gpunnpath}/test/fbtest.cpp")
+  ADD_EXECUTABLE(fbtest test/fbtest.cpp)  
+  TARGET_LINK_LIBRARIES(fbtest luaT THC TH luajit)
+  SET_PROPERTY(TARGET fbtest APPEND_STRING PROPERTY LINK_FLAGS " -I/usr/local/include -I./test")  
+  
+   GET_TARGET_PROPERTY(FB fbtest LOCATION)
+   ADD_CUSTOM_COMMAND( TARGET fbtest
+     POST_BUILD
+     COMMAND ${CMAKE_COMMAND} -E copy ${FB} ${fbpath}
+     COMMAND ${CMAKE_COMMAND} -E remove -f ${FB}
+   )
+endif()
