@@ -188,14 +188,14 @@ void THGPUBlas_axpy(long n, float a, float *x, long incx, float *y, long incy)
     bufX = clCreateBuffer(mcontext, CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR, (lenX*sizeof(float)), x, &err);
     bufY = clCreateBuffer(mcontext, CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR, (lenY*sizeof(float)), y, &err);
     /* Call clblas function. */
-    err = clblasSaxpy( i_n, alpha, bufX, 0, i_incx, bufY, 0, i_incy, 1, &mqueue, 0, NULL, &event);
+    err = clblasSaxpy( i_n, alpha, bufX, 0, i_incx, bufY, 0, i_incy, 1, &mqueue, 0, NULL, NULL);
     if (err != CL_SUCCESS)
     {
       printf("clblasSaxpy() failed with %d\n", err);
     }
     else
     {
-      err = clWaitForEvents(1, &event);
+        err = clEnqueueReadBuffer(mqueue, bufY, CL_TRUE, 0, (lenY*sizeof(float)), y, 0, NULL, NULL);
     }
     /* Release OpenCL memory objects. */
     clReleaseMemObject(bufY);
@@ -478,14 +478,14 @@ void THGPUBlas_gemm(char transa, char transb, long m, long n, long k, float alph
     bufB = clCreateBuffer(mcontext, CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR, k * n * sizeof(*b),  b, &err);
     bufC = clCreateBuffer(mcontext, CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR , m * n * sizeof(*c), c, &err);
 
-    err = clblasSgemm(order, opa, opb, m, n, k, alpha, bufA, 0, i_lda, bufB, 0, i_ldb, beta, bufC, 0, i_ldc, 1, &mqueue, 0, NULL, &event);
+    err = clblasSgemm(order, opa, opb, m, n, k, alpha, bufA, 0, i_lda, bufB, 0, i_ldb, beta, bufC, 0, i_ldc, 1, &mqueue, 0, NULL, NULL);
     if (err != CL_SUCCESS)
     {
       printf("clblasSgemmEx() failed with %d\n", err);
     }
     else
     {
-      err = clWaitForEvents(1, &event);
+      err = clEnqueueReadBuffer(mqueue, bufC, CL_TRUE, 0, m * n * sizeof(*c), c, 0, NULL, NULL);
     }
     /* Release OpenCL memory objects. */
     clReleaseMemObject(bufC);
