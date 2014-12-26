@@ -21,7 +21,8 @@ int main(int argc, char* argv[])
 
   std::string str(argv[0]);
   std::string parent(str, 0, str.rfind("/")+1);
-  std::string luafile = parent + "../test/test.lua";
+  // get main.lua path in imagenet-barebones folder
+  std::string luafile = parent + "main.lua";
   // FIXME: when build dir changed, need manually specify this path
   const char* Script = luafile.c_str();
   int ret = luaL_loadfile(L, Script);

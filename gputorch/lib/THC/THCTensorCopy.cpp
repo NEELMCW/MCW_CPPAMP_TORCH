@@ -220,8 +220,6 @@ THC_API void THGPUTensor_copy(THGPUTensor *self, THGPUTensor *src)
 
   if (THGPUTensor_nDimension(self) == 0) return;
 
-  Concurrency::array_view<float,1> avSelf(Concurrency::extent<1>(self->storage->size),self->storage->data);
-    
   if(THGPUTensor_isContiguous(self) && THGPUTensor_isContiguous(src))
   {
     bolt::amp::device_vector<float> srcVec(THGPUTensor_data(src),THGPUTensor_data(src) + THGPUTensor_nElement(src));

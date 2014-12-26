@@ -73,7 +73,6 @@ void subsample(THGPUTensor *inputTensor, THGPUTensor *outputTensor, THGPUTensor 
       }
     }
   });
-  avOutput.synchronize();
 }
 
 /*
@@ -175,8 +174,6 @@ void subgradweight(THGPUTensor *inputTensor, THGPUTensor *gradOutputTensor, THGP
         avGradBias[gradBias+k] += scale*sums[i];
     }
   });
-  avGradBias.synchronize();
-  avGradWeight.synchronize();
 }
 
 /*
@@ -243,7 +240,6 @@ void subgradinput(THGPUTensor *gradInputTensor, THGPUTensor *gradOutputTensor, T
       }
     }
   });
-  avGradInput.synchronize();
 }
 
 static int gpunn_SpatialSubSampling_updateOutput(lua_State *L)

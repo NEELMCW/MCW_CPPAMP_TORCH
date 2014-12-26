@@ -31,7 +31,6 @@ void gpunn_ClassNLLCriterion_updateOutput_kernel1(THGPUTensor *outputTensor,
         avOutput[0] = -avInput[t];
     }
   });
-  avOutput.synchronize();
 }
 
 void gpunn_ClassNLLCriterion_updateOutput_kernel(THGPUTensor *outputTensor,
@@ -72,7 +71,6 @@ void gpunn_ClassNLLCriterion_updateOutput_kernel(THGPUTensor *outputTensor,
       avOutput[0] = -(avOutput[0]);
     }
   });
-  avOutput.synchronize();
 }
 
 void gpunn_ClassNLLCriterion_updateGradInput_kernel(THGPUTensor *gradInputTensor,
@@ -95,7 +93,6 @@ void gpunn_ClassNLLCriterion_updateGradInput_kernel(THGPUTensor *gradInputTensor
       }
     }
   });
-  avGradInput.synchronize();
 }
 
 static int gpunn_ClassNLLCriterion_updateOutput(lua_State *L) {
@@ -157,11 +154,6 @@ static int gpunn_ClassNLLCriterion_updateGradInput(lua_State *L)
       THArgCheck(0, 2, "multi-target not implemented");
     float tid;
 
-/*    cudaMemcpy(&tid, target_data, sizeof(float), cudaMemcpyDeviceToHost);
-    cudaMemcpy(gradInput_data + (int)tid - 1,
-               &grad,
-               sizeof(float),
-               cudaMemcpyHostToDevice);*/
     tid = target_data[0];
     gradInput_data[(int)tid - 1] = grad;
 
