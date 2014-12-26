@@ -64,7 +64,7 @@ void imt2col(THGPUTensor* data_im, const int channels, const int height, const i
   int num_kernels = channels * height_col * width_col;
   //std::cout<<"Im2Col num_kernels:"<<num_kernels<<std::endl;
   // Launch
-  im2col_kernel(num_kernels, data_im, height, width, ksize_h, ksize_w, pad_h, pad_w, stride_h, stride_w, height_col, width_col, data_col);
+  imt2col_kernel(num_kernels, data_im, height, width, ksize_h, ksize_w, pad_h, pad_w, stride_h, stride_w, height_col, width_col, data_col);
 }
 
 static int gpunn_SpatialConvolutionMM_BHWD_updateOutput(lua_State *L) {
@@ -141,7 +141,7 @@ static int gpunn_SpatialConvolutionMM_BHWD_updateOutput(lua_State *L) {
     );
 
     // Extract columns:
-    im2col(
+    imt2col(
         input_n,
         nInputPlane, inputHeight, inputWidth, kH, kW, padding, padding, dH, dW,
         columns

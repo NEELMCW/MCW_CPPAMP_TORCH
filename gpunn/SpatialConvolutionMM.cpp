@@ -8,23 +8,18 @@ for (int i = tidx.tile_dim0 * tidx.tile[0] + tidx.local[0]; i < (n); i += t_ext[
 #include "../gputorch/lib/THC/THCBlas.h"
 #include "THCGeneral.h"
 
-
-
 // Kernel for fast unfold+copy
 // (borrowed from Caffe: https://github.com/BVLC/caffe/blob/master/src/caffe/layers/conv_layer.cu)
 
-void im2col_kernel(const int n, THGPUTensor* data_im, const int height, const int width, const int ksize_h,
+void im2col_kernel(const int n, Concurrency::array_view<float,1> avData_im, const int inp_stride, const int elt, const int height, const int width, const int ksize_h,
                    const int ksize_w, const int pad_h, const int pad_w, const int stride_h, const int stride_w,
-                   const int height_col, const int width_col, THGPUTensor* data_col)
+                   const int height_col, const int width_col, Concurrency::array_view<float,1> avData_col)
 {
-  Concurrency::array_view<float,1> avData_im(THGPUTensor_nElement(data_im), THGPUTensor_data(data_im));
-  Concurrency::array_view<float,1> avData_col(THGPUTensor_nElement(data_col), THGPUTensor_data(data_col));
   unsigned grdSz = (n + 255) & ~255;
   Concurrency::extent<1> grdExt(grdSz);
   Concurrency::tiled_extent<256> t_ext(grdExt);
   Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<256> tidx) restrict(amp)
   {
-    //for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < (n); i += blockDim.x * gridDim.x)
     float dataCol = 0;
     float dataIm = 0;
     for (int i = tidx.global[0]; i < (n); i += t_ext[0])
@@ -44,7 +39,7 @@ void im2col_kernel(const int n, THGPUTensor* data_im, const int height, const in
         {
           int h = h_in + p;
           int w = w_in + j;
-          avData_col[dataCol] = (h >= 0 && w >= 0 && h < height && w < width) ? avData_im[ dataIm + p * width + j] : 0;
+          avData_col[dataCol] = (h >= 0 && w >= 0 && h < height && w < width) ? avData_im[ dataIm + p * width + j + elt * inp_stride] : 0;
           dataCol += height_col * width_col;
         }
       }
@@ -52,33 +47,29 @@ void im2col_kernel(const int n, THGPUTensor* data_im, const int height, const in
   });
 }
 
-void im2col(THGPUTensor* data_im, const int channels, const int height, const int width,
+void im2col(Concurrency::array_view<float,1> avData_im, const int inp_stride, const int elt, const int channels, const int height, const int width,
             const int ksize_h, const int ksize_w, const int pad_h, const int pad_w,
-            const int stride_h, const int stride_w, THGPUTensor* data_col)
+            const int stride_h, const int stride_w, Concurrency::array_view<float,1> avData_col)
 {
   // We are going to launch channels * height_col * width_col kernels, each
   // kernel responsible for copying a single-channel grid.
   int height_col = (height + 2 * pad_h - ksize_h) / stride_h + 1;
   int width_col = (width + 2 * pad_w - ksize_w) / stride_w + 1;
   int num_kernels = channels * height_col * width_col;
-  //std::cout<<"Im2Col num_kernels:"<<num_kernels<<std::endl;
+
   // Launch
-  im2col_kernel(num_kernels, data_im, height, width, ksize_h, ksize_w, pad_h, pad_w, stride_h, stride_w, height_col, width_col, data_col);
+  im2col_kernel(num_kernels, avData_im, inp_stride, elt, height, width, ksize_h, ksize_w, pad_h, pad_w, stride_h, stride_w, height_col, width_col, avData_col);
 }
 
-void col2im_kernel(const int n, THGPUTensor* data_col, const int height, const int width, const int channels,
+void col2im_kernel(const int n, Concurrency::array_view<float,1> avData_col, const int height, const int width, const int channels,
                    const int patch_h, const int patch_w, const int pad_h, const int pad_w, const int stride_h,
-                   const int stride_w, const int height_col, const int width_col, THGPUTensor* data_im)
+                   const int stride_w, const int height_col, const int width_col, Concurrency::array_view<float,1> avData_im, const int inp_stride, const int elt)
 {
-  Concurrency::array_view<float,1> avData_im(THGPUTensor_nElement(data_im), THGPUTensor_data(data_im));
-  Concurrency::array_view<float,1> avData_col(THGPUTensor_nElement(data_col), THGPUTensor_data(data_col));
   unsigned grdSz = (n + 255) & ~255;
   Concurrency::extent<1> grdExt(grdSz);
   Concurrency::tiled_extent<256> t_ext(grdExt);
   Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<256> tidx) restrict(amp)
   {
-    //for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < (n); i += blockDim.x * gridDim.x)
-    //GPU_KERNEL_LOOP(i, n) {
     for (int i = tidx.global[0]; i < (n); i += t_ext[0])
     {
       float val = 0.0;
@@ -101,23 +92,23 @@ void col2im_kernel(const int n, THGPUTensor* data_col, const int height, const i
           val += avData_col[offset + h_col * coeff_h_col + w_col * coeff_w_col];
         }
       }
-      avData_im[i] = val;
+      avData_im[i + elt * inp_stride] = val;
     }
 
   });
 }
 
-void col2im(THGPUTensor* data_col, const int channels, const int height, const int width,
+void col2im(Concurrency::array_view<float,1> avData_col, const int channels, const int height, const int width,
             const int patch_h, const int patch_w, const int pad_h, const int pad_w,
-            const int stride_h, const int stride_w, THGPUTensor* data_im)
+            const int stride_h, const int stride_w, Concurrency::array_view<float,1> avData_im, const int inp_stride, const int elt)
 {
   int height_col = (height + 2 * pad_h - patch_h) / stride_h + 1;
   int width_col = (width + 2 * pad_w - patch_w) / stride_w + 1;
   int num_kernels = channels * height * width;
   // To avoid involving atomic operations, we will launch one kernel per
   // bottom dimension, and then in the kernel add up the top dimensions.
-   col2im_kernel(num_kernels, data_col, height, width, channels, patch_h, patch_w,
-                 pad_h, pad_w, stride_h, stride_w, height_col, width_col, data_im);
+   col2im_kernel(num_kernels, avData_col, height, width, channels, patch_h, patch_w,
+                 pad_h, pad_w, stride_h, stride_w, height_col, width_col, avData_im, inp_stride, elt);
 }
 
 static int gpunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
@@ -173,13 +164,13 @@ static int gpunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
   }
 
   // Helpers
-  THGPUTensor *input_n = THGPUTensor_new();
   THGPUTensor *output_n = THGPUTensor_new();
 
+  Concurrency::array_view<float,1> avData_col(THGPUTensor_nElement(columns), THGPUTensor_data(columns));
+  Concurrency::array_view<float,1> avData_im(THGPUTensor_nElement(input), THGPUTensor_data(input));
   // For each elt in batch, do:
   for (int elt = 0; elt < batchSize; elt ++) {
     // Matrix mulitply per output:
-    THGPUTensor_select(input_n, input, 0, elt);
     THGPUTensor_select(output_n, output, 0, elt);
 
     // Do Bias first:
@@ -199,14 +190,12 @@ static int gpunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
         0,
         THGPUTensor_data(output_n), n_
     );
-
     // Extract columns:
     im2col(
-        input_n,
+        avData_im, input->stride[0], elt,
         nInputPlane, inputHeight, inputWidth, kH, kW, padding, padding, dH, dW,
-        columns
+        avData_col
     );
-
     // M,N,K are dims of matrix A and B
     // (see http://docs.nvidia.com/gpu/cublas/#cublas-lt-t-gt-gemm)
     long m = weight->size[0];
@@ -226,7 +215,6 @@ static int gpunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
   }
 
   // Free
-  THGPUTensor_free(input_n);
   THGPUTensor_free(output_n);
 
   // Resize output
@@ -234,7 +222,6 @@ static int gpunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
     THGPUTensor_resize3d(output, nOutputPlane, outputHeight, outputWidth);
     THGPUTensor_resize3d(input, nInputPlane, inputHeight, inputWidth);
   }
-
   // return output
   return 1;
 }
@@ -283,14 +270,14 @@ static int gpunn_SpatialConvolutionMM_updateGradInput(lua_State *L) {
 
   // Helpers
   THGPUTensor *input_n = THGPUTensor_new();
-  THGPUTensor *gradInput_n = THGPUTensor_new();
   THGPUTensor *gradOutput_n = THGPUTensor_new();
 
+  Concurrency::array_view<float,1> avData_col(THGPUTensor_nElement(gradColumns), THGPUTensor_data(gradColumns));
+  Concurrency::array_view<float,1> avData_im(THGPUTensor_nElement(gradInput), THGPUTensor_data(gradInput));
   // For each elt in batch, do:
   for (int elt = 0; elt < batchSize; elt ++) {
     // Matrix mulitply per sample:
     THGPUTensor_select(input_n, input, 0, elt);
-    THGPUTensor_select(gradInput_n, gradInput, 0, elt);
     THGPUTensor_select(gradOutput_n, gradOutput, 0, elt);
 
     // M,N,K are dims of matrix A and B
@@ -312,15 +299,14 @@ static int gpunn_SpatialConvolutionMM_updateGradInput(lua_State *L) {
 
     // Unpack columns back into input:
     col2im(
-        gradColumns,
+        avData_col,
         nInputPlane, inputHeight, inputWidth, kH, kW, padding, padding, dH, dW,
-        gradInput_n
+        avData_im, gradInput->stride[0], elt
     );
   }
 
   // Free
   THGPUTensor_free(input_n);
-  THGPUTensor_free(gradInput_n);
   THGPUTensor_free(gradOutput_n);
 
   // Resize output
@@ -383,20 +369,20 @@ static int gpunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
   THGPUTensor_resize2d(columns, nInputPlane*kW*kH, outputHeight*outputWidth);
 
   // Helpers
-  THGPUTensor *input_n = THGPUTensor_new();
   THGPUTensor *gradOutput_n = THGPUTensor_new();
 
+  Concurrency::array_view<float,1> avData_col(THGPUTensor_nElement(columns), THGPUTensor_data(columns));
+  Concurrency::array_view<float,1> avData_im(THGPUTensor_nElement(input), THGPUTensor_data(input));
   // For each elt in batch, do:
   for (int elt = 0; elt < batchSize; elt ++) {
     // Matrix mulitply per output:
-    THGPUTensor_select(input_n, input, 0, elt);
     THGPUTensor_select(gradOutput_n, gradOutput, 0, elt);
 
     // Extract columns:
     im2col(
-        input_n,
+        avData_im, input->stride[0], elt,
         nInputPlane, inputHeight, inputWidth, kH, kW, padding, padding, dH, dW,
-        columns
+        avData_col
     );
 
     // M,N,K are dims of matrix A and B
@@ -435,7 +421,6 @@ static int gpunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
   }
 
   // Free
-  THGPUTensor_free(input_n);
   THGPUTensor_free(gradOutput_n);
 
   // Resize
@@ -443,7 +428,6 @@ static int gpunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
     THGPUTensor_resize3d(gradOutput, nOutputPlane, outputHeight, outputWidth);
     THGPUTensor_resize3d(input, nInputPlane, inputHeight, inputWidth);
   }
-
   // Return nothing
   return 0;
 }
