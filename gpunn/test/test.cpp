@@ -1,7 +1,7 @@
-/// Source to build gputorch.test executable
-/// The script's location should be set manually or specify $PATH
+/// Source to build gputorch.test executable for profiling purpose
 #include <stdio.h>
 #include <iostream>
+#include <string>
 extern "C"
 {
     #include <lua.h>
@@ -9,7 +9,7 @@ extern "C"
     #include <lauxlib.h>
 };
 
-int main()
+int main(int argc, char* argv[])
 {
   lua_State *L;
   L = lua_open();
@@ -19,8 +19,11 @@ int main()
   luaopen_string(L);
   luaopen_math(L);
 
-  // FIXME: need to manually specify this path according to your project location
-  const char* Script = "/home/neelakandan/Documents/mcw_torch_clamp/gpunn/test/test.lua";
+  std::string str(argv[0]);
+  std::string parent(str, 0, str.rfind("/")+1);
+  std::string luafile = parent + "../test/test.lua";
+  // FIXME: when build dir changed, need manually specify this path
+  const char* Script = luafile.c_str();
   int ret = luaL_loadfile(L, Script);
   if (ret) {
     std::cout << "Failed to load scipt: "<< Script << "\n" << lua_tostring(L, -1) << std::endl;
