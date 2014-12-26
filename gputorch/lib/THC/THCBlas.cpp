@@ -264,19 +264,28 @@ void THGPUBlas_gemv(char trans, long m, long n, float alpha, float *a, long lda,
     lda = m;
 
 
+  int i_incx = (int)incx;
+  int i_incy = (int)incy;
+  int lenM, lenN;
   //cublasOperation_t op;
   clblasTranspose op;
   if (trans == 't')
   {
     op = clblasTrans;
+    lenM = 1 + (m-1)*abs(i_incx);
+    lenN = 1 + (n-1)*abs(i_incy);
   }
   else if (trans == 'n')
   {
     op = clblasNoTrans;
+    lenM = 1 + (n-1)*abs(i_incx);
+    lenN = 1 + (m-1)*abs(i_incy);
   }
   else if (trans == 'c')
   {
     op = clblasConjTrans;
+    lenM = 1 + (n-1)*abs(i_incx);
+    lenN = 1 + (m-1)*abs(i_incy);
   }
   clblasOrder order = clblasColumnMajor;
 
@@ -295,10 +304,6 @@ void THGPUBlas_gemv(char trans, long m, long n, float alpha, float *a, long lda,
     size_t i_lda = (size_t)lda;
 
     size_t i_n = (size_t)n;
-    int i_incx = (int)incx;
-    int i_incy = (int)incy;
-    int lenM = 1 + (m-1)*abs(i_incx);
-    int lenN = 1 + (n-1)*abs(i_incy);
     //int lenM = m;
     //int lenN = n;
 
