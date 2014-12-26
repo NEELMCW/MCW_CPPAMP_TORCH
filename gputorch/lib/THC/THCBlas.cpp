@@ -9,8 +9,6 @@ void THGPUBlas_init(int devices, int device)
   if (err != CL_SUCCESS)
   {
     printf("clblasSetup() failed with %d\n", err);
-    clReleaseCommandQueue(mqueue);
-    clReleaseContext(mcontext);
     return;
   }
 }
@@ -20,8 +18,6 @@ void THGPUBlas_shutdown()
   /* Finalize work with clblas. */
   clblasTeardown();
   /* Release OpenCL working objects. */
-  clReleaseCommandQueue(mqueue);
-  clReleaseContext(mcontext);
 }
 
 void THGPUBlas_setHandle(int device)
@@ -189,22 +185,17 @@ void THGPUBlas_axpy(long n, float a, float *x, long incx, float *y, long incy)
     cl_float alpha = (cl_float)a;
 
     /* Prepare OpenCL memory objects and place matrices inside them. */
-    bufX = clCreateBuffer(mcontext, CL_MEM_READ_ONLY, (lenX*sizeof(float)), NULL, &err);
-    bufY = clCreateBuffer(mcontext, CL_MEM_READ_WRITE, (lenY*sizeof(float)), NULL, &err);
-    err = clEnqueueWriteBuffer(mqueue, bufX, CL_TRUE, 0, (lenX*sizeof(float)), x, 0, NULL, NULL);
-    err = clEnqueueWriteBuffer(mqueue, bufY, CL_TRUE, 0, (lenY*sizeof(float)), y, 0, NULL, NULL);
+    bufX = clCreateBuffer(mcontext, CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR, (lenX*sizeof(float)), x, &err);
+    bufY = clCreateBuffer(mcontext, CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR, (lenY*sizeof(float)), y, &err);
     /* Call clblas function. */
-    err = clblasSaxpy( i_n, alpha, bufX, 0, i_incx, bufY, 0, i_incy, 1, &mqueue, 0, NULL, &event);
+    err = clblasSaxpy( i_n, alpha, bufX, 0, i_incx, bufY, 0, i_incy, 1, &mqueue, 0, NULL, NULL);
     if (err != CL_SUCCESS)
     {
       printf("clblasSaxpy() failed with %d\n", err);
     }
     else
     {
-      /* Wait for calculations to be finished. */
-      err = clWaitForEvents(1, &event);
-      /* Fetch results of calculations from GPU memory. */
-      err = clEnqueueReadBuffer(mqueue, bufY, CL_TRUE, 0, (lenY*sizeof(float)), y, 0, NULL, NULL);
+        err = clEnqueueReadBuffer(mqueue, bufY, CL_TRUE, 0, (lenY*sizeof(float)), y, 0, NULL, NULL);
     }
     /* Release OpenCL memory objects. */
     clReleaseMemObject(bufY);
@@ -483,24 +474,17 @@ void THGPUBlas_gemm(char transa, char transb, long m, long n, long k, float alph
 
 
     /* Prepare OpenCL memory objects and place matrices inside them. */
-    bufA = clCreateBuffer(mcontext, CL_MEM_READ_ONLY, m * k * sizeof(*a), NULL, &err);
-    bufB = clCreateBuffer(mcontext, CL_MEM_READ_ONLY, k * n * sizeof(*b), NULL, &err);
-    bufC = clCreateBuffer(mcontext, CL_MEM_READ_WRITE, m * n * sizeof(*c), NULL, &err);
-    err = clEnqueueWriteBuffer(mqueue, bufA, CL_TRUE, 0, m * k * sizeof(*a), a, 0, NULL, NULL);
-    err = clEnqueueWriteBuffer(mqueue, bufB, CL_TRUE, 0, k * n * sizeof(*b), b, 0, NULL, NULL);
-    err = clEnqueueWriteBuffer(mqueue, bufC, CL_TRUE, 0, m * n * sizeof(*c), c, 0, NULL, NULL);
-    /* Call clblas extended function. Perform gemm for the lower right sub-matrices */
+    bufA = clCreateBuffer(mcontext, CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR, m * k * sizeof(*a),  a, &err);
+    bufB = clCreateBuffer(mcontext, CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR, k * n * sizeof(*b),  b, &err);
+    bufC = clCreateBuffer(mcontext, CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR , m * n * sizeof(*c), c, &err);
 
-    err = clblasSgemm(order, opa, opb, m, n, k, alpha, bufA, 0, i_lda, bufB, 0, i_ldb, beta, bufC, 0, i_ldc, 1, &mqueue, 0, NULL, &event);
+    err = clblasSgemm(order, opa, opb, m, n, k, alpha, bufA, 0, i_lda, bufB, 0, i_ldb, beta, bufC, 0, i_ldc, 1, &mqueue, 0, NULL, NULL);
     if (err != CL_SUCCESS)
     {
       printf("clblasSgemmEx() failed with %d\n", err);
     }
     else
     {
-      /* Wait for calculations to be finished. */
-      err = clWaitForEvents(1, &event);
-      /* Fetch results of calculations from GPU memory. */
       err = clEnqueueReadBuffer(mqueue, bufC, CL_TRUE, 0, m * n * sizeof(*c), c, 0, NULL, NULL);
     }
     /* Release OpenCL memory objects. */
