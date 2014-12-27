@@ -1,11 +1,5 @@
 #include<numeric>
-#include "bolt/amp/functional.h"
-#include "bolt/amp/fill.h"
-#include "bolt/amp/device_vector.h"
-#include "bolt/amp/transform.h"
-#include "bolt/amp/transform_reduce.h"
-#include "bolt/amp/reduce.h"
-#include "bolt/amp/inner_product.h"
+#include "common.h"
 #include "amp_math.h"
 
 struct mse_functor
@@ -33,8 +27,7 @@ static int gpunn_MSECriterion_updateOutput(lua_State *L)
   input = THGPUTensor_newContiguous(input);
   target = THGPUTensor_newContiguous(target);
 
-  bolt::amp::device_vector<float> input_data(THGPUTensor_data(input), THGPUTensor_data(input)+THGPUTensor_nElement(input));
-  bolt::amp::device_vector<float> target_data(THGPUTensor_data(target), THGPUTensor_data(target)+THGPUTensor_nElement(target));
+  DECLARE_BOLT_DEVICE_VECTOR_2(input, input_data, target, target_data);
   sum = bolt::amp::inner_product(input_data.begin(), input_data.end(), target_data.begin(), (float) 0, bolt::amp::plus<float>(), mse_functor());
 
   if(sizeAverage)
@@ -78,10 +71,7 @@ static int gpunn_MSECriterion_updateGradInput(lua_State *L)
 
   THGPUTensor_resizeAs(gradInput, input);
 
-  bolt::amp::device_vector<float> input_data(THGPUTensor_data(input), THGPUTensor_data(input)+THGPUTensor_nElement(input));
-  bolt::amp::device_vector<float> target_data(THGPUTensor_data(target), THGPUTensor_data(target)+THGPUTensor_nElement(target));
-  bolt::amp::device_vector<float> gradInput_data(THGPUTensor_data(gradInput), THGPUTensor_data(gradInput)+THGPUTensor_nElement(gradInput));
-
+  DECLARE_BOLT_DEVICE_VECTOR_3(input, input_data, target, target_data, gradInput, gradInput_data);
   bolt::amp::transform(input_data.begin(), input_data.end(), target_data.begin(), gradInput_data.begin(), mse_updateGradInput_functor(norm));
 
   THGPUTensor_free(input);

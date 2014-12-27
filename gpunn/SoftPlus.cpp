@@ -1,10 +1,4 @@
-#include "bolt/amp/functional.h"
-#include "bolt/amp/fill.h"
-#include "bolt/amp/device_vector.h"
-#include "bolt/amp/transform.h"
-#include "bolt/amp/transform_reduce.h"
-#include "bolt/amp/reduce.h"
-#include "bolt/amp/inner_product.h"
+#include "common.h"
 #include "amp_math.h"
 struct softPlusupdateOutput_functor
 {
@@ -32,8 +26,7 @@ static int gpunn_SoftPlus_updateOutput(lua_State *L)
 
   THGPUTensor_resizeAs(output, input);
 
-   bolt::amp::device_vector<float> output_data(THGPUTensor_data(output), THGPUTensor_data(output)+THGPUTensor_nElement(output));
-   bolt::amp::device_vector<float> input_data(THGPUTensor_data(input), THGPUTensor_data(input)+THGPUTensor_nElement(input));
+   DECLARE_BOLT_DEVICE_VECTOR_2(input, input_data, output, output_data);
    bolt::amp::transform(input_data.begin(), input_data.end(), output_data.begin(), softPlusupdateOutput_functor(threshold, beta));
 
   THGPUTensor_free(input);
@@ -68,9 +61,7 @@ static int gpunn_SoftPlus_updateGradInput(lua_State *L)
   gradOutput = THGPUTensor_newContiguous(gradOutput);
   THGPUTensor_resizeAs(gradInput, output);
 
-   bolt::amp::device_vector<float> output_data(THGPUTensor_data(output), THGPUTensor_data(output)+THGPUTensor_nElement(output));
-   bolt::amp::device_vector<float> gradOutput_data(THGPUTensor_data(gradOutput), THGPUTensor_data(gradOutput)+THGPUTensor_nElement(gradOutput));
-   bolt::amp::device_vector<float> gradInput_data(THGPUTensor_data(gradInput), THGPUTensor_data(gradInput)+THGPUTensor_nElement(gradInput));
+   DECLARE_BOLT_DEVICE_VECTOR_3(output, output_data, gradInput, gradInput_data, gradOutput, gradOutput_data);
    bolt::amp::transform(output_data.begin(), output_data.end(), gradOutput_data.begin(),gradInput_data.begin(), softPlusupdateGradInput_functor(threshold,beta));
 
   THGPUTensor_free(gradOutput);

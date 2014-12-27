@@ -13,8 +13,6 @@ LINK_DIRECTORIES("${Torch_INSTALL_LIB}")
 SET(src-camp init.cpp)
 
 
-# MCW CLAMP Specific. Version >= 0.3 is Must
- # MCW CLAMP Specific. Version >= 0.3 is Must
 SET (OPENCL_INC "$ENV{AMDAPPSDKROOT}/include")
 SET (OPENCL_LIB "$ENV{AMDAPPSDKROOT}/lib/x86_64")
 SET (CLBLAS_INC "$ENV{CLBLASROOT}/include")

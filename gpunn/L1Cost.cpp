@@ -1,10 +1,4 @@
-#include "bolt/amp/functional.h"
-#include "bolt/amp/fill.h"
-#include "bolt/amp/device_vector.h"
-#include "bolt/amp/transform.h"
-#include "bolt/amp/transform_reduce.h"
-#include "bolt/amp/reduce.h"
-#include "bolt/amp/inner_product.h"
+#include "common.h"
 #include "amp_math.h"
 
 struct l1cost_functor
@@ -24,7 +18,7 @@ static int gpunn_L1Cost_updateOutput(lua_State *L)
   float sum;
   long size = THGPUTensor_nElement(input);
   input = THGPUTensor_newContiguous(input);
-  bolt::amp::device_vector<float> input_data(THGPUTensor_data(input), THGPUTensor_data(input) + THGPUTensor_nElement(input));
+  DECLARE_BOLT_DEVICE_VECTOR(input, input_data);
   sum = bolt::amp::reduce(input_data.begin(), input_data.end(), (float) 0, l1cost_functor());
 
   THGPUTensor_free(input);
@@ -61,9 +55,7 @@ static int gpunn_L1Cost_updateGradInput(lua_State *L)
   input = THGPUTensor_newContiguous(input);
   THGPUTensor_resizeAs(gradInput, input);
 
-  bolt::amp::device_vector<float> input_data(THGPUTensor_data(input),THGPUTensor_data(input) + THGPUTensor_nElement(input));
-  bolt::amp::device_vector<float> gradInput_data(THGPUTensor_data(gradInput),THGPUTensor_nElement(gradInput));
-
+  DECLARE_BOLT_DEVICE_VECTOR_2(input, input_data, gradInput, gradInput_data);
   bolt::amp::transform(input_data.begin(), input_data.end(), gradInput_data.begin(), l1cost_updateGradInput_functor());
 
   THGPUTensor_free(input);
