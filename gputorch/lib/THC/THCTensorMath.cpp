@@ -7,13 +7,8 @@
 #include<algorithm>
 #include<utility>
 #include<numeric>
-#include "bolt/amp/functional.h"
-#include "bolt/amp/fill.h"
-#include "bolt/amp/device_vector.h"
-#include "bolt/amp/transform.h"
-#include "bolt/amp/transform_reduce.h"
-#include "bolt/amp/reduce.h"
-#include "bolt/amp/inner_product.h"
+#include "common.h"
+
 
 #define NB_THREADS_PER_BLOCK 256
 
@@ -84,8 +79,7 @@ void THGPUTensor_add(THGPUTensor *self_, THGPUTensor *src_, float value)
   THGPUTensor_resizeAs(self_, src_);
   THGPUTensor *self = THGPUTensor_newContiguous(self_);
   THGPUTensor *src = THGPUTensor_newContiguous(src_);
-  bolt::amp::device_vector<float> Dself_data(THGPUTensor_data(self), THGPUTensor_data(self)+THGPUTensor_nElement(self));
-  bolt::amp::device_vector<float> Dsrc_data(THGPUTensor_data(src), THGPUTensor_data(src)+THGPUTensor_nElement(src));
+  DECLARE_BOLT_DEVICE_VECTOR_2(self, Dself_data, src, Dsrc_data);
   bolt::amp::transform(Dsrc_data.begin(), Dsrc_data.end(), Dself_data.begin(), addvalue_functor(value));
   THGPUTensor_free(src);
   THGPUTensor_freeCopyTo(self, self_);
@@ -106,8 +100,7 @@ void THGPUTensor_mul(THGPUTensor *self_, THGPUTensor *src_, float value)
   THGPUTensor_resizeAs(self_, src_);
   THGPUTensor *self = THGPUTensor_newContiguous(self_);
   THGPUTensor *src = THGPUTensor_newContiguous(src_);
-  bolt::amp::device_vector<float> Dself_data(THGPUTensor_data(self), THGPUTensor_data(self)+THGPUTensor_nElement(self));
-  bolt::amp::device_vector<float> Dsrc_data(THGPUTensor_data(src), THGPUTensor_data(src)+THGPUTensor_nElement(src));
+  DECLARE_BOLT_DEVICE_VECTOR_2(src, Dsrc_data, self, Dself_data);
   bolt::amp::transform(Dsrc_data.begin(), Dsrc_data.end(), Dself_data.begin(), mulvalue_functor(value));
   THGPUTensor_free(src);
   THGPUTensor_freeCopyTo(self, self_);
@@ -128,8 +121,7 @@ void THGPUTensor_div(THGPUTensor *self_, THGPUTensor *src_, float value)
   THGPUTensor_resizeAs(self_, src_);
   THGPUTensor *self = THGPUTensor_newContiguous(self_);
   THGPUTensor *src = THGPUTensor_newContiguous(src_);
-  bolt::amp::device_vector<float> Dself_data(THGPUTensor_data(self), THGPUTensor_data(self)+THGPUTensor_nElement(self));
-  bolt::amp::device_vector<float> Dsrc_data(THGPUTensor_data(src), THGPUTensor_data(src)+THGPUTensor_nElement(src));
+  DECLARE_BOLT_DEVICE_VECTOR_2(src, Dsrc_data, self, Dself_data);
   bolt::amp::transform(Dsrc_data.begin(), Dsrc_data.end(), Dself_data.begin(), divvalue_functor(value));
   long size = THGPUTensor_nElement(self);
   THGPUTensor_free(src);
@@ -169,11 +161,7 @@ void THGPUTensor_cmul(THGPUTensor *self_, THGPUTensor *src1, THGPUTensor *src2)
     long size = THGPUTensor_nElement(self);
     src1 = THGPUTensor_newContiguous(src1);
     src2 = THGPUTensor_newContiguous(src2);
-  
-    bolt::amp::device_vector<float> Dself_data(THGPUTensor_data(self), THGPUTensor_data(self)+THGPUTensor_nElement(self));
-    bolt::amp::device_vector<float> Dsrc1_data(THGPUTensor_data(src1), THGPUTensor_data(src1)+THGPUTensor_nElement(src1));
-    bolt::amp::device_vector<float> Dsrc2_data(THGPUTensor_data(src2), THGPUTensor_data(src2)+THGPUTensor_nElement(src2));
-
+    DECLARE_BOLT_DEVICE_VECTOR_3(src1, Dsrc1_data, src2, Dsrc2_data, self, Dself_data);
     bolt::amp::transform(Dsrc2_data.begin(), Dsrc2_data.end(), Dsrc1_data.begin(), Dself_data.begin(), bolt::amp::multiplies<float>());
 
     THGPUTensor_free(src1);
@@ -191,11 +179,7 @@ void THGPUTensor_cdiv(THGPUTensor *self_, THGPUTensor *src1, THGPUTensor *src2)
     long size = THGPUTensor_nElement(self);
     src1 = THGPUTensor_newContiguous(src1);
     src2 = THGPUTensor_newContiguous(src2);
-
-    bolt::amp::device_vector<float> Dself_data(THGPUTensor_data(self), THGPUTensor_data(self)+THGPUTensor_nElement(self));
-    bolt::amp::device_vector<float> Dsrc1_data(THGPUTensor_data(src1), THGPUTensor_data(src1)+THGPUTensor_nElement(src1));
-    bolt::amp::device_vector<float> Dsrc2_data(THGPUTensor_data(src2), THGPUTensor_data(src2)+THGPUTensor_nElement(src2));
-
+    DECLARE_BOLT_DEVICE_VECTOR_3(src1, Dsrc1_data, src2, Dsrc2_data, self, Dself_data);
     bolt::amp::transform(Dsrc1_data.begin(), Dsrc1_data.end(), Dsrc2_data.begin(), Dself_data.begin(), bolt::amp::divides<float>());
 
 
@@ -351,7 +335,7 @@ float THGPUTensor_dot(THGPUTensor *self, THGPUTensor *src)
 float THGPUTensor_minall(THGPUTensor *self)
 {
   self = THGPUTensor_newContiguous(self);
-  bolt::amp::device_vector<float> self_data(THGPUTensor_data(self),THGPUTensor_data(self) + THGPUTensor_nElement(self));
+  DECLARE_BOLT_DEVICE_VECTOR(self, self_data);
   float result = bolt::amp::reduce(self_data.begin(), self_data.begin()+THGPUTensor_nElement(self), (float)(THInf), bolt::amp::minimum<float>());
   THGPUTensor_free(self);
   return result;
@@ -360,7 +344,7 @@ float THGPUTensor_minall(THGPUTensor *self)
 float THGPUTensor_maxall(THGPUTensor *self)
 {
   self = THGPUTensor_newContiguous(self);
-  bolt::amp::device_vector<float> self_data(THGPUTensor_data(self),THGPUTensor_data(self) + THGPUTensor_nElement(self));
+  DECLARE_BOLT_DEVICE_VECTOR(self, self_data);
   float result = bolt::amp::reduce(self_data.begin(), self_data.begin()+THGPUTensor_nElement(self), (float)(-THInf), bolt::amp::maximum<float>());
   THGPUTensor_free(self);
   return result;
@@ -371,7 +355,7 @@ float THGPUTensor_maxall(THGPUTensor *self)
 float THGPUTensor_sumall(THGPUTensor *self)
 {
   self = THGPUTensor_newContiguous(self);
-  bolt::amp::device_vector<float> self_data(THGPUTensor_data(self),THGPUTensor_data(self) + THGPUTensor_nElement(self));
+  DECLARE_BOLT_DEVICE_VECTOR(self, self_data);
   float result = bolt::amp::reduce(self_data.begin(), self_data.begin()+THGPUTensor_nElement(self), (float)(0), bolt::amp::plus<float>());
   THGPUTensor_free(self);
   return result;
@@ -380,7 +364,7 @@ float THGPUTensor_sumall(THGPUTensor *self)
 float THGPUTensor_prodall(THGPUTensor *self)
 {
   self = THGPUTensor_newContiguous(self);
-  bolt::amp::device_vector<float> self_data(THGPUTensor_data(self),THGPUTensor_data(self) + THGPUTensor_nElement(self));
+  DECLARE_BOLT_DEVICE_VECTOR(self, self_data);
   float result = bolt::amp::reduce(self_data.begin(), self_data.begin()+THGPUTensor_nElement(self), (float)(1), bolt::amp::multiplies<float>());
   THGPUTensor_free(self);
   return result;
@@ -869,8 +853,7 @@ void THGPUTensor_##NAME(THGPUTensor *self_, THGPUTensor *src)                   
   src = THGPUTensor_newContiguous(src);                                                                                 \
   long size = THGPUTensor_nElement(self);                                                                               \
                                                                                                                         \
-  bolt::amp::device_vector<float> self_data(THGPUTensor_data(self), THGPUTensor_data(self)+THGPUTensor_nElement(self)); \
-  bolt::amp::device_vector<float> src_data(THGPUTensor_data(src), THGPUTensor_data(src)+THGPUTensor_nElement(src));     \
+  DECLARE_BOLT_DEVICE_VECTOR_2(src, src_data, self, self_data); \
   bolt::amp::transform(src_data.begin(), src_data.end(), self_data.begin(),NAME##_functor());                           \
                                                                                                                         \
   THGPUTensor_free(src);                                                                                                \
@@ -913,8 +896,7 @@ void THGPUTensor_pow(THGPUTensor *self_, THGPUTensor *src, float value)
   THGPUTensor_resizeAs(self_, src);
   THGPUTensor *self = THGPUTensor_newContiguous(self_);
   src = THGPUTensor_newContiguous(src);
-  bolt::amp::device_vector<float> Dself_data(THGPUTensor_data(self), THGPUTensor_data(self)+THGPUTensor_nElement(self));
-  bolt::amp::device_vector<float> Dsrc_data(THGPUTensor_data(src), THGPUTensor_data(src)+THGPUTensor_nElement(src));
+  DECLARE_BOLT_DEVICE_VECTOR_2(src, Dsrc_data, self, Dself_data);
   bolt::amp::transform(Dsrc_data.begin(), Dsrc_data.end(), Dself_data.begin(), pow_functor(value));
   THGPUTensor_free(src);
   THGPUTensor_freeCopyTo(self, self_);
@@ -933,10 +915,7 @@ void THGPUTensor_atan2(THGPUTensor *self_, THGPUTensor *tx, THGPUTensor *ty)
   THGPUTensor *self = THGPUTensor_newContiguous(self_);
   tx = THGPUTensor_newContiguous(tx);
   ty = THGPUTensor_newContiguous(ty);
-
-  bolt::amp::device_vector<float> self_data(THGPUTensor_data(self), THGPUTensor_data(self)+THGPUTensor_nElement(self));
-  bolt::amp::device_vector<float> tx_data(THGPUTensor_data(tx), THGPUTensor_data(tx)+THGPUTensor_nElement(tx));
-  bolt::amp::device_vector<float> ty_data(THGPUTensor_data(ty), THGPUTensor_data(ty)+THGPUTensor_nElement(ty));
+  DECLARE_BOLT_DEVICE_VECTOR_3(tx, tx_data, ty, ty_data, self, self_data);
   bolt::amp::transform(tx_data.begin(), tx_data.end(), ty_data.begin(), self_data.begin(), atan2_functor());
 
   THGPUTensor_free(tx);
@@ -969,8 +948,7 @@ void THGPUTensor_clamp(THGPUTensor *self_, THGPUTensor *src, float min_value,
   THArgCheck(THGPUTensor_nElement(self_) == THGPUTensor_nElement(src), 2, "sizes do not match");
   THGPUTensor *self = THGPUTensor_newContiguous(self_);
   src = THGPUTensor_newContiguous(src);
-  bolt::amp::device_vector<float> Dself_data(THGPUTensor_data(self), THGPUTensor_data(self)+THGPUTensor_nElement(self));
-  bolt::amp::device_vector<float> Dsrc_data(THGPUTensor_data(src), THGPUTensor_data(src)+THGPUTensor_nElement(src));
+  DECLARE_BOLT_DEVICE_VECTOR_2(src, Dsrc_data, self, Dself_data);
   bolt::amp::transform(Dsrc_data.begin(), Dsrc_data.end(), Dself_data.begin(), clamp_functor(min_value,max_value));
   THGPUTensor_free(src);
   THGPUTensor_freeCopyTo(self, self_);
@@ -990,8 +968,7 @@ void THGPUTensor_sign(THGPUTensor *self_, THGPUTensor *src)
   THGPUTensor_resizeAs(self_, src);
   THGPUTensor *self = THGPUTensor_newContiguous(self_);
   src = THGPUTensor_newContiguous(src);
-  bolt::amp::device_vector<float> Dself_data(THGPUTensor_data(self), THGPUTensor_data(self)+THGPUTensor_nElement(self));
-  bolt::amp::device_vector<float> Dsrc_data(THGPUTensor_data(src), THGPUTensor_data(src)+THGPUTensor_nElement(src));
+  DECLARE_BOLT_DEVICE_VECTOR_2(src, Dsrc_data, self, Dself_data);
   bolt::amp::transform(Dsrc_data.begin(), Dsrc_data.end(), Dself_data.begin(), sign_functor());
   THGPUTensor_free(src);
   THGPUTensor_freeCopyTo(self, self_);
@@ -1026,8 +1003,7 @@ float THGPUTensor_varall(THGPUTensor *self)
 {
   self = THGPUTensor_newContiguous(self);
   long size = THGPUTensor_nElement(self);
-
-  bolt::amp::device_vector<float> self_data(THGPUTensor_data(self), THGPUTensor_data(self)+THGPUTensor_nElement(self));
+  DECLARE_BOLT_DEVICE_VECTOR(self, self_data);
   float mean = THGPUTensor_meanall(self);
 
   bolt::amp::device_vector<float> diff(self_data.size());
@@ -1058,8 +1034,7 @@ void THGPUTensor_logicalValue(THGPUTensor *self_, THGPUTensor *src, Op op)
   THGPUTensor *self = THGPUTensor_newContiguous(self_);
   long size = THGPUTensor_nElement(self);
   src = THGPUTensor_newContiguous(src);
-  bolt::amp::device_vector<float> self_data(THGPUTensor_data(self), THGPUTensor_data(self)+THGPUTensor_nElement(self));
-  bolt::amp::device_vector<float> src_data(THGPUTensor_data(src), THGPUTensor_data(src)+THGPUTensor_nElement(src));
+  DECLARE_BOLT_DEVICE_VECTOR_2(src, src_data, self, self_data);
   bolt::amp::transform(src_data.begin(), src_data.end(), self_data.begin(), op);
   THGPUTensor_free(src);
   THGPUTensor_freeCopyTo(self, self_);
@@ -1160,9 +1135,7 @@ void THGPUTensor_logicalTensor(THGPUTensor *self_, THGPUTensor *src1, THGPUTenso
   long size = THGPUTensor_nElement(self);
   src1 = THGPUTensor_newContiguous(src1);
   src2 = THGPUTensor_newContiguous(src2);
-  bolt::amp::device_vector<float> self_data(THGPUTensor_data(self), THGPUTensor_data(self)+THGPUTensor_nElement(self));
-  bolt::amp::device_vector<float> src1_data(THGPUTensor_data(src1), THGPUTensor_data(src1)+THGPUTensor_nElement(src1));
-  bolt::amp::device_vector<float> src2_data(THGPUTensor_data(src2), THGPUTensor_data(src2)+THGPUTensor_nElement(src2));
+  DECLARE_BOLT_DEVICE_VECTOR_3(src1, src1_data, src2, src2_data, self, self_data);
   bolt::amp::transform(src1_data.begin(), src1_data.end(), src2_data.begin(), self_data.begin(), op);
 
   THGPUTensor_free(src1);
@@ -1224,7 +1197,7 @@ float THGPUTensor_normall(THGPUTensor *self, float value)
 {
   self = THGPUTensor_newContiguous(self);
   long size = THGPUTensor_nElement(self);
-  bolt::amp::device_vector<float> self_data(THGPUTensor_data(self),THGPUTensor_data(self)+THGPUTensor_nElement(self));
+  DECLARE_BOLT_DEVICE_VECTOR(self, self_data);
 
   float result;
   if(value == 0.0f) {
@@ -1331,8 +1304,7 @@ float THGPUTensor_dist(THGPUTensor *self, THGPUTensor *src, float value)
   self = THGPUTensor_newContiguous(self);
   long size = THGPUTensor_nElement(self);
   src = THGPUTensor_newContiguous(src);
-  bolt::amp::device_vector<float> self_data(THGPUTensor_data(self), THGPUTensor_data(self)+THGPUTensor_nElement(self));
-  bolt::amp::device_vector<float> src_data(THGPUTensor_data(src), THGPUTensor_data(src)+THGPUTensor_nElement(src));
+  DECLARE_BOLT_DEVICE_VECTOR_2(self, self_data, src, src_data);
   float result = bolt::amp::inner_product(self_data.begin(), self_data.end(), src_data.begin(), (float) 0,bolt::amp::plus<float>(), dist_functor(value));
 
   THGPUTensor_free(src);

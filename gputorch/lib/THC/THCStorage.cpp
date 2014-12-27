@@ -1,7 +1,6 @@
 #include "THCStorage.h"
 #include "THCGeneral.h"
-#include "bolt/amp/device_vector.h"
-#include "bolt/amp/fill.h"
+#include "common.h"
 
 void THGPUStorage_set(THGPUStorage *self, long index, float value)
 {
