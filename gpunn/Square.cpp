@@ -13,7 +13,6 @@ static int gpunn_Square_updateOutput(lua_State *L)
 {
   THGPUTensor *input = (THGPUTensor*)luaT_checkudata(L, 2, "torch.GPUTensor");
   THGPUTensor *output = (THGPUTensor*)luaT_getfieldcheckudata(L, 1, "output", "torch.GPUTensor");
-  long size = THGPUTensor_nElement(input);
 
   input = THGPUTensor_newContiguous(input);
 
@@ -38,7 +37,6 @@ static int gpunn_Square_updateGradInput(lua_State *L)
   THGPUTensor *input = (THGPUTensor*)luaT_checkudata(L, 2, "torch.GPUTensor");
   THGPUTensor *gradOutput = (THGPUTensor*)luaT_checkudata(L, 3, "torch.GPUTensor");
   THGPUTensor *gradInput = (THGPUTensor*)luaT_getfieldcheckudata(L, 1, "gradInput", "torch.GPUTensor");
-  long size = THGPUTensor_nElement(input);
 
   gradOutput = THGPUTensor_newContiguous(gradOutput);
   THGPUTensor_resizeAs(gradInput, input);

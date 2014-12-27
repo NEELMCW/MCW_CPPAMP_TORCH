@@ -15,7 +15,6 @@ static int gpunn_Abs_updateOutput(lua_State *L)
 {
   THGPUTensor *input = (THGPUTensor*)luaT_checkudata(L, 2, "torch.GPUTensor");
   THGPUTensor *output = (THGPUTensor*)luaT_getfieldcheckudata(L, 1, "output", "torch.GPUTensor");
-  long size = THGPUTensor_nElement(input);
   input = THGPUTensor_newContiguous(input);
   THGPUTensor_resizeAs(output, input);
   DECLARE_BOLT_DEVICE_VECTOR_2(input, input_data, output, output_data);
@@ -40,7 +39,6 @@ static int gpunn_Abs_updateGradInput(lua_State *L)
   THGPUTensor *input = (THGPUTensor*)luaT_checkudata(L, 2, "torch.GPUTensor");
   THGPUTensor *gradOutput = (THGPUTensor*)luaT_checkudata(L, 3, "torch.GPUTensor");
   THGPUTensor *gradInput = (THGPUTensor*)luaT_getfieldcheckudata(L, 1, "gradInput", "torch.GPUTensor");
-  long size = THGPUTensor_nElement(input);
 
   input = THGPUTensor_newContiguous(input);
   gradOutput = THGPUTensor_newContiguous(gradOutput);

@@ -17,7 +17,6 @@ static int gpunn_Sqrt_updateOutput(lua_State *L)
   double bias = luaT_getfieldchecknumber(L,1,"eps");
   THGPUTensor *input = (THGPUTensor*)luaT_checkudata(L, 2, "torch.GPUTensor");
   THGPUTensor *output = (THGPUTensor*)luaT_getfieldcheckudata(L, 1, "output", "torch.GPUTensor");
-  long size = THGPUTensor_nElement(input);
   input = THGPUTensor_newContiguous(input);
   THGPUTensor_resizeAs(output, input);
 
@@ -46,7 +45,6 @@ static int gpunn_Sqrt_updateGradInput(lua_State *L)
   THGPUTensor *output = (THGPUTensor*)luaT_getfieldcheckudata(L, 1, "output", "torch.GPUTensor");
   THGPUTensor *gradOutput = (THGPUTensor*)luaT_checkudata(L, 3, "torch.GPUTensor");
   THGPUTensor *gradInput = (THGPUTensor*)luaT_getfieldcheckudata(L, 1, "gradInput", "torch.GPUTensor");
-  long size = THGPUTensor_nElement(output);
 
   gradOutput = THGPUTensor_newContiguous(gradOutput);
   THGPUTensor_resizeAs(gradInput, output);

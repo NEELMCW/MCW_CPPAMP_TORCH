@@ -606,8 +606,6 @@ void conv_img_acts_manycolor(THGPUTensor* hidActsTensor, THGPUTensor* filterTens
                              const int numImgColors, const int numGroups, const float scaleTargets, const float scaleOutputs,
                              int blockX, int blockY, int bx)
 {
-  const int numFilterColors = numImgColors / numGroups;
-
   Concurrency::array_view<float,1> avhidActs(Concurrency::extent<1>(hidActsTensor->storage->size), THGPUTensor_data(hidActsTensor));
   Concurrency::array_view<float,1> avFilters(Concurrency::extent<1>(filterTensor->storage->size), THGPUTensor_data(filterTensor));
   Concurrency::array_view<float,1> avTargets(Concurrency::extent<1>(targetTensor->storage->size), THGPUTensor_data(targetTensor));

@@ -20,7 +20,6 @@ static int gpunn_SoftPlus_updateOutput(lua_State *L)
   THGPUTensor *output = (THGPUTensor*)luaT_getfieldcheckudata(L, 1, "output", "torch.GPUTensor");
   float beta = luaT_getfieldchecknumber(L, 1, "beta");
   float threshold = luaT_getfieldchecknumber(L, 1, "threshold");
-  long size = THGPUTensor_nElement(input);
 
   input = THGPUTensor_newContiguous(input);
 
@@ -56,7 +55,6 @@ static int gpunn_SoftPlus_updateGradInput(lua_State *L)
   THGPUTensor *gradInput = (THGPUTensor*)luaT_getfieldcheckudata(L, 1, "gradInput", "torch.GPUTensor");
   float beta = luaT_getfieldchecknumber(L, 1, "beta");
   float threshold = luaT_getfieldchecknumber(L, 1, "threshold");
-  long size = THGPUTensor_nElement(output);
 
   gradOutput = THGPUTensor_newContiguous(gradOutput);
   THGPUTensor_resizeAs(gradInput, output);
