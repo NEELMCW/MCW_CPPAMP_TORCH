@@ -14,6 +14,7 @@
 #endif
 #define DECLARE_BOLT_DEVICE_VECTOR(host_a, dv_a) \
   Concurrency::array_view<float, 1> *pav_##host_a = static_cast<Concurrency::array_view<float, 1> *>(host_a->storage->allocatorContext);\
+  Concurrency::array_view<float, 1> dv_a##NOT_CARE(THGPUTensor_nElement(host_a), pav_##host_a->data());\
   bolt::amp::device_vector<float> dv_a(*pav_##host_a,THGPUTensor_nElement(host_a));
 
 #ifdef DECLARE_BOLT_DEVICE_VECTOR_2
