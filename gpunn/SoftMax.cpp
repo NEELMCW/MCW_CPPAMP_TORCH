@@ -1,10 +1,8 @@
 #define MINUS_LOG_THRESHOLD -18.42
 #define SOFTMAX_THREADS 128
 
-void gpunn_SoftMax_updateOutput_kernel(THGPUTensor *output, THGPUTensor *input, int nframe, int dim)
+void gpunn_SoftMax_updateOutput_kernel(Concurrency::array_view<float,1> &avOutput, Concurrency::array_view<float,1>&avInp, int nframe, int dim)
 {
-  Concurrency::array_view<float,1> avInp(Concurrency::extent<1>(input->storage->size), THGPUTensor_data(input));
-  Concurrency::array_view<float,1> avOutput(Concurrency::extent<1>(output->storage->size), THGPUTensor_data(output));
   Concurrency::extent<1> grdExt(nframe * SOFTMAX_THREADS);
   Concurrency::tiled_extent<SOFTMAX_THREADS> t_ext(grdExt);
   Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<SOFTMAX_THREADS> tidx) restrict(amp) 
@@ -79,11 +77,8 @@ void gpunn_SoftMax_updateOutput_kernel(THGPUTensor *output, THGPUTensor *input, 
 }
 
 
-void gpunn_SoftMax_updateGradInput_kernel(THGPUTensor *gradInput, THGPUTensor *output, THGPUTensor *gradOutput, int nframe, int dim)
+void gpunn_SoftMax_updateGradInput_kernel(Concurrency::array_view<float, 1> &avGradInput, Concurrency::array_view<float,1> &avOutput, Concurrency::array_view<float,1> &avGradOutput, int nframe, int dim)
 {
-  Concurrency::array_view<float,1> avGradInput(Concurrency::extent<1>(gradInput->storage->size), THGPUTensor_data(gradInput));
-  Concurrency::array_view<float,1> avOutput(Concurrency::extent<1>(output->storage->size), THGPUTensor_data(output));
-  Concurrency::array_view<float,1> avGradOutput(Concurrency::extent<1>(gradOutput->storage->size), THGPUTensor_data(gradOutput));
   Concurrency::extent<1> grdExt(nframe * SOFTMAX_THREADS);
   Concurrency::tiled_extent<SOFTMAX_THREADS> t_ext(grdExt);
   Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<SOFTMAX_THREADS> tidx) restrict(amp) 
@@ -137,13 +132,15 @@ static int gpunn_SoftMax_updateOutput(lua_State *L)
   input = THGPUTensor_newContiguous(input);
   THGPUTensor_resizeAs(output, input);
 
+  PREPARE_AV(input, pavInput);
+  PREPARE_AV(output, pavOutput);
   if (input->nDimension == 1)
   {
-    gpunn_SoftMax_updateOutput_kernel(output, input, 1, input->size[0]);
+    gpunn_SoftMax_updateOutput_kernel(*pavOutput, *pavInput, 1, input->size[0]);
   }
   else if (input->nDimension == 2)
   {
-    gpunn_SoftMax_updateOutput_kernel(output, input, input->size[0], input->size[1]);
+    gpunn_SoftMax_updateOutput_kernel(*pavOutput, *pavInput, input->size[0], input->size[1]);
   }
   else
     THError("vector or matrix expected");
@@ -180,20 +177,22 @@ static int gpunn_SoftMax_updateGradInput(lua_State *L)
   gradOutput = THGPUTensor_newContiguous(gradOutput);
 
   THGPUTensor_resizeAs(gradInput, output);
-
+  PREPARE_AV(gradInput, pavGradInput);
+  PREPARE_AV(output, pavOutput);
+  PREPARE_AV(gradOutput, pavGradOutput);
   if (gradInput->nDimension == 1)
   {
 
-    gpunn_SoftMax_updateGradInput_kernel(gradInput,
-                                         output,
-                                         gradOutput,
+    gpunn_SoftMax_updateGradInput_kernel(*pavGradInput,
+                                         *pavOutput,
+                                         *pavGradOutput,
                                          1, gradInput->size[0]);
   }
   else if (gradInput->nDimension == 2)
   {
-    gpunn_SoftMax_updateGradInput_kernel(gradInput,
-                                         output,
-                                         gradOutput,
+    gpunn_SoftMax_updateGradInput_kernel(*pavGradInput,
+                                         *pavOutput,
+                                         *pavGradOutput,
                                          gradInput->size[0], gradInput->size[1]);
   }
   else

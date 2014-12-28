@@ -81,11 +81,9 @@ static int gpunn_MSECriterion_updateGradInput(lua_State *L)
 
 #define MSECRITERION_THREADS 128
 
-void gpunn_MSECriterion_updateOutput_kernel(THGPUStorage* output, THGPUTensor *input, THGPUTensor *target, int nframe, int dim, int sizeAverage)
+void gpunn_MSECriterion_updateOutput_kernel(Concurrency::array_view<float,1> &avOutput,
+  Concurrency::array_view<float,1> &avInp, Concurrency::array_view<float,1> &avTarget, int nframe, int dim, int sizeAverage)
 {
-  Concurrency::array_view<float,1> avInp(Concurrency::extent<1>(input->storage->size), THGPUTensor_data(input));
-  Concurrency::array_view<float,1> avTarget(Concurrency::extent<1>(target->storage->size), THGPUTensor_data(target));
-  Concurrency::array_view<float,1> avOutput(Concurrency::extent<1>(output->size), output->data);
   Concurrency::extent<1> grdExt(MSECRITERION_THREADS);
   Concurrency::tiled_extent<MSECRITERION_THREADS> t_ext(grdExt);
   Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<MSECRITERION_THREADS> tidx) restrict(amp) 
@@ -124,11 +122,9 @@ void gpunn_MSECriterion_updateOutput_kernel(THGPUStorage* output, THGPUTensor *i
   });
 }
 
-void gpunn_MSECriterion_updateGradInput_kernel(THGPUTensor *gradInput, THGPUTensor *input, THGPUTensor *target, float norm, int nframe, int dim)
+void gpunn_MSECriterion_updateGradInput_kernel(Concurrency::array_view<float,1> &avGradInput,
+  Concurrency::array_view<float,1> &avInp, Concurrency::array_view<float,1> &avTarget, float norm, int nframe, int dim)
 {
-  Concurrency::array_view<float,1> avInp(Concurrency::extent<1>(input->storage->size), THGPUTensor_data(input));
-  Concurrency::array_view<float,1> avTarget(Concurrency::extent<1>(target->storage->size), THGPUTensor_data(target));
-  Concurrency::array_view<float,1> avGradInput(Concurrency::extent<1>(gradInput->storage->size), THGPUTensor_data(gradInput));
   Concurrency::extent<1> grdExt(MSECRITERION_THREADS);
   Concurrency::tiled_extent<MSECRITERION_THREADS> t_ext(grdExt);
   Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<MSECRITERION_THREADS> tidx) restrict(amp)
@@ -202,8 +198,10 @@ static int gpunn_MSECriterion_updateOutput2(lua_State *L)
 
   THGPUStorage *output = THGPUStorage_newWithSize(1);
 
-
-  gpunn_MSECriterion_updateOutput_kernel(output, input, target, 1, size, sizeAverage);
+  PREPARE_AV_WITH_STORAGE(output, pavOutput);
+  PREPARE_AV(input, pavInput);
+  PREPARE_AV(target, pavTarget);
+  gpunn_MSECriterion_updateOutput_kernel(*pavOutput, *pavInput, *pavTarget, 1, size, sizeAverage);
 
   lua_pushnumber(L, THGPUStorage_get(output, 0));
 
@@ -236,7 +234,10 @@ static int gpunn_MSECriterion_updateGradInput2(lua_State *L)
 
   THGPUTensor_resizeAs(gradInput, input);
 
-  gpunn_MSECriterion_updateGradInput_kernel(gradInput, input, target, norm, 1, size);
+  PREPARE_AV(gradInput, pavGradInput);
+  PREPARE_AV(input, pavInput);
+  PREPARE_AV(target, pavTarget);
+  gpunn_MSECriterion_updateGradInput_kernel(*pavGradInput, *pavInput, *pavTarget, norm, 1, size);
 
   if (input != temp1)
   {
