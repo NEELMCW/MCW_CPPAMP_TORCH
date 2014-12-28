@@ -37,4 +37,5 @@
 
 #define PREPARE_AV(Tensor_data, av_ptr) \
   Concurrency::array_view<float, 1> *av_ptr= \
-    static_cast<Concurrency::array_view<float, 1> *>(Tensor_data->storage->allocatorContext);
+    static_cast<Concurrency::array_view<float, 1> *>(Tensor_data->storage->allocatorContext);\
+  Concurrency::array_view<float, 1> Tensor_data##NOT_CARE(THGPUTensor_nElement(Tensor_data), av_ptr->data());
