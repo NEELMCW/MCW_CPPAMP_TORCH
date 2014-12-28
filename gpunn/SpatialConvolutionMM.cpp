@@ -172,6 +172,13 @@ static int gpunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
   long m = weight->size[0];
   long n = columns->size[1];
   long k = weight->size[1];
+
+  /* Prepare OpenCL memory objects and place matrices inside them. */
+  void* bufA = THGPUBlas_clCreateBuffer(n_, k_ ,THGPUTensor_data(ones));
+  void* bufB = THGPUBlas_clCreateBuffer(k_, m_ ,THGPUTensor_data(bias));
+
+  void* buf_Column = THGPUBlas_clCreateBuffer(n, k ,THGPUTensor_data(columns));
+  void* buf_Weight = THGPUBlas_clCreateBuffer(k, m ,THGPUTensor_data(weight));
   // For each elt in batch, do:
   for (int elt = 0; elt < batchSize; elt ++) {
     // Matrix mulitply per output:
@@ -181,13 +188,14 @@ static int gpunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
     // (see http://docs.nvidia.com/gpu/cublas/#cublas-lt-t-gt-gemm)
 
     // Do GEMM (note: this is a bit confusing because gemm assumes column-major matrices)
-    THGPUBlas_gemm(
+    THGPUBlas_gemm_opt(
         't', 'n',
         n_, m_, k_,
         1,
         THGPUTensor_data(ones), k_,
         THGPUTensor_data(bias), k_,
         0,
+        bufA, bufB,
         output->storage->data + output->stride[0] * elt, n_
     );
     // Extract columns:
@@ -200,18 +208,22 @@ static int gpunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
     // (see http://docs.nvidia.com/gpu/cublas/#cublas-lt-t-gt-gemm)
 
     // Do GEMM (note: this is a bit confusing because gemm assumes column-major matrices)
-    THGPUBlas_gemm(
+    THGPUBlas_gemm_opt(
         'n', 'n',
         n, m, k,
         1,
         THGPUTensor_data(columns), n,
         THGPUTensor_data(weight), k,
         1,
+        buf_Column, buf_Weight,
         output->storage->data + output->stride[0] * elt, n
     );
   }
 
-
+  clReleaseMemObject(static_cast<cl_mem>(bufB));
+  clReleaseMemObject(static_cast<cl_mem>(bufA));
+  clReleaseMemObject(static_cast<cl_mem>(buf_Column));
+  clReleaseMemObject(static_cast<cl_mem>(buf_Weight));
   // Resize output
   if (batch == 0) {
     THGPUTensor_resize3d(output, nOutputPlane, outputHeight, outputWidth);

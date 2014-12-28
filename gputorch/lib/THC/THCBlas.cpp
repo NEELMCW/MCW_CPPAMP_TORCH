@@ -478,3 +478,101 @@ void THGPUBlas_gemm(char transa, char transb, long m, long n, long k, float alph
           "with the bound [val] <= %d", INT_MAX);
 }
 
+void* THGPUBlas_clCreateBuffer(long m, long k, float* a) {
+  return (void*)clCreateBuffer(mcontext, CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR, m * k * sizeof(*a),  a, NULL);
+}
+
+/* Level 3 optimized. bufA, bufB are created outside as m,n,k is not changed in loops*/
+void THGPUBlas_gemm_opt(char transa, char transb,
+  long m, long n, long k, float alpha,
+  float *a, long lda, float *b, long ldb, float beta,
+  void* bufA, void* bufB,
+  float *c, long ldc)
+{
+  int transa_ = ((transa == 't') || (transa == 'T'));
+  int transb_ = ((transb == 't') || (transb == 'T'));
+
+  if (n == 1)
+    ldc = m;
+
+  if (transa_)
+  {
+    if (m == 1)
+      lda = k;
+  }
+  else
+  {
+    if (k == 1)
+      lda = m;
+  }
+
+  if (transb_)
+  {
+    if (k == 1)
+      ldb = n;
+  }
+  else
+  {
+    if (n == 1)
+      ldb = k;
+  }
+
+  //cublasOperation_t opa;
+  //if (transa == 't') opa = CUBLAS_OP_T;
+  //else if (transa == 'n') opa = CUBLAS_OP_N;
+  //else if (transa == 'c') opa = CUBLAS_OP_C;
+  //else THError("transa must be one of: t, n, c");
+
+  //cublasOperation_t opb;
+  //if (transb == 't') opb = CUBLAS_OP_T;
+  //else if (transb == 'n') opb = CUBLAS_OP_N;
+  //else if (transb == 'c') opb = CUBLAS_OP_C;
+  //else THError("transb must be one of: t, n, c");
+  clblasTranspose opa;
+  if (transa == 't') opa = clblasTrans;
+  else if (transa == 'n') opa = clblasNoTrans;
+  else if (transa == 'c') opa = clblasConjTrans;
+
+  clblasTranspose opb;
+  if (transb == 't') opb = clblasTrans;
+  else if (transb == 'n') opb = clblasNoTrans;
+  else if (transb == 'c') opb = clblasConjTrans;
+
+  if ( (m <= INT_MAX) && (n <= INT_MAX) && (k <= INT_MAX) && (lda <= INT_MAX)  && (ldb <= INT_MAX) && (ldc <= INT_MAX) )
+  {
+    size_t i_m = (size_t)m;
+    size_t i_n = (size_t)n;
+    size_t i_k = (size_t)k;
+
+    int i_lda = (int)lda;
+    int i_ldb = (int)ldb;
+    int i_ldc = (int)ldc;
+
+    cl_int err;
+    cl_mem bufC;//, bufB, bufA;
+    cl_event event = NULL;
+    clblasOrder order = clblasColumnMajor;
+
+
+    /* Prepare OpenCL memory objects and place matrices inside them. */
+    bufC = clCreateBuffer(mcontext, CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR , m * n * sizeof(*c), c, &err);
+
+    err = clblasSgemm(order, opa, opb, m, n, k, alpha, static_cast<cl_mem>(bufA), 0, i_lda, static_cast<cl_mem>(bufB), 0, i_ldb, beta, bufC, 0, i_ldc, 1, &mqueue, 0, NULL, NULL);
+    if (err != CL_SUCCESS)
+    {
+      printf("clblasSgemmEx() failed with %d\n", err);
+    }
+    else
+    {
+      err = clEnqueueReadBuffer(mqueue, bufC, CL_TRUE, 0, m * n * sizeof(*c), c, 0, NULL, NULL);
+    }
+    /* Release OpenCL memory objects. */
+    clReleaseMemObject(bufC);
+
+    //THCublasCheck(cublasSgemm(*current_handle, opa, opb, i_m, i_n, i_k, &alpha, a, i_lda, b, i_ldb, &beta, c, i_ldc));
+    return;
+  }
+  THError("Cublas_gemm only supports m, n, k, lda, ldb, ldc"
+          "with the bound [val] <= %d", INT_MAX);
+}
+
