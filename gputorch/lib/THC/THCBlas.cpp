@@ -335,6 +335,100 @@ void THGPUBlas_gemv(char trans, long m, long n, float alpha, float *a, long lda,
           "in the range 0 < [val] <= %d", INT_MAX);
 }
 
+/* Level 2 */
+void THGPUBlas_gemv_opt(char trans, long m, long n, float alpha, 
+  float *a, long lda, float *x, long incx, float beta, float *y, long incy,
+  void* cl_A, void* cl_X, void* cl_Y)
+{
+
+  int transa_ = ((trans == 't') || (trans == 'T'));
+
+  if (n == 1)
+    lda = m;
+
+
+  int i_incx = (int)incx;
+  int i_incy = (int)incy;
+  int lenM, lenN;
+  //cublasOperation_t op;
+  clblasTranspose op;
+  if (trans == 't')
+  {
+    op = clblasTrans;
+    lenM = 1 + (m-1)*abs(i_incx);
+    lenN = 1 + (n-1)*abs(i_incy);
+  }
+  else if (trans == 'n')
+  {
+    op = clblasNoTrans;
+    lenM = 1 + (n-1)*abs(i_incx);
+    lenN = 1 + (m-1)*abs(i_incy);
+  }
+  else if (trans == 'c')
+  {
+    op = clblasConjTrans;
+    lenM = 1 + (n-1)*abs(i_incx);
+    lenN = 1 + (m-1)*abs(i_incy);
+  }
+  clblasOrder order = clblasColumnMajor;
+
+
+
+  if( (m <= INT_MAX) && (n <= INT_MAX) &&
+      (lda > 0) && (lda <= INT_MAX) &&
+      (incx > 0) && (incx <= INT_MAX) &&
+      (incy > 0) && (incy <= INT_MAX) )
+  {
+    cl_int err;
+    cl_mem bufX, bufY, bufA;
+    cl_event event = NULL;
+
+    size_t i_m = (size_t)m;
+    size_t i_lda = (size_t)lda;
+
+    size_t i_n = (size_t)n;
+    //int lenM = m;
+    //int lenN = n;
+   if (cl_A == NULL)
+      bufA = clCreateBuffer(mcontext, CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR, lenM * lenN * sizeof(*a), a, &err);
+   else
+     bufA = static_cast<cl_mem>(cl_A);
+   if (cl_X == NULL)
+     bufX = clCreateBuffer(mcontext, CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR, lenM * sizeof(*x), x, &err);
+   else
+    bufX = static_cast<cl_mem>(cl_X);
+   if (cl_Y == NULL)
+     bufY = clCreateBuffer(mcontext, CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR, lenN * sizeof(*y), y, &err);
+   else
+      bufY = static_cast<cl_mem>(cl_Y);
+
+    /* Call clblas extended function. */
+    err = clblasSgemv(order, op, i_m , i_n , alpha, bufA, 0, i_lda, bufX, 0, i_incx, beta, bufY, 0, i_incy, 1, &mqueue, 0, NULL, &event);
+
+    if (err != CL_SUCCESS)
+    {
+      printf("clblasSgemvEx() failed with %d\n", err);
+    }
+    else
+    {
+      /* Fetch results of calculations from GPU memory. */
+      err = clEnqueueReadBuffer(mqueue, bufY, CL_TRUE, 0, lenN * sizeof(*y), y, 0, NULL, NULL);
+    }
+    /* Release OpenCL memory objects. */
+    if (cl_Y == NULL)
+      clReleaseMemObject(bufY);
+    if (cl_X == NULL)
+      clReleaseMemObject(bufX);
+    if (cl_A == NULL)
+      clReleaseMemObject(bufA);
+
+    //THCublasCheck(cublasSgemv(*current_handle, op, i_m, i_n, &alpha, a, i_lda, x, i_incx, &beta, y, i_incy));
+    return;
+  }
+  THError("Cublas_gemv only supports m, n, lda, incx, incy"
+          "in the range 0 < [val] <= %d", INT_MAX);
+}
+
 void THGPUBlas_ger(long m, long n, float alpha, float *x, long incx, float *y, long incy, float *a, long lda)
 {
   if (n == 1)

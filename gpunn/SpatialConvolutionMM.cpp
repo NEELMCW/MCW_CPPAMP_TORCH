@@ -371,6 +371,13 @@ static int gpunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
   // Helpers
   THGPUTensor *gradOutput_n = THGPUTensor_new();
 
+  
+  long m_ = nOutputPlane;
+  long k_ = outputHeight * outputWidth;
+  // char trans = 't', see this in the loop body
+  void* bufX = THGPUBlas_clCreateBuffer(k_, 1 ,THGPUTensor_data(ones));
+  void* bufY = THGPUBlas_clCreateBuffer(m_, 1 ,THGPUTensor_data(gradBias));
+
   PREPARE_AV(columns, avData_col);
   PREPARE_AV(input, avData_im);
   // For each elt in batch, do:
@@ -409,14 +416,15 @@ static int gpunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
     long k_ = outputHeight * outputWidth;
 
     // Do GEMV (note: this is a bit confusing because gemv assumes column-major matrices)
-    THGPUBlas_gemv(
+    THGPUBlas_gemv_opt(
         't',
         k_, m_,
         scale,
         THGPUTensor_data(gradOutput_n), k_,
         THGPUTensor_data(ones), 1,
         1,
-        THGPUTensor_data(gradBias), 1
+        THGPUTensor_data(gradBias), 1,
+        NULL, bufX, bufY
     );
   }
 
