@@ -8,7 +8,6 @@ void max_output(Concurrency::array_view<float, 1> &avInp, Concurrency::array_vie
                unsigned int indSz, long nrows, long ncols, unsigned int numBlocks)
 {
   // output offset:
-  
   Concurrency::extent<1> grdExt(numBlocks * 256);
   Concurrency::tiled_extent<256> t_ext(grdExt);
 
@@ -37,13 +36,10 @@ void max_output(Concurrency::array_view<float, 1> &avInp, Concurrency::array_vie
   });
 }
 
-void max_gradInput(float *input, float *output, float *indices, unsigned int inputSz, unsigned int outSz,
+void max_gradInput(Concurrency::array_view<float, 1> &avInp, Concurrency::array_view<float,1> &avOut, Concurrency::array_view<float,1> &avInD, unsigned int inputSz, unsigned int outSz,
                   unsigned int indSz, long nrows, long ncols, unsigned int numBlocks)
 {
   // output offset:
-  Concurrency::array_view<float, 1> avInp(inputSz, input);
-  Concurrency::array_view<float, 1> avOut(outSz, output);
-  Concurrency::array_view<float, 1> avInD(indSz, indices);
   Concurrency::extent<1> grdExt(numBlocks * 256);
   Concurrency::tiled_extent<256> t_ext(grdExt);
   Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<256> tidx) restrict(amp) 
@@ -88,10 +84,9 @@ static int gpunn_Max_updateOutput(lua_State *L)
   long nthreads = 256;
   long nblocks = ceil((float)nrows / nthreads);
 
-  Concurrency::array_view<float, 1> *pavInput = static_cast<Concurrency::array_view<float, 1> *>(input->storage->allocatorContext);
-  Concurrency::array_view<float, 1> *pavOutput = static_cast<Concurrency::array_view<float, 1> *>(output->storage->allocatorContext);
-  Concurrency::array_view<float, 1> *pavIndices = static_cast<Concurrency::array_view<float, 1> *>(indices->storage->allocatorContext);
-
+  PREPARE_AV(input, pavInput);
+  PREPARE_AV(output, pavOutput);
+  PREPARE_AV(indices, pavIndices);
   // kernel:
   max_output(*pavInput, *pavOutput, *pavIndices, THGPUTensor_nElement(input),
              THGPUTensor_nElement(output), THGPUTensor_nElement(indices), nrows, ncols, nblocks);
@@ -114,10 +109,6 @@ static int gpunn_Max_updateGradInput(lua_State *L)
   THGPUTensor_resizeAs(gradInput, input);
   THGPUTensor_zero(gradInput);
 
-  float *gradInput_data = THGPUTensor_data(gradInput);
-  float *gradOutput_data = THGPUTensor_data(gradOutput);
-  float *indices_data = THGPUTensor_data(indices);
-
   long nrows = THGPUTensor_nElement(gradOutput);
   long ncols = gradInput->size[dimension];
 
@@ -125,8 +116,11 @@ static int gpunn_Max_updateGradInput(lua_State *L)
   long nthreads = 256;
   long nblocks = ceil((float)nrows / nthreads);
 
+  PREPARE_AV(gradInput, pavGradInput);
+  PREPARE_AV(gradOutput, pavGradOutput);
+  PREPARE_AV(indices, pavIndices);
   // kernel:
-  max_gradInput(gradInput_data, gradOutput_data, indices_data, THGPUTensor_nElement(gradInput),
+  max_gradInput(*pavGradInput , *pavGradOutput, *pavIndices, THGPUTensor_nElement(gradInput),
                 THGPUTensor_nElement(gradOutput), THGPUTensor_nElement(indices), nrows, ncols, nblocks);
 
   return 1;
