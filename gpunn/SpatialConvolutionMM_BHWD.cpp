@@ -16,10 +16,9 @@ inline int GET_BLOCKS(const int N) {
 
 void imt2col_kernel(const int n, THGPUTensor* data_im, const int height, const int width, const int ksize_h,
                    const int ksize_w, const int pad_h, const int pad_w, const int stride_h, const int stride_w,
-                   const int height_col, const int width_col, THGPUTensor* data_col)
+                   const int height_col, const int width_col, Concurrency::array_view<float,1> &avData_col)
 {
   Concurrency::array_view<float,1> avData_im(THGPUTensor_nElement(data_im), THGPUTensor_data(data_im));
-  Concurrency::array_view<float,1> avData_col(THGPUTensor_nElement(data_col), THGPUTensor_data(data_col));
   unsigned grdSz = (n + 255) & ~255;
   Concurrency::extent<1> grdExt(grdSz);
   Concurrency::tiled_extent<256> t_ext(grdExt);
@@ -55,7 +54,7 @@ void imt2col_kernel(const int n, THGPUTensor* data_im, const int height, const i
 
 void imt2col(THGPUTensor* data_im, const int channels, const int height, const int width,
             const int ksize_h, const int ksize_w, const int pad_h, const int pad_w,
-            const int stride_h, const int stride_w, THGPUTensor* data_col)
+            const int stride_h, const int stride_w, Concurrency::array_view<float,1>&data_col)
 {
   // We are going to launch channels * height_col * width_col kernels, each
   // kernel responsible for copying a single-channel grid.
@@ -116,6 +115,7 @@ static int gpunn_SpatialConvolutionMM_BHWD_updateOutput(lua_State *L) {
   THGPUTensor *input_n = THGPUTensor_new();
   THGPUTensor *output_n = THGPUTensor_new();
 
+  PREPARE_AV(columns, pavColumns);
   // For each elt in batch, do:
   for (int elt = 0; elt < batchSize; elt ++) {
     // Matrix mulitply per output:
@@ -144,7 +144,7 @@ static int gpunn_SpatialConvolutionMM_BHWD_updateOutput(lua_State *L) {
     imt2col(
         input_n,
         nInputPlane, inputHeight, inputWidth, kH, kW, padding, padding, dH, dW,
-        columns
+        *pavColumns
     );
 
     // M,N,K are dims of matrix A and B

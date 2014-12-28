@@ -164,8 +164,8 @@ static int gpunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
   }
 
   // Helpers
-  Concurrency::array_view<float,1> avData_col(THGPUTensor_nElement(columns), THGPUTensor_data(columns));
-  Concurrency::array_view<float,1> avData_im(THGPUTensor_nElement(input), THGPUTensor_data(input));
+  PREPARE_AV(columns, avData_col);
+  PREPARE_AV(input, avData_im);
   long m_ = nOutputPlane;
   long n_ = outputHeight * outputWidth;
   long k_ = 1;
@@ -192,9 +192,9 @@ static int gpunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
     );
     // Extract columns:
     im2col(
-        avData_im, input->stride[0], elt,
+        *avData_im, input->stride[0], elt,
         nInputPlane, inputHeight, inputWidth, kH, kW, padding, padding, dH, dW,
-        avData_col
+        *avData_col
     );
     // M,N,K are dims of matrix A and B
     // (see http://docs.nvidia.com/gpu/cublas/#cublas-lt-t-gt-gemm)
@@ -264,10 +264,9 @@ static int gpunn_SpatialConvolutionMM_updateGradInput(lua_State *L) {
   THGPUTensor_resize2d(gradColumns, nInputPlane*kW*kH, outputHeight*outputWidth);
 
   // Helpers
-
-  Concurrency::array_view<float,1> avData_col(THGPUTensor_nElement(gradColumns), THGPUTensor_data(gradColumns));
-  Concurrency::array_view<float,1> avData_im(THGPUTensor_nElement(gradInput), THGPUTensor_data(gradInput));
-  // For each elt in batch, do:
+  PREPARE_AV(gradColumns, avData_col);
+  PREPARE_AV(gradInput, avData_im);
+ // For each elt in batch, do:
   for (int elt = 0; elt < batchSize; elt ++) {
     // Matrix mulitply per sample:
 
@@ -290,9 +289,9 @@ static int gpunn_SpatialConvolutionMM_updateGradInput(lua_State *L) {
 
     // Unpack columns back into input:
     col2im(
-        avData_col,
+        *avData_col,
         nInputPlane, inputHeight, inputWidth, kH, kW, padding, padding, dH, dW,
-        avData_im, gradInput->stride[0], elt
+        *avData_im, gradInput->stride[0], elt
     );
   }
 
@@ -360,8 +359,8 @@ static int gpunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
   // Helpers
   THGPUTensor *gradOutput_n = THGPUTensor_new();
 
-  Concurrency::array_view<float,1> avData_col(THGPUTensor_nElement(columns), THGPUTensor_data(columns));
-  Concurrency::array_view<float,1> avData_im(THGPUTensor_nElement(input), THGPUTensor_data(input));
+  PREPARE_AV(columns, avData_col);
+  PREPARE_AV(input, avData_im);
   // For each elt in batch, do:
   for (int elt = 0; elt < batchSize; elt ++) {
     // Matrix mulitply per output:
@@ -369,9 +368,9 @@ static int gpunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
 
     // Extract columns:
     im2col(
-        avData_im, input->stride[0], elt,
+        *avData_im, input->stride[0], elt,
         nInputPlane, inputHeight, inputWidth, kH, kW, padding, padding, dH, dW,
-        avData_col
+        *avData_col
     );
 
     // M,N,K are dims of matrix A and B
