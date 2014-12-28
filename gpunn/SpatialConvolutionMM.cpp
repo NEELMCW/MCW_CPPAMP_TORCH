@@ -428,6 +428,8 @@ static int gpunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
     );
   }
 
+  clReleaseMemObject(static_cast<cl_mem>(bufY));
+  clReleaseMemObject(static_cast<cl_mem>(bufX));
   // Free
   THGPUTensor_free(gradOutput_n);
 
