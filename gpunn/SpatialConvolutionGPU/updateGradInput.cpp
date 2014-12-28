@@ -28,16 +28,14 @@
  * This version conserves shared memory by loading 16 filters at a time rather than 32.
  */
 template <int imgsPerThread, int numColors, bool scale, bool checkCaseBounds, bool conv>
-void img_acts_color(THGPUTensor* hidActsTensor, THGPUTensor* filterTensor, THGPUTensor* targetTensor,
+void img_acts_color(Concurrency::array_view<float,1> &avhidActs,
+                    Concurrency::array_view<float,1> &avFilters, Concurrency::array_view<float,1> &avTargets,
                     const int numModulesY, const int numModulesX, const int numImages, const int numFilters,
                     const int filterSize, const int imgSizeY, const int imgSizeX,
                     const int paddingStart, const int moduleStride,
                     const float scaleTargets, const float scaleOutputs,
                     int blockX, int blockY, int numFilterColors, int bx)
 {
-  Concurrency::array_view<float,1> avhidActs(Concurrency::extent<1>(hidActsTensor->storage->size), THGPUTensor_data(hidActsTensor));
-  Concurrency::array_view<float,1> avFilters(Concurrency::extent<1>(filterTensor->storage->size), THGPUTensor_data(filterTensor));
-  Concurrency::array_view<float,1> avTargets(Concurrency::extent<1>(targetTensor->storage->size), THGPUTensor_data(targetTensor));
 #if (numFilterColors % 8 == 0)
   blockX = (blockX + 31) &~31;
   blockY = (blockY + 3) &~3;
@@ -230,7 +228,8 @@ void img_acts_color(THGPUTensor* hidActsTensor, THGPUTensor* filterTensor, THGPU
  * To be used when there are 4-16 color channels.
  */
 template <int imgsPerThread, int colorsPerThread,  bool scale, bool checkCaseBounds, bool conv>
-void img_acts_mediumcolor(THGPUTensor* hidActsTensor, THGPUTensor* filterTensor, THGPUTensor* targetTensor,
+void img_acts_mediumcolor(Concurrency::array_view<float,1> &avhidActs,
+                          Concurrency::array_view<float,1> &avFilters, Concurrency::array_view<float,1> &avTargets,
                           const int numModulesY, const int numModulesX, const int numImages, const int numFilters,
                           const int filterSize, const int imgSizeY, const int imgSizeX, const int paddingStart,
                           const int moduleStride, const int numImgColors, const int numGroups,
@@ -239,9 +238,6 @@ void img_acts_mediumcolor(THGPUTensor* hidActsTensor, THGPUTensor* filterTensor,
 {
   const int numFilterColors = numImgColors / numGroups;
 
-  Concurrency::array_view<float,1> avhidActs(Concurrency::extent<1>(hidActsTensor->storage->size), THGPUTensor_data(hidActsTensor));
-  Concurrency::array_view<float,1> avFilters(Concurrency::extent<1>(filterTensor->storage->size), THGPUTensor_data(filterTensor));
-  Concurrency::array_view<float,1> avTargets(Concurrency::extent<1>(targetTensor->storage->size), THGPUTensor_data(targetTensor));
   if (bx==32)
 {
   Concurrency::extent<3> grdExt(1, blockY * 4, blockX * 32);
@@ -600,15 +596,13 @@ else
  * To be used when there are >= 16 color channels.
  */
 template <int B_Y, int B_X, int imgsPerThread, int colorsPerThread, bool scale, bool checkCaseBounds, bool conv>
-void conv_img_acts_manycolor(THGPUTensor* hidActsTensor, THGPUTensor* filterTensor, THGPUTensor* targetTensor,
+void conv_img_acts_manycolor(Concurrency::array_view<float,1> &avhidActs,
+                             Concurrency::array_view<float,1> &avFilters, Concurrency::array_view<float,1> avTargets,
                              const int numModulesY, const int numModulesX, const int numImages, const int numFilters,
                              const int filterSize, const int imgSizeY, const int imgSizeX, const int paddingStart, const int moduleStride,
                              const int numImgColors, const int numGroups, const float scaleTargets, const float scaleOutputs,
                              int blockX, int blockY, int bx)
 {
-  Concurrency::array_view<float,1> avhidActs(Concurrency::extent<1>(hidActsTensor->storage->size), THGPUTensor_data(hidActsTensor));
-  Concurrency::array_view<float,1> avFilters(Concurrency::extent<1>(filterTensor->storage->size), THGPUTensor_data(filterTensor));
-  Concurrency::array_view<float,1> avTargets(Concurrency::extent<1>(targetTensor->storage->size), THGPUTensor_data(targetTensor));
 if (bx==32)
 {
   Concurrency::extent<3> grdExt(1, blockY * 4, blockX *32);
@@ -913,8 +907,9 @@ else
  * Other batch sizes will work, but but I made no attempt whatsoever
  * to make them work fast. 
  */
-void spatialConv_updateGradInput( THGPUTensor *hidActs, THGPUTensor *filters, THGPUTensor *targets, int numImgColors,
-                                  int imgSizeY, int imgSizeX, int numImages,int numFilters,int numModulesY,
+void spatialConv_updateGradInput(Concurrency::array_view<float, 1>&hidActs,
+                                  Concurrency::array_view<float, 1>&filters, Concurrency::array_view<float, 1>&targets,
+                                  int numImgColors, int imgSizeY, int imgSizeX, int numImages,int numFilters,int numModulesY,
                                   int numModulesX, int filterSizeY, int filterSizeX, int paddingStart,
                                   int moduleStride, float scaleTargets, float scaleOutput, bool conv)
 {

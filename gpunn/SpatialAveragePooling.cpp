@@ -6,14 +6,12 @@
  *    this function avg-pools an input 3D tensor along dimensions 1 and 2
  *    3D input, 3D output
  */
-void subsample(THGPUTensor  *inputTensor, THGPUTensor  *outputTensor,
+void subsample(Concurrency::array_view<float,1> &avInput, Concurrency::array_view<float,1> &avOutput,
                int input_n, int input_h, int input_w,
                int kH, int kW, int dH, int dW, int xBlocks)
 {
   int yBlocks = (int)(16L / input_n);
   yBlocks = yBlocks < 1 ? 1 : yBlocks;
-  Concurrency::array_view<float,1> avInput(Concurrency::extent<1>(inputTensor->storage->size), THGPUTensor_data(inputTensor));
-  Concurrency::array_view<float,1> avOutput(Concurrency::extent<1>(outputTensor->storage->size), THGPUTensor_data(outputTensor));
   Concurrency::extent<2> grdExt(yBlocks * 8 , xBlocks * 32);
   Concurrency::tiled_extent<8, 32> t_ext(grdExt);
   Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<8, 32> tidx) restrict(amp)
@@ -86,8 +84,11 @@ static int gpunn_SpatialAveragePooling_updateOutput(lua_State *L)
     THGPUTensor_resize3d(output, nInputPlane, nOutputRows, nOutputCols);
 
     int xBlocks = nInputPlane;
+
+    PREPARE_AV(input, pavInput);
+    PREPARE_AV(output, pavOutput);
     // run subsample kernel
-    subsample (input, output, nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW, xBlocks);
+    subsample (*pavInput, *pavOutput, nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW, xBlocks);
   } else {
     long nInputCols = input->size[3];
     long nInputRows = input->size[2];
@@ -103,8 +104,11 @@ static int gpunn_SpatialAveragePooling_updateOutput(lua_State *L)
     THGPUTensor_resize4d(output, nbatch, nInputPlane, nOutputRows, nOutputCols);
 
     int xBlocks = nInputPlane * nbatch;
+
+    PREPARE_AV(input, pavInput);
+    PREPARE_AV(output, pavOutput);
     // run subsample kernel
-    subsample (input, output, nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW, xBlocks);
+    subsample (*pavInput, *pavOutput, nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW, xBlocks);
   }
 
   // clean
@@ -117,13 +121,11 @@ static int gpunn_SpatialAveragePooling_updateOutput(lua_State *L)
  * Description:
  *    this function computes the gradInput from gradOutput
  */
-void subgradinput(THGPUTensor *gradIpTensor, THGPUTensor *gradOpTensor, int input_n,
+void subgradinput(Concurrency::array_view<float,1> &avGradInput, Concurrency::array_view<float,1> &avGradOutput, int input_n,
                   int input_h, int input_w, int kH, int kW, int dH, int dW, int xBlocks)
 {
   int yBlocks = (int)(16L / input_n);
   yBlocks = yBlocks < 1 ? 1 : yBlocks;
-  Concurrency::array_view<float,1> avGradInput(Concurrency::extent<1>(gradIpTensor->storage->size), THGPUTensor_data(gradIpTensor));
-  Concurrency::array_view<float,1> avGradOutput(Concurrency::extent<1>(gradOpTensor->storage->size), THGPUTensor_data(gradOpTensor));
   Concurrency::extent<2> grdExt(yBlocks * 8 , xBlocks * 32);
   Concurrency::tiled_extent<8, 32> t_ext(grdExt);
   Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<8, 32> tidx) restrict(amp)
@@ -182,7 +184,6 @@ static int gpunn_SpatialAveragePooling_updateGradInput(lua_State *L)
   luaL_argcheck(L, dH == kH, 1, "dH and kH must be equal (this will be fixed soon)");
 
   THGPUTensor *gradInput = (THGPUTensor *)luaT_getfieldcheckudata(L, 1, "gradInput", "torch.GPUTensor");
-
   if (input->nDimension == 3) {
     long nInputCols = input->size[2];
     long nInputRows = input->size[1];
@@ -192,8 +193,11 @@ static int gpunn_SpatialAveragePooling_updateGradInput(lua_State *L)
     THGPUTensor_zero(gradInput);
 
     int xBlocks = nInputPlane;
+
+    PREPARE_AV(gradInput, pavGradInput);
+    PREPARE_AV(gradOutput, pavGradOutput);
     // run updateGradInput kernel
-    subgradinput(gradInput, gradOutput, nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW, xBlocks);
+    subgradinput(*pavGradInput, *pavGradOutput, nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW, xBlocks);
   } else {
     long nInputCols = input->size[3];
     long nInputRows = input->size[2];
@@ -204,8 +208,10 @@ static int gpunn_SpatialAveragePooling_updateGradInput(lua_State *L)
     THGPUTensor_zero(gradInput);
 
     int xBlocks = nInputPlane * nbatch;
+    PREPARE_AV(gradInput, pavGradInput);
+    PREPARE_AV(gradOutput, pavGradOutput);
     // run updateGradInput kernel
-    subgradinput(gradInput, gradOutput, nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW, xBlocks);
+    subgradinput(*pavGradInput, *pavGradOutput, nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW, xBlocks);
   }
   return 1;
 }
