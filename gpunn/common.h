@@ -30,3 +30,11 @@
   DECLARE_BOLT_DEVICE_VECTOR(host_1, dv_1); \
   DECLARE_BOLT_DEVICE_VECTOR(host_2, dv_2); \
   DECLARE_BOLT_DEVICE_VECTOR(host_3, dv_3);
+
+#ifdef PREPARE_AV
+#undef PREPARE_AV
+#endif
+
+#define PREPARE_AV(Tensor_data, av_ptr) \
+  Concurrency::array_view<float, 1> *av_ptr= \
+    static_cast<Concurrency::array_view<float, 1> *>(Tensor_data->storage->allocatorContext);
