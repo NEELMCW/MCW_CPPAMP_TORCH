@@ -97,11 +97,6 @@ static int gpunn_SpatialConvolutionGPU_updateGradInput(lua_State *L)
   luaL_argcheck(L, THGPUTensor_isContiguous(weight), 1, "weight must be contiguous");
   luaL_argcheck(L, THGPUTensor_isContiguous(gradOutput), 1, "output must be contiguous");
 
-  // raw pointers 
-  float *gradInput_data = THGPUTensor_data(gradInput);
-  float *weight_data = THGPUTensor_data(weight);
-  float *gradOutput_data = THGPUTensor_data(gradOutput);
-
   PREPARE_AV(gradInput, pavGradInput);
   PREPARE_AV(gradOutput, pavGradOutput);
   PREPARE_AV(weight, pavWeight);
