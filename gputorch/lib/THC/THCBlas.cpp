@@ -486,8 +486,8 @@ void* THGPUBlas_clCreateBuffer(long m, long k, float* a) {
 void THGPUBlas_gemm_opt(char transa, char transb,
   long m, long n, long k, float alpha,
   float *a, long lda, float *b, long ldb, float beta,
-  void* bufA, void* bufB,
-  float *c, long ldc)
+  float *c, long ldc,
+  void* cl_A, void* cl_B, void* cl_C)
 {
   int transa_ = ((transa == 't') || (transa == 'T'));
   int transb_ = ((transb == 't') || (transb == 'T'));
@@ -549,15 +549,26 @@ void THGPUBlas_gemm_opt(char transa, char transb,
     int i_ldc = (int)ldc;
 
     cl_int err;
-    cl_mem bufC;//, bufB, bufA;
+    cl_mem bufC, bufB, bufA;
     cl_event event = NULL;
     clblasOrder order = clblasColumnMajor;
 
 
     /* Prepare OpenCL memory objects and place matrices inside them. */
-    bufC = clCreateBuffer(mcontext, CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR , m * n * sizeof(*c), c, &err);
+    if (cl_A == NULL)
+      bufA = clCreateBuffer(mcontext, CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR, m * k * sizeof(*a),  a, &err);
+    else
+      bufA = static_cast<cl_mem>(cl_A);
+    if (cl_B == NULL)
+      bufB = clCreateBuffer(mcontext, CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR, k * n * sizeof(*b),  b, &err); 
+    else
+      bufB = static_cast<cl_mem>(cl_B);
+    if (cl_C == NULL)
+      bufC = clCreateBuffer(mcontext, CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR , m * n * sizeof(*c), c, &err);
+    else
+      bufC = static_cast<cl_mem>(cl_C);
 
-    err = clblasSgemm(order, opa, opb, m, n, k, alpha, static_cast<cl_mem>(bufA), 0, i_lda, static_cast<cl_mem>(bufB), 0, i_ldb, beta, bufC, 0, i_ldc, 1, &mqueue, 0, NULL, NULL);
+    err = clblasSgemm(order, opa, opb, m, n, k, alpha, bufA, 0, i_lda, bufB, 0, i_ldb, beta, bufC, 0, i_ldc, 1, &mqueue, 0, NULL, NULL);
     if (err != CL_SUCCESS)
     {
       printf("clblasSgemmEx() failed with %d\n", err);
@@ -567,7 +578,12 @@ void THGPUBlas_gemm_opt(char transa, char transb,
       err = clEnqueueReadBuffer(mqueue, bufC, CL_TRUE, 0, m * n * sizeof(*c), c, 0, NULL, NULL);
     }
     /* Release OpenCL memory objects. */
-    clReleaseMemObject(bufC);
+    if (cl_C == NULL)
+      clReleaseMemObject(bufC);
+    if (cl_B == NULL)
+      clReleaseMemObject(bufB);
+    if (cl_A == NULL)
+      clReleaseMemObject(bufA);
 
     //THCublasCheck(cublasSgemm(*current_handle, opa, opb, i_m, i_n, i_k, &alpha, a, i_lda, b, i_ldb, &beta, c, i_ldc));
     return;

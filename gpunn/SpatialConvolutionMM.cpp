@@ -195,8 +195,8 @@ static int gpunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
         THGPUTensor_data(ones), k_,
         THGPUTensor_data(bias), k_,
         0,
-        bufA, bufB,
-        output->storage->data + output->stride[0] * elt, n_
+        output->storage->data + output->stride[0] * elt, n_,
+        bufA, bufB, NULL
     );
     // Extract columns:
     im2col(
@@ -215,8 +215,8 @@ static int gpunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
         THGPUTensor_data(columns), n,
         THGPUTensor_data(weight), k,
         1,
-        buf_Column, buf_Weight,
-        output->storage->data + output->stride[0] * elt, n
+        output->storage->data + output->stride[0] * elt, n,
+        buf_Column, buf_Weight, NULL
     );
   }
 
