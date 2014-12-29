@@ -286,25 +286,31 @@ static int gpunn_SpatialConvolutionMM_updateGradInput(lua_State *L) {
   // Helpers
   PREPARE_AV(gradColumns, avData_col);
   PREPARE_AV(gradInput, avData_im);
+  long m = weight->size[1];
+  long n = gradColumns->size[1];
+  long k = weight->size[0];
+
+  /* Prepare OpenCL memory objects and place matrices inside them. */
+  void* buf_Column = THGPUBlas_clCreateBuffer(n, m ,THGPUTensor_data(gradColumns));
+  void* buf_Weight = THGPUBlas_clCreateBuffer(k, m ,THGPUTensor_data(weight));
+
  // For each elt in batch, do:
   for (int elt = 0; elt < batchSize; elt ++) {
     // Matrix mulitply per sample:
 
     // M,N,K are dims of matrix A and B
     // (see http://docs.nvidia.com/gpu/cublas/#cublas-lt-t-gt-gemm)
-    long m = weight->size[1];
-    long n = gradColumns->size[1];
-    long k = weight->size[0];
 
     // Do GEMM (note: this is a bit confusing because gemm assumes column-major matrices)
-    THGPUBlas_gemm(
+    THGPUBlas_gemm_opt(
         'n', 't',
         n, m, k,
         1,
         gradOutput->storage->data + gradOutput->stride[0] * elt, n,
         THGPUTensor_data(weight), m,
         0,
-        THGPUTensor_data(gradColumns), n
+        THGPUTensor_data(gradColumns), n,
+        NULL, buf_Weight, buf_Column
     );
 
     // Unpack columns back into input:
@@ -316,6 +322,8 @@ static int gpunn_SpatialConvolutionMM_updateGradInput(lua_State *L) {
   }
 
   // Free
+  clReleaseMemObject(static_cast<cl_mem>(buf_Column));
+  clReleaseMemObject(static_cast<cl_mem>(buf_Weight));
 
   // Resize output
   if (batch == 0) {
@@ -379,10 +387,16 @@ static int gpunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
   // Helpers
   THGPUTensor *gradOutput_n = THGPUTensor_new();
 
-  
+  long m = gradWeight->size[0];
+  long n = gradWeight->size[1];
+  long k = columns->size[1];
   long m_ = nOutputPlane;
   long k_ = outputHeight * outputWidth;
   // char trans = 't', see this in the loop body
+
+  void* buf_Column = THGPUBlas_clCreateBuffer(n, k ,THGPUTensor_data(columns));
+  void* buf_Output = THGPUBlas_clCreateBuffer(k, m ,THGPUTensor_data(gradOutput_n));
+  void* buf_Weight = THGPUBlas_clCreateBuffer(n, m ,THGPUTensor_data(gradWeight));
   void* bufX = THGPUBlas_clCreateBuffer(k_, 1 ,THGPUTensor_data(ones));
   void* bufY = THGPUBlas_clCreateBuffer(m_, 1 ,THGPUTensor_data(gradBias));
 
@@ -402,19 +416,17 @@ static int gpunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
 
     // M,N,K are dims of matrix A and B
     // (see http://docs.nvidia.com/gpu/cublas/#cublas-lt-t-gt-gemm)
-    long m = gradWeight->size[0];
-    long n = gradWeight->size[1];
-    long k = columns->size[1];
 
     // Do GEMM (note: this is a bit confusing because gemm assumes column-major matrices)
-    THGPUBlas_gemm(
+    THGPUBlas_gemm_opt(
         't', 'n',
         n, m, k,
         scale,
         THGPUTensor_data(columns), k,
         THGPUTensor_data(gradOutput_n), k,
         1,
-        THGPUTensor_data(gradWeight), n
+        THGPUTensor_data(gradWeight), n,
+        buf_Column, buf_Output, buf_Weight
     );
 
     // Do Bias:
@@ -436,6 +448,9 @@ static int gpunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
     );
   }
 
+  clReleaseMemObject(static_cast<cl_mem>(buf_Output));
+  clReleaseMemObject(static_cast<cl_mem>(buf_Column));
+  clReleaseMemObject(static_cast<cl_mem>(buf_Weight));
   clReleaseMemObject(static_cast<cl_mem>(bufY));
   clReleaseMemObject(static_cast<cl_mem>(bufX));
   // Free

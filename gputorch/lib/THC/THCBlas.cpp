@@ -573,7 +573,7 @@ void THGPUBlas_gemm(char transa, char transb, long m, long n, long k, float alph
 }
 
 void* THGPUBlas_clCreateBuffer(long m, long k, float* a) {
-  return (void*)clCreateBuffer(mcontext, CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR, m * k * sizeof(*a),  a, NULL);
+  return (void*)clCreateBuffer(mcontext, CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR, m * k * sizeof(*a),  a, NULL);
 }
 
 /* Level 3 optimized. bufA, bufB are created outside as m,n,k is not changed in loops*/

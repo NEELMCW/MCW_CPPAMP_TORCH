@@ -25,7 +25,7 @@ SET (CLBLAS_LIB "$ENV{CLBLASROOT}/lib64/")
 SET (BOLT_SRC_INC "$ENV{BOLTROOT}/include/")
 SET (BOOST_SRC_INC "$ENV{MCWCPPAMPROOT}/master-build/Bolt/superbuild/external/boost/src/Boost/")
 SET (BOLT_VER_INC "$ENV{MCWCPPAMPROOT}/master-build/Bolt/superbuild/Bolt-build/include/")
-SET (PREFIX "$ENV{MCWCPPAMPROOT}/gmac_exp_build")
+SET (PREFIX "$ENV{MCWCPPAMPROOT}/gmac_exp_build_cache")
 SET (CLANG_AMP "${PREFIX}/compiler/bin/clang++")
 SET (CLAMP_CONFIG "${PREFIX}/build/Release/bin/clamp-config")
 execute_process(COMMAND ${CLAMP_CONFIG} --build --cxxflags
