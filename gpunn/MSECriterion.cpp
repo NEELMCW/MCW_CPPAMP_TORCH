@@ -1,11 +1,5 @@
 #include<numeric>
-#include "bolt/amp/functional.h"
-#include "bolt/amp/fill.h"
-#include "bolt/amp/device_vector.h"
-#include "bolt/amp/transform.h"
-#include "bolt/amp/transform_reduce.h"
-#include "bolt/amp/reduce.h"
-#include "bolt/amp/inner_product.h"
+#include "common.h"
 #include "amp_math.h"
 
 struct mse_functor
@@ -33,8 +27,7 @@ static int gpunn_MSECriterion_updateOutput(lua_State *L)
   input = THGPUTensor_newContiguous(input);
   target = THGPUTensor_newContiguous(target);
 
-  bolt::amp::device_vector<float> input_data(THGPUTensor_data(input), THGPUTensor_data(input)+THGPUTensor_nElement(input));
-  bolt::amp::device_vector<float> target_data(THGPUTensor_data(target), THGPUTensor_data(target)+THGPUTensor_nElement(target));
+  DECLARE_BOLT_DEVICE_VECTOR_2(input, input_data, target, target_data);
   sum = bolt::amp::inner_product(input_data.begin(), input_data.end(), target_data.begin(), (float) 0, bolt::amp::plus<float>(), mse_functor());
 
   if(sizeAverage)
@@ -78,10 +71,7 @@ static int gpunn_MSECriterion_updateGradInput(lua_State *L)
 
   THGPUTensor_resizeAs(gradInput, input);
 
-  bolt::amp::device_vector<float> input_data(THGPUTensor_data(input), THGPUTensor_data(input)+THGPUTensor_nElement(input));
-  bolt::amp::device_vector<float> target_data(THGPUTensor_data(target), THGPUTensor_data(target)+THGPUTensor_nElement(target));
-  bolt::amp::device_vector<float> gradInput_data(THGPUTensor_data(gradInput), THGPUTensor_data(gradInput)+THGPUTensor_nElement(gradInput));
-
+  DECLARE_BOLT_DEVICE_VECTOR_3(input, input_data, target, target_data, gradInput, gradInput_data);
   bolt::amp::transform(input_data.begin(), input_data.end(), target_data.begin(), gradInput_data.begin(), mse_updateGradInput_functor(norm));
 
   THGPUTensor_free(input);
@@ -91,11 +81,9 @@ static int gpunn_MSECriterion_updateGradInput(lua_State *L)
 
 #define MSECRITERION_THREADS 128
 
-void gpunn_MSECriterion_updateOutput_kernel(THGPUStorage* output, THGPUTensor *input, THGPUTensor *target, int nframe, int dim, int sizeAverage)
+void gpunn_MSECriterion_updateOutput_kernel(Concurrency::array_view<float,1> &avOutput,
+  Concurrency::array_view<float,1> &avInp, Concurrency::array_view<float,1> &avTarget, int nframe, int dim, int sizeAverage)
 {
-  Concurrency::array_view<float,1> avInp(Concurrency::extent<1>(input->storage->size), THGPUTensor_data(input));
-  Concurrency::array_view<float,1> avTarget(Concurrency::extent<1>(target->storage->size), THGPUTensor_data(target));
-  Concurrency::array_view<float,1> avOutput(Concurrency::extent<1>(output->size), output->data);
   Concurrency::extent<1> grdExt(MSECRITERION_THREADS);
   Concurrency::tiled_extent<MSECRITERION_THREADS> t_ext(grdExt);
   Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<MSECRITERION_THREADS> tidx) restrict(amp) 
@@ -134,11 +122,9 @@ void gpunn_MSECriterion_updateOutput_kernel(THGPUStorage* output, THGPUTensor *i
   });
 }
 
-void gpunn_MSECriterion_updateGradInput_kernel(THGPUTensor *gradInput, THGPUTensor *input, THGPUTensor *target, float norm, int nframe, int dim)
+void gpunn_MSECriterion_updateGradInput_kernel(Concurrency::array_view<float,1> &avGradInput,
+  Concurrency::array_view<float,1> &avInp, Concurrency::array_view<float,1> &avTarget, float norm, int nframe, int dim)
 {
-  Concurrency::array_view<float,1> avInp(Concurrency::extent<1>(input->storage->size), THGPUTensor_data(input));
-  Concurrency::array_view<float,1> avTarget(Concurrency::extent<1>(target->storage->size), THGPUTensor_data(target));
-  Concurrency::array_view<float,1> avGradInput(Concurrency::extent<1>(gradInput->storage->size), THGPUTensor_data(gradInput));
   Concurrency::extent<1> grdExt(MSECRITERION_THREADS);
   Concurrency::tiled_extent<MSECRITERION_THREADS> t_ext(grdExt);
   Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<MSECRITERION_THREADS> tidx) restrict(amp)
@@ -212,8 +198,10 @@ static int gpunn_MSECriterion_updateOutput2(lua_State *L)
 
   THGPUStorage *output = THGPUStorage_newWithSize(1);
 
-
-  gpunn_MSECriterion_updateOutput_kernel(output, input, target, 1, size, sizeAverage);
+  PREPARE_AV_WITH_STORAGE(output, pavOutput);
+  PREPARE_AV(input, pavInput);
+  PREPARE_AV(target, pavTarget);
+  gpunn_MSECriterion_updateOutput_kernel(*pavOutput, *pavInput, *pavTarget, 1, size, sizeAverage);
 
   lua_pushnumber(L, THGPUStorage_get(output, 0));
 
@@ -246,7 +234,10 @@ static int gpunn_MSECriterion_updateGradInput2(lua_State *L)
 
   THGPUTensor_resizeAs(gradInput, input);
 
-  gpunn_MSECriterion_updateGradInput_kernel(gradInput, input, target, norm, 1, size);
+  PREPARE_AV(gradInput, pavGradInput);
+  PREPARE_AV(input, pavInput);
+  PREPARE_AV(target, pavTarget);
+  gpunn_MSECriterion_updateGradInput_kernel(*pavGradInput, *pavInput, *pavTarget, norm, 1, size);
 
   if (input != temp1)
   {

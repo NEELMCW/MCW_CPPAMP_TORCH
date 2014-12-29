@@ -164,14 +164,21 @@ static int gpunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
   }
 
   // Helpers
-  Concurrency::array_view<float,1> avData_col(THGPUTensor_nElement(columns), THGPUTensor_data(columns));
-  Concurrency::array_view<float,1> avData_im(THGPUTensor_nElement(input), THGPUTensor_data(input));
+  PREPARE_AV(columns, avData_col);
+  PREPARE_AV(input, avData_im);
   long m_ = nOutputPlane;
   long n_ = outputHeight * outputWidth;
   long k_ = 1;
   long m = weight->size[0];
   long n = columns->size[1];
   long k = weight->size[1];
+
+  /* Prepare OpenCL memory objects and place matrices inside them. */
+  void* bufA = THGPUBlas_clCreateBuffer(n_, k_ ,THGPUTensor_data(ones));
+  void* bufB = THGPUBlas_clCreateBuffer(k_, m_ ,THGPUTensor_data(bias));
+
+  void* buf_Column = THGPUBlas_clCreateBuffer(n, k ,THGPUTensor_data(columns));
+  void* buf_Weight = THGPUBlas_clCreateBuffer(k, m ,THGPUTensor_data(weight));
   // For each elt in batch, do:
   for (int elt = 0; elt < batchSize; elt ++) {
     // Matrix mulitply per output:
@@ -181,37 +188,42 @@ static int gpunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
     // (see http://docs.nvidia.com/gpu/cublas/#cublas-lt-t-gt-gemm)
 
     // Do GEMM (note: this is a bit confusing because gemm assumes column-major matrices)
-    THGPUBlas_gemm(
+    THGPUBlas_gemm_opt(
         't', 'n',
         n_, m_, k_,
         1,
         THGPUTensor_data(ones), k_,
         THGPUTensor_data(bias), k_,
         0,
-        output->storage->data + output->stride[0] * elt, n_
+        output->storage->data + output->stride[0] * elt, n_,
+        bufA, bufB, NULL
     );
     // Extract columns:
     im2col(
-        avData_im, input->stride[0], elt,
+        *avData_im, input->stride[0], elt,
         nInputPlane, inputHeight, inputWidth, kH, kW, padding, padding, dH, dW,
-        avData_col
+        *avData_col
     );
     // M,N,K are dims of matrix A and B
     // (see http://docs.nvidia.com/gpu/cublas/#cublas-lt-t-gt-gemm)
 
     // Do GEMM (note: this is a bit confusing because gemm assumes column-major matrices)
-    THGPUBlas_gemm(
+    THGPUBlas_gemm_opt(
         'n', 'n',
         n, m, k,
         1,
         THGPUTensor_data(columns), n,
         THGPUTensor_data(weight), k,
         1,
-        output->storage->data + output->stride[0] * elt, n
+        output->storage->data + output->stride[0] * elt, n,
+        buf_Column, buf_Weight, NULL
     );
   }
 
-
+  clReleaseMemObject(static_cast<cl_mem>(bufB));
+  clReleaseMemObject(static_cast<cl_mem>(bufA));
+  clReleaseMemObject(static_cast<cl_mem>(buf_Column));
+  clReleaseMemObject(static_cast<cl_mem>(buf_Weight));
   // Resize output
   if (batch == 0) {
     THGPUTensor_resize3d(output, nOutputPlane, outputHeight, outputWidth);
@@ -264,10 +276,9 @@ static int gpunn_SpatialConvolutionMM_updateGradInput(lua_State *L) {
   THGPUTensor_resize2d(gradColumns, nInputPlane*kW*kH, outputHeight*outputWidth);
 
   // Helpers
-
-  Concurrency::array_view<float,1> avData_col(THGPUTensor_nElement(gradColumns), THGPUTensor_data(gradColumns));
-  Concurrency::array_view<float,1> avData_im(THGPUTensor_nElement(gradInput), THGPUTensor_data(gradInput));
-  // For each elt in batch, do:
+  PREPARE_AV(gradColumns, avData_col);
+  PREPARE_AV(gradInput, avData_im);
+ // For each elt in batch, do:
   for (int elt = 0; elt < batchSize; elt ++) {
     // Matrix mulitply per sample:
 
@@ -290,9 +301,9 @@ static int gpunn_SpatialConvolutionMM_updateGradInput(lua_State *L) {
 
     // Unpack columns back into input:
     col2im(
-        avData_col,
+        *avData_col,
         nInputPlane, inputHeight, inputWidth, kH, kW, padding, padding, dH, dW,
-        avData_im, gradInput->stride[0], elt
+        *avData_im, gradInput->stride[0], elt
     );
   }
 
@@ -360,8 +371,15 @@ static int gpunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
   // Helpers
   THGPUTensor *gradOutput_n = THGPUTensor_new();
 
-  Concurrency::array_view<float,1> avData_col(THGPUTensor_nElement(columns), THGPUTensor_data(columns));
-  Concurrency::array_view<float,1> avData_im(THGPUTensor_nElement(input), THGPUTensor_data(input));
+  
+  long m_ = nOutputPlane;
+  long k_ = outputHeight * outputWidth;
+  // char trans = 't', see this in the loop body
+  void* bufX = THGPUBlas_clCreateBuffer(k_, 1 ,THGPUTensor_data(ones));
+  void* bufY = THGPUBlas_clCreateBuffer(m_, 1 ,THGPUTensor_data(gradBias));
+
+  PREPARE_AV(columns, avData_col);
+  PREPARE_AV(input, avData_im);
   // For each elt in batch, do:
   for (int elt = 0; elt < batchSize; elt ++) {
     // Matrix mulitply per output:
@@ -369,9 +387,9 @@ static int gpunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
 
     // Extract columns:
     im2col(
-        avData_im, input->stride[0], elt,
+        *avData_im, input->stride[0], elt,
         nInputPlane, inputHeight, inputWidth, kH, kW, padding, padding, dH, dW,
-        avData_col
+        *avData_col
     );
 
     // M,N,K are dims of matrix A and B
@@ -398,17 +416,20 @@ static int gpunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
     long k_ = outputHeight * outputWidth;
 
     // Do GEMV (note: this is a bit confusing because gemv assumes column-major matrices)
-    THGPUBlas_gemv(
+    THGPUBlas_gemv_opt(
         't',
         k_, m_,
         scale,
         THGPUTensor_data(gradOutput_n), k_,
         THGPUTensor_data(ones), 1,
         1,
-        THGPUTensor_data(gradBias), 1
+        THGPUTensor_data(gradBias), 1,
+        NULL, bufX, bufY
     );
   }
 
+  clReleaseMemObject(static_cast<cl_mem>(bufY));
+  clReleaseMemObject(static_cast<cl_mem>(bufX));
   // Free
   THGPUTensor_free(gradOutput_n);
 

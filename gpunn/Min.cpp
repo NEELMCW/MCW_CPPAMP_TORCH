@@ -4,13 +4,10 @@
  *    this function finds the min along the innermost dimension
  *    Nd input, (N-1)d output, (N-1)d argmin
  */
-void min_output(float *input, float *output, float *indices, unsigned int inpSz, unsigned int outSz,
+void min_output(Concurrency::array_view<float, 1> &avInp, Concurrency::array_view<float,1> &avOut, Concurrency::array_view<float,1> &avInD, unsigned int inpSz, unsigned int outSz,
                unsigned int indSz, long nrows, long ncols, unsigned int numBlocks)
 {
   // output offset:
-  Concurrency::array_view<float, 1> avInp(inpSz, input);
-  Concurrency::array_view<float, 1> avOut(outSz, output);
-  Concurrency::array_view<float, 1> avInD(indSz, indices);
   Concurrency::extent<1> grdExt(numBlocks * 256);
   Concurrency::tiled_extent<256> t_ext(grdExt);
 
@@ -38,13 +35,10 @@ void min_output(float *input, float *output, float *indices, unsigned int inpSz,
   });
 }
 
-void min_gradInput(float *input, float *output, float *indices, unsigned int inputSz, unsigned int outSz,
+void min_gradInput(Concurrency::array_view<float, 1> &avInp, Concurrency::array_view<float,1> &avOut, Concurrency::array_view<float,1> &avInD, unsigned int inputSz, unsigned int outSz,
                   unsigned int indSz, long nrows, long ncols, unsigned int numBlocks)
 {
   // output offset:
-  Concurrency::array_view<float, 1> avInp(inputSz, input);
-  Concurrency::array_view<float, 1> avOut(outSz, output);
-  Concurrency::array_view<float, 1> avInD(indSz, indices);
   Concurrency::extent<1> grdExt(numBlocks * 256);
   Concurrency::tiled_extent<256> t_ext(grdExt);
 
@@ -83,10 +77,6 @@ static int gpunn_Min_updateOutput(lua_State *L)
   THGPUTensor_resize(indices, dim, NULL);
   THLongStorage_free(dim);
 
-  float *input_data = THGPUTensor_data(input);
-  float *output_data = THGPUTensor_data(output);
-  float *indices_data = THGPUTensor_data(indices);
-
   long nrows = THGPUTensor_nElement(output);
   long ncols = input->size[dimension];
 
@@ -94,8 +84,11 @@ static int gpunn_Min_updateOutput(lua_State *L)
   long nthreads = 256;
   long nblocks = ceil((float)nrows / nthreads);
 
+  PREPARE_AV(input, pavInput);
+  PREPARE_AV(output, pavOutput);
+  PREPARE_AV(indices, pavIndices);
   // kernel:
-  min_output(input_data, output_data, indices_data, THGPUTensor_nElement(input),
+  min_output(*pavInput, *pavOutput, *pavIndices, THGPUTensor_nElement(input),
              THGPUTensor_nElement(output), THGPUTensor_nElement(indices), nrows, ncols, nblocks);
 
   // final cut:
@@ -116,10 +109,6 @@ static int gpunn_Min_updateGradInput(lua_State *L)
   THGPUTensor_resizeAs(gradInput, input);
   THGPUTensor_zero(gradInput);
 
-  float *gradInput_data = THGPUTensor_data(gradInput);
-  float *gradOutput_data = THGPUTensor_data(gradOutput);
-  float *indices_data = THGPUTensor_data(indices);
-
   long nrows = THGPUTensor_nElement(gradOutput);
   long ncols = gradInput->size[dimension];
 
@@ -127,8 +116,11 @@ static int gpunn_Min_updateGradInput(lua_State *L)
   long nthreads = 256;
   long nblocks = ceil((float)nrows / nthreads);
 
+  PREPARE_AV(gradInput, pavGradInput);
+  PREPARE_AV(gradOutput, pavGradOutput);
+  PREPARE_AV(indices, pavIndices);
   // kernel:
-  min_gradInput(gradInput_data, gradOutput_data, indices_data, THGPUTensor_nElement(gradInput),
+  min_gradInput(*pavGradInput, *pavGradOutput, *pavIndices, THGPUTensor_nElement(gradInput),
                 THGPUTensor_nElement(gradOutput), THGPUTensor_nElement(indices), nrows, ncols, nblocks);
 
   return 1;

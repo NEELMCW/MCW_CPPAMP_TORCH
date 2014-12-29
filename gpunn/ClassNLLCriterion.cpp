@@ -6,14 +6,11 @@
 
 static const int NTHREADS = 32;
 
-void gpunn_ClassNLLCriterion_updateOutput_kernel1(THGPUTensor *outputTensor,
-                                                 THGPUTensor *inputTensor,
-                                                 THGPUTensor *targetTensor,
+void gpunn_ClassNLLCriterion_updateOutput_kernel1(Concurrency::array_view<float,1> &avOutput,
+                                                 Concurrency::array_view<float,1> &avInput,
+                                                 Concurrency::array_view<float,1> &avTarget,
                                                  int ntarget)
 {
-  Concurrency::array_view<float,1> avInput(Concurrency::extent<1>(inputTensor->storage->size), THGPUTensor_data(inputTensor));
-  Concurrency::array_view<float,1> avOutput(Concurrency::extent<1>(outputTensor->storage->size), THGPUTensor_data(outputTensor));
-  Concurrency::array_view<float,1> avTarget(Concurrency::extent<1>(targetTensor->storage->size), THGPUTensor_data(targetTensor));
   Concurrency::extent<1> grdExt(1);
   Concurrency::tiled_extent<1> t_ext(grdExt);
   Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1> tidx) restrict(amp)
@@ -33,15 +30,12 @@ void gpunn_ClassNLLCriterion_updateOutput_kernel1(THGPUTensor *outputTensor,
   });
 }
 
-void gpunn_ClassNLLCriterion_updateOutput_kernel(THGPUTensor *outputTensor,
-                                                THGPUTensor *inputTensor,
-                                                THGPUTensor *targetTensor,
+void gpunn_ClassNLLCriterion_updateOutput_kernel(Concurrency::array_view<float,1> &avOutput,
+                                                Concurrency::array_view<float,1> &avInput,
+                                                Concurrency::array_view<float,1> &avTarget,
                                                 int nframe, int ndim,
                                                 int sizeAverage, int ntarget)
 {
-  Concurrency::array_view<float,1> avInput(Concurrency::extent<1>(inputTensor->storage->size), THGPUTensor_data(inputTensor));
-  Concurrency::array_view<float,1> avOutput(Concurrency::extent<1>(outputTensor->storage->size), THGPUTensor_data(outputTensor));
-  Concurrency::array_view<float,1> avTarget(Concurrency::extent<1>(targetTensor->storage->size), THGPUTensor_data(targetTensor));
   Concurrency::extent<1> grdExt(1 * 32);
   Concurrency::tiled_extent<32> t_ext(grdExt);
   Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<32> tidx) restrict(amp)
@@ -73,13 +67,11 @@ void gpunn_ClassNLLCriterion_updateOutput_kernel(THGPUTensor *outputTensor,
   });
 }
 
-void gpunn_ClassNLLCriterion_updateGradInput_kernel(THGPUTensor *gradInputTensor,
-                                                   THGPUTensor *targetTensor,
+void gpunn_ClassNLLCriterion_updateGradInput_kernel(Concurrency::array_view<float,1> &avGradInput,
+                                                   Concurrency::array_view<float,1> &avTarget,
                                                    int nframe, int ndim,
                                                    float grad, int ntarget)
 {
-  Concurrency::array_view<float,1> avGradInput(Concurrency::extent<1>(gradInputTensor->storage->size), THGPUTensor_data(gradInputTensor));
-  Concurrency::array_view<float,1> avTarget(Concurrency::extent<1>(targetTensor->storage->size), THGPUTensor_data(targetTensor));
   Concurrency::extent<1> grdExt(1 * 32);
   Concurrency::tiled_extent<32> t_ext(grdExt);
   Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<32> tidx) restrict(amp)
@@ -108,14 +100,17 @@ static int gpunn_ClassNLLCriterion_updateOutput(lua_State *L) {
   THGPUTensor *output = (THGPUTensor *)luaT_getfieldcheckudata(L, 1, "outputTensor", "torch.GPUTensor");
   output = THGPUTensor_newContiguous(output);
 
+  PREPARE_AV(output, pavOutput);
+  PREPARE_AV(input, pavInput);
+  PREPARE_AV(target, pavTarget);
   if (input->nDimension == 1)
   {
-    gpunn_ClassNLLCriterion_updateOutput_kernel1(output, input, target, ntarget);
+    gpunn_ClassNLLCriterion_updateOutput_kernel1(*pavOutput, *pavInput, *pavTarget, ntarget);
   }
   else if (input->nDimension == 2)
   {
     int sizeAverage = luaT_getfieldcheckboolean(L, 1, "sizeAverage");
-    gpunn_ClassNLLCriterion_updateOutput_kernel (output, input, target,
+    gpunn_ClassNLLCriterion_updateOutput_kernel (*pavOutput, *pavInput, *pavTarget,
                                                  input->size[0], input->size[1],
                                                  sizeAverage, ntarget);
   }
@@ -166,7 +161,9 @@ static int gpunn_ClassNLLCriterion_updateGradInput(lua_State *L)
     if (sizeAverage)
       grad /= nframe;
 
-    gpunn_ClassNLLCriterion_updateGradInput_kernel(gradInput, target, nframe, ndim, grad, ntarget);
+    PREPARE_AV(gradInput, pavGradInput);
+    PREPARE_AV(target, pavTarget);
+    gpunn_ClassNLLCriterion_updateGradInput_kernel(*pavGradInput, *pavTarget, nframe, ndim, grad, ntarget);
   }
   else
     THArgCheck(0, 2, "vector or matrix expected");

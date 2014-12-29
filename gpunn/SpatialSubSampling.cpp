@@ -7,16 +7,12 @@
  *    3D input, 3D output, 1D weight, 1D bias
  */
 
-void subsample(THGPUTensor *inputTensor, THGPUTensor *outputTensor, THGPUTensor *weightTensor,
-               THGPUTensor *biasTensor ,int input_n, int input_h, int input_w, int kH, int kW, int dH, int dW, int xBlocks)
+void subsample(Concurrency::array_view<float,1> &avInput, Concurrency::array_view<float,1> &avOutput, Concurrency::array_view<float,1> &avWeight,
+               Concurrency::array_view<float,1> &avBias ,int input_n, int input_h, int input_w, int kH, int kW, int dH, int dW, int xBlocks)
 {
   // output size
   int yBlocks = (int)(16L / input_n);
   yBlocks = yBlocks < 1 ? 1 : yBlocks;
-  Concurrency::array_view<float,1> avInput(Concurrency::extent<1>(inputTensor->storage->size), THGPUTensor_data(inputTensor));
-  Concurrency::array_view<float,1> avOutput(Concurrency::extent<1>(outputTensor->storage->size), THGPUTensor_data(outputTensor));
-  Concurrency::array_view<float,1> avWeight(Concurrency::extent<1>(weightTensor->storage->size), THGPUTensor_data(weightTensor));
-  Concurrency::array_view<float,1> avBias(Concurrency::extent<1>(biasTensor->storage->size), THGPUTensor_data(biasTensor));
   Concurrency::extent<2> grdExt(yBlocks * 8 , xBlocks * 32);
   Concurrency::tiled_extent<8, 32> t_ext(grdExt);
   Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<8, 32> tidx) restrict(amp)
@@ -79,21 +75,19 @@ void subsample(THGPUTensor *inputTensor, THGPUTensor *outputTensor, THGPUTensor 
  * Description:
  *    this function computes the gradWeight from input and gradOutput
  */
-void subgradweight(THGPUTensor *inputTensor, THGPUTensor *gradOutputTensor, THGPUTensor *gradWeightTensor,
-                   THGPUTensor *gradBiasTensor, int input_n, int input_h, int input_w, int kH, int kW,
+void subgradweight(Concurrency::array_view<float,1> &avInput, Concurrency::array_view<float,1> &avGradOutput,
+                   Concurrency::array_view<float,1> &avGradWeight, Concurrency::array_view<float,1> &avGradBias,
+                   long* Stride_Input, long* Stride_Output,
+                   int input_n, int input_h, int input_w, int kH, int kW,
                    int dH, int dW, float scale, long sl)
 {
   // output size
   int output_w = (input_w - kW) / dW + 1;
   int output_h = (input_h - kH) / dH + 1;
-  int inputStride = sl * inputTensor->stride[0];
-  int outputStride = sl * gradOutputTensor->stride[0];
+  int inputStride = sl *Stride_Input[0];// inputTensor->stride[0];
+  int outputStride = sl * Stride_Output[0];//gradOutputTensor->stride[0];
 
   int xBlocks = input_n;
-  Concurrency::array_view<float,1> avInput(Concurrency::extent<1>(inputTensor->storage->size), THGPUTensor_data(inputTensor));
-  Concurrency::array_view<float,1> avGradOutput(Concurrency::extent<1>(gradOutputTensor->storage->size), THGPUTensor_data(gradOutputTensor));
-  Concurrency::array_view<float,1> avGradWeight(Concurrency::extent<1>(gradWeightTensor->storage->size), THGPUTensor_data(gradWeightTensor));
-  Concurrency::array_view<float,1> avGradBias(Concurrency::extent<1>(gradBiasTensor->storage->size), THGPUTensor_data(gradBiasTensor));
   Concurrency::extent<2> grdExt(8 , xBlocks * 32);
   Concurrency::tiled_extent<8, 32> t_ext(grdExt);
   Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<8, 32> tidx) restrict(amp)
@@ -180,7 +174,8 @@ void subgradweight(THGPUTensor *inputTensor, THGPUTensor *gradOutputTensor, THGP
  * Description:
  *    this function computes the gradInput from weight and gradOutput
  */
-void subgradinput(THGPUTensor *gradInputTensor, THGPUTensor *gradOutputTensor, THGPUTensor *weightTensor,
+void subgradinput(Concurrency::array_view<float,1> &avGradInput,
+                  Concurrency::array_view<float,1> &avGradOutput, Concurrency::array_view<float,1> &avWeight,
                   int input_n, int input_h, int input_w, int kH, int kW, int dH, int dW, int xBlocks)
 {
   // output size
@@ -189,9 +184,6 @@ void subgradinput(THGPUTensor *gradInputTensor, THGPUTensor *gradOutputTensor, T
 
   int yBlocks = (int)(16L / input_n);
   yBlocks = yBlocks < 1 ? 1 : yBlocks;
-  Concurrency::array_view<float,1> avGradInput(Concurrency::extent<1>(gradInputTensor->storage->size), THGPUTensor_data(gradInputTensor));
-  Concurrency::array_view<float,1> avGradOutput(Concurrency::extent<1>(gradOutputTensor->storage->size), THGPUTensor_data(gradOutputTensor));
-  Concurrency::array_view<float,1> avWeight(Concurrency::extent<1>(weightTensor->storage->size), THGPUTensor_data(weightTensor));
   Concurrency::extent<2> grdExt(yBlocks * 8 , xBlocks * 32);
   Concurrency::tiled_extent<8, 32> t_ext(grdExt);
   Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<8, 32> tidx) restrict(amp)
@@ -255,13 +247,10 @@ static int gpunn_SpatialSubSampling_updateOutput(lua_State *L)
   THGPUTensor *bias = (THGPUTensor *)luaT_getfieldcheckudata(L, 1, "bias", "torch.GPUTensor");
   THGPUTensor *output = (THGPUTensor *)luaT_getfieldcheckudata(L, 1, "output", "torch.GPUTensor");
 
-  float *weight_data = THGPUTensor_data(weight);
-  float *bias_data = THGPUTensor_data(bias);
-  float *output_data;
-  float *input_data;
-
   luaL_argcheck(L, input->nDimension == 3 || input->nDimension == 4, 2, "3D or 4D (batch) tensor expected");
 
+  PREPARE_AV(weight, pavWeight);
+  PREPARE_AV(bias, pavBias);
   if (input->nDimension == 3)
   {
     long nInputCols = input->size[2];
@@ -273,13 +262,13 @@ static int gpunn_SpatialSubSampling_updateOutput(lua_State *L)
     luaL_argcheck(L, nInputCols >= kW && nInputRows >= kH, 2, "input image smaller than kernel size");
 
     input = THGPUTensor_newContiguous(input);
-    input_data = THGPUTensor_data(input);
-
     THGPUTensor_resize3d(output, nInputPlane, nOutputRows, nOutputCols);
-    output_data = THGPUTensor_data(output);
 
     int xBlocks = nInputPlane;
-    subsample (input, output, weight, bias, nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW, xBlocks);
+
+    PREPARE_AV(input, pavInput);
+    PREPARE_AV(output, pavOutput);
+    subsample (*pavInput, *pavOutput, *pavWeight, *pavBias, nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW, xBlocks);
   }
   else
   {
@@ -293,13 +282,12 @@ static int gpunn_SpatialSubSampling_updateOutput(lua_State *L)
     luaL_argcheck(L, nInputCols >= kW && nInputRows >= kH, 2, "input image smaller than kernel size");
 
     input = THGPUTensor_newContiguous(input);
-    input_data = THGPUTensor_data(input);
-
     THGPUTensor_resize4d(output, nbatch, nInputPlane, nOutputRows, nOutputCols);
-    output_data = THGPUTensor_data(output);
 
     int xBlocks = nInputPlane * nbatch;
-    subsample(input, output, weight, bias, nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW, xBlocks);
+    PREPARE_AV(input, pavInput);
+    PREPARE_AV(output, pavOutput);
+    subsample(*pavInput, *pavOutput, *pavWeight, *pavBias, nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW, xBlocks);
   }
 
   // clean
@@ -325,21 +313,21 @@ static int gpunn_SpatialSubSampling_updateGradInput(lua_State *L)
   THGPUTensor *weight = (THGPUTensor *)luaT_getfieldcheckudata(L, 1, "weight", "torch.GPUTensor");
   THGPUTensor *gradInput = (THGPUTensor *)luaT_getfieldcheckudata(L, 1, "gradInput", "torch.GPUTensor");
 
+  PREPARE_AV(gradOutput, pavGradOutput);
+  PREPARE_AV(weight, pavWeight);
+  PREPARE_AV(input, pavInput);
   if (input->nDimension == 3)
   {
     long nInputCols = input->size[2];
     long nInputRows = input->size[1];
 
-    float *weight_data = THGPUTensor_data(weight);
-    float *gradOutput_data = THGPUTensor_data(gradOutput);
-    float *gradInput_data;
-
     THGPUTensor_resizeAs(gradInput, input);
     THGPUTensor_zero(gradInput);
-    gradInput_data = THGPUTensor_data(gradInput);
 
     int xBlocks = nInputPlane;
-    subgradinput (gradInput, gradOutput, weight, nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW, xBlocks);
+    
+    PREPARE_AV(gradInput, pavGradInput);
+    subgradinput (*pavGradInput, *pavGradOutput, *pavWeight, nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW, xBlocks);
 
   }
   else
@@ -348,16 +336,12 @@ static int gpunn_SpatialSubSampling_updateGradInput(lua_State *L)
     long nInputRows = input->size[2];
     long nbatch = input->size[0];
 
-    float *weight_data = THGPUTensor_data(weight);
-    float *gradOutput_data = THGPUTensor_data(gradOutput);
-    float *gradInput_data;
-
     THGPUTensor_resizeAs(gradInput, input);
     THGPUTensor_zero(gradInput);
-    gradInput_data = THGPUTensor_data(gradInput);
 
     int xBlocks = nInputPlane * nbatch;
-    subgradinput (gradInput, gradOutput, weight, nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW, xBlocks);
+    PREPARE_AV(gradInput, pavGradInput);
+    subgradinput (*pavGradInput, *pavGradOutput, *pavWeight, nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW, xBlocks);
   }
   return 1;
 }
@@ -379,21 +363,20 @@ static int gpunn_SpatialSubSampling_accGradParameters(lua_State *L)
   THGPUTensor *gradWeight = (THGPUTensor *)luaT_getfieldcheckudata(L, 1, "gradWeight", "torch.GPUTensor");
   THGPUTensor *gradBias = (THGPUTensor *)luaT_getfieldcheckudata(L, 1, "gradBias", "torch.GPUTensor");
 
+  PREPARE_AV(gradWeight, pavGradWeight);
+  PREPARE_AV(gradBias, pavGradBias);
+  PREPARE_AV(gradOutput, pavGradOutput);
   if (input->nDimension == 3)
   {
     long nInputCols = input->size[2];
     long nInputRows = input->size[1];
-
-    float *gradWeight_data = THGPUTensor_data(gradWeight);
-    float *gradBias_data = THGPUTensor_data(gradBias);
-    float *gradOutput_data = THGPUTensor_data(gradOutput);
-    float *input_data;
     long sl = 0;
 
     input = THGPUTensor_newContiguous(input);
-    input_data = THGPUTensor_data(input);
-
-    subgradweight (input, gradOutput, gradWeight, gradBias, nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW, scale, sl);
+    PREPARE_AV(input, pavInput);
+    subgradweight (*pavInput, *pavGradOutput, *pavGradWeight, *pavGradBias, 
+      input->stride, gradOutput->stride,
+      nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW, scale, sl);
 
   }
   else
@@ -402,13 +385,8 @@ static int gpunn_SpatialSubSampling_accGradParameters(lua_State *L)
     long nInputRows = input->size[2];
     long nbatch = input->size[0];
 
-    float *gradWeight_data = THGPUTensor_data(gradWeight);
-    float *gradBias_data = THGPUTensor_data(gradBias);
-    float *gradOutput_data = THGPUTensor_data(gradOutput);
-    float *input_data;
-
     input = THGPUTensor_newContiguous(input);
-    input_data = THGPUTensor_data(input);
+    PREPARE_AV(input, pavInput);
 
     // gpu blocks & threads:
 
@@ -416,7 +394,9 @@ static int gpunn_SpatialSubSampling_accGradParameters(lua_State *L)
     long sl;
     for (sl = 0; sl < nbatch; sl++)
     {
-          subgradweight (input, gradOutput, gradWeight, gradBias, nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW, scale, sl);
+          subgradweight (*pavInput, *pavGradOutput, *pavGradWeight, *pavGradBias,
+            input->stride, gradOutput->stride,
+            nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW, scale, sl);
     }
   }
 

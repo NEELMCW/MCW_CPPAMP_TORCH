@@ -2,14 +2,7 @@
 #include "THGeneral.h"
 #include "THCTensor.h"
 #include <iostream>
-#include "bolt/amp/functional.h"
-#include "bolt/amp/fill.h"
-#include "bolt/amp/device_vector.h"
-#include "bolt/amp/transform.h"
-#include "bolt/amp/transform_reduce.h"
-#include "bolt/amp/reduce.h"
-#include "bolt/amp/copy.h"
-#include "bolt/amp/inner_product.h"
+#include "common.h"
 #include "amp_math.h"
 
 
@@ -222,8 +215,7 @@ THC_API void THGPUTensor_copy(THGPUTensor *self, THGPUTensor *src)
 
   if(THGPUTensor_isContiguous(self) && THGPUTensor_isContiguous(src))
   {
-    bolt::amp::device_vector<float> srcVec(THGPUTensor_data(src),THGPUTensor_data(src) + THGPUTensor_nElement(src));
-    bolt::amp::device_vector<float> desVec(THGPUTensor_data(self),THGPUTensor_data(self) + THGPUTensor_nElement(self));
+    DECLARE_BOLT_DEVICE_VECTOR_2(src, srcVec, self, desVec);
     bolt::amp::copy(srcVec.begin(),srcVec.end(),desVec.begin());
   }
   else

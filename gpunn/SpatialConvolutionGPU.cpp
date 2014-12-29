@@ -52,13 +52,11 @@ static int gpunn_SpatialConvolutionGPU_updateOutput(lua_State *L)
   luaL_argcheck(L, THGPUTensor_isContiguous(weight), 1, "weight must be contiguous");
   luaL_argcheck(L, THGPUTensor_isContiguous(output), 1, "output must be contiguous");
 
-  // raw pointers 
-  float *input_data = THGPUTensor_data(input);
-  float *weight_data = THGPUTensor_data(weight);
-  float *output_data = THGPUTensor_data(output);
-
+  PREPARE_AV(input, pavInput);
+  PREPARE_AV(weight, pavWeight);
+  PREPARE_AV(output, pavOutput);
   // convolutions
-  spatialConv_updateOutput(input, weight, output, nInputPlane, inputHeight, inputWidth,
+  spatialConv_updateOutput(*pavInput, *pavWeight, *pavOutput, nInputPlane, inputHeight, inputWidth,
                           batchSize, nOutputPlane, outputHeight, outputWidth, kH, kW,
                           -floor((double)padding/2), dW, 0, 1, true);
 
@@ -99,13 +97,11 @@ static int gpunn_SpatialConvolutionGPU_updateGradInput(lua_State *L)
   luaL_argcheck(L, THGPUTensor_isContiguous(weight), 1, "weight must be contiguous");
   luaL_argcheck(L, THGPUTensor_isContiguous(gradOutput), 1, "output must be contiguous");
 
-  // raw pointers 
-  float *gradInput_data = THGPUTensor_data(gradInput);
-  float *weight_data = THGPUTensor_data(weight);
-  float *gradOutput_data = THGPUTensor_data(gradOutput);
-
+  PREPARE_AV(gradInput, pavGradInput);
+  PREPARE_AV(gradOutput, pavGradOutput);
+  PREPARE_AV(weight, pavWeight);
   // convolutions
-  spatialConv_updateGradInput(gradOutput, weight, gradInput, nInputPlane, inputHeight,
+  spatialConv_updateGradInput(*pavGradOutput, *pavWeight, *pavGradInput, nInputPlane, inputHeight,
                              inputWidth, batchSize, nOutputPlane, outputHeight, outputWidth, kH, kW,
                              -floor((double)padding/2), dW, 0, 1, true);
 
@@ -153,13 +149,11 @@ static int gpunn_SpatialConvolutionGPU_accGradParameters(lua_State *L)
   luaL_argcheck(L, THGPUTensor_isContiguous(gradWeight), 1, "weight must be contiguous");
   luaL_argcheck(L, THGPUTensor_isContiguous(gradOutput), 1, "output must be contiguous");
 
-  // raw pointers 
-  float *input_data = THGPUTensor_data(input);
-  float *gradWeight_data = THGPUTensor_data(gradWeight);
-  float *gradOutput_data = THGPUTensor_data(gradOutput);
-
+  PREPARE_AV(input, pavInput);
+  PREPARE_AV(gradOutput, pavGradOutput);
+  PREPARE_AV(gradWeight, pavGradWeight);
   // convolutions
-  spatialConv_accGradParameters(input, gradOutput, gradWeight, nInputPlane, inputHeight,
+  spatialConv_accGradParameters(*pavInput, *pavGradOutput, *pavGradWeight, nInputPlane, inputHeight,
                                inputWidth, batchSize, nOutputPlane, outputHeight, outputWidth, kH, kW,
                                -floor((double)padding/2), dW, 0, scale, partialSum);
 

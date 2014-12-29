@@ -24,13 +24,13 @@ static int gpunn_SpatialMaxPoolingGPU_updateOutput(lua_State *L)
   luaL_argcheck(L, nInputCols >= kW && nInputRows >= kH, 2, "input image smaller than kernel size");
 
   luaL_argcheck(L, THGPUTensor_isContiguous(input), 2, "input must be contiguous");
-  float *input_data = THGPUTensor_data(input);
   
   THGPUTensor_resize4d(output, nInputPlane, nOutputRows, nOutputCols, batchSize);
-  float *output_data = THGPUTensor_data(output);
 
+  PREPARE_AV(input, pavInput);
+  PREPARE_AV(output, pavOutput);
   spatialMaxPooling_updateOutput<MaxPooler>
-    (input, output, 
+    (*pavInput, *pavOutput, 
      nInputPlane, nInputRows, nInputCols, batchSize,
      nOutputRows, nOutputCols, 
      kH, kW,
@@ -61,13 +61,12 @@ static int gpunn_SpatialMaxPoolingGPU_updateGradInput(lua_State *L)
   THGPUTensor_resizeAs(gradInput, input);
   THGPUTensor_zero(gradInput);
 
-  float *input_data = THGPUTensor_data(input);
-  float *output_data = THGPUTensor_data(output);
-  float *gradOutput_data = THGPUTensor_data(gradOutput);
-  float *gradInput_data = THGPUTensor_data(gradInput);
-
+  PREPARE_AV(input, pavInput);
+  PREPARE_AV(output, pavOutput);
+  PREPARE_AV(gradInput, pavGradInput);
+  PREPARE_AV(gradOutput, pavGradOutput);
  spatialMaxPooling_updateGradInput
-    (input, gradOutput, output, gradInput,
+    (*pavInput, *pavGradOutput, *pavOutput, *pavGradInput,
      nInputPlane, nInputRows, nInputCols, batchSize,
      nOutputRows, nOutputCols, 
      kH, kW,

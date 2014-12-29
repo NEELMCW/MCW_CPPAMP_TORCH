@@ -1,12 +1,6 @@
 #include <iostream>
 #include <vector>
-#include "bolt/amp/functional.h"
-#include "bolt/amp/fill.h"
-#include "bolt/amp/device_vector.h"
-#include "bolt/amp/transform.h"
-#include "bolt/amp/transform_reduce.h"
-#include "bolt/amp/reduce.h"
-#include "bolt/amp/inner_product.h"
+#include "common.h"
 #include "amp_math.h"
 
 struct absupdateOutput_functor
@@ -21,11 +15,9 @@ static int gpunn_Abs_updateOutput(lua_State *L)
 {
   THGPUTensor *input = (THGPUTensor*)luaT_checkudata(L, 2, "torch.GPUTensor");
   THGPUTensor *output = (THGPUTensor*)luaT_getfieldcheckudata(L, 1, "output", "torch.GPUTensor");
-  long size = THGPUTensor_nElement(input);
   input = THGPUTensor_newContiguous(input);
   THGPUTensor_resizeAs(output, input);
-  bolt::amp::device_vector<float> output_data(THGPUTensor_data(output), THGPUTensor_data(output) + THGPUTensor_nElement(output));
-  bolt::amp::device_vector<float> input_data(THGPUTensor_data(input), THGPUTensor_data(input) + THGPUTensor_nElement(input));
+  DECLARE_BOLT_DEVICE_VECTOR_2(input, input_data, output, output_data);
   bolt::amp::transform(input_data.begin(), input_data.end(), output_data.begin(), absupdateOutput_functor());
   THGPUTensor_free(input);
   return 1;
@@ -47,16 +39,13 @@ static int gpunn_Abs_updateGradInput(lua_State *L)
   THGPUTensor *input = (THGPUTensor*)luaT_checkudata(L, 2, "torch.GPUTensor");
   THGPUTensor *gradOutput = (THGPUTensor*)luaT_checkudata(L, 3, "torch.GPUTensor");
   THGPUTensor *gradInput = (THGPUTensor*)luaT_getfieldcheckudata(L, 1, "gradInput", "torch.GPUTensor");
-  long size = THGPUTensor_nElement(input);
 
   input = THGPUTensor_newContiguous(input);
   gradOutput = THGPUTensor_newContiguous(gradOutput);
 
   THGPUTensor_resizeAs(gradInput, input);
 
-  bolt::amp::device_vector<float> input_data(THGPUTensor_data(input), THGPUTensor_data(input) + THGPUTensor_nElement(input));
-  bolt::amp::device_vector<float> gradOutput_data(THGPUTensor_data(gradOutput), THGPUTensor_data(gradOutput) + THGPUTensor_nElement(gradOutput));
-  bolt::amp::device_vector<float> gradInput_data(THGPUTensor_data(gradInput), THGPUTensor_data(gradInput) + THGPUTensor_nElement(gradInput));
+  DECLARE_BOLT_DEVICE_VECTOR_3(input, input_data, gradOutput, gradOutput_data, gradInput, gradInput_data);
   bolt::amp::transform(input_data.begin(), input_data.end(), gradOutput_data.begin(),gradInput_data.begin(), absupdateGradInput_functor());
 
   THGPUTensor_free(gradOutput);
