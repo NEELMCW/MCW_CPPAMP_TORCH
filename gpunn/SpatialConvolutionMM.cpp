@@ -176,6 +176,10 @@ static int gpunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
   /* Prepare OpenCL memory objects and place matrices inside them. */
   void* bufA = THGPUBlas_clCreateBuffer(n_, k_ ,THGPUTensor_data(ones));
   void* bufB = THGPUBlas_clCreateBuffer(k_, m_ ,THGPUTensor_data(bias));
+  cl_mem* bufC_base = new cl_mem[batchSize];
+  // FIXME: Need ensure the pre-allocation won't run out of memory based on 'batchSize'
+  for (int i = 0; i < batchSize; i++)
+    bufC_base[i] = static_cast<cl_mem>(THGPUBlas_clCreateBuffer(n_, m_ ,output->storage->data + output->stride[0] * i));
 
   void* buf_Column = THGPUBlas_clCreateBuffer(n, k ,THGPUTensor_data(columns));
   void* buf_Weight = THGPUBlas_clCreateBuffer(k, m ,THGPUTensor_data(weight));
@@ -196,7 +200,7 @@ static int gpunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
         THGPUTensor_data(bias), k_,
         0,
         output->storage->data + output->stride[0] * elt, n_,
-        bufA, bufB, NULL
+        bufA, bufB, static_cast<void*>(bufC_base [elt])
     );
     // Extract columns:
     im2col(
@@ -216,7 +220,7 @@ static int gpunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
         THGPUTensor_data(weight), k,
         1,
         output->storage->data + output->stride[0] * elt, n,
-        buf_Column, buf_Weight, NULL
+        buf_Column, buf_Weight, static_cast<void*>(bufC_base [elt])
     );
   }
 
@@ -224,6 +228,10 @@ static int gpunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
   clReleaseMemObject(static_cast<cl_mem>(bufA));
   clReleaseMemObject(static_cast<cl_mem>(buf_Column));
   clReleaseMemObject(static_cast<cl_mem>(buf_Weight));
+  for (int i = 0; i < batchSize; i++)
+    clReleaseMemObject(bufC_base [i]);
+  delete [] bufC_base;
+
   // Resize output
   if (batch == 0) {
     THGPUTensor_resize3d(output, nOutputPlane, outputHeight, outputWidth);
