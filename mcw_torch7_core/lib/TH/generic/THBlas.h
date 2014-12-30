@@ -19,6 +19,6 @@ TH_API void THBlas_(ger)(long m, long n, real alpha, real *x, long incx, real *y
 TH_API void THBlas_(gemm)(char transa, char transb, long m, long n, long k, real alpha, real *a, long lda, real *b, long ldb, real beta, real *c, long ldc);
 
 TH_API void* THBlas_(clCreateBuffer)(long m, long k, float* a);
-TH_API void THBlas_(gemm_opt)(char transa, char transb, long m, long n, long k, real alpha, real *a, long lda, real *b, long ldb, real beta, real *c, long ldc , void* cl_A, void* cl_B, void* cl_C);
+TH_API void THBlas_(gemm_opt)(char transa, char transb, long m, long n, long k, real alpha, real *a, long lda, real *b, long ldb, real beta,long offset, real *c, long ldc , void* cl_A, void* cl_B, void* cl_C);
 
 #endif
