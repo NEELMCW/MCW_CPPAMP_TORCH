@@ -69,9 +69,9 @@ class MaxAbsPooler {
 
 template<class Agg, int B_Y, int B_X, int imgsPerThread, int filtersPerThread, bool checkCaseBounds>
 void kLocalPool(Concurrency::array_view<float,1> &avImages,
-                 Concurrency::array_view<float,1> &avTargets, const int imgSize, const int numFilters,
-                 const int numImages, const int subsX, const int startX, const int strideX,
-                 const int outputsX, Agg agg, int blockX, int blockY)
+                 Concurrency::array_view<float,1> &avTargets, int imgSize, int numFilters,
+                 int numImages, int subsX, int startX, int strideX,
+                 int outputsX, Agg agg, int blockX, int blockY)
 {
   Concurrency::extent<3> grdExt(1, blockY * 4, blockX * 32);
   Concurrency::tiled_extent<1, 4, 32> t_ext(grdExt);
@@ -165,9 +165,9 @@ void kLocalPool(Concurrency::array_view<float,1> &avImages,
  */
 template<class Agg, int B_X, int imgsPerThread, int filtersPerThread, bool checkCaseBounds>
 void kLocalPool2(Concurrency::array_view<float,1> &avImages,
-                  Concurrency::array_view<float,1> &avTargets, const int imgSize, const int numFilters,
-                  const int numImages, const int subsX, const int startX,
-                  const int outputsX, Agg agg, int blockX, int blockY)
+                  Concurrency::array_view<float,1> &avTargets, int imgSize, int numFilters,
+                  int numImages, int subsX, int startX,
+                  int outputsX, Agg agg, int blockX, int blockY)
 {
   Concurrency::extent<3> grdExt(1, blockY * 16, blockX * 8);
   Concurrency::tiled_extent<1, 16, 8> t_ext(grdExt);

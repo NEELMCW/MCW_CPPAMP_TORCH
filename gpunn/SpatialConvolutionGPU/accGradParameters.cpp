@@ -36,11 +36,11 @@
 template <int B_Y, int B_X, int pixelsPerThread, int preloadCases, int numColors, bool scale, bool checkCaseBounds>
 void conv_weight_acts_c(Concurrency::array_view<float, 1> &avImages,
                        Concurrency::array_view<float, 1> &avHidActs, Concurrency::array_view<float, 1> &avTargets,
-                       const int numImages, const int numFilters, const int numModulesY,
-                       const int numModulesX, const int imgSizeY, const int imgSizeX,
-                       const int filterSize, const int paddingStart, const int moduleStride,
-                       const int imgStride, const int partialSum, const float scaleTargets,
-                       const float scaleOutputs, int nblocks_x, int nblocks_y, int bx)
+                       int numImages, int numFilters, int numModulesY,
+                       int numModulesX, int imgSizeY, int imgSizeX,
+                       int filterSize, int paddingStart, int moduleStride,
+                       int imgStride, int partialSum, float scaleTargets,
+                       float scaleOutputs, int nblocks_x, int nblocks_y, int bx)
 {
   Concurrency::extent<3> grdExt(1, nblocks_y * 16, nblocks_x * 8);
   Concurrency::tiled_extent<1, 16, 8> t_ext(grdExt);
@@ -243,11 +243,11 @@ void conv_weight_acts_c(Concurrency::array_view<float, 1> &avImages,
 template <int B_Y, int B_X, int filtersPerThread, int colorsPerThread, int preloadCases, bool scale, bool checkCaseBounds>
 void conv_weight_acts_mc_mf(Concurrency::array_view<float, 1> &avImages,
                            Concurrency::array_view<float, 1> &avHidActs, Concurrency::array_view<float, 1> &avTargets,
-                           const int numImages, const int numFilters, const int numModulesY,
-                           const int numModulesX, const int imgSizeY, const int imgSizeX,
-                           const int filterSize, const int paddingStart, const int moduleStride,
-                           const int imgStride, const int numImgColors, const int numGroups,
-                           const int partialSum, const float scaleTargets, const float scaleOutputs,
+                           int numImages, int numFilters, int numModulesY,
+                           int numModulesX, int imgSizeY, int imgSizeX,
+                           int filterSize, int paddingStart, int moduleStride,
+                           int imgStride, int numImgColors, int numGroups,
+                           int partialSum, float scaleTargets, float scaleOutputs,
                            int nblocks_x, int nblocks_y, int bx)
 {
   if(bx==32)

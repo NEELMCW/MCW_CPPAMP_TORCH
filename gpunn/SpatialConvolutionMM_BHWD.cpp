@@ -14,9 +14,9 @@ inline int GET_BLOCKS(const int N) {
   return (N + GPU_NUM_THREADS - 1) / GPU_NUM_THREADS;
 }
 
-void imt2col_kernel(const int n, THGPUTensor* data_im, const int height, const int width, const int ksize_h,
-                   const int ksize_w, const int pad_h, const int pad_w, const int stride_h, const int stride_w,
-                   const int height_col, const int width_col, Concurrency::array_view<float,1> &avData_col)
+void imt2col_kernel(int n, THGPUTensor* data_im, int height, int width, int ksize_h,
+                    int ksize_w, int pad_h, int pad_w, int stride_h, int stride_w,
+                    int height_col, int width_col, Concurrency::array_view<float,1> &avData_col)
 {
   Concurrency::array_view<float,1> avData_im(THGPUTensor_nElement(data_im), THGPUTensor_data(data_im));
   unsigned grdSz = (n + 255) & ~255;
@@ -52,9 +52,9 @@ void imt2col_kernel(const int n, THGPUTensor* data_im, const int height, const i
   });
 }
 
-void imt2col(THGPUTensor* data_im, const int channels, const int height, const int width,
-            const int ksize_h, const int ksize_w, const int pad_h, const int pad_w,
-            const int stride_h, const int stride_w, Concurrency::array_view<float,1>&data_col)
+void imt2col(THGPUTensor* data_im, int channels, int height, int width,
+             int ksize_h, int ksize_w, int pad_h, int pad_w,
+             int stride_h, int stride_w, Concurrency::array_view<float,1>&data_col)
 {
   // We are going to launch channels * height_col * width_col kernels, each
   // kernel responsible for copying a single-channel grid.
