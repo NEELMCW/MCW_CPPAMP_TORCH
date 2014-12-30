@@ -176,10 +176,13 @@ static int gpunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
   /* Prepare OpenCL memory objects and place matrices inside them. */
   void* bufA = THGPUBlas_clCreateBuffer(n_, k_ ,THGPUTensor_data(ones));
   void* bufB = THGPUBlas_clCreateBuffer(k_, m_ ,THGPUTensor_data(bias));
-  cl_mem* bufC_base = new cl_mem[batchSize];
+  void* bufC = THGPUBlas_clCreateBuffer(n_, m_*batchSize ,output->storage->data);
+  //cl_mem* bufC_base = new cl_mem[batchSize];
   // FIXME: Need ensure the pre-allocation won't run out of memory based on 'batchSize'
-  for (int i = 0; i < batchSize; i++)
-    bufC_base[i] = static_cast<cl_mem>(THGPUBlas_clCreateBuffer(n_, m_ ,output->storage->data + output->stride[0] * i));
+  //for (int i = 0; i < batchSize; i++)
+   // bufC_base[i] = static_cast<cl_mem>(THGPUBlas_clCreateBuffer(n_, m_ ,output->storage->data + output->stride[0] * i));
+
+
 
   void* buf_Column = THGPUBlas_clCreateBuffer(n, k ,THGPUTensor_data(columns));
   void* buf_Weight = THGPUBlas_clCreateBuffer(k, m ,THGPUTensor_data(weight));
@@ -198,9 +201,9 @@ static int gpunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
         1,
         THGPUTensor_data(ones), k_,
         THGPUTensor_data(bias), k_,
-        0,
+        0, output->stride[0] * elt,
         output->storage->data + output->stride[0] * elt, n_,
-        bufA, bufB, static_cast<void*>(bufC_base [elt])
+        bufA, bufB, bufC
     );
     // Extract columns:
     im2col(
@@ -218,19 +221,17 @@ static int gpunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
         1,
         THGPUTensor_data(columns), n,
         THGPUTensor_data(weight), k,
-        1,
+        1,output->stride[0] * elt,
         output->storage->data + output->stride[0] * elt, n,
-        buf_Column, buf_Weight, static_cast<void*>(bufC_base [elt])
+        buf_Column, buf_Weight, bufC
     );
   }
 
+  clReleaseMemObject(static_cast<cl_mem>(bufC));
   clReleaseMemObject(static_cast<cl_mem>(bufB));
   clReleaseMemObject(static_cast<cl_mem>(bufA));
   clReleaseMemObject(static_cast<cl_mem>(buf_Column));
   clReleaseMemObject(static_cast<cl_mem>(buf_Weight));
-  for (int i = 0; i < batchSize; i++)
-    clReleaseMemObject(bufC_base [i]);
-  delete [] bufC_base;
 
   // Resize output
   if (batch == 0) {
@@ -308,7 +309,7 @@ static int gpunn_SpatialConvolutionMM_updateGradInput(lua_State *L) {
         1,
         gradOutput->storage->data + gradOutput->stride[0] * elt, n,
         THGPUTensor_data(weight), m,
-        0,
+        0, 0,
         THGPUTensor_data(gradColumns), n,
         NULL, buf_Weight, buf_Column
     );
@@ -424,7 +425,7 @@ static int gpunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
         scale,
         THGPUTensor_data(columns), k,
         THGPUTensor_data(gradOutput_n), k,
-        1,
+        1, 0,
         THGPUTensor_data(gradWeight), n,
         buf_Column, buf_Output, buf_Weight
     );
