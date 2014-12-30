@@ -579,9 +579,10 @@ void* THGPUBlas_clCreateBuffer(long m, long k, float* a) {
 /* Level 3 optimized. bufA, bufB are created outside as m,n,k is not changed in loops*/
 void THGPUBlas_gemm_opt(char transa, char transb,
   long m, long n, long k, float alpha,
-  float *a, long lda, float *b, long ldb, float beta, long offset,
+  float *a, long lda, float *b, long ldb, float beta,
   float *c, long ldc,
-  void* cl_A, void* cl_B, void* cl_C)
+  void* cl_A, void* cl_B, void* cl_C,
+  long aOffset, long bOffset, long cOffset)
 {
   int transa_ = ((transa == 't') || (transa == 'T'));
   int transb_ = ((transb == 't') || (transb == 'T'));
@@ -666,14 +667,14 @@ void THGPUBlas_gemm_opt(char transa, char transb,
       bufC = static_cast<cl_mem>(cl_C);
     }
 
-    err = clblasSgemm(order, opa, opb, m, n, k, alpha, bufA, 0, i_lda, bufB, 0, i_ldb, beta, bufC, offset, i_ldc, 1, &mqueue, 0, NULL, NULL);
+    err = clblasSgemm(order, opa, opb, m, n, k, alpha, bufA, aOffset, i_lda, bufB, bOffset, i_ldb, beta, bufC, cOffset, i_ldc, 1, &mqueue, 0, NULL, NULL);
     if (err != CL_SUCCESS)
     {
       printf("clblasSgemmEx() failed with %d\n", err);
     }
     else
     {
-      err = clEnqueueReadBuffer(mqueue, bufC, CL_TRUE, offset * sizeof(*c), m * n * sizeof(*c), c, 0, NULL, NULL);
+      err = clEnqueueReadBuffer(mqueue, bufC, CL_TRUE, cOffset * sizeof(*c), m * n * sizeof(*c), c, 0, NULL, NULL);
     }
     /* Release OpenCL memory objects. */
     if (cl_C == NULL)
