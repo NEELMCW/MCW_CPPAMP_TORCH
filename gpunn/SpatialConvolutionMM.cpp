@@ -392,11 +392,13 @@ static int gpunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
   long k = columns->size[1];
   long m_ = nOutputPlane;
   long k_ = outputHeight * outputWidth;
-  // char trans = 't', see this in the loop body
 
   void* buf_Column = THGPUBlas_clCreateBuffer(n, k ,THGPUTensor_data(columns));
   void* buf_Output = THGPUBlas_clCreateBuffer(k, m ,THGPUTensor_data(gradOutput_n));
   void* buf_Weight = THGPUBlas_clCreateBuffer(n, m ,THGPUTensor_data(gradWeight));
+
+  // char trans = 't', see gemv in the loop body
+  void* bufA = THGPUBlas_clCreateBuffer(k_, m_ ,THGPUTensor_data(gradOutput_n));
   void* bufX = THGPUBlas_clCreateBuffer(k_, 1 ,THGPUTensor_data(ones));
   void* bufY = THGPUBlas_clCreateBuffer(m_, 1 ,THGPUTensor_data(gradBias));
 
@@ -444,13 +446,14 @@ static int gpunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
         THGPUTensor_data(ones), 1,
         1,
         THGPUTensor_data(gradBias), 1,
-        NULL, bufX, bufY
+        bufA, bufX, bufY
     );
   }
 
   clReleaseMemObject(static_cast<cl_mem>(buf_Output));
   clReleaseMemObject(static_cast<cl_mem>(buf_Column));
   clReleaseMemObject(static_cast<cl_mem>(buf_Weight));
+  clReleaseMemObject(static_cast<cl_mem>(bufA));
   clReleaseMemObject(static_cast<cl_mem>(bufY));
   clReleaseMemObject(static_cast<cl_mem>(bufX));
   // Free
