@@ -7,18 +7,15 @@
  *    4D input, 4D output, 4D argmax x and y 
  */
 
-void maxpool(THGPUTensor *input, THGPUTensor *output, THGPUTensor *indices, int nOutputCols, int nOutputRows,
+void maxpool(Concurrency::array_view<float,1>&input_data,
+                        Concurrency::array_view<float,1>&output_data, Concurrency::array_view<float,1>&indices_data,
+                        int nOutputCols, int nOutputRows,
                         int input_n, int input_h, int input_w,
                         int kH, int kW, int dH, int dW,
                         int xblocks, int yblocks)
 {
   Concurrency::extent<2> copyExt(yblocks*8,xblocks*32);
   Concurrency::tiled_extent<8,32> t_ext(copyExt);
-
-  Concurrency::array_view<float,1>input_data(input->storage->size,THGPUTensor_data(input));
-  Concurrency::array_view<float,1>indices_data(indices->storage->size,THGPUTensor_data(indices));
-  Concurrency::array_view<float,1>output_data(output->storage->size,THGPUTensor_data(output));
-
   Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<8,32> tidx) restrict(amp)
   {
     // iterators
@@ -83,16 +80,13 @@ void maxpool(THGPUTensor *input, THGPUTensor *output, THGPUTensor *indices, int 
  * Description:
  *    this function computes the gradInput from weight and gradOutput
  */
-void maxgradinput(THGPUTensor *gradInput, THGPUTensor *gradOutput, THGPUTensor *indices, int nOutputCols, int nOutputRows,
+void maxgradinput(Concurrency::array_view<float,1>&input_data,
+                  Concurrency::array_view<float,1>&output_data, Concurrency::array_view<float,1>&indices_data,
+                  int nOutputCols, int nOutputRows,
                   int input_n, int input_h, int input_w, int kH, int kW, int dH, int dW, int xblocks, int yblocks)
 {
   Concurrency::extent<2> copyExt(yblocks*8,xblocks*32);
   Concurrency::tiled_extent<8,32> t_ext(copyExt);
-
-  Concurrency::array_view<float,1>input_data(gradInput->storage->size,THGPUTensor_data(gradInput));
-  Concurrency::array_view<float,1>indices_data(indices->storage->size,THGPUTensor_data(indices));
-  Concurrency::array_view<float,1>output_data(gradOutput->storage->size,THGPUTensor_data(gradOutput));
-
   Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<8,32> tidx) restrict(amp)
   {
     // iterators
@@ -141,17 +135,14 @@ void maxgradinput(THGPUTensor *gradInput, THGPUTensor *gradOutput, THGPUTensor *
  *    this function computes the gradInput from weight and gradOutput
  *    when kH != dH or kW != dW (uses atomic add)
  */
-void atomicmaxgradinput(THGPUTensor *gradInput, THGPUTensor *gradOutput, THGPUTensor *indices, int nOutputCols, int nOutputRows,
+void atomicmaxgradinput(Concurrency::array_view<float,1>&input_data, 
+                        Concurrency::array_view<float,1>&output_data, Concurrency::array_view<float,1>&indices_data,
+                        int nOutputCols, int nOutputRows,
                         int input_n, int input_h, int input_w, int kH, int kW, int dH, int dW, int xblocks, int yblocks
 )
 {
   Concurrency::extent<2> copyExt(yblocks,xblocks);
   Concurrency::tiled_extent<1,1> t_ext(copyExt);
-
-  Concurrency::array_view<float,1>input_data(gradInput->storage->size,THGPUTensor_data(gradInput));
-  Concurrency::array_view<float,1>indices_data(indices->storage->size,THGPUTensor_data(indices));
-  Concurrency::array_view<float,1>output_data(gradOutput->storage->size,THGPUTensor_data(gradOutput));
-
   Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1,1> tidx) restrict(amp)
   {
     // iterators
@@ -210,10 +201,6 @@ static int gpunn_SpatialMaxPooling_updateOutput(lua_State *L)
   THGPUTensor *output = (THGPUTensor *)luaT_getfieldcheckudata(L, 1, "output", "torch.GPUTensor");
   THGPUTensor *indices = (THGPUTensor *)luaT_getfieldcheckudata(L, 1, "indices", "torch.GPUTensor");
 
-  float *indices_data;
-  float *output_data;
-  float *input_data;
-
   luaL_argcheck(L, input->nDimension == 3 || input->nDimension == 4, 2, "3D or 4D (batch) tensor expected");
 
   if (input->nDimension == 3) {
@@ -226,21 +213,20 @@ static int gpunn_SpatialMaxPooling_updateOutput(lua_State *L)
     luaL_argcheck(L, nInputCols >= kW && nInputRows >= kH, 2, "input image smaller than kernel size");
 
     input = THGPUTensor_newContiguous(input);
-    input_data = THGPUTensor_data(input);
-
     THGPUTensor_resize3d(output, nInputPlane, nOutputRows, nOutputCols);
     THGPUTensor_resize4d(indices, 2, nInputPlane, nOutputRows, nOutputCols);
-    
-    indices_data = THGPUTensor_data(indices);
-    output_data = THGPUTensor_data(output);
 
     // gpu blocks & threads:
     int yblocks = (int)(16L / nInputPlane);
     yblocks = yblocks < 1 ? 1 : yblocks;
     int xblocks = nInputPlane;
+
+    PREPARE_AV(input, pavInput);
+    PREPARE_AV(output, pavOutput);
+    PREPARE_AV(indices, pavIndices);
     // run maxpool kernel
-    maxpool(input, output, 
-           indices, nOutputCols, nOutputRows,
+    maxpool(*pavInput, *pavOutput, 
+           *pavIndices, nOutputCols, nOutputRows,
            nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW, xblocks, yblocks);
 
   } else {
@@ -254,21 +240,20 @@ static int gpunn_SpatialMaxPooling_updateOutput(lua_State *L)
     luaL_argcheck(L, nInputCols >= kW && nInputRows >= kH, 2, "input image smaller than kernel size");
 
     input = THGPUTensor_newContiguous(input);
-    input_data = THGPUTensor_data(input);
-
     THGPUTensor_resize4d(output, nbatch, nInputPlane, nOutputRows, nOutputCols);
     THGPUTensor_resize5d(indices, 2, nbatch, nInputPlane, nOutputRows, nOutputCols);
-
-    indices_data = THGPUTensor_data(indices);
-    output_data = THGPUTensor_data(output);
 
     // gpu blocks & threads:
     int yblocks = (int)(16L / nInputPlane);
     yblocks = yblocks < 1 ? 1 : yblocks;
     int xblocks = nInputPlane * nbatch;
+
+    PREPARE_AV(input, pavInput);
+    PREPARE_AV(output, pavOutput);
+    PREPARE_AV(indices, pavIndices);
     // run maxpool kernel
-    maxpool(input, output, 
-           indices, nOutputCols, nOutputRows,
+    maxpool(*pavInput, *pavOutput, 
+           *pavIndices, nOutputCols, nOutputRows,
            nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW, xblocks, yblocks);
 
   }
@@ -292,10 +277,6 @@ static int gpunn_SpatialMaxPooling_updateGradInput(lua_State *L)
   THGPUTensor *gradInput = (THGPUTensor *)luaT_getfieldcheckudata(L, 1, "gradInput", "torch.GPUTensor");
   THGPUTensor *indices = (THGPUTensor *)luaT_getfieldcheckudata(L, 1, "indices", "torch.GPUTensor");
 
-  float *indices_data;
-  float *gradInput_data;
-  float *gradOutput_data;
-
   if (input->nDimension == 3) {
     long nInputCols = input->size[2];
     long nInputRows = input->size[1];
@@ -306,26 +287,25 @@ static int gpunn_SpatialMaxPooling_updateGradInput(lua_State *L)
     THGPUTensor_resizeAs(gradInput, input);
     THGPUTensor_zero(gradInput);
 
-    indices_data = THGPUTensor_data(indices);
-    gradOutput_data = THGPUTensor_data(gradOutput);
-    gradInput_data = THGPUTensor_data(gradInput);
-
     // gpu blocks & threads:
     int yblocks = (int)(16L / nInputPlane);
     yblocks = yblocks < 1 ? 1 : yblocks;
     int xblocks = nInputPlane;
 
+    PREPARE_AV(gradInput, pavGradInput);
+    PREPARE_AV(gradOutput, pavGradOutput);
+    PREPARE_AV(indices, pavIndices);
     if(atomic)
     {
-      atomicmaxgradinput(gradInput, gradOutput, 
-                        indices, nOutputCols, nOutputRows,
+      atomicmaxgradinput(*pavGradInput, *pavGradOutput, 
+                        *pavIndices, nOutputCols, nOutputRows,
                         nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW, xblocks, yblocks);
     }
     else
     {
       // run updateGradInput kernel
-      maxgradinput(gradInput, gradOutput, 
-                   indices, nOutputCols, nOutputRows,
+      maxgradinput(*pavGradInput, *pavGradOutput, 
+                   *pavIndices, nOutputCols, nOutputRows,
                    nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW, xblocks, yblocks);
     }
   } else {
@@ -339,9 +319,9 @@ static int gpunn_SpatialMaxPooling_updateGradInput(lua_State *L)
     THGPUTensor_resizeAs(gradInput, input);
     THGPUTensor_zero(gradInput);
 
-    indices_data = THGPUTensor_data(indices);
-    gradOutput_data = THGPUTensor_data(gradOutput);
-    gradInput_data = THGPUTensor_data(gradInput);
+    PREPARE_AV(gradInput, pavGradInput);
+    PREPARE_AV(gradOutput, pavGradOutput);
+    PREPARE_AV(indices, pavIndices);
 
     // gpu blocks & threads:
     int yblocks = (int)(16L / nInputPlane);
@@ -351,15 +331,15 @@ static int gpunn_SpatialMaxPooling_updateGradInput(lua_State *L)
     if(atomic)
     {
       // run updateGradInput kernel, accumulate gradients atomically
-      atomicmaxgradinput(gradInput, gradOutput, 
-                        indices, nOutputCols, nOutputRows,
+      atomicmaxgradinput(*pavGradInput, *pavGradOutput, 
+                        *pavIndices, nOutputCols, nOutputRows,
                         nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW, xblocks, yblocks);
     }
     else
     {
       // run updateGradInput kernel, accumulate gradients atomically
-      maxgradinput(gradInput, gradOutput, 
-                        indices, nOutputCols, nOutputRows,
+      maxgradinput(*pavGradInput, *pavGradOutput, 
+                        *pavIndices, nOutputCols, nOutputRows,
                         nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW, xblocks, yblocks);
     }
   }

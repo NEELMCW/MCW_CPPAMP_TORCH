@@ -11,9 +11,9 @@ for (int i = tidx.tile_dim0 * tidx.tile[0] + tidx.local[0]; i < (n); i += t_ext[
 // Kernel for fast unfold+copy
 // (borrowed from Caffe: https://github.com/BVLC/caffe/blob/master/src/caffe/layers/conv_layer.cu)
 
-void im2col_kernel(const int n, Concurrency::array_view<float,1> &avData_im, const int inp_stride, const int elt, const int height, const int width, const int ksize_h,
-                   const int ksize_w, const int pad_h, const int pad_w, const int stride_h, const int stride_w,
-                   const int height_col, const int width_col, Concurrency::array_view<float,1> &avData_col)
+void im2col_kernel(int n, Concurrency::array_view<float,1> &avData_im, int inp_stride, int elt, int height, int width, int ksize_h,
+                    int ksize_w, int pad_h, int pad_w, int stride_h, int stride_w,
+                    int height_col,  int width_col, Concurrency::array_view<float,1> &avData_col)
 {
   unsigned grdSz = (n + 255) & ~255;
   Concurrency::extent<1> grdExt(grdSz);
@@ -47,9 +47,9 @@ void im2col_kernel(const int n, Concurrency::array_view<float,1> &avData_im, con
   });
 }
 
-void im2col(Concurrency::array_view<float,1> &avData_im, const int inp_stride, const int elt, const int channels, const int height, const int width,
-            const int ksize_h, const int ksize_w, const int pad_h, const int pad_w,
-            const int stride_h, const int stride_w, Concurrency::array_view<float,1> &avData_col)
+void im2col(Concurrency::array_view<float,1> &avData_im, int inp_stride, int elt, int channels, int height, int width,
+            int ksize_h, int ksize_w, int pad_h, int pad_w,
+            int stride_h, int stride_w, Concurrency::array_view<float,1> &avData_col)
 {
   // We are going to launch channels * height_col * width_col kernels, each
   // kernel responsible for copying a single-channel grid.
@@ -61,9 +61,9 @@ void im2col(Concurrency::array_view<float,1> &avData_im, const int inp_stride, c
   im2col_kernel(num_kernels, avData_im, inp_stride, elt, height, width, ksize_h, ksize_w, pad_h, pad_w, stride_h, stride_w, height_col, width_col, avData_col);
 }
 
-void col2im_kernel(const int n, Concurrency::array_view<float,1> &avData_col, const int height, const int width, const int channels,
-                   const int patch_h, const int patch_w, const int pad_h, const int pad_w, const int stride_h,
-                   const int stride_w, const int height_col, const int width_col, Concurrency::array_view<float,1> &avData_im, const int inp_stride, const int elt)
+void col2im_kernel(int n, Concurrency::array_view<float,1> &avData_col, int height, int width, int channels,
+                   int patch_h, int patch_w, int pad_h, int pad_w, int stride_h,
+                   int stride_w, int height_col, int width_col, Concurrency::array_view<float,1> &avData_im, int inp_stride, int elt)
 {
   unsigned grdSz = (n + 255) & ~255;
   Concurrency::extent<1> grdExt(grdSz);
@@ -98,9 +98,9 @@ void col2im_kernel(const int n, Concurrency::array_view<float,1> &avData_col, co
   });
 }
 
-void col2im(Concurrency::array_view<float,1> &avData_col, const int channels, const int height, const int width,
-            const int patch_h, const int patch_w, const int pad_h, const int pad_w,
-            const int stride_h, const int stride_w, Concurrency::array_view<float,1> &avData_im, const int inp_stride, const int elt)
+void col2im(Concurrency::array_view<float,1> &avData_col, int channels, int height, int width,
+            int patch_h, int patch_w, int pad_h, int pad_w,
+            int stride_h, int stride_w, Concurrency::array_view<float,1> &avData_im, int inp_stride, int elt)
 {
   int height_col = (height + 2 * pad_h - patch_h) / stride_h + 1;
   int width_col = (width + 2 * pad_w - patch_w) / stride_w + 1;
@@ -392,11 +392,13 @@ static int gpunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
   long k = columns->size[1];
   long m_ = nOutputPlane;
   long k_ = outputHeight * outputWidth;
-  // char trans = 't', see this in the loop body
 
   void* buf_Column = THGPUBlas_clCreateBuffer(n, k ,THGPUTensor_data(columns));
   void* buf_Output = THGPUBlas_clCreateBuffer(k, m ,THGPUTensor_data(gradOutput_n));
   void* buf_Weight = THGPUBlas_clCreateBuffer(n, m ,THGPUTensor_data(gradWeight));
+
+  // char trans = 't', see gemv in the loop body
+  void* bufA = THGPUBlas_clCreateBuffer(k_, m_ ,THGPUTensor_data(gradOutput_n));
   void* bufX = THGPUBlas_clCreateBuffer(k_, 1 ,THGPUTensor_data(ones));
   void* bufY = THGPUBlas_clCreateBuffer(m_, 1 ,THGPUTensor_data(gradBias));
 
@@ -444,13 +446,14 @@ static int gpunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
         THGPUTensor_data(ones), 1,
         1,
         THGPUTensor_data(gradBias), 1,
-        NULL, bufX, bufY
+        bufA, bufX, bufY
     );
   }
 
   clReleaseMemObject(static_cast<cl_mem>(buf_Output));
   clReleaseMemObject(static_cast<cl_mem>(buf_Column));
   clReleaseMemObject(static_cast<cl_mem>(buf_Weight));
+  clReleaseMemObject(static_cast<cl_mem>(bufA));
   clReleaseMemObject(static_cast<cl_mem>(bufY));
   clReleaseMemObject(static_cast<cl_mem>(bufX));
   // Free
