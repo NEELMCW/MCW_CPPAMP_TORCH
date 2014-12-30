@@ -444,7 +444,8 @@ static int gpunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
         THGPUTensor_data(ones), 1,
         1,
         THGPUTensor_data(gradBias), 1,
-        NULL, bufX, bufY
+        buf_Output, bufX, bufY,
+        gradOutput->stride[0] * elt, 0, 0
     );
   }
 
