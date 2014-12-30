@@ -338,7 +338,7 @@ void THGPUBlas_gemv(char trans, long m, long n, float alpha, float *a, long lda,
 /* Level 2 */
 void THGPUBlas_gemv_opt(char trans, long m, long n, float alpha, 
   float *a, long lda, float *x, long incx, float beta, float *y, long incy,
-  void* cl_A, void* cl_X, void* cl_Y)
+  void* cl_A, void* cl_X, void* cl_Y, long aOffset, long xOffset, long yOffset)
 {
 
   int transa_ = ((trans == 't') || (trans == 'T'));
@@ -403,7 +403,7 @@ void THGPUBlas_gemv_opt(char trans, long m, long n, float alpha,
       bufY = static_cast<cl_mem>(cl_Y);
 
     /* Call clblas extended function. */
-    err = clblasSgemv(order, op, i_m , i_n , alpha, bufA, 0, i_lda, bufX, 0, i_incx, beta, bufY, 0, i_incy, 1, &mqueue, 0, NULL, &event);
+    err = clblasSgemv(order, op, i_m , i_n , alpha, bufA, aOffset, i_lda, bufX, xOffset, i_incx, beta, bufY, yOffset, i_incy, 1, &mqueue, 0, NULL, &event);
 
     if (err != CL_SUCCESS)
     {
@@ -412,7 +412,7 @@ void THGPUBlas_gemv_opt(char trans, long m, long n, float alpha,
     else
     {
       /* Fetch results of calculations from GPU memory. */
-      err = clEnqueueReadBuffer(mqueue, bufY, CL_TRUE, 0, lenN * sizeof(*y), y, 0, NULL, NULL);
+      err = clEnqueueReadBuffer(mqueue, bufY, CL_TRUE, yOffset * sizeof(*y), lenN * sizeof(*y), y, 0, NULL, NULL);
     }
     /* Release OpenCL memory objects. */
     if (cl_Y == NULL)
