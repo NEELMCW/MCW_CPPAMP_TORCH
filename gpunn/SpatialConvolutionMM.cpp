@@ -40,7 +40,7 @@ void im2col_kernel(int n, Concurrency::array_view<float,1> &avData_im, int inp_s
           int h = h_in + p;
           int w = w_in;
           int xxx = dataIm + p * width + 0 + elt * inp_stride;
-          int STEP = 1;
+          int STEP = 0;
           avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0; 
           avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0;
           avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0;
@@ -52,7 +52,7 @@ void im2col_kernel(int n, Concurrency::array_view<float,1> &avData_im, int inp_s
           avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0;          
           avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0;
           avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0; 
-          dataCol += height_col * width_col * ksize_w;
+          dataCol += height_col * width_col * STEP;
         }
         else
         {
@@ -78,7 +78,6 @@ void im2col(Concurrency::array_view<float,1> &avData_im, int inp_stride, int elt
   int height_col = (height + 2 * pad_h - ksize_h) / stride_h + 1;
   int width_col = (width + 2 * pad_w - ksize_w) / stride_w + 1;
   int num_kernels = channels * height_col * width_col;
-
   // Launch
   im2col_kernel(num_kernels, avData_im, inp_stride, elt, height, width, ksize_h, ksize_w, pad_h, pad_w, stride_h, stride_w, height_col, width_col, avData_col);
 }
