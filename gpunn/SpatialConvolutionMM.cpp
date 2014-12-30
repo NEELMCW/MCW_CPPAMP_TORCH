@@ -35,12 +35,34 @@ void im2col_kernel(int n, Concurrency::array_view<float,1> &avData_im, int inp_s
       dataIm += (channel_in * height + h_in) * width + w_in;
       for (int p = 0; p < ksize_h; ++p)
       {
-        for (int j = 0; j < ksize_w; ++j)
+        if(ksize_w == 11)
         {
           int h = h_in + p;
-          int w = w_in + j;
-          avData_col[dataCol] = (h >= 0 && w >= 0 && h < height && w < width) ? avData_im[ dataIm + p * width + j + elt * inp_stride] : 0;
-          dataCol += height_col * width_col;
+          int w = w_in;
+          int xxx = dataIm + p * width + 0 + elt * inp_stride;
+          int STEP = 1;
+          avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0; 
+          avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0;
+          avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0;
+          avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0;
+          avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0;
+          avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0;
+          avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0;
+          avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0;
+          avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0;          
+          avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0;
+          avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0; 
+          dataCol += height_col * width_col * ksize_w;
+        }
+        else
+        {
+          for (int j = 0; j < ksize_w; ++j)
+          {
+            int h = h_in + p;
+            int w = w_in + j;
+            avData_col[dataCol] = (h >= 0 && w >= 0 && h < height && w < width) ? avData_im[ dataIm + p * width + j + elt * inp_stride] : 0;
+            dataCol += height_col * width_col;
+          }
         }
       }
     }
