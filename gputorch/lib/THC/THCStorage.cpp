@@ -220,12 +220,13 @@ void THGPUStorage_resize(THGPUStorage *self, long size)
     data =  new Concurrency::array_view<float>(eA);
     long copySize = THMin(self->size, size);
     Concurrency::extent<1> copyExt(copySize);
-    Concurrency::array_view<float, 1> srcData(copyExt, self->data);
+    //Concurrency::array_view<float, 1> srcData(copyExt, self->data);
     Concurrency::array_view<float, 1> desData(data->section(copyExt));
-    Concurrency::copy(srcData, desData);
-    Concurrency::array_view<float,1> delSelf (Concurrency::extent<1>(self->size), self->data);
-    delSelf.~array_view();
-    delete (Concurrency::array_view<float> *)self->allocatorContext;
+    //Concurrency::copy(srcData, desData);
+    //self->data = desData.data();
+    //Concurrency::array_view<float,1> delSelf (Concurrency::extent<1>(self->size), self->data);
+    //delSelf.~array_view();
+    //delete (Concurrency::array_view<float> *)self->allocatorContext;
     self->allocatorContext = (void *)data;
     self->data = desData.data();
     self->size = size;
