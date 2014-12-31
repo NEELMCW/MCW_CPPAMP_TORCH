@@ -15,8 +15,15 @@ void im2col_kernel(int n, Concurrency::array_view<float,1> &avData_im, int inp_s
                     int ksize_w, int pad_h, int pad_w, int stride_h, int stride_w,
                     int height_col,  int width_col, Concurrency::array_view<float,1> &avData_col)
 {
-  unsigned grdSz = (n+256) - (n%256);
-  Concurrency::extent<1> grdExt(grdSz);
+  //FIXME: Max number of compute units at my end is 8. Use it for good performance.
+  int max_ComputeUnits = 8;
+
+  int numTiles = max_ComputeUnits*32;
+  int length = (WAVEFRONT_SIZE * numTiles);
+  length = n < length ? n : length;
+  unsigned int residual = length % WAVEFRONT_SIZE;
+  length = residual ? (length + WAVEFRONT_SIZE - residual): length ;
+  Concurrency::extent<1> grdExt(length);
   Concurrency::tiled_extent<256> t_ext(grdExt);
   Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<256> tidx) restrict(amp)
   {
@@ -86,8 +93,14 @@ void col2im_kernel(int n, Concurrency::array_view<float,1> &avData_col, int heig
                    int patch_h, int patch_w, int pad_h, int pad_w, int stride_h,
                    int stride_w, int height_col, int width_col, Concurrency::array_view<float,1> &avData_im, int inp_stride, int elt)
 {
-  unsigned grdSz = (n + 256) -(n%256);
-  Concurrency::extent<1> grdExt(grdSz);
+  //FIXME: Max number of compute units at my end is 8. Use it for good performance
+  int max_ComputeUnits = 8;
+  int numTiles = max_ComputeUnits*32;
+  int length = (WAVEFRONT_SIZE * numTiles);
+  length = n < length ? n : length;
+  unsigned int residual = length % WAVEFRONT_SIZE;
+  length = residual ? (length + WAVEFRONT_SIZE - residual): length ;
+  Concurrency::extent<1> grdExt(length);
   Concurrency::tiled_extent<256> t_ext(grdExt);
   Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<256> tidx) restrict(amp)
   {
