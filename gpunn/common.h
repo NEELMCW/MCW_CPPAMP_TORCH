@@ -9,15 +9,9 @@
 #include "bolt/amp/inner_product.h"
 #include "bolt/amp/copy.h"
 
-#ifdef WAVEFRONT_SIZE
-#undef WAVEFRONT_SIZE
-#endif
-#define WAVEFRONT_SIZE 256
-
 #ifdef DECLARE_BOLT_DEVICE_VECTOR
 #undef DECLARE_BOLT_DEVICE_VECTOR
 #endif
-
 #define DECLARE_BOLT_DEVICE_VECTOR(host_a, dv_a) \
   Concurrency::array_view<float, 1> *pav_##host_a = static_cast<Concurrency::array_view<float, 1> *>(host_a->storage->allocatorContext);\
   Concurrency::array_view<float, 1> dv_a##NOT_CARE(THGPUTensor_nElement(host_a), pav_##host_a->data());\
