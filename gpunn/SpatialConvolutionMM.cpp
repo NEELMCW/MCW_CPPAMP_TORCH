@@ -119,16 +119,119 @@ void col2im_kernel(int n, Concurrency::array_view<float,1> &avData_col, int heig
       int offset = (c * patch_h * patch_w + h * patch_w + w) * height_col * width_col;
       int coeff_h_col = (1 - stride_h * patch_w * height_col) * width_col;
       int coeff_w_col = (1 - stride_w * height_col * width_col);
-      for (int h_col = h_col_start; h_col < h_col_end; ++h_col) 
+      int iter = w_col_end - w_col_start;
+      for (int h_col = h_col_start; h_col < h_col_end; ++h_col)
       {
-        for (int w_col = w_col_start; w_col < w_col_end; ++w_col) 
-        {
-          val += avData_col[offset + h_col * coeff_h_col + w_col * coeff_w_col];
-        }
+        int index = offset + h_col * coeff_h_col + w_col_start * coeff_w_col; 
+	if(iter == 11)
+	{
+	  val += avData_col[index];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	}
+	else if(iter == 10)
+	{
+	  val += avData_col[index];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	}
+	else if(iter == 9)
+	{
+	  val += avData_col[index];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	}
+	else if(iter == 8)
+	{
+	  val += avData_col[index];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	}
+	else if(iter == 7)
+	{
+	  val += avData_col[index];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	}
+	else if(iter == 6)
+	{
+	  val += avData_col[index];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	}
+	else if(iter == 5)
+	{
+	  val += avData_col[index];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	}
+	else if(iter == 4)
+	{
+	  val += avData_col[index];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	}
+	else if(iter == 3)
+	{
+	  val += avData_col[index];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	}
+	else if(iter == 2)
+	{
+	  val += avData_col[index];
+	  val += avData_col[index += coeff_w_col];
+	}
+	else if(iter == 1)
+	{
+	  val += avData_col[index];
+	}
+	else
+	{
+          for (int w_col = w_col_start; w_col < w_col_end; ++w_col)
+          {
+            val += avData_col[offset + h_col * coeff_h_col + w_col * coeff_w_col];
+          }
+	}
       }
       avData_im[i + elt * inp_stride] = val;
     }
-
   });
 }
 
