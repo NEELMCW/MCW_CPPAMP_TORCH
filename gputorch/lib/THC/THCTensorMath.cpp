@@ -1431,8 +1431,8 @@ void THGPUTensor_kernel_indexFill(Concurrency::array_view<float, 1> &srcTensor, 
     if (thread_idx < flat_size)
     {
       long coeff = 0;
-      for (int i=0; i<idx_size; i++)
-      {
+      //for (int i=0; i<idx_size; i++)
+      //{
         int leftover = thread_idx;
         int srcIdx = 0;
         for (int d=0; d<src_nDim; d++)
@@ -1450,6 +1450,8 @@ void THGPUTensor_kernel_indexFill(Concurrency::array_view<float, 1> &srcTensor, 
             srcIdx += coeff * srcStride[Concurrency::index<1>(d)];
           }
         }
+      for (int i = 0; i<idx_size; i++)
+      {
         srcTensor[(srcIdx + (int)((indx[i])-1)*srcStride[dim])] = val;        
       }
     }
@@ -1471,8 +1473,8 @@ void THGPUTensor_kernel_indexCopy(Concurrency::array_view<float, 1> &resTensor, 
     if (thread_idx < flat_size)
     {
       long coeff = 0;
-      for (int i=0; i<idx_size; i++)
-      {
+      //for (int i=0; i<idx_size; i++)
+      //{
         int leftover = thread_idx;
         int targetIdx = 0;
         int resIdx = 0;
@@ -1494,6 +1496,8 @@ void THGPUTensor_kernel_indexCopy(Concurrency::array_view<float, 1> &resTensor, 
             resIdx += coeff * (resStride[Concurrency::index<1>(d)]);
           }
         }
+      for (int i = 0; i<idx_size; i++)
+      {
         resTensor[Concurrency::index<1>(resIdx + ((int)(indx[Concurrency::index<1>(i)])-1)*(resStride[Concurrency::index<1>(dim)]))] = srcTensor[Concurrency::index<1>(targetIdx +(int) i*(resStride[Concurrency::index<1>(dim)]))];
       }
     }
@@ -1580,8 +1584,8 @@ void THGPUTensor_kernel_indexSelect(Concurrency::array_view<float, 1> &resTensor
     if (thread_idx < flat_size)
     {
       long coeff = 0;
-      for (int i=0; i<idx_size; i++)
-      {
+      //for (int i=0; i<idx_size; i++)
+      //{
         int leftover = thread_idx;
         int targetIdx = 0;
         int srcIdx = 0;
@@ -1603,6 +1607,8 @@ void THGPUTensor_kernel_indexSelect(Concurrency::array_view<float, 1> &resTensor
             srcIdx += coeff * srcStride[Concurrency::index<1>(d)];
           }
         }
+      for (int i = 0; i<idx_size; i++)
+      {
         resTensor[targetIdx + i*srcStride[dim]] = srcTensor[srcIdx + ((int)(indx[i])-1)*srcStride[dim]];
       }
     }
