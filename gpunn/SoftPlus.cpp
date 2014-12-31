@@ -20,7 +20,7 @@ static int gpunn_SoftPlus_updateOutput(lua_State *L)
   THGPUTensor *output = (THGPUTensor*)luaT_getfieldcheckudata(L, 1, "output", "torch.GPUTensor");
   float beta = luaT_getfieldchecknumber(L, 1, "beta");
   float threshold = luaT_getfieldchecknumber(L, 1, "threshold");
-
+  THGPUTensor* input_orig = input;
   input = THGPUTensor_newContiguous(input);
 
   THGPUTensor_resizeAs(output, input);
@@ -28,7 +28,10 @@ static int gpunn_SoftPlus_updateOutput(lua_State *L)
    DECLARE_BOLT_DEVICE_VECTOR_2(input, input_data, output, output_data);
    bolt::amp::transform(input_data.begin(), input_data.end(), output_data.begin(), softPlusupdateOutput_functor(threshold, beta));
 
-  THGPUTensor_free(input);
+  if (input_orig != input) {
+    THGPUTensor_free(input);
+    input = NULL;
+  }
   return 1;
 }
 
@@ -55,14 +58,17 @@ static int gpunn_SoftPlus_updateGradInput(lua_State *L)
   THGPUTensor *gradInput = (THGPUTensor*)luaT_getfieldcheckudata(L, 1, "gradInput", "torch.GPUTensor");
   float beta = luaT_getfieldchecknumber(L, 1, "beta");
   float threshold = luaT_getfieldchecknumber(L, 1, "threshold");
-
+  THGPUTensor *gradOutput_orig = gradOutput;
   gradOutput = THGPUTensor_newContiguous(gradOutput);
   THGPUTensor_resizeAs(gradInput, output);
 
    DECLARE_BOLT_DEVICE_VECTOR_3(output, output_data, gradInput, gradInput_data, gradOutput, gradOutput_data);
    bolt::amp::transform(output_data.begin(), output_data.end(), gradOutput_data.begin(),gradInput_data.begin(), softPlusupdateGradInput_functor(threshold,beta));
 
-  THGPUTensor_free(gradOutput);
+  if (gradOutput_orig != gradOutput) {
+    THGPUTensor_free(gradOutput);
+    gradOutput = NULL;
+  }
   return 1;
 }
 

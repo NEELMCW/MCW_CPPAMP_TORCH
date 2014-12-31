@@ -172,7 +172,8 @@ static int gpunn_SoftMax_updateGradInput(lua_State *L)
   THGPUTensor *gradOutput = (THGPUTensor*)luaT_checkudata(L, 3, "torch.GPUTensor");
   THGPUTensor *output = (THGPUTensor*)luaT_getfieldcheckudata(L, 1, "output", "torch.GPUTensor");
   THGPUTensor *gradInput = (THGPUTensor*)luaT_getfieldcheckudata(L, 1, "gradInput", "torch.GPUTensor");
-
+  THGPUTensor *output_orig = output;
+  THGPUTensor *gradOutput_orig = gradOutput;
   output = THGPUTensor_newContiguous(output);
   gradOutput = THGPUTensor_newContiguous(gradOutput);
 
@@ -198,9 +199,14 @@ static int gpunn_SoftMax_updateGradInput(lua_State *L)
   else
     THError("vector or matrix expected");
 
-
-  THGPUTensor_free(gradOutput);
-  THGPUTensor_free(output);
+  if (gradOutput_orig != gradOutput) {
+    THGPUTensor_free(gradOutput);
+    gradOutput = NULL;
+  }
+  if (output_orig != output) {
+    THGPUTensor_free(output);
+    output = NULL;
+  }
   return 1;
 }
 

@@ -306,6 +306,7 @@ void THGPUTensor_conv2Dmv(THGPUTensor *output, float beta, THGPUTensor *t_,
   {
       THGPUStorage_free(input->storage);
       THGPUTensor_free(input);
+      input = NULL;
   }
 }
 
@@ -336,6 +337,7 @@ void THGPUTensor_conv2Dmm(THGPUTensor *output, float beta, THGPUTensor *t_,
   THArgCheck(type[1] == 'c' || type[1] == 'x', 7, "type of convolution can 'x' or 'c'");
 
   input = THGPUTensor_newContiguous(t_);
+  THGPUTensor *kernel_orig = kernel;
   kernel = THGPUTensor_newContiguous(k_);
 
   nbatch      = input->size[0];
@@ -432,7 +434,11 @@ void THGPUTensor_conv2Dmm(THGPUTensor *output, float beta, THGPUTensor *t_,
   // clean
 
   if (*type != 'F') THGPUTensor_free(input);
-  THGPUTensor_free(kernel);
+
+  if (kernel_orig != kernel) {
+    THGPUTensor_free(kernel);
+    kernel = NULL;
+  }
 }
 
 
@@ -621,7 +627,8 @@ void THGPUTensor_conv2DRevgerm(THGPUTensor *output, float beta, float alpha,
   THArgCheck(kernel->nDimension == 4 , 4, "kernel: 3D Tensor expected");
   THArgCheck(srow >= 1, 5, "Stride should be a positive integer");
   THArgCheck(scol >= 1, 6, "Stride should be a positive integer");
-
+  THGPUTensor *input_orig = input;
+  THGPUTensor *kernel_orig = kernel;
   input = THGPUTensor_newContiguous(input);
   kernel = THGPUTensor_newContiguous(kernel);
 
@@ -669,8 +676,14 @@ void THGPUTensor_conv2DRevgerm(THGPUTensor *output, float beta, float alpha,
   }
 
   // clean
-  THGPUTensor_free(input);
-  THGPUTensor_free(kernel);
+  if (input_orig != input) {
+    THGPUTensor_free(input);
+    input = NULL;
+  }
+  if (kernel_orig != kernel) {
+    THGPUTensor_free(kernel);
+    kernel = NULL;
+  }
 }
 
 ///////////////////////////////////

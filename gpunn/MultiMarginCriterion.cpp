@@ -96,7 +96,7 @@ static int gpunn_MultiMarginCriterion_updateOutput(lua_State *L)
 {
   THGPUTensor *input = (THGPUTensor*)luaT_checkudata(L, 2, "torch.GPUTensor");
   int sizeaverage = luaT_getfieldcheckboolean(L, 1, "sizeAverage");
-
+  THGPUTensor *input_orig = input;
   input = THGPUTensor_newContiguous(input);
   PREPARE_AV(input, pavInput);
 
@@ -143,7 +143,10 @@ static int gpunn_MultiMarginCriterion_updateOutput(lua_State *L)
   lua_pushvalue(L, -2);
   lua_rawset(L, 1);
 
-  THGPUTensor_free(input);
+  if (input_orig != input) {
+    THGPUTensor_free(input);
+    input = NULL;
+  }
   return 1;
 }
 

@@ -24,7 +24,8 @@ static int gpunn_AbsCriterion_updateOutput(lua_State *L)
   float sum;
 
   long size = THGPUTensor_nElement(input);
-
+  THGPUTensor *input_orig = input;
+  THGPUTensor *target_orig = target;
   input = THGPUTensor_newContiguous(input);
   target = THGPUTensor_newContiguous(target);
   DECLARE_BOLT_DEVICE_VECTOR_2(input, input_data, target, target_data);
@@ -32,9 +33,14 @@ static int gpunn_AbsCriterion_updateOutput(lua_State *L)
 
   if(sizeAverage)
     sum /= size;
-
-  THGPUTensor_free(input);
-  THGPUTensor_free(target);
+  if (input_orig != input) {
+    THGPUTensor_free(input);
+    input = NULL;
+  }
+  if (target_orig != target) {
+    THGPUTensor_free(target);
+    target = NULL;
+  }
 
   lua_pushnumber(L, sum);
   lua_setfield(L, 1, "output");
@@ -64,6 +70,8 @@ static int gpunn_AbsCriterion_updateGradInput(lua_State *L)
   THGPUTensor *gradInput = (THGPUTensor*)luaT_getfieldcheckudata(L, 1, "gradInput", "torch.GPUTensor");
   long size = THGPUTensor_nElement(input);
   float norm = (sizeAverage ? 1./size : 1.);
+  THGPUTensor *input_orig = input;
+  THGPUTensor *target_orig = target;
   input = THGPUTensor_newContiguous(input);
   target = THGPUTensor_newContiguous(target);
   THGPUTensor_resizeAs(gradInput, input);
@@ -71,8 +79,14 @@ static int gpunn_AbsCriterion_updateGradInput(lua_State *L)
   DECLARE_BOLT_DEVICE_VECTOR_3(input, input_data, target, target_data, gradInput, gradInput_data);
   bolt::amp::transform(input_data.begin(), input_data.end(), target_data.begin(), gradInput_data.begin(), abs_updateGradInput_functor(norm));
 
-  THGPUTensor_free(input);
-  THGPUTensor_free(target);
+  if (input_orig != input) {
+    THGPUTensor_free(input);
+    input = NULL;
+  }
+  if (target_orig != target) {
+    THGPUTensor_free(target);
+    target = NULL;
+  }
   return 1;
 }
 

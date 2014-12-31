@@ -68,7 +68,7 @@ static int gpunn_SpatialUpSamplingNearest_updateOutput(lua_State *L)
   THGPUTensor *output = (THGPUTensor *)luaT_getfieldcheckudata(L, 1, "output", "torch.GPUTensor");
   THGPUTensor_zero(output);
   int scale_factor = luaT_getfieldcheckint(L, 1, "scale_factor");
-
+  THGPUTensor *input_orig = input;
   input = THGPUTensor_newContiguous(input);
   // This is for allocating output Tensor
   long no_elements = 1;
@@ -121,7 +121,10 @@ static int gpunn_SpatialUpSamplingNearest_updateOutput(lua_State *L)
   upscale(*pavInput, *pavOutput, inpSz, outSz, no_elements, scale_factor, d1, d2, d3, grdConf);
  
   // final cut:
-  THGPUTensor_free(input); 
+  if (input_orig != input) {
+    THGPUTensor_free(input);
+    input = NULL;
+  }
 
   return 1;
 }

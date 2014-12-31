@@ -14,13 +14,17 @@ struct l1cost_functor
 static int gpunn_L1Cost_updateOutput(lua_State *L)
 {
   THGPUTensor *input = (THGPUTensor*)luaT_checkudata(L, 2, "torch.GPUTensor");
+  THGPUTensor *input_orig = input;
 
   float sum;
   input = THGPUTensor_newContiguous(input);
   DECLARE_BOLT_DEVICE_VECTOR(input, input_data);
   sum = bolt::amp::reduce(input_data.begin(), input_data.end(), (float) 0, l1cost_functor());
 
-  THGPUTensor_free(input);
+  if (input_orig != input) {
+    THGPUTensor_free(input);
+    input = NULL;
+  }
 
   lua_pushnumber(L, sum);
   lua_setfield(L, 1, "output");
@@ -48,13 +52,17 @@ static int gpunn_L1Cost_updateGradInput(lua_State *L)
 {
   THGPUTensor *input = (THGPUTensor*)luaT_checkudata(L, 2, "torch.GPUTensor");
   THGPUTensor *gradInput = (THGPUTensor*)luaT_getfieldcheckudata(L, 1, "gradInput", "torch.GPUTensor");
+  THGPUTensor* input_orig = input;
   input = THGPUTensor_newContiguous(input);
   THGPUTensor_resizeAs(gradInput, input);
 
   DECLARE_BOLT_DEVICE_VECTOR_2(input, input_data, gradInput, gradInput_data);
   bolt::amp::transform(input_data.begin(), input_data.end(), gradInput_data.begin(), l1cost_updateGradInput_functor());
 
-  THGPUTensor_free(input);
+  if (input_orig != input) {
+    THGPUTensor_free(input);
+    input = NULL;
+  }
   return 1;
 }
 

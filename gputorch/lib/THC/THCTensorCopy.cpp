@@ -60,13 +60,16 @@ void THFloatTensor_copyGPU(THFloatTensor *self, struct THGPUTensor *src)
 
   {
     THFloatTensor *selfc = THFloatTensor_newContiguous(self);
+    THGPUTensor *src_orig = src;
     src = THGPUTensor_newContiguous(src);
 
     Concurrency::array<float> arrSrc(Concurrency::extent<1>(self->storage->size), src->storage->data);
     Concurrency::array_view<float> avSelfCopy(Concurrency::extent<1>(self->storage->size), self->storage->data);
     Concurrency::copy(arrSrc, avSelfCopy);
-
-    THGPUTensor_free(src);
+    if (src_orig != src) {
+      THGPUTensor_free(src);
+      src = NULL;
+    }
     THFloatTensor_freeCopyTo(selfc, self);
   }
 }
