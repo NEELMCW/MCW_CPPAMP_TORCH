@@ -215,7 +215,7 @@ void THGPUStorage_resize(THGPUStorage *self, long size)
     self->data = NULL;
     self->size = 0;
   }
-  else
+  else if (self->size != size)
   {
     Concurrency::array_view<float, 1> *data = NULL;
     // Resizing the extent
