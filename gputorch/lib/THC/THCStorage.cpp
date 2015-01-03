@@ -125,15 +125,19 @@ void THGPUStorage_free(THGPUStorage *self)
         delete (Concurrency::array_view<float> *)self->allocatorContext;
         self->allocatorContext = NULL;
       }
-      if (self->data)
+      //FIXME: no need to double free and program will not jump to this branch
+      // since self->data that is associated with array_view has already been released
+      #if 0
+      else if (self->data)
       {
         Concurrency::array_view<float, 1> delSelf (Concurrency::extent<1>(self->size), self->data);
         delSelf.~array_view();
-        self->data = NULL;
-        self->size = 0;
-        self->refcount =0;
-        self->flag = 0;
       }
+      #endif
+      self->data = NULL;
+      self->size = 0;
+      self->refcount =0;
+      self->flag = 0;
     }
     THFree(self);
   }
