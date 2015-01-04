@@ -20,11 +20,12 @@ float THGPUStorage_get(const THGPUStorage *self, long index)
 
 THGPUStorage* THGPUStorage_new(void)
 {
+  int default_size = 0;
   THGPUStorage *storage = (THGPUStorage *)THAlloc(sizeof(THGPUStorage));
-  storage->allocatorContext = new Concurrency::array_view<float, 1>(Concurrency::extent<1>(1));
+  storage->allocatorContext = new Concurrency::array_view<float, 1>(Concurrency::extent<1>(default_size));
   Concurrency::array_view<float>avData(*(Concurrency::array_view<float, 1>*)storage->allocatorContext);
   storage->data = avData.data();
-  storage->size = 1;
+  storage->size = default_size;
   storage->refcount = 1;
   storage->flag = TH_STORAGE_REFCOUNTED | TH_STORAGE_RESIZABLE | TH_STORAGE_FREEMEM;
   return storage;
@@ -235,6 +236,9 @@ void THGPUStorage_resize(THGPUStorage *self, long size)
     //         see av is created with a new extent: data =  new Concurrency::array_view<float>(eA);
     //   (3) default bytes need explicitly released in here to avoid memory leak (#1 clReleaseMemObject)
     //   (4) N bytes will be released in THGPUStorage_free called by user (#2 clReleaseMemObject)
+    //
+    // Note that if the default size is zero in THGPUStorage_new, (1)/(3) will not happen since
+    // the underlying driver (CLAMP) just skips memory allocation when a specified size=0
     // Forcelly to release even its refcount is not zero
     if (1)
     {
