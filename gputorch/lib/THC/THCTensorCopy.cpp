@@ -21,7 +21,7 @@ void THGPUTensor_copyFloat(THGPUTensor *self, struct THFloatTensor *src)
     #if 0
     Concurrency::array<float> arrSrc(Concurrency::extent<1>(src->storage->size), src->storage->data);
     Concurrency::array_view<float> avSelfCopy(Concurrency::extent<1>(self->storage->size), self->storage->data);
-    Concurrency::copy(*arrSrc, *avSelfCopy);
+    Concurrency::copy(arrSrc, avSelfCopy);
     #else
     // Hui: Re-implement without any array ctor and by reusing preallocated array_view
     // Note that, providing the following code snippets in lua
@@ -79,10 +79,14 @@ void THFloatTensor_copyGPU(THFloatTensor *self, struct THGPUTensor *src)
     THFloatTensor *selfc = THFloatTensor_newContiguous(self);
     THGPUTensor *src_orig = src;
     src = THGPUTensor_newContiguous(src);
-
+    #if 0
     Concurrency::array<float> arrSrc(Concurrency::extent<1>(self->storage->size), src->storage->data);
     Concurrency::array_view<float> avSelfCopy(Concurrency::extent<1>(self->storage->size), self->storage->data);
     Concurrency::copy(arrSrc, avSelfCopy);
+    #else
+    Concurrency::array_view<float, 1> *avSrc= static_cast<Concurrency::array_view<float, 1> *>(src->storage->allocatorContext);
+    Concurrency::copy(*avSrc, self->storage->data);
+    #endif
     if (src_orig != src) {
       THGPUTensor_free(src);
       src = NULL;
