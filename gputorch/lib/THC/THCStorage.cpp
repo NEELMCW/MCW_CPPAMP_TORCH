@@ -209,8 +209,13 @@ void THGPUStorage_resize(THGPUStorage *self, long size)
   {
     if (self->flag & TH_STORAGE_FREEMEM)
     {
-      Concurrency::array_view<float, 1> delSelf (Concurrency::extent<1>(self->size), self->data);
-      delSelf.~array_view();
+      if (self->allocatorContext) {
+        Concurrency::array_view<float, 1> delSelf (*(static_cast<Concurrency::array_view<float,1>*>(self->allocatorContext)));
+        delSelf.~array_view();
+      } else {
+        Concurrency::array_view<float, 1> delSelf (Concurrency::extent<1>(self->size), self->data);
+        delSelf.~array_view();
+      }
     }
     self->data = NULL;
     self->size = 0;
@@ -222,7 +227,21 @@ void THGPUStorage_resize(THGPUStorage *self, long size)
     Concurrency::extent<1> eA(size);
     // Allocating device array of resized value
     data =  new Concurrency::array_view<float>(eA);
-    long copySize = THMin(self->size, size);
+    long copySize = size;//THMin(self->size, size);
+    // We need to release the previous container. Generally it is allocated by THGPUStorage_new
+    // with a default size (4 bytes if size=1). Note that, the call graph is described as below,
+    //   (1) default bytes are created in THGPUStorage_new (#1 clCreateBuffer)
+    //   (2) N bytes are reallocated in THGPUStorage_resize in the same storage (#2 clCreateBuffer)
+    //         see av is created with a new extent: data =  new Concurrency::array_view<float>(eA);
+    //   (3) default bytes need explicitly released in here to avoid memory leak (#1 clReleaseMemObject)
+    //   (4) N bytes will be released in THGPUStorage_free called by user (#2 clReleaseMemObject)
+    // Forcelly to release even its refcount is not zero
+    if (1)
+    {
+      Concurrency::array_view<float, 1> previous(*(static_cast<Concurrency::array_view<float,1>*>(self->allocatorContext)));
+      previous.~array_view();
+    }
+
     Concurrency::extent<1> copyExt(copySize);
     //Concurrency::array_view<float, 1> srcData(copyExt, self->data);
     Concurrency::array_view<float, 1> desData(data->section(copyExt));
@@ -234,6 +253,8 @@ void THGPUStorage_resize(THGPUStorage *self, long size)
     self->allocatorContext = (void *)data;
     self->data = desData.data();
     self->size = size;
+    // Set default refcount for the new resized 
+    self->refcount=1;
   }
 }
 
