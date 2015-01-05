@@ -93,10 +93,11 @@ static int gpunn_Max_updateOutput(lua_State *L)
              THGPUTensor_nElement(output), THGPUTensor_nElement(indices), nrows, ncols, nblocks);
 
   // final cut:
-  if (input_orig != input) {
-    THGPUTensor_free(input);
-    input = NULL;
-  }
+  //non-conditinal THGPUTensor_free is must to avoid memory leak. The main reasons are,
+  //  (1) Either for it is cloned, need to free
+  //  (2) Or it is retained, need to free once as well to reduce its reference count
+  THGPUTensor_free(input);
+
   THGPUTensor_select(output, NULL, dimension, 0);
 
   return 1;
