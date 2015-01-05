@@ -472,7 +472,10 @@ function gpunntest.Max_forward()
    end
    gputorch.synchronize()
    tm.gpu = a:time().real
-
+     --[[
+        TODO: there is memory leak when 'resgpu:float()' call (At least 1 GPU memory allocation)
+             type(resgpu) is torch.GPUTensor
+      ]]--
    local error = resgpu:float() - groundtruth
    mytester:assertlt(error:abs():max(), precision_forward, 'error on state (forward) ')
 
