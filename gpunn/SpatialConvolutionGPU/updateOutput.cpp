@@ -33,10 +33,10 @@
 template <int B_Y, int B_X, int imgsPerThread, int filtersPerThread, int numColors, bool scale, bool checkImgBounds>
 void filterActs_YxX_color( Concurrency::array_view<float,1>&avImages,
                            Concurrency::array_view<float,1>&avFilters,  Concurrency::array_view<float,1>&avTargets,
-                          const int numImages, const int numFilters, const int imgSizeY,const int imgSizeX,
-                          const int filterSize, const int paddingStart,const int moduleStride,
-                          const int numModulesY, const int numModulesX,const int imgStride,const float scaleTargets,
-                          const float scaleOutputs, const bool conv , int blockX, int blockY)
+                           int numImages, int numFilters, int imgSizeY, int imgSizeX,
+                           int filterSize, int paddingStart, int moduleStride,
+                           int numModulesY, int numModulesX, int imgStride, float scaleTargets,
+                           float scaleOutputs, bool conv , int blockX, int blockY)
 {
   //blockX = (blockX + 31) &~31;
   //blockY = (blockY + 3) &~3;
@@ -225,10 +225,10 @@ void filterActs_YxX_color( Concurrency::array_view<float,1>&avImages,
 template <int B_Y, int B_X, int imgsPerThread, int filtersPerThread, int colorCache, bool scale, bool checkImgBounds>
 void filterActs_YxX_sparse(Concurrency::array_view<float,1> &avImages,
                            Concurrency::array_view<float,1>& avFilters, Concurrency::array_view<float,1>& avTargets,
-                           const int numImages, const int numFilters, const int imgSizeY, const int imgSizeX, const int filterSize,
-                           const int paddingStart, const int moduleStride, const int numModulesY,
-                           const int numModulesX, const int imgStride, const int numImgColors, const int numGroups,
-                           const float scaleTargets, const float scaleOutputs, const bool conv, int blockX, int blockY)
+                           int numImages, int numFilters, int imgSizeY, int imgSizeX, int filterSize,
+                           int paddingStart, int moduleStride, int numModulesY,
+                           int numModulesX, int imgStride, int numImgColors, int numGroups,
+                           float scaleTargets, float scaleOutputs, bool conv, int blockX, int blockY)
 {
   //blockX = (blockX + 31) &~31;
   //blockY = (blockY + 3) &~3;

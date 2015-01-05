@@ -20,11 +20,12 @@ float THGPUStorage_get(const THGPUStorage *self, long index)
 
 THGPUStorage* THGPUStorage_new(void)
 {
+  int default_size = 0;
   THGPUStorage *storage = (THGPUStorage *)THAlloc(sizeof(THGPUStorage));
-  storage->allocatorContext = new Concurrency::array_view<float, 1>(Concurrency::extent<1>(1));
+  storage->allocatorContext = new Concurrency::array_view<float, 1>(Concurrency::extent<1>(default_size));
   Concurrency::array_view<float>avData(*(Concurrency::array_view<float, 1>*)storage->allocatorContext);
   storage->data = avData.data();
-  storage->size = 1;
+  storage->size = default_size;
   storage->refcount = 1;
   storage->flag = TH_STORAGE_REFCOUNTED | TH_STORAGE_RESIZABLE | TH_STORAGE_FREEMEM;
   return storage;
@@ -125,15 +126,19 @@ void THGPUStorage_free(THGPUStorage *self)
         delete (Concurrency::array_view<float> *)self->allocatorContext;
         self->allocatorContext = NULL;
       }
-      if (self->data)
+      //FIXME: no need to double free and program will not jump to this branch
+      // since self->data that is associated with array_view has already been released
+      #if 0
+      else if (self->data)
       {
         Concurrency::array_view<float, 1> delSelf (Concurrency::extent<1>(self->size), self->data);
         delSelf.~array_view();
-        self->data = NULL;
-        self->size = 0;
-        self->refcount =0;
-        self->flag = 0;
       }
+      #endif
+      self->data = NULL;
+      self->size = 0;
+      self->refcount =0;
+      self->flag = 0;
     }
     THFree(self);
   }
@@ -205,30 +210,55 @@ void THGPUStorage_resize(THGPUStorage *self, long size)
   {
     if (self->flag & TH_STORAGE_FREEMEM)
     {
-      Concurrency::array_view<float, 1> delSelf (Concurrency::extent<1>(self->size), self->data);
-      delSelf.~array_view();
+      if (self->allocatorContext) {
+        Concurrency::array_view<float, 1> delSelf (*(static_cast<Concurrency::array_view<float,1>*>(self->allocatorContext)));
+        delSelf.~array_view();
+      } else {
+        Concurrency::array_view<float, 1> delSelf (Concurrency::extent<1>(self->size), self->data);
+        delSelf.~array_view();
+      }
     }
     self->data = NULL;
     self->size = 0;
   }
-  else
+  else if (self->size != size)
   {
     Concurrency::array_view<float, 1> *data = NULL;
     // Resizing the extent
     Concurrency::extent<1> eA(size);
     // Allocating device array of resized value
     data =  new Concurrency::array_view<float>(eA);
-    long copySize = THMin(self->size, size);
+    long copySize = size;//THMin(self->size, size);
+    // We need to release the previous container. Generally it is allocated by THGPUStorage_new
+    // with a default size (4 bytes if size=1). Note that, the call graph is described as below,
+    //   (1) default bytes are created in THGPUStorage_new (#1 clCreateBuffer)
+    //   (2) N bytes are reallocated in THGPUStorage_resize in the same storage (#2 clCreateBuffer)
+    //         see av is created with a new extent: data =  new Concurrency::array_view<float>(eA);
+    //   (3) default bytes need explicitly released in here to avoid memory leak (#1 clReleaseMemObject)
+    //   (4) N bytes will be released in THGPUStorage_free called by user (#2 clReleaseMemObject)
+    //
+    // Note that if the default size is zero in THGPUStorage_new, (1)/(3) will not happen since
+    // the underlying driver (CLAMP) just skips memory allocation when a specified size=0
+    // Forcelly to release even its refcount is not zero
+    if (1)
+    {
+      Concurrency::array_view<float, 1> previous(*(static_cast<Concurrency::array_view<float,1>*>(self->allocatorContext)));
+      previous.~array_view();
+    }
+
     Concurrency::extent<1> copyExt(copySize);
-    Concurrency::array_view<float, 1> srcData(copyExt, self->data);
+    //Concurrency::array_view<float, 1> srcData(copyExt, self->data);
     Concurrency::array_view<float, 1> desData(data->section(copyExt));
-    Concurrency::copy(srcData, desData);
-    Concurrency::array_view<float,1> delSelf (Concurrency::extent<1>(self->size), self->data);
-    delSelf.~array_view();
-    delete (Concurrency::array_view<float> *)self->allocatorContext;
+    //Concurrency::copy(srcData, desData);
+    //self->data = desData.data();
+    //Concurrency::array_view<float,1> delSelf (Concurrency::extent<1>(self->size), self->data);
+    //delSelf.~array_view();
+    //delete (Concurrency::array_view<float> *)self->allocatorContext;
     self->allocatorContext = (void *)data;
     self->data = desData.data();
     self->size = size;
+    // Set default refcount for the new resized 
+    self->refcount=1;
   }
 }
 

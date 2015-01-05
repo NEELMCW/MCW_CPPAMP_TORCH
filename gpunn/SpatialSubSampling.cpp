@@ -315,7 +315,6 @@ static int gpunn_SpatialSubSampling_updateGradInput(lua_State *L)
 
   PREPARE_AV(gradOutput, pavGradOutput);
   PREPARE_AV(weight, pavWeight);
-  PREPARE_AV(input, pavInput);
   if (input->nDimension == 3)
   {
     long nInputCols = input->size[2];

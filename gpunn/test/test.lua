@@ -11,7 +11,9 @@ if not gputorch then
   require 'gputorch'
   runtests=true
 end
-
+if not gpunn then
+  require 'gpunn'
+end
 --e.g.: th -lgpunn -e "nn.testgpu{'copies'}"
 --NW
 function gpunntest.copies()
@@ -472,7 +474,10 @@ function gpunntest.Max_forward()
    end
    gputorch.synchronize()
    tm.gpu = a:time().real
-
+     --[[
+        TODO: there is memory leak when 'resgpu:float()' call (At least 1 GPU memory allocation)
+             type(resgpu) is torch.GPUTensor
+      ]]--
    local error = resgpu:float() - groundtruth
    mytester:assertlt(error:abs():max(), precision_forward, 'error on state (forward) ')
 
@@ -2564,6 +2569,6 @@ function nn.testgpu(tests)
 end
 
 if runtests then 
-  require 'gpunn'
+  --require 'gpunn'
   nn.testgpu()
 end

@@ -15,10 +15,10 @@ void im2col_kernel(int n, Concurrency::array_view<float,1> &avData_im, int inp_s
                     int ksize_w, int pad_h, int pad_w, int stride_h, int stride_w,
                     int height_col,  int width_col, Concurrency::array_view<float,1> &avData_col)
 {
-  unsigned grdSz = (n + 255) & ~255;
-  Concurrency::extent<1> grdExt(grdSz);
-  Concurrency::tiled_extent<256> t_ext(grdExt);
-  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<256> tidx) restrict(amp)
+  unsigned grdSz = (n+256) - (n%256);
+  Concurrency::extent<2> grdExt(grdSz, ((ksize_h + 3) & ~3));
+  Concurrency::tiled_extent<256, 4> t_ext(grdExt);
+  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<256, 4> tidx) restrict(amp)
   {
     float dataCol = 0;
     float dataIm = 0;
@@ -33,14 +33,39 @@ void im2col_kernel(int n, Concurrency::array_view<float,1> &avData_im, int inp_s
       int w_in = w_out * stride_w - pad_w;
       dataCol += (channel_out * height_col + h_out) * width_col + w_out;
       dataIm += (channel_in * height + h_in) * width + w_in;
-      for (int p = 0; p < ksize_h; ++p)
+      float dataCol_orig = dataCol;
+
+      for (int p = tidx.global[1]; p < ksize_h; p += t_ext[1])
       {
-        for (int j = 0; j < ksize_w; ++j)
+        if(ksize_w == 11)
         {
           int h = h_in + p;
-          int w = w_in + j;
-          avData_col[dataCol] = (h >= 0 && w >= 0 && h < height && w < width) ? avData_im[ dataIm + p * width + j + elt * inp_stride] : 0;
-          dataCol += height_col * width_col;
+          int w = w_in;
+          int xxx = dataIm + p * width + 0 + elt * inp_stride;
+          int STEP = 0;
+          dataCol = dataCol_orig + height_col * width_col * ksize_w * p;
+          avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0; 
+          avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0;
+          avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0;
+          avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0;
+          avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0;
+          avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0;
+          avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0;
+          avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0;
+          avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0;          
+          avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0;
+          avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0; 
+        }
+        else
+        {
+          dataCol = dataCol_orig + height_col * width_col * ksize_w * p;
+          for (int j = 0; j < ksize_w; ++j)
+          {
+            int h = h_in + p;
+            int w = w_in + j;
+            avData_col[dataCol] = (h >= 0 && w >= 0 && h < height && w < width) ? avData_im[ dataIm + p * width + j + elt * inp_stride] : 0;
+            dataCol += height_col * width_col;
+          }
         }
       }
     }
@@ -56,7 +81,6 @@ void im2col(Concurrency::array_view<float,1> &avData_im, int inp_stride, int elt
   int height_col = (height + 2 * pad_h - ksize_h) / stride_h + 1;
   int width_col = (width + 2 * pad_w - ksize_w) / stride_w + 1;
   int num_kernels = channels * height_col * width_col;
-
   // Launch
   im2col_kernel(num_kernels, avData_im, inp_stride, elt, height, width, ksize_h, ksize_w, pad_h, pad_w, stride_h, stride_w, height_col, width_col, avData_col);
 }
@@ -65,7 +89,7 @@ void col2im_kernel(int n, Concurrency::array_view<float,1> &avData_col, int heig
                    int patch_h, int patch_w, int pad_h, int pad_w, int stride_h,
                    int stride_w, int height_col, int width_col, Concurrency::array_view<float,1> &avData_im, int inp_stride, int elt)
 {
-  unsigned grdSz = (n + 255) & ~255;
+  unsigned grdSz = (n + 256) -(n%256);
   Concurrency::extent<1> grdExt(grdSz);
   Concurrency::tiled_extent<256> t_ext(grdExt);
   Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<256> tidx) restrict(amp)
@@ -85,16 +109,119 @@ void col2im_kernel(int n, Concurrency::array_view<float,1> &avData_col, int heig
       int offset = (c * patch_h * patch_w + h * patch_w + w) * height_col * width_col;
       int coeff_h_col = (1 - stride_h * patch_w * height_col) * width_col;
       int coeff_w_col = (1 - stride_w * height_col * width_col);
-      for (int h_col = h_col_start; h_col < h_col_end; ++h_col) 
+      int iter = w_col_end - w_col_start;
+      for (int h_col = h_col_start; h_col < h_col_end; ++h_col)
       {
-        for (int w_col = w_col_start; w_col < w_col_end; ++w_col) 
-        {
-          val += avData_col[offset + h_col * coeff_h_col + w_col * coeff_w_col];
-        }
+        int index = offset + h_col * coeff_h_col + w_col_start * coeff_w_col; 
+	if(iter == 11)
+	{
+	  val += avData_col[index];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	}
+	else if(iter == 10)
+	{
+	  val += avData_col[index];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	}
+	else if(iter == 9)
+	{
+	  val += avData_col[index];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	}
+	else if(iter == 8)
+	{
+	  val += avData_col[index];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	}
+	else if(iter == 7)
+	{
+	  val += avData_col[index];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	}
+	else if(iter == 6)
+	{
+	  val += avData_col[index];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	}
+	else if(iter == 5)
+	{
+	  val += avData_col[index];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	}
+	else if(iter == 4)
+	{
+	  val += avData_col[index];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	}
+	else if(iter == 3)
+	{
+	  val += avData_col[index];
+	  val += avData_col[index += coeff_w_col];
+	  val += avData_col[index += coeff_w_col];
+	}
+	else if(iter == 2)
+	{
+	  val += avData_col[index];
+	  val += avData_col[index += coeff_w_col];
+	}
+	else if(iter == 1)
+	{
+	  val += avData_col[index];
+	}
+	else
+	{
+          for (int w_col = w_col_start; w_col < w_col_end; ++w_col)
+          {
+            val += avData_col[offset + h_col * coeff_h_col + w_col * coeff_w_col];
+          }
+	}
       }
       avData_im[i + elt * inp_stride] = val;
     }
-
   });
 }
 
@@ -176,10 +303,13 @@ static int gpunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
   /* Prepare OpenCL memory objects and place matrices inside them. */
   void* bufA = THGPUBlas_clCreateBuffer(n_, k_ ,THGPUTensor_data(ones));
   void* bufB = THGPUBlas_clCreateBuffer(k_, m_ ,THGPUTensor_data(bias));
-  cl_mem* bufC_base = new cl_mem[batchSize];
+  void* bufC = THGPUBlas_clCreateBuffer(n_, m_*batchSize ,output->storage->data);
+  //cl_mem* bufC_base = new cl_mem[batchSize];
   // FIXME: Need ensure the pre-allocation won't run out of memory based on 'batchSize'
-  for (int i = 0; i < batchSize; i++)
-    bufC_base[i] = static_cast<cl_mem>(THGPUBlas_clCreateBuffer(n_, m_ ,output->storage->data + output->stride[0] * i));
+  //for (int i = 0; i < batchSize; i++)
+   // bufC_base[i] = static_cast<cl_mem>(THGPUBlas_clCreateBuffer(n_, m_ ,output->storage->data + output->stride[0] * i));
+
+
 
   void* buf_Column = THGPUBlas_clCreateBuffer(n, k ,THGPUTensor_data(columns));
   void* buf_Weight = THGPUBlas_clCreateBuffer(k, m ,THGPUTensor_data(weight));
@@ -197,10 +327,10 @@ static int gpunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
         n_, m_, k_,
         1,
         THGPUTensor_data(ones), k_,
-        THGPUTensor_data(bias), k_,
-        0,
+        THGPUTensor_data(bias), k_, 0,
         output->storage->data + output->stride[0] * elt, n_,
-        bufA, bufB, static_cast<void*>(bufC_base [elt])
+        bufA, bufB, bufC,
+        0, 0, output->stride[0] * elt
     );
     // Extract columns:
     im2col(
@@ -217,20 +347,18 @@ static int gpunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
         n, m, k,
         1,
         THGPUTensor_data(columns), n,
-        THGPUTensor_data(weight), k,
-        1,
+        THGPUTensor_data(weight), k, 1,
         output->storage->data + output->stride[0] * elt, n,
-        buf_Column, buf_Weight, static_cast<void*>(bufC_base [elt])
+        buf_Column, buf_Weight, bufC,
+        0, 0, output->stride[0] * elt
     );
   }
 
+  clReleaseMemObject(static_cast<cl_mem>(bufC));
   clReleaseMemObject(static_cast<cl_mem>(bufB));
   clReleaseMemObject(static_cast<cl_mem>(bufA));
   clReleaseMemObject(static_cast<cl_mem>(buf_Column));
   clReleaseMemObject(static_cast<cl_mem>(buf_Weight));
-  for (int i = 0; i < batchSize; i++)
-    clReleaseMemObject(bufC_base [i]);
-  delete [] bufC_base;
 
   // Resize output
   if (batch == 0) {
@@ -293,6 +421,7 @@ static int gpunn_SpatialConvolutionMM_updateGradInput(lua_State *L) {
   /* Prepare OpenCL memory objects and place matrices inside them. */
   void* buf_Column = THGPUBlas_clCreateBuffer(n, m ,THGPUTensor_data(gradColumns));
   void* buf_Weight = THGPUBlas_clCreateBuffer(k, m ,THGPUTensor_data(weight));
+  void* buf_Output = THGPUBlas_clCreateBuffer(n, k * batchSize, gradOutput->storage->data);
 
  // For each elt in batch, do:
   for (int elt = 0; elt < batchSize; elt ++) {
@@ -307,10 +436,10 @@ static int gpunn_SpatialConvolutionMM_updateGradInput(lua_State *L) {
         n, m, k,
         1,
         gradOutput->storage->data + gradOutput->stride[0] * elt, n,
-        THGPUTensor_data(weight), m,
-        0,
+        THGPUTensor_data(weight), m, 0,
         THGPUTensor_data(gradColumns), n,
-        NULL, buf_Weight, buf_Column
+        buf_Output, buf_Weight, buf_Column,
+        gradOutput->stride[0] * elt, 0, 0
     );
 
     // Unpack columns back into input:
@@ -322,6 +451,7 @@ static int gpunn_SpatialConvolutionMM_updateGradInput(lua_State *L) {
   }
 
   // Free
+  clReleaseMemObject(static_cast<cl_mem>(buf_Output));
   clReleaseMemObject(static_cast<cl_mem>(buf_Column));
   clReleaseMemObject(static_cast<cl_mem>(buf_Weight));
 
@@ -385,8 +515,6 @@ static int gpunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
   THGPUTensor_resize2d(columns, nInputPlane*kW*kH, outputHeight*outputWidth);
 
   // Helpers
-  THGPUTensor *gradOutput_n = THGPUTensor_new();
-
   long m = gradWeight->size[0];
   long n = gradWeight->size[1];
   long k = columns->size[1];
@@ -394,11 +522,10 @@ static int gpunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
   long k_ = outputHeight * outputWidth;
 
   void* buf_Column = THGPUBlas_clCreateBuffer(n, k ,THGPUTensor_data(columns));
-  void* buf_Output = THGPUBlas_clCreateBuffer(k, m ,THGPUTensor_data(gradOutput_n));
+  void* buf_Output = THGPUBlas_clCreateBuffer(k, m * batchSize, gradOutput->storage->data);
   void* buf_Weight = THGPUBlas_clCreateBuffer(n, m ,THGPUTensor_data(gradWeight));
 
   // char trans = 't', see gemv in the loop body
-  void* bufA = THGPUBlas_clCreateBuffer(k_, m_ ,THGPUTensor_data(gradOutput_n));
   void* bufX = THGPUBlas_clCreateBuffer(k_, 1 ,THGPUTensor_data(ones));
   void* bufY = THGPUBlas_clCreateBuffer(m_, 1 ,THGPUTensor_data(gradBias));
 
@@ -406,8 +533,6 @@ static int gpunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
   PREPARE_AV(input, avData_im);
   // For each elt in batch, do:
   for (int elt = 0; elt < batchSize; elt ++) {
-    // Matrix mulitply per output:
-    THGPUTensor_select(gradOutput_n, gradOutput, 0, elt);
 
     // Extract columns:
     im2col(
@@ -425,10 +550,10 @@ static int gpunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
         n, m, k,
         scale,
         THGPUTensor_data(columns), k,
-        THGPUTensor_data(gradOutput_n), k,
-        1,
+        gradOutput->storage->data + gradOutput->stride[0] * elt, k, 1,
         THGPUTensor_data(gradWeight), n,
-        buf_Column, buf_Output, buf_Weight
+        buf_Column, buf_Output, buf_Weight,
+        0, gradOutput->stride[0] * elt, 0
     );
 
     // Do Bias:
@@ -442,22 +567,21 @@ static int gpunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
         't',
         k_, m_,
         scale,
-        THGPUTensor_data(gradOutput_n), k_,
+        gradOutput->storage->data + gradOutput->stride[0] * elt, k_,
         THGPUTensor_data(ones), 1,
         1,
         THGPUTensor_data(gradBias), 1,
-        bufA, bufX, bufY
+        buf_Output, bufX, bufY,
+        gradOutput->stride[0] * elt, 0, 0
     );
   }
 
   clReleaseMemObject(static_cast<cl_mem>(buf_Output));
   clReleaseMemObject(static_cast<cl_mem>(buf_Column));
   clReleaseMemObject(static_cast<cl_mem>(buf_Weight));
-  clReleaseMemObject(static_cast<cl_mem>(bufA));
   clReleaseMemObject(static_cast<cl_mem>(bufY));
   clReleaseMemObject(static_cast<cl_mem>(bufX));
   // Free
-  THGPUTensor_free(gradOutput_n);
 
   // Resize
   if (batch == 0) {

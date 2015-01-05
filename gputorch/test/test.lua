@@ -21,6 +21,10 @@ local function isEqual(a, b, tolerance, ...)
    if a == nil and b ~= nil then return false end
    if a ~= nil and b == nil then return false end
    if torch.type(b) ~= torch.type(a) then
+      --[[
+        TODO: memory leak for original b is lost and won't be released (At least 1 GPU memory allocation)
+             type(a) is torch.FloatTensor , type(b) is torch.GPUTensor
+      ]]--
       b = b:typeAs(a) -- TODO: remove the need for this (a-b doesnt work for bytetensor, gputensor pairs)
    end
    local diff = a-b

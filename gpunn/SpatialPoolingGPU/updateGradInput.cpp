@@ -29,9 +29,9 @@
 template<int B_Y, int B_X, int imgsPerThread, int filtersPerThread, bool add, bool checkCaseBounds>
 void kLocalMaxUndo(Concurrency::array_view<float,1> &avImages,
                               Concurrency::array_view<float,1> &avMaxGrads, Concurrency::array_view<float,1> &avMaxActs,
-                              Concurrency::array_view<float,1> &avTargets, const int imgSize, const int numFilters,
-                              const int numImages, const int subsX, const int startX, const int strideX, const int outputsX,
-                              const float scaleTargets, const float scaleOutputs, int blockX, int blockY) 
+                              Concurrency::array_view<float,1> &avTargets, int imgSize, int numFilters,
+                              int numImages, int subsX, int startX, int strideX, int outputsX,
+                              float scaleTargets, float scaleOutputs, int blockX, int blockY) 
 {
   Concurrency::extent<3> grdExt(1, blockY * 4, blockX * 32);
   Concurrency::tiled_extent<1, 4, 32> t_ext(grdExt);

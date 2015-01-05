@@ -193,6 +193,7 @@ void atomicmaxgradinput(Concurrency::array_view<float,1>&input_data,
 static int gpunn_SpatialMaxPooling_updateOutput(lua_State *L)
 {
   THGPUTensor *input = (THGPUTensor *)luaT_checkudata(L, 2, "torch.GPUTensor");
+  THGPUTensor* input_org = input;
   int kW = luaT_getfieldcheckint(L, 1, "kW");
   int kH = luaT_getfieldcheckint(L, 1, "kH");
   int dW = luaT_getfieldcheckint(L, 1, "dW");
@@ -259,7 +260,10 @@ static int gpunn_SpatialMaxPooling_updateOutput(lua_State *L)
   }
 
   // clean
-  THGPUTensor_free(input);
+  if (input_org != input) {
+    THGPUTensor_free(input);
+    input = NULL;
+  }
 
   // check for errors
   return 1;

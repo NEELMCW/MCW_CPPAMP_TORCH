@@ -92,7 +92,9 @@ static int gpunn_Max_updateOutput(lua_State *L)
              THGPUTensor_nElement(output), THGPUTensor_nElement(indices), nrows, ncols, nblocks);
 
   // final cut:
-  THGPUTensor_free(input); 
+  //  (1) Either for it is cloned, need to free
+  //  (2) Or it is retained, need to free once as well to reduce its reference count
+  THGPUTensor_free(input);
   THGPUTensor_select(output, NULL, dimension, 0);
 
   return 1;

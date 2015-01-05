@@ -17,11 +17,24 @@ void THGPUTensor_copyFloat(THGPUTensor *self, struct THFloatTensor *src)
   {
     THGPUTensor *selfc = THGPUTensor_newContiguous(self);
     src = THFloatTensor_newContiguous(src);
-
+    #if 0
     Concurrency::array<float> arrSrc(Concurrency::extent<1>(src->storage->size), src->storage->data);
     Concurrency::array_view<float> avSelfCopy(Concurrency::extent<1>(self->storage->size), self->storage->data);
     Concurrency::copy(arrSrc, avSelfCopy);
-
+    #else
+    // Hui: Re-implement without any array ctor and by reusing preallocated array_view
+    // Note that, providing the following code snippets in lua
+    //    local x_cpu    = x:float()
+    //    local x_gpu   = x_cpu:gpu()
+    //
+    //  The call graph of it is draftly listed as belows
+    //  (1) THGPUStorage_new        (0 GPU memory allocation, since default size is set to 0 now)
+    //  (2) THGPUStorage_resize     (1 GPU memory allocation)
+    //  (3) THGPUTensor_copyFloat (now, 0 GPU memory operation)
+    //  (4) THGPUTensor_free         (1 GPU memory de-allocation)
+    Concurrency::array_view<float, 1> *avSelfCopy= static_cast<Concurrency::array_view<float, 1> *>(self->storage->allocatorContext);
+    Concurrency::copy(src->storage->data, src->storage->data+src->storage->size, *avSelfCopy);
+    #endif
     THFloatTensor_free(src);
     THGPUTensor_freeCopyTo(selfc, self);
   }
@@ -61,10 +74,14 @@ void THFloatTensor_copyGPU(THFloatTensor *self, struct THGPUTensor *src)
   {
     THFloatTensor *selfc = THFloatTensor_newContiguous(self);
     src = THGPUTensor_newContiguous(src);
-
+    #if 0
     Concurrency::array<float> arrSrc(Concurrency::extent<1>(self->storage->size), src->storage->data);
     Concurrency::array_view<float> avSelfCopy(Concurrency::extent<1>(self->storage->size), self->storage->data);
     Concurrency::copy(arrSrc, avSelfCopy);
+    #else
+    Concurrency::array_view<float, 1> *avSrc= static_cast<Concurrency::array_view<float, 1> *>(src->storage->allocatorContext);
+    Concurrency::copy(*avSrc, self->storage->data);
+    #endif
 
     THGPUTensor_free(src);
     THFloatTensor_freeCopyTo(selfc, self);
@@ -154,7 +171,8 @@ static void THGPUTensor_computesz(THGPUTensor *self, Concurrency::array_view<lon
   *dim_ = dim;
 }
 
-void THGPUTensor_kernel_copy(THGPUTensor *self, THGPUTensor *src, Concurrency::array_view<long, 1> *dst_sz,
+void THGPUTensor_kernel_copy(Concurrency::array_view<float, 1>&av_dst,
+                             Concurrency::array_view<float, 1>&av_src, Concurrency::array_view<long, 1> *dst_sz,
                              Concurrency::array_view<long, 1> *dst_st, int dst_dim, 
                              Concurrency::array_view<long, 1> *src_sz, Concurrency::array_view<long, 1> *src_st,
                              int src_dim, long n_elem, long innerdim, int nblockx, int nblocky,
@@ -166,8 +184,8 @@ void THGPUTensor_kernel_copy(THGPUTensor *self, THGPUTensor *src, Concurrency::a
   Concurrency::array_view<long, 1> av_src_sz(*src_sz);
   Concurrency::array_view<long, 1> av_dst_st(*dst_st);
   Concurrency::array_view<long, 1> av_dst_sz(*dst_sz);
-  Concurrency::array_view<float, 1> av_dst(self->storage->size, THGPUTensor_data(self));
-  Concurrency::array_view<float, 1> av_src(src->storage->size, THGPUTensor_data(src));
+  //Concurrency::array_view<float, 1> av_dst(self->storage->size, THGPUTensor_data(self));
+  //Concurrency::array_view<float, 1> av_src(src->storage->size, THGPUTensor_data(src));
   //Copy Kernel
   Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1, 16, 16> tidx) restrict(amp)
   {
@@ -241,7 +259,9 @@ THC_API void THGPUTensor_copy(THGPUTensor *self, THGPUTensor *src)
     int number_blocks_dim_y = DIVUP(nblocks, nblocks_x * nblocks_y);
     int nblocks_z = number_blocks_dim_y;
 
-    THGPUTensor_kernel_copy(self, src,
+    Concurrency::array_view<float, 1> *avSelf= static_cast<Concurrency::array_view<float, 1> *>(self->storage->allocatorContext);
+    Concurrency::array_view<float, 1> *avSrc= static_cast<Concurrency::array_view<float, 1> *>(src->storage->allocatorContext);\
+    THGPUTensor_kernel_copy(*avSelf, *avSrc,
                            d_self_sz, d_self_st, self_dim,
                            d_src_sz, d_src_st, src_dim,
                           size, innermostdim, nblocks_x, nblocks_y, nblocks_z);

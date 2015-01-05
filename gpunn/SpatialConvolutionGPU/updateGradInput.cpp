@@ -30,10 +30,10 @@
 template <int imgsPerThread, int numColors, bool scale, bool checkCaseBounds, bool conv>
 void img_acts_color(Concurrency::array_view<float,1> &avhidActs,
                     Concurrency::array_view<float,1> &avFilters, Concurrency::array_view<float,1> &avTargets,
-                    const int numModulesY, const int numModulesX, const int numImages, const int numFilters,
-                    const int filterSize, const int imgSizeY, const int imgSizeX,
-                    const int paddingStart, const int moduleStride,
-                    const float scaleTargets, const float scaleOutputs,
+                    int numModulesY, int numModulesX, int numImages, int numFilters,
+                    int filterSize, int imgSizeY, int imgSizeX,
+                    int paddingStart, int moduleStride,
+                    float scaleTargets, float scaleOutputs,
                     int blockX, int blockY, int numFilterColors, int bx)
 {
 #if (numFilterColors % 8 == 0)
@@ -230,10 +230,10 @@ void img_acts_color(Concurrency::array_view<float,1> &avhidActs,
 template <int imgsPerThread, int colorsPerThread,  bool scale, bool checkCaseBounds, bool conv>
 void img_acts_mediumcolor(Concurrency::array_view<float,1> &avhidActs,
                           Concurrency::array_view<float,1> &avFilters, Concurrency::array_view<float,1> &avTargets,
-                          const int numModulesY, const int numModulesX, const int numImages, const int numFilters,
-                          const int filterSize, const int imgSizeY, const int imgSizeX, const int paddingStart,
-                          const int moduleStride, const int numImgColors, const int numGroups,
-                          const float scaleTargets, const float scaleOutputs,
+                          int numModulesY, int numModulesX, int numImages, int numFilters,
+                          int filterSize, int imgSizeY, int imgSizeX, int paddingStart,
+                          int moduleStride, int numImgColors, int numGroups,
+                          float scaleTargets, float scaleOutputs,
                           int blockX, int blockY, int bx)
 {
   const int numFilterColors = numImgColors / numGroups;
@@ -598,9 +598,9 @@ else
 template <int B_Y, int B_X, int imgsPerThread, int colorsPerThread, bool scale, bool checkCaseBounds, bool conv>
 void conv_img_acts_manycolor(Concurrency::array_view<float,1> &avhidActs,
                              Concurrency::array_view<float,1> &avFilters, Concurrency::array_view<float,1>& avTargets,
-                             const int numModulesY, const int numModulesX, const int numImages, const int numFilters,
-                             const int filterSize, const int imgSizeY, const int imgSizeX, const int paddingStart, const int moduleStride,
-                             const int numImgColors, const int numGroups, const float scaleTargets, const float scaleOutputs,
+                             int numModulesY, int numModulesX, int numImages, int numFilters,
+                             int filterSize, int imgSizeY, int imgSizeX, int paddingStart, int moduleStride,
+                             int numImgColors, int numGroups, float scaleTargets, float scaleOutputs,
                              int blockX, int blockY, int bx)
 {
 if (bx==32)
