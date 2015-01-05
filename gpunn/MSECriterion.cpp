@@ -23,8 +23,7 @@ static int gpunn_MSECriterion_updateOutput(lua_State *L)
   float sum;
 
   long size = THGPUTensor_nElement(input);
-  THGPUTensor* input_orig = input;
-  THGPUTensor* target_orig = target;
+
   input = THGPUTensor_newContiguous(input);
   target = THGPUTensor_newContiguous(target);
 
@@ -34,14 +33,8 @@ static int gpunn_MSECriterion_updateOutput(lua_State *L)
   if(sizeAverage)
     sum /= size;
 
-  if (input_orig != input) {
-    THGPUTensor_free(input);
-    input = NULL;
-  }
-  if (target_orig != target) {
-    THGPUTensor_free(target);
-    target = NULL;
-  }
+  THGPUTensor_free(input);
+  THGPUTensor_free(target);
  
   lua_pushnumber(L, sum);
   lua_setfield(L, 1, "output");
@@ -72,8 +65,7 @@ static int gpunn_MSECriterion_updateGradInput(lua_State *L)
 
   long size = THGPUTensor_nElement(input);
   float norm = (sizeAverage ? 2./size : 2.);
-  THGPUTensor *input_orig = input;
-  THGPUTensor *target_orig = target;
+
   input = THGPUTensor_newContiguous(input);
   target = THGPUTensor_newContiguous(target);
 
@@ -82,14 +74,8 @@ static int gpunn_MSECriterion_updateGradInput(lua_State *L)
   DECLARE_BOLT_DEVICE_VECTOR_3(input, input_data, target, target_data, gradInput, gradInput_data);
   bolt::amp::transform(input_data.begin(), input_data.end(), target_data.begin(), gradInput_data.begin(), mse_updateGradInput_functor(norm));
 
-  if (input_orig != input) {
-    THGPUTensor_free(input);
-    input = NULL;
-  }
-  if (target_orig != target) {
-    THGPUTensor_free(target);
-    target = NULL;
-  }
+  THGPUTensor_free(input);
+  THGPUTensor_free(target);
   return 1;
 }
 
@@ -206,8 +192,7 @@ static int gpunn_MSECriterion_updateOutput2(lua_State *L)
   THGPUTensor *target = (THGPUTensor*)luaT_checkudata(L, 3, "torch.GPUTensor");
   int sizeAverage = luaT_getfieldcheckboolean(L, 1, "sizeAverage");
   long size = THGPUTensor_nElement(input);
-  THGPUTensor *input_orig = input;
-  THGPUTensor *target_orig = target;
+
   input = THGPUTensor_newContiguous(input);
   target = THGPUTensor_newContiguous(target);
 
@@ -220,14 +205,9 @@ static int gpunn_MSECriterion_updateOutput2(lua_State *L)
 
   lua_pushnumber(L, THGPUStorage_get(output, 0));
 
-  if (input_orig != input) {
-    THGPUTensor_free(input);
-    input = NULL;
-  }
-  if (target_orig != target) {
-    THGPUTensor_free(target);
-    target = NULL;
-  }
+
+  THGPUTensor_free(input);
+  THGPUTensor_free(target);
   THGPUStorage_free(output);
 
   lua_pushstring(L, "output");

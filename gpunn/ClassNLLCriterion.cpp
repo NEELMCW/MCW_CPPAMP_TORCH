@@ -89,18 +89,15 @@ void gpunn_ClassNLLCriterion_updateGradInput_kernel(Concurrency::array_view<floa
 
 static int gpunn_ClassNLLCriterion_updateOutput(lua_State *L) {
   THGPUTensor *input = (THGPUTensor *)luaT_checkudata(L, 2, "torch.GPUTensor");
-  THGPUTensor *input_orig = input;
   input = THGPUTensor_newContiguous(input);
 
   THGPUTensor *target = (THGPUTensor *)luaT_checkudata(L, 3, "torch.GPUTensor");
-  THGPUTensor *target_orig = target;
   target = THGPUTensor_newContiguous(target);
   int ntarget = 1;
   if (target->nDimension > 1)
     ntarget = target->size[1];
 
   THGPUTensor *output = (THGPUTensor *)luaT_getfieldcheckudata(L, 1, "outputTensor", "torch.GPUTensor");
-  THGPUTensor *output_orig = output;
   output = THGPUTensor_newContiguous(output);
 
   PREPARE_AV(output, pavOutput);
@@ -120,18 +117,9 @@ static int gpunn_ClassNLLCriterion_updateOutput(lua_State *L) {
   else
     THArgCheck(0, 2, "vector or matrix expected");
 
-  if (output_orig != output) {
-    THGPUTensor_free(output);
-    output = NULL;
-  }
-  if (target_orig != target) {
-    THGPUTensor_free(target);
-    target = NULL;
-  }
-  if (input_orig != input) {
-    THGPUTensor_free(input);
-    input = NULL;
-  }
+  THGPUTensor_free(output);
+  THGPUTensor_free(target);
+  THGPUTensor_free(input);
 
   return 1;
 }
@@ -140,11 +128,9 @@ static int gpunn_ClassNLLCriterion_updateGradInput(lua_State *L)
 {
 
   THGPUTensor *input = (THGPUTensor *)luaT_checkudata(L, 2, "torch.GPUTensor");
-  THGPUTensor *input_orig = input;
   input = THGPUTensor_newContiguous(input);
 
   THGPUTensor *target = (THGPUTensor *)luaT_checkudata(L, 3, "torch.GPUTensor");
-  THGPUTensor *target_orig = target;
   target = THGPUTensor_newContiguous(target);
   float *target_data = THGPUTensor_data(target);
 
@@ -153,7 +139,6 @@ static int gpunn_ClassNLLCriterion_updateGradInput(lua_State *L)
     ntarget = target->size[1];
 
   THGPUTensor *gradInput = (THGPUTensor *)luaT_getfieldcheckudata( L, 1, "gradInput", "torch.GPUTensor");
-  THGPUTensor *gradInput_orig = gradInput;
   gradInput = THGPUTensor_newContiguous(gradInput);
   float *gradInput_data = THGPUTensor_data(gradInput);
 
@@ -183,18 +168,9 @@ static int gpunn_ClassNLLCriterion_updateGradInput(lua_State *L)
   else
     THArgCheck(0, 2, "vector or matrix expected");
 
-  if (gradInput_orig != gradInput) {
-    THGPUTensor_free(gradInput);
-    gradInput = NULL;
-  }
-  if (target_orig != target) {
-    THGPUTensor_free(target);
-    target = NULL;
-  }
-  if (input_orig != input) {
-    THGPUTensor_free(input);
-    input = NULL;
-  }
+  THGPUTensor_free(gradInput);
+  THGPUTensor_free(target);
+  THGPUTensor_free(input);
 
   return 1;
 }

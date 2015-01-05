@@ -13,17 +13,14 @@ static int gpunn_Square_updateOutput(lua_State *L)
 {
   THGPUTensor *input = (THGPUTensor*)luaT_checkudata(L, 2, "torch.GPUTensor");
   THGPUTensor *output = (THGPUTensor*)luaT_getfieldcheckudata(L, 1, "output", "torch.GPUTensor");
-  THGPUTensor* input_orig = input;
+
   input = THGPUTensor_newContiguous(input);
 
   THGPUTensor_resizeAs(output, input);
   DECLARE_BOLT_DEVICE_VECTOR_2(input, input_data, output, output_data);
   bolt::amp::transform(input_data.begin(), input_data.end(), output_data.begin(), squareupdateOutput_functor());
 
-  if (input_orig != input) {
-    THGPUTensor_free(input);
-    input = NULL;
-  }
+  THGPUTensor_free(input);
   return 1;
 }
 
@@ -40,17 +37,14 @@ static int gpunn_Square_updateGradInput(lua_State *L)
   THGPUTensor *input = (THGPUTensor*)luaT_checkudata(L, 2, "torch.GPUTensor");
   THGPUTensor *gradOutput = (THGPUTensor*)luaT_checkudata(L, 3, "torch.GPUTensor");
   THGPUTensor *gradInput = (THGPUTensor*)luaT_getfieldcheckudata(L, 1, "gradInput", "torch.GPUTensor");
-  THGPUTensor *gradOutput_orig = gradOutput;
+
   gradOutput = THGPUTensor_newContiguous(gradOutput);
   THGPUTensor_resizeAs(gradInput, input);
 
   DECLARE_BOLT_DEVICE_VECTOR_3(input, input_data, gradInput, gradInput_data, gradOutput, gradOutput_data);
   bolt::amp::transform(input_data.begin(), input_data.end(), gradOutput_data.begin(),gradInput_data.begin(), squareupdateGradInput_functor());
 
-   if (gradOutput_orig != gradOutput) {
-    THGPUTensor_free(gradOutput);
-    gradOutput = NULL;
-  }
+  THGPUTensor_free(gradOutput);
   return 1;
 }
 

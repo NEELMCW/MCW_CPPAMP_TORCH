@@ -65,7 +65,7 @@ static int gpunn_Min_updateOutput(lua_State *L)
 
   luaL_argcheck(L, dimension >= 0 && dimension < input->nDimension, 2, "dimension out of range");
   luaL_argcheck(L, dimension == input->nDimension - 1, 2, "only supported dimension is innermost (GPU kernel only)");
-  THGPUTensor* input_orig = input;
+
   input = THGPUTensor_newContiguous(input);
 
   THLongStorage *dim = THLongStorage_newWithSize(input->nDimension);
@@ -92,10 +92,7 @@ static int gpunn_Min_updateOutput(lua_State *L)
              THGPUTensor_nElement(output), THGPUTensor_nElement(indices), nrows, ncols, nblocks);
 
   // final cut:
-  if (input_orig != input) {
-    THGPUTensor_free(input);
-    input = NULL;
-  }
+  THGPUTensor_free(input); 
   THGPUTensor_select(output, NULL, dimension, 0);
 
   return 1;

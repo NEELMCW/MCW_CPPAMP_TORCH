@@ -248,8 +248,7 @@ static int gpunn_SpatialSubSampling_updateOutput(lua_State *L)
   THGPUTensor *output = (THGPUTensor *)luaT_getfieldcheckudata(L, 1, "output", "torch.GPUTensor");
 
   luaL_argcheck(L, input->nDimension == 3 || input->nDimension == 4, 2, "3D or 4D (batch) tensor expected");
-  THGPUTensor *input_orig = input;
-  
+
   PREPARE_AV(weight, pavWeight);
   PREPARE_AV(bias, pavBias);
   if (input->nDimension == 3)
@@ -292,10 +291,7 @@ static int gpunn_SpatialSubSampling_updateOutput(lua_State *L)
   }
 
   // clean
-  if (input_orig != input) {
-    THGPUTensor_free(input);
-    input = NULL;
-  }
+  THGPUTensor_free(input);
 
   // check for errors
   return 1;
@@ -365,7 +361,6 @@ static int gpunn_SpatialSubSampling_accGradParameters(lua_State *L)
 
   THGPUTensor *gradWeight = (THGPUTensor *)luaT_getfieldcheckudata(L, 1, "gradWeight", "torch.GPUTensor");
   THGPUTensor *gradBias = (THGPUTensor *)luaT_getfieldcheckudata(L, 1, "gradBias", "torch.GPUTensor");
-  THGPUTensor *input_orig = input;
 
   PREPARE_AV(gradWeight, pavGradWeight);
   PREPARE_AV(gradBias, pavGradBias);
@@ -405,10 +400,7 @@ static int gpunn_SpatialSubSampling_accGradParameters(lua_State *L)
   }
 
   // clean
-  if (input_orig != input) {
-      THGPUTensor_free(input);
-      input = NULL;
-  }
+  THGPUTensor_free(input);
 
   return 0;
 }
