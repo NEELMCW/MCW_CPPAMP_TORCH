@@ -1,6 +1,6 @@
 require "libgputorch"
 require "nn"
-gpunn = require "libgpunn"
+require "libgpunn"
 
 torch.include('gpunn', 'test.lua')
-return gpunn
+
