@@ -1324,7 +1324,7 @@ void THGPUTensor_randn(THGPURNGState* rng_state, THGPUTensor *r_, THLongStorage 
   THGPUTensor_normal(rng_state, r_, 0, 1);
 }
 
-void THGPUTensor_kernel_indexFill(Concurrency::array_view<float, 1> &srcTensor, Concurrency::array_view<long> &srcStride, Concurrency::array_view<long, 1> indx, long src_nDim, 
+void THGPUTensor_kernel_indexFill(Concurrency::array_view<float, 1> &srcTensor, Concurrency::array_view<long> &srcStride, Concurrency::array_view<long, 1> &indx, long src_nDim, 
                                   int dim, long idx_size, long tensor_size, long size_dim, float val, long nblockx
 )
 {
@@ -1367,7 +1367,7 @@ void THGPUTensor_kernel_indexFill(Concurrency::array_view<float, 1> &srcTensor, 
   });
 }
 
-void THGPUTensor_kernel_indexCopy(Concurrency::array_view<float, 1> &resTensor, Concurrency::array_view<float, 1> &srcTensor, Concurrency::array_view<long,1> &resStride, Concurrency::array_view<long, 1> indx, long res_size, long res_nDim, int dim, long idx_size, long src_size, long size_dim, long nblockx)
+void THGPUTensor_kernel_indexCopy(Concurrency::array_view<float, 1> &resTensor, Concurrency::array_view<float, 1> &srcTensor, Concurrency::array_view<long,1> &resStride, Concurrency::array_view<long, 1> &indx, long res_size, long res_nDim, int dim, long idx_size, long src_size, long size_dim, long nblockx)
 {
   Concurrency::extent<2> gridExt(16,nblockx*16);
   Concurrency::tiled_extent<16,16> t_ext(gridExt);
