@@ -11,7 +11,9 @@ if not gputorch then
   require 'gputorch'
   runtests=true
 end
-
+if not gpunn then
+  require 'gpunn'
+end
 --e.g.: th -lgpunn -e "nn.testgpu{'copies'}"
 --NW
 function gpunntest.copies()
@@ -2567,6 +2569,6 @@ function nn.testgpu(tests)
 end
 
 if runtests then 
-  require 'gpunn'
+  --require 'gpunn'
   nn.testgpu()
 end
