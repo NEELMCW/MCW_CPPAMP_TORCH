@@ -1,5 +1,6 @@
 SET(src 
-   THCGeneral.cpp THCBlas.cpp THCStorage.cpp THCTensor.cpp THCTensorCopy.cpp THCTensorConv.cpp THCTensorMath.cpp THCTensorRandom.cpp)
+   THCGeneral.cpp gemm.cpp
+    THCBlas.cpp THCStorage.cpp THCTensor.cpp THCTensorCopy.cpp THCTensorConv.cpp THCTensorMath.cpp THCTensorRandom.cpp)
 
 # MCW CLAMP Specific. Version >= 0.3 is Must
  # MCW CLAMP Specific. Version >= 0.3 is Must
@@ -31,6 +32,7 @@ SET_PROPERTY(SOURCE THCTensorConv.cpp APPEND_STRING PROPERTY COMPILE_FLAGS " ${C
 SET_PROPERTY(SOURCE THCTensorCopy.cpp APPEND_STRING PROPERTY COMPILE_FLAGS " ${CLAMP_CXXFLAGS}")
 SET_PROPERTY(SOURCE THCTensorRandom.cpp APPEND_STRING PROPERTY COMPILE_FLAGS " ${CLAMP_CXXFLAGS}")
 SET_PROPERTY(SOURCE THCGeneral.cpp APPEND_STRING PROPERTY COMPILE_FLAGS " ${CLAMP_CXXFLAGS}")
+SET_PROPERTY(SOURCE gemm.cpp APPEND_STRING PROPERTY COMPILE_FLAGS " ${CLAMP_CXXFLAGS}")
 
 
 

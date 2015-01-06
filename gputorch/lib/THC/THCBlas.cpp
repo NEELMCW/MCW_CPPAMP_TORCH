@@ -1,5 +1,6 @@
 #include "THCBlas.h"
 #include "THCGeneral.h"
+#include "gemm.h"
 #include<iostream>
 
 void THGPUBlas_init(int devices, int device)
@@ -649,7 +650,7 @@ void THGPUBlas_gemm_opt(char transa, char transb,
     clblasOrder order = clblasColumnMajor;
 
 
-    /* Prepare OpenCL memory objects and place matrices inside them. */
+    //Prepare OpenCL memory objects and place matrices inside them. 
     if (cl_A == NULL)
       bufA = clCreateBuffer(mcontext, CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR, m * k * sizeof(*a),  a, &err);
     else
@@ -676,7 +677,7 @@ void THGPUBlas_gemm_opt(char transa, char transb,
     {
       err = clEnqueueReadBuffer(mqueue, bufC, CL_TRUE, cOffset * sizeof(*c), m * n * sizeof(*c), c, 0, NULL, NULL);
     }
-    /* Release OpenCL memory objects. */
+    //Release OpenCL memory objects.
     if (cl_C == NULL)
       clReleaseMemObject(bufC);
     if (cl_B == NULL)
@@ -691,3 +692,67 @@ void THGPUBlas_gemm_opt(char transa, char transb,
           "with the bound [val] <= %d", INT_MAX);
 }
 
+/* Level 3 optimized. bufA, bufB are created outside as m,n,k is not changed in loops*/
+/*void THGPUBlas_gemm_opt(char transa, char transb,
+  long m, long n, long k, float alpha,
+  float *a, long lda, float *b, long ldb, float beta,
+  float *c, long ldc,
+  void* cl_A, void* cl_B, void* cl_C,
+  long aOffset, long bOffset, long cOffset)
+{*/
+/*  int transa_ = ((transa == 't') || (transa == 'T'));
+  int transb_ = ((transb == 't') || (transb == 'T'));
+
+  if (n == 1)
+    ldc = m;
+
+  if (transa_)
+  {
+    if (m == 1)
+      lda = k;
+  }
+  else
+  {
+    if (k == 1)
+      lda = m;
+  }
+
+  if (transb_)
+  {
+    if (k == 1)
+      ldb = n;
+  }
+  else
+  {
+    if (n == 1)
+      ldb = k;
+  }
+
+  if ( (m <= INT_MAX) && (n <= INT_MAX) && (k <= INT_MAX) && (lda <= INT_MAX)  && (ldb <= INT_MAX) && (ldc <= INT_MAX) )
+  {
+    size_t i_m = (size_t)m;
+    size_t i_n = (size_t)n;
+    size_t i_k = (size_t)k;
+
+    int i_lda = (int)lda;
+    int i_ldb = (int)ldb;
+    int i_ldc = (int)ldc;
+
+    cl_int err;
+    cl_mem bufC, bufB, bufA;
+    cl_event event = NULL;
+
+    return;
+  }
+  THError("Cublas_gemm only supports m, n, k, lda, ldb, ldc"
+          "with the bound [val] <= %d", INT_MAX);
+  */
+  /*int a_row = (transa == AmpblasNoTrans ? m : k);
+  int a_col = (transa == AmpblasNoTrans ? k : m);   
+  int b_row = (transb == AmpblasNoTrans ? k : n);
+  int b_col = (transb == AmpblasNoTrans ? n : k);*/
+  //gemm(m, n, k, transa, transb, alpha, a + aOffset, b + bOffset, beta, c + cOffset, lda, ldb, ldc); 
+/*  std::cout<<"within blac.cpp"<<std::endl;
+  gemm(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
+ 
+}*/
