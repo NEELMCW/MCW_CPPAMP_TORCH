@@ -38,51 +38,28 @@ Prepare a directory for work space.
    
    * git clone https://bitbucket.org/multicoreware/cppamp-driver-ng.git src
 
-   * git checkout gmac-exp (gmac-exp branch is tailor made for torch7 use case)
+   * git checkout gmac-exp-cache-kernel (gmac-exp-cache-kernel branch is tailor made for torch7 use case)
+(note that you can also use git checkout origina/gmac-exp-cache-kernel)
 
 Create a build directory and configure using CMake.
 
-  *  mkdir mcw_cppamp/gmac_exp_build
+  *  mkdir mcw_cppamp/gmac_exp_build_cache
 
-  * cd mcw_cppamp/gmac_exp_build
+  * cd mcw_cppamp/gmac_exp_build_cache
 
-   * cmake ../src -DCMAKE_BUILD_TYPE=Release (The gmac-exp branch expects the AMDAPP SDK in the path /opt/AMDAPP)
+   * cmake ../src -DCMAKE_BUILD_TYPE=Release (The gmac-exp-cache-kernel branch expects the AMDAPP SDK in the path /opt/AMDAPP)
 
 Build the whole system. This will build clang and other libraries that require one time build.
 
-  * make [-j #] world           (# is the number of parallel builds)
+  * make [-j #] world           (# is the number of parallel builds. Generally it is # of CPU cores)
 
   * make                        (this builds llvm utilities)
  
 (iii) ** Bolt Set up:**
 
-To set up bolt use the master branch of https://bitbucket.org/multicoreware/cppamp-driver-ng.git
+Bolt binaries are automatically built in (ii)
 
-  * cd mcw_cppamp/src
-
-  * git checkout master
-
- *  mkdir mcw_cppamp/master-build && cd mcw_cppamp/master-build
-
- * cmake ../src (default options can be overridden on the command line for master branch:
-  cmake ../src \
-      -DCLANG_URL=https://bitbucket.org/multicoreware/cppamp-ng.git \
-      -DOPENCL_HEADER_DIR=/opt/AMDAPP/include \
-      -DOPENCL_LIBRARY_DIR=/opt/AMDAPP/lib/x86_64 \ )
-
-*  make [-j #] world
-
-*  make (This builts bolt and other support libraries)
-
-*  copy the Bolt directory from mcw_cppamp/src to mcw_cppamp 
-
-*  cd mcw_cppamp/src 
-
-* git checkout gmac-exp (Need to get back to this)
-
-
-
-
+  * git checkout gmac-exp-cache-kernel (Need to get back to this)
 
 (iv) **CLBLAS setup**:
 
@@ -94,7 +71,6 @@ Prior to building these packages the following environment variables need to be 
 
 * AMDAPPSDKROOT=<path to AMD APP SDK>
 * CLBLASROOT=<path to clBLAS binary pack>
-* BOLTROOT =<path to Bolt Source> (copied from master branch)
 * MCWCPPAMPROOT=<path to mcw_cppamp dir>
 * LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CLBLASROOT/lib64
 
