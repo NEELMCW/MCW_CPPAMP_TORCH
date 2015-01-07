@@ -165,6 +165,41 @@ int gemm_AMP(char TransA, char TransB, const int M, const int N, const int K, co
   return 0;
 }
 
+void gemv_TransA(const float *A, const float *X, float *Y, const float alpha, const float beta, const int lenX, const int lenY, const int incX, const int incY, const int lda)
+{
+  int iy = OFFSET(lenY, incY);
+  for (int i = 0; i < lenY; i++) 
+  {
+    float temp = 0.0;
+    int ix = OFFSET(lenX, incX);
+    for (int j = 0; j < lenX; j++) 
+    {
+      temp += X[ix] * A[lda * i + j];
+      ix += incX;
+    }
+    Y[iy] += alpha * temp;
+    iy += incY;
+  } 
+
+}
+
+void gemv_NoTransA(const float *A, const float *X, float *Y, const float alpha, const float beta, const int lenX, const int lenY, const int incX, const int incY, const int lda)
+{
+  int ix = OFFSET(lenX, incX);
+  for (int j = 0; j < lenX; j++) 
+  {
+    const float temp = alpha * X[ix];
+    if (temp != 0.0) {
+      int iy = OFFSET(lenY, incY);
+      for (int i = 0; i < lenY; i++) {
+        Y[iy] += temp * A[lda * j + i];
+        iy += incY;
+      }
+    }
+    ix += incX;
+  }
+}
+
 void gemv_AMP(char TransA,
 const int M, const int N, const float alpha, const float *A,
 const int lda, const float *X, const int incX, const float beta,
@@ -201,35 +236,11 @@ float *Y, const int incY)
     return;
  
   if(TransA == 't') {
+    gemv_TransA(A, X, Y, alpha, beta, lenX, lenY, incX, incY, lda);
     /* form y := alpha*A*x + y */
-    int iy = OFFSET(lenY, incY);
-    for (i = 0; i < lenY; i++) 
-    {
-      float temp = 0.0;
-      int ix = OFFSET(lenX, incX);
-      for (j = 0; j < lenX; j++) 
-      {
-        temp += X[ix] * A[lda * i + j];
-        ix += incX;
-      }
-      Y[iy] += alpha * temp;
-      iy += incY;
-    } 
   } else if (TransA == 'n'){
   /* form y := alpha*A'*x + y */
-    int ix = OFFSET(lenX, incX);
-    for (j = 0; j < lenX; j++) 
-    {
-      const float temp = alpha * X[ix];
-      if (temp != 0.0) {
-        int iy = OFFSET(lenY, incY);
-        for (i = 0; i < lenY; i++) {
-          Y[iy] += temp * A[lda * j + i];
-          iy += incY;
-        }
-      }
-      ix += incX;
-    }
+    gemv_NoTransA(A, X, Y, alpha, beta, lenX, lenY, incX, incY, lda);
   } 
 }
 
