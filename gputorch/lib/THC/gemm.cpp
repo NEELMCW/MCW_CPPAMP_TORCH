@@ -2,27 +2,17 @@
 
 void gemm_NoTransAB(Concurrency::array_view<float, 1> &A, Concurrency::array_view<float, 1> &B, Concurrency::array_view<float, 1> &C, int M, int N, int K, int lda, int ldb, int ldc, float alpha, float beta)
 {
-  Concurrency::extent<1> grdExt(N * 16);
-  Concurrency::tiled_extent<16> t_ext(grdExt);
-  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<16> tidx) restrict(amp){
+  Concurrency::extent<2> grdExt((N+15)&~15 , (M+15)&~15);
+  Concurrency::tiled_extent<16, 16> t_ext(grdExt);
+  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<16, 16> tidx) restrict(amp){
   float temp;
-  for (int j = tidx.global[0]; j < N; j+=t_ext[0]) {
-    if (beta == 0) {
-      for (int i = 0; i < M; ++i) {
-        C[i+j*ldc] = 0;
-      }
-    } else if (beta != 1) {
-      for (int i = 0; i < M; ++i) {
-        C[i+j*ldc] *= beta;
-      }
-    }
+  int j = tidx.global[0];
+  int i = tidx.global[1];
+  if(i<M && j<N)
+  {
+    C[i+j*ldc] *= beta;
     for (int l = 0; l < K; ++l) {
-      if (B[l+j*ldb] != 0) {
-        temp = alpha * B[l+j*ldb];
-        for (int i = 0; i < M; ++i) {
-          C[i+j*ldc] += A[i+l*lda] * temp;
-        }
-      }
+      C[i+j*ldc] += A[i+l*lda] * alpha * B[l+j*ldb];
     }
   }
   });
@@ -30,62 +20,58 @@ void gemm_NoTransAB(Concurrency::array_view<float, 1> &A, Concurrency::array_vie
 
 void gemm_NoTransB(Concurrency::array_view<float, 1> &A, Concurrency::array_view<float, 1> &B, Concurrency::array_view<float, 1> &C, int M, int N, int K, int lda, int ldb, int ldc, float alpha, float beta)
 {
+  Concurrency::extent<2> grdExt((N+15)&~15, (M+15)&~15);
+  Concurrency::tiled_extent<16, 16> t_ext(grdExt);
+  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<16, 16> tidx) restrict(amp){
   float temp;
-  for (int j = 0; j < N; ++j) {
-    for (int i = 0; i < M; ++i) {
-      temp = 0;
-      for (int l = 0; l < K; ++l) {
-        temp += A[l+i*lda] * B[l+j*ldb];
-      }
-      if (beta == 0) {
-        C[i+j*ldc] = alpha*temp;
-      } else {
-        C[i+j*ldc] = alpha*temp + beta*C[i+j*ldc];
-      }
+  int j = tidx.global[0];
+  int i = tidx.global[1];
+  if(i<M && j<N)
+  {
+    temp = 0;
+    for (int l = 0; l < K; ++l) {
+      temp += A[l+i*lda] * B[l+j*ldb];
     }
+    C[i+j*ldc] = alpha*temp + beta*C[i+j*ldc];
   }
+  });
 }
 
 void gemm_NoTransA(Concurrency::array_view<float, 1> &A, Concurrency::array_view<float, 1> &B, Concurrency::array_view<float, 1> &C, int M, int N, int K, int lda, int ldb, int ldc, float alpha, float beta)
 {
+  Concurrency::extent<2> grdExt((N+15)&~15, (M+15)&~15);
+  Concurrency::tiled_extent<16, 16> t_ext(grdExt);
+  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<16, 16> tidx) restrict(amp){
   float temp;
-  for (int j = 0; j < N; ++j) {
-    if (beta == 0) {
-      for (int i = 0; i < M; ++i) {
-        C[i+j*ldc] = 0;
-      }
-    } else if (beta != 1) {
-      for (int i = 0; i < M; ++i) {
-        C[i+j*ldc] *= beta;
-      }
-    }
+  int j = tidx.global[0];
+  int i = tidx.global[1];
+  if(i < M && j < N)
+  {
+    C[i+j*ldc] *= beta;
     for (int l = 0; l < K; ++l) {
-      if (B[j+l*ldb] != 0) {
-        temp = alpha * B[j+l*ldb];
-        for (int i = 0; i < M; ++i) {
-          C[i+j*ldc] += A[i+l*lda] * temp;
-        }
-      }
+      C[i+j*ldc] += A[i+l*lda] * alpha * B[j+l*ldb];
     }
   }
+  });
 }
 
 void gemm_TransAB(Concurrency::array_view<float, 1> &A, Concurrency::array_view<float, 1> &B, Concurrency::array_view<float, 1> &C, int M, int N, int K, int lda, int ldb, int ldc, float alpha, float beta)
 {
+  Concurrency::extent<2> grdExt((N+15)&~15, (M+15)&~15);
+  Concurrency::tiled_extent<16, 16> t_ext(grdExt);
+  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<16, 16> tidx) restrict(amp){
   float temp;
-  for (int j = 0; j < N; ++j) {
-    for (int i = 0; i < M; ++i) {
-      temp = 0;
-      for (int l = 0; l < K; ++l) {
-        temp += A[l+i*lda] * B[j+l*ldb];
-      }
-      if (beta == 0) {
-        C[i+j*ldc] = alpha*temp;
-      } else {
-        C[i+j*ldc] = alpha*temp + beta*C[i+j*ldc];
-      }
+  int j = tidx.global[0];
+  int i = tidx.global[1];
+  if(i < M && j < N)
+  {
+    temp = 0;
+    for (int l = 0; l < K; ++l) {
+      temp += A[l+i*lda] * B[j+l*ldb];
     }
+    C[i+j*ldc] = alpha*temp + beta*C[i+j*ldc];
   }
+  });
 }
 
 int gemm_AMP(char TransA, char TransB, const int M, const int N, const int K, const float alpha,
