@@ -62,12 +62,12 @@ Please do the following and rebuild the Compiler if any update is available
 #!python
  # check updates from C++AMP Compiler
  cd mcw_cppamp/src
- git fetch -a
+ git fetch --all
  git checkout origin/gmac-exp-cache-kernel
 
  # check updates from C++AMP Compiler's dependency
  cd mcw_cppamp/src/compiler/tools/clang
- git fetch -a
+ git fetch --all
  git checkout origin/master
 ```
 
