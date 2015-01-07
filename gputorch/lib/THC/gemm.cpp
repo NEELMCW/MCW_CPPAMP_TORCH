@@ -1,4 +1,5 @@
 #include "gemm.h"
+#define OFFSET(N, incX) ((incX) > 0 ? 0 : ((N) - 1) * (-(incX)))
 
 void gemm_NoTransAB(Concurrency::array_view<float, 1> &A, Concurrency::array_view<float, 1> &B, Concurrency::array_view<float, 1> &C, int M, int N, int K, int lda, int ldb, int ldc, float alpha, float beta)
 {
@@ -163,3 +164,72 @@ int gemm_AMP(char TransA, char TransB, const int M, const int N, const int K, co
 
   return 0;
 }
+
+void gemv_AMP(char TransA,
+const int M, const int N, const float alpha, const float *A,
+const int lda, const float *X, const int incX, const float beta,
+float *Y, const int incY)
+{
+  int  i, j;
+  int lenX, lenY;
+  if (M == 0 || N == 0)
+    return;
+  if (alpha == 0.0 && beta == 1.0)
+    return;
+  if (TransA == 'n') {
+    lenX = N;
+    lenY = M;
+  } else {
+    lenX = M;
+    lenY = N;
+  }
+  /* form y := beta*y */
+  if (beta == 0.0) {
+    int iy = OFFSET(lenY, incY);
+    for (i = 0; i < lenY; i++) {
+      Y[iy] = 0.0;
+      iy += incY;
+    }
+  } else if (beta != 1.0) {
+    int iy = OFFSET(lenY, incY);
+    for (i = 0; i < lenY; i++) {
+      Y[iy] *= beta;
+      iy += incY;
+    }
+  }
+  if (alpha == 0.0)
+    return;
+ 
+  if(TransA == 't') {
+    /* form y := alpha*A*x + y */
+    int iy = OFFSET(lenY, incY);
+    for (i = 0; i < lenY; i++) 
+    {
+      float temp = 0.0;
+      int ix = OFFSET(lenX, incX);
+      for (j = 0; j < lenX; j++) 
+      {
+        temp += X[ix] * A[lda * i + j];
+        ix += incX;
+      }
+      Y[iy] += alpha * temp;
+      iy += incY;
+    } 
+  } else if (TransA == 'n'){
+  /* form y := alpha*A'*x + y */
+    int ix = OFFSET(lenX, incX);
+    for (j = 0; j < lenX; j++) 
+    {
+      const float temp = alpha * X[ix];
+      if (temp != 0.0) {
+        int iy = OFFSET(lenY, incY);
+        for (i = 0; i < lenY; i++) {
+          Y[iy] += temp * A[lda * j + i];
+          iy += incY;
+        }
+      }
+      ix += incX;
+    }
+  } 
+}
+

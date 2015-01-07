@@ -337,7 +337,7 @@ void THGPUBlas_gemv(char trans, long m, long n, float alpha, float *a, long lda,
 }
 
 /* Level 2 */
-void THGPUBlas_gemv_opt(char trans, long m, long n, float alpha, 
+/*void THGPUBlas_gemv_opt(char trans, long m, long n, float alpha, 
   float *a, long lda, float *x, long incx, float beta, float *y, long incy,
   void* cl_A, void* cl_X, void* cl_Y, long aOffset, long xOffset, long yOffset)
 {
@@ -403,7 +403,6 @@ void THGPUBlas_gemv_opt(char trans, long m, long n, float alpha,
    else
       bufY = static_cast<cl_mem>(cl_Y);
 
-    /* Call clblas extended function. */
     err = clblasSgemv(order, op, i_m , i_n , alpha, bufA, aOffset, i_lda, bufX, xOffset, i_incx, beta, bufY, yOffset, i_incy, 1, &mqueue, 0, NULL, &event);
 
     if (err != CL_SUCCESS)
@@ -412,10 +411,8 @@ void THGPUBlas_gemv_opt(char trans, long m, long n, float alpha,
     }
     else
     {
-      /* Fetch results of calculations from GPU memory. */
       err = clEnqueueReadBuffer(mqueue, bufY, CL_TRUE, yOffset * sizeof(*y), lenN * sizeof(*y), y, 0, NULL, NULL);
     }
-    /* Release OpenCL memory objects. */
     if (cl_Y == NULL)
       clReleaseMemObject(bufY);
     if (cl_X == NULL)
@@ -428,7 +425,7 @@ void THGPUBlas_gemv_opt(char trans, long m, long n, float alpha,
   }
   THError("Cublas_gemv only supports m, n, lda, incx, incy"
           "in the range 0 < [val] <= %d", INT_MAX);
-}
+}*/
 
 void THGPUBlas_ger(long m, long n, float alpha, float *x, long incx, float *y, long incy, float *a, long lda)
 {
@@ -701,5 +698,11 @@ void THGPUBlas_gemm_opt(char transa, char transb,
   long aOffset, long bOffset, long cOffset)
 {
   gemm_AMP(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
- 
+}
+
+void THGPUBlas_gemv_opt(char trans, long m, long n, float alpha, 
+  float *a, long lda, float *x, long incx, float beta, float *y, long incy,
+  void* cl_A, void* cl_X, void* cl_Y, long aOffset, long xOffset, long yOffset)
+{
+  gemv_AMP(trans,m,n,alpha,a,lda,x,incx,beta,y,incy);
 }
