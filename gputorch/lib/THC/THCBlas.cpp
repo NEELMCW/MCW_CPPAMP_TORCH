@@ -578,7 +578,7 @@ void* THGPUBlas_clCreateBuffer(long m, long k, float* a) {
 }
 
 /* Level 3 optimized. bufA, bufB are created outside as m,n,k is not changed in loops*/
-/*void THGPUBlas_gemm_opt(char transa, char transb,
+void THGPUBlas_gemm_opt(char transa, char transb,
   long m, long n, long k, float alpha,
   float *a, long lda, float *b, long ldb, float beta,
   float *c, long ldc,
@@ -690,10 +690,10 @@ void* THGPUBlas_clCreateBuffer(long m, long k, float* a) {
   }
   THError("Cublas_gemm only supports m, n, k, lda, ldb, ldc"
           "with the bound [val] <= %d", INT_MAX);
-}*/
+}
 
 /* Level 3 optimized. bufA, bufB are created outside as m,n,k is not changed in loops*/
-void THGPUBlas_gemm_opt(char transa, char transb,
+/*void THGPUBlas_gemm_opt(char transa, char transb,
   long m, long n, long k, float alpha,
   float *a, long lda, float *b, long ldb, float beta,
   float *c, long ldc,
@@ -702,4 +702,4 @@ void THGPUBlas_gemm_opt(char transa, char transb,
 {
   gemm_AMP(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
  
-}
+}*/
