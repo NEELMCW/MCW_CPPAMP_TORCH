@@ -5,7 +5,7 @@ for (int i = tidx.tile_dim0 * tidx.tile[0] + tidx.local[0]; i < (n); i += t_ext[
 
 #include "amp_math.h"
 #include "THBlas.h"
-#include "../gputorch/lib/THC/THCBlas.h"
+#include "THCBlas.h"
 #include "THCGeneral.h"
 
 // Kernel for fast unfold+copy
@@ -500,6 +500,9 @@ static int gpunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
 
   PREPARE_AV(columns, avData_col);
   PREPARE_AV(input, avData_im);
+  PREPARE_AV(gradOutput, avData_gradOutput);
+  PREPARE_AV(ones, avData_ones);
+  PREPARE_AV(gradBias, avData_gradBias);
   // For each elt in batch, do:
   for (int elt = 0; elt < batchSize; elt ++) {
 
@@ -536,13 +539,10 @@ static int gpunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
         't',
         k_, m_,
         scale,
-        gradOutput->storage->data + gradOutput->stride[0] * elt, k_,
-        THGPUTensor_data(ones), 1,
+        *avData_gradOutput, gradOutput->stride[0] * elt,
+        *avData_ones, 1,
         1,
-        THGPUTensor_data(gradBias), 1,
-        buf_Output, bufX, bufY,
-        gradOutput->stride[0] * elt, 0, 0
-    );
+        *avData_gradBias, 1); 
   }
 
   clReleaseMemObject(static_cast<cl_mem>(buf_Output));

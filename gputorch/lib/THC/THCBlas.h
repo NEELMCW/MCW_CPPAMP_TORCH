@@ -24,5 +24,11 @@
 # define TH_API THC_EXTERNC
 #endif
 
+#include "amp.h"
+
+void THGPUBlas_gemv_opt(char trans, long m, long n, float alpha, 
+  Concurrency::array_view<float> &a, long lda, Concurrency::array_view<float> &x, long incx, float beta, Concurrency::array_view<float> &y, long incy);
+
+
 #endif
 

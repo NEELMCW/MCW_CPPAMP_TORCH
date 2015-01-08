@@ -166,7 +166,7 @@ int gemm_AMP(char TransA, char TransB, const int M, const int N, const int K, co
   return 0;
 }
 
-void gemv_TransA(float *A,  float *X, float *Y, float alpha, float beta,  int lenX, int lenY)
+void gemv_TransA(Concurrency::array_view<float> &A, int aOffset, Concurrency::array_view<float> &X, Concurrency::array_view<float> &Y, float alpha, float beta,int lenX, int lenY)
 {
   Concurrency::array_view<float,1> A_mat(lenX*lenY,A);
   Concurrency::array_view<float,1> X_vec(lenX,X);
@@ -198,7 +198,7 @@ void gemv_TransA(float *A,  float *X, float *Y, float alpha, float beta,  int le
 
       for(int k = 0; k < BLOCK_SIZE; k++)
         if(Col < lenY && m * BLOCK_SIZE + k < lenX)
-          Pvalue += Xds[k] * A_mat[m * BLOCK_SIZE + Col * lenX + k];
+          Pvalue += Xds[k] * A_mat[aOffset + m * BLOCK_SIZE + Col * lenX + k];
       tidx.barrier.wait();
     }
 
@@ -215,7 +215,7 @@ void gemv_TransA(float *A,  float *X, float *Y, float alpha, float beta,  int le
 }
 
 
-void gemv_NoTransA(float *A, float *X, float *Y, float alpha, float beta,int lenX, int lenY)
+void gemv_NoTransA(Concurrency::array_view<float> &A, Concurrency::array_view<float> &X, Concurrency::array_view<float> &Y, float alpha, float beta,int lenX, int lenY)
 {
   for (int j = 0; j < lenX; j++) 
   {
@@ -230,9 +230,9 @@ void gemv_NoTransA(float *A, float *X, float *Y, float alpha, float beta,int len
 }
 
 void gemv_AMP(char TransA,
-int M, int N, float alpha, float *A,
-int lda, float *X,  int incX, float beta,
-float *Y,  int incY)
+int M, int N, float alpha, Concurrency::array_view<float> &A,
+int aOffset, Concurrency::array_view<float> &X,  int incX, float beta,
+Concurrency::array_view<float> &Y,  int incY)
 {
   if (alpha == 0.0)
     return;
@@ -252,7 +252,7 @@ float *Y,  int incY)
   }
  
  if(TransA == 't') {
-    gemv_TransA(A, X, Y, alpha, beta, lenX, lenY);
+    gemv_TransA(A, aOffset, X, Y, alpha, beta, lenX, lenY);
     /* form y := alpha*A*x + y */
   } else if (TransA == 'n'){
   /* form y := alpha*A'*x + y */
