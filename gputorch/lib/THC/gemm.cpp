@@ -1,5 +1,6 @@
 #include "gemm.h"
 #define OFFSET(N, incX) ((incX) > 0 ? 0 : ((N) - 1) * (-(incX)))
+#define BLOCK_SIZE 256
 
 void gemm_NoTransAB(Concurrency::array_view<float, 1> &A, Concurrency::array_view<float, 1> &B, Concurrency::array_view<float, 1> &C, int M, int N, int K, int lda, int ldb, int ldc, float alpha, float beta)
 {
@@ -165,9 +166,9 @@ int gemm_AMP(char TransA, char TransB, const int M, const int N, const int K, co
   return 0;
 }
 
-void gemv_TransA(const float *A, const float *X, float *Y, const float alpha, const float beta, const int lenX, const int lenY, const int incX, const int incY, const int lda)
+void gemv_TransA(float *A,  float *X, float *Y, float alpha, float beta,  int lenX, int lenY, int incX,int incY,int lda)
 {
-  int iy = OFFSET(lenY, incY);
+  /*int iy = OFFSET(lenY, incY);
   for (int i = 0; i < lenY; i++) 
   {
     float temp = 0.0;
@@ -179,11 +180,45 @@ void gemv_TransA(const float *A, const float *X, float *Y, const float alpha, co
     }
     Y[iy] += alpha * temp;
     iy += incY;
-  } 
+  } */
+
+
+  Concurrency::array_view<float,1> A_mat(lenX*lenY,A);
+  Concurrency::array_view<float,1> X_vec(lenX,X);
+  Concurrency::array_view<float,1> Y_vec(lenY,Y);
+
+  long size = (lenY + 255) & ~255;
+  
+  Concurrency::extent<1> compute_domain(size);
+
+  Concurrency::parallel_for_each(compute_domain.tile<BLOCK_SIZE>(),[=] (Concurrency::tiled_index<BLOCK_SIZE> tidx) restrict(amp)
+  {
+    int bx = tidx.tile[0];
+    int tx = tidx.local[0];
+
+    int Col = bx * BLOCK_SIZE + tx;
+
+    float Pvalue = 0;
+
+    for (int k=0; k < lenX; k++)
+    {
+      if(Col < lenY)
+        Pvalue += X_vec[k]*A_mat[Col*lenX + k]; 
+    }
+
+    tidx.barrier.wait();
+
+    if(Col < lenY)
+      Y_vec[Col] += alpha * Pvalue;
+    
+    tidx.barrier.wait();
+
+  });
 
 }
 
-void gemv_NoTransA(const float *A, const float *X, float *Y, const float alpha, const float beta, const int lenX, const int lenY, const int incX, const int incY, const int lda)
+
+void gemv_NoTransA(float *A, float *X, float *Y, float alpha, float beta,int lenX, int lenY, int incX, int incY, int lda)
 {
   int ix = OFFSET(lenX, incX);
   for (int j = 0; j < lenX; j++) 
@@ -201,9 +236,9 @@ void gemv_NoTransA(const float *A, const float *X, float *Y, const float alpha, 
 }
 
 void gemv_AMP(char TransA,
-const int M, const int N, const float alpha, const float *A,
-const int lda, const float *X, const int incX, const float beta,
-float *Y, const int incY)
+int M, int N, float alpha, float *A,
+int lda, float *X,  int incX, float beta,
+float *Y,  int incY)
 {
   int  i, j;
   int lenX, lenY;
