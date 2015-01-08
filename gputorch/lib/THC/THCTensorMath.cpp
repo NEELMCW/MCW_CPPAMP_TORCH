@@ -659,6 +659,11 @@ void THGPUTensor_addmv(THGPUTensor *r_, float beta, THGPUTensor *t, float alpha,
     THGPUTensor_copy(r_, t);
   }
 
+  Concurrency::array_view<float, 1> *pavMat = static_cast<Concurrency::array_view<float, 1> *>(mat->storage->allocatorContext);
+  Concurrency::array_view<float, 1> *pavVec = static_cast<Concurrency::array_view<float, 1> *>(vec->storage->allocatorContext);
+  Concurrency::array_view<float, 1> *pavR_ = static_cast<Concurrency::array_view<float, 1> *>(r_->storage->allocatorContext);
+  
+
   if (mat->stride[0] == 1)
   {
     THGPUBlas_gemv('n', mat->size[0], mat->size[1],
@@ -668,19 +673,20 @@ void THGPUTensor_addmv(THGPUTensor *r_, float beta, THGPUTensor *t, float alpha,
   }
   else if (mat->stride[1] == 1)
   {
-    THGPUBlas_gemv('t',  mat->size[1], mat->size[0],
-                     alpha, THGPUTensor_data(mat), mat->stride[0],
-                     THGPUTensor_data(vec), vec->stride[0],
-                     beta, THGPUTensor_data(r_), r_->stride[0]);
+    THGPUBlas_gemv_opt('t',  mat->size[1], mat->size[0],
+                     alpha, *pavMat, 0,
+                     *pavVec, vec->stride[0],
+                     beta, *pavR_, r_->stride[0]);
   }
   else
   {
     THGPUTensor *cmat = THGPUTensor_newContiguous(mat);
+    Concurrency::array_view<float, 1> *pavCMat = static_cast<Concurrency::array_view<float, 1> *>(cmat->storage->allocatorContext);
 
-    THGPUBlas_gemv('t',  mat->size[1], mat->size[0],
-                     alpha, THGPUTensor_data(cmat), cmat->stride[0],
-                     THGPUTensor_data(vec), vec->stride[0],
-                     beta, THGPUTensor_data(r_), r_->stride[0]);
+    THGPUBlas_gemv_opt('t',  mat->size[1], mat->size[0],
+                     alpha, *pavCMat, 0,
+                     *pavVec, vec->stride[0],
+                     beta, *pavR_, r_->stride[0]);
 
     THGPUTensor_free(cmat);
   }
