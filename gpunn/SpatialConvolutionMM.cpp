@@ -492,11 +492,7 @@ static int gpunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
   long m_ = nOutputPlane;
   long k_ = outputHeight * outputWidth;
 
-  void* buf_Output = THGPUBlas_clCreateBuffer(k, m * batchSize, gradOutput->storage->data);
 
-  // char trans = 't', see gemv in the loop body
-  void* bufX = THGPUBlas_clCreateBuffer(k_, 1 ,THGPUTensor_data(ones));
-  void* bufY = THGPUBlas_clCreateBuffer(m_, 1 ,THGPUTensor_data(gradBias));
 
   PREPARE_AV(columns, avData_col);
   PREPARE_AV(input, avData_im);
@@ -545,9 +541,6 @@ static int gpunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
         *avData_gradBias, 1); 
   }
 
-  clReleaseMemObject(static_cast<cl_mem>(buf_Output));
-  clReleaseMemObject(static_cast<cl_mem>(bufY));
-  clReleaseMemObject(static_cast<cl_mem>(bufX));
   // Free
 
   // Resize
