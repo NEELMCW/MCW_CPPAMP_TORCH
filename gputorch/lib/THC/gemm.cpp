@@ -166,7 +166,7 @@ int gemm_AMP(char TransA, char TransB, const int M, const int N, const int K, co
   return 0;
 }
 
-void gemv_TransA(float *A,  float *X, float *Y, float alpha, float beta,  int lenX, int lenY, int incX,int incY,int lda)
+void gemv_TransA(float *A,  float *X, float *Y, float alpha, float beta,  int lenX, int lenY)
 {
   Concurrency::array_view<float,1> A_mat(lenX*lenY,A);
   Concurrency::array_view<float,1> X_vec(lenX,X);
@@ -203,7 +203,10 @@ void gemv_TransA(float *A,  float *X, float *Y, float alpha, float beta,  int le
     }
 
    if(Col < lenY)
+   {
+      Y_vec[Col] *= beta; 
       Y_vec[Col] += alpha * Pvalue;
+   }
     
     tidx.barrier.wait();
 
@@ -212,20 +215,17 @@ void gemv_TransA(float *A,  float *X, float *Y, float alpha, float beta,  int le
 }
 
 
-void gemv_NoTransA(float *A, float *X, float *Y, float alpha, float beta,int lenX, int lenY, int incX, int incY, int lda)
+void gemv_NoTransA(float *A, float *X, float *Y, float alpha, float beta,int lenX, int lenY)
 {
-  int ix = OFFSET(lenX, incX);
   for (int j = 0; j < lenX; j++) 
   {
-    const float temp = alpha * X[ix];
+    const float temp = alpha * X[j];
     if (temp != 0.0) {
-      int iy = OFFSET(lenY, incY);
       for (int i = 0; i < lenY; i++) {
-        Y[iy] += temp * A[lda * j + i];
-        iy += incY;
+        Y[i]*=beta;
+        Y[i] += temp * A[lenX * j + i];
       }
     }
-    ix += incX;
   }
 }
 
@@ -234,6 +234,9 @@ int M, int N, float alpha, float *A,
 int lda, float *X,  int incX, float beta,
 float *Y,  int incY)
 {
+  if (alpha == 0.0)
+    return;
+
   int  i, j;
   int lenX, lenY;
   if (M == 0 || N == 0)
@@ -247,29 +250,13 @@ float *Y,  int incY)
     lenX = M;
     lenY = N;
   }
-  /* form y := beta*y */
-  if (beta == 0.0) {
-    int iy = OFFSET(lenY, incY);
-    for (i = 0; i < lenY; i++) {
-      Y[iy] = 0.0;
-      iy += incY;
-    }
-  } else if (beta != 1.0) {
-    int iy = OFFSET(lenY, incY);
-    for (i = 0; i < lenY; i++) {
-      Y[iy] *= beta;
-      iy += incY;
-    }
-  }
-  if (alpha == 0.0)
-    return;
  
-  if(TransA == 't') {
-    gemv_TransA(A, X, Y, alpha, beta, lenX, lenY, incX, incY, lda);
+ if(TransA == 't') {
+    gemv_TransA(A, X, Y, alpha, beta, lenX, lenY);
     /* form y := alpha*A*x + y */
   } else if (TransA == 'n'){
   /* form y := alpha*A'*x + y */
-    gemv_NoTransA(A, X, Y, alpha, beta, lenX, lenY, incX, incY, lda);
+    gemv_NoTransA(A, X, Y, alpha, beta, lenX, lenY);
   } 
 }
 
