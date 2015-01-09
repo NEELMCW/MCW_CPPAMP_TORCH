@@ -486,12 +486,12 @@ void* THGPUBlas_clCreateBuffer(long m, long k, float* a) {
 /* Level 3 optimized. bufA, bufB are created outside as m,n,k is not changed in loops*/
 void THGPUBlas_gemm_opt(char transa, char transb,
   long m, long n, long k, float alpha,
-  float *a, long lda, float *b, long ldb, float beta,
-  float *c, long ldc,
+  Concurrency::array_view<float> &a, long lda, Concurrency::array_view<float> &b, long ldb, float beta,
+  Concurrency::array_view<float> &c, long ldc,
   void* cl_A, void* cl_B, void* cl_C,
   long aOffset, long bOffset, long cOffset)
 {
-  gemm_AMP(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
+  gemm_AMP(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc, aOffset, bOffset, cOffset);
 }
 
 void THGPUBlas_gemv_opt(char trans, long m, long n, float alpha, 

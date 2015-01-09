@@ -300,6 +300,10 @@ static int gpunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
   long n = columns->size[1];
   long k = weight->size[1];
 
+  PREPARE_AV(ones, avData_ones);
+  PREPARE_AV(bias, avData_bias);
+  PREPARE_AV(output, avData_output);
+  PREPARE_AV(weight, avData_weight);
   // For each elt in batch, do:
   for (int elt = 0; elt < batchSize; elt ++) {
     // Matrix mulitply per output:
@@ -313,9 +317,9 @@ static int gpunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
         't', 'n',
         n_, m_, k_,
         1,
-        THGPUTensor_data(ones), k_,
-        THGPUTensor_data(bias), k_, 0,
-        output->storage->data + output->stride[0] * elt, n_,
+        *avData_ones, k_,
+        *avData_bias, k_, 0,
+        *avData_output, n_,
         NULL, NULL, NULL,
         0, 0, output->stride[0] * elt
     );
@@ -333,9 +337,9 @@ static int gpunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
         'n', 'n',
         n, m, k,
         1,
-        THGPUTensor_data(columns), n,
-        THGPUTensor_data(weight), k, 1,
-        output->storage->data + output->stride[0] * elt, n,
+        *avData_col, n,
+        *avData_weight, k, 1,
+        *avData_output, n,
         NULL, NULL, NULL,
         0, 0, output->stride[0] * elt
     );
@@ -395,6 +399,8 @@ static int gpunn_SpatialConvolutionMM_updateGradInput(lua_State *L) {
   // Helpers
   PREPARE_AV(gradColumns, avData_col);
   PREPARE_AV(gradInput, avData_im);
+  PREPARE_AV(gradOutput, avData_gradOutput);
+  PREPARE_AV(weight, avData_weight);
   long m = weight->size[1];
   long n = gradColumns->size[1];
   long k = weight->size[0];
@@ -411,9 +417,9 @@ static int gpunn_SpatialConvolutionMM_updateGradInput(lua_State *L) {
         'n', 't',
         n, m, k,
         1,
-        gradOutput->storage->data + gradOutput->stride[0] * elt, n,
-        THGPUTensor_data(weight), m, 0,
-        THGPUTensor_data(gradColumns), n,
+        *avData_gradOutput, n,
+        *avData_weight, m, 0,
+        *avData_col, n,
         NULL, NULL, NULL,
         gradOutput->stride[0] * elt, 0, 0
     );
@@ -500,6 +506,8 @@ static int gpunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
 
   PREPARE_AV(columns, avData_col);
   PREPARE_AV(input, avData_im);
+  PREPARE_AV(gradOutput, avData_gradOutput);
+  PREPARE_AV(gradWeight, avData_gradWeight);
   // For each elt in batch, do:
   for (int elt = 0; elt < batchSize; elt ++) {
 
@@ -518,9 +526,9 @@ static int gpunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
         't', 'n',
         n, m, k,
         scale,
-        THGPUTensor_data(columns), k,
-        gradOutput->storage->data + gradOutput->stride[0] * elt, k, 1,
-        THGPUTensor_data(gradWeight), n,
+        *avData_col, k,
+        *avData_gradOutput, k, 1,
+        *avData_gradWeight, n,
         NULL, NULL, NULL,
         0, gradOutput->stride[0] * elt, 0
     );

@@ -666,10 +666,10 @@ void THGPUTensor_addmv(THGPUTensor *r_, float beta, THGPUTensor *t, float alpha,
 
   if (mat->stride[0] == 1)
   {
-    THGPUBlas_gemv('n', mat->size[0], mat->size[1],
-                     alpha, THGPUTensor_data(mat), mat->stride[1],
-                     THGPUTensor_data(vec), vec->stride[0],
-                     beta, THGPUTensor_data(r_), r_->stride[0]);
+    THGPUBlas_gemv_opt('n', mat->size[0], mat->size[1],
+                     alpha, *pavMat, 0,
+                     *pavVec, vec->stride[0],
+                     beta, *pavR_, r_->stride[0]);
   }
   else if (mat->stride[1] == 1)
   {
