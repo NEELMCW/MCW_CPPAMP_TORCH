@@ -5,7 +5,7 @@ for (int i = tidx.tile_dim0 * tidx.tile[0] + tidx.local[0]; i < (n); i += t_ext[
 
 #include "amp_math.h"
 #include "THBlas.h"
-#include "THCBlas.h"
+#include "../gputorch/lib/THC/THCBlas.h"
 #include "THCGeneral.h"
 
 // Kernel for fast unfold+copy
@@ -492,13 +492,14 @@ static int gpunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
   long m_ = nOutputPlane;
   long k_ = outputHeight * outputWidth;
 
+  void* buf_Output = THGPUBlas_clCreateBuffer(k, m * batchSize, gradOutput->storage->data);
 
+  // char trans = 't', see gemv in the loop body
+  void* bufX = THGPUBlas_clCreateBuffer(k_, 1 ,THGPUTensor_data(ones));
+  void* bufY = THGPUBlas_clCreateBuffer(m_, 1 ,THGPUTensor_data(gradBias));
 
   PREPARE_AV(columns, avData_col);
   PREPARE_AV(input, avData_im);
-  PREPARE_AV(gradOutput, avData_gradOutput);
-  PREPARE_AV(ones, avData_ones);
-  PREPARE_AV(gradBias, avData_gradBias);
   // For each elt in batch, do:
   for (int elt = 0; elt < batchSize; elt ++) {
 
@@ -531,16 +532,22 @@ static int gpunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
     long k_ = outputHeight * outputWidth;
 
     // Do GEMV (note: this is a bit confusing because gemv assumes column-major matrices)
-    THGPUBlas_gemv_opt(
+    THGPUBlas_gemv_opt1(
         't',
         k_, m_,
         scale,
-        *avData_gradOutput, gradOutput->stride[0] * elt,
-        *avData_ones, 1,
+        gradOutput->storage->data + gradOutput->stride[0] * elt, k_,
+        THGPUTensor_data(ones), 1,
         1,
-        *avData_gradBias, 1); 
+        THGPUTensor_data(gradBias), 1,
+        buf_Output, bufX, bufY,
+        gradOutput->stride[0] * elt, 0, 0
+    );
   }
 
+  clReleaseMemObject(static_cast<cl_mem>(buf_Output));
+  clReleaseMemObject(static_cast<cl_mem>(bufY));
+  clReleaseMemObject(static_cast<cl_mem>(bufX));
   // Free
 
   // Resize
