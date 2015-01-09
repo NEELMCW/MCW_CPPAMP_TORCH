@@ -187,11 +187,8 @@ int gemm_AMP(char TransA, char TransB, const int M, const int N, const int K, co
   return 0;
 }
 
-void gemv_TransA(Concurrency::array_view<float> &A, int aOffset, Concurrency::array_view<float> &X, Concurrency::array_view<float> &Y, float alpha, float beta,int lenX, int lenY)
+void gemv_TransA(Concurrency::array_view<float> &A_mat, int aOffset, Concurrency::array_view<float> &X_vec, Concurrency::array_view<float> &Y_vec, float alpha, float beta,int lenX, int lenY)
 {
-  Concurrency::array_view<float,1> A_mat(lenX*lenY,A);
-  Concurrency::array_view<float,1> X_vec(lenX,X);
-  Concurrency::array_view<float,1> Y_vec(lenY,Y);
 
   long size = (lenY + 255) & ~255;
   
