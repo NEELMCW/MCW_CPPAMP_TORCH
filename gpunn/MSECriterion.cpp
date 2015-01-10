@@ -226,7 +226,6 @@ static int gpunn_MSECriterion_updateGradInput2(lua_State *L)
   long size = THGPUTensor_nElement(input);
   float norm = (sizeAverage ? 2./size : 2.);
 
-  THGPUTensor *temp3 = gradInput;
   input = THGPUTensor_newContiguous(input);
   target = THGPUTensor_newContiguous(target);
 
@@ -239,11 +238,6 @@ static int gpunn_MSECriterion_updateGradInput2(lua_State *L)
 
   THGPUTensor_free(input);
   THGPUTensor_free(target);
-  if (gradInput != temp3)
-  {
-    THGPUTensor_free(gradInput);
-    gradInput = NULL;
-  }
   return 1;
 }
 
