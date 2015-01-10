@@ -128,7 +128,6 @@ static int gpunn_SoftMax_updateOutput(lua_State *L)
   THGPUTensor *input = (THGPUTensor*)luaT_checkudata(L, 2, "torch.GPUTensor");
   THGPUTensor *output = (THGPUTensor*)luaT_getfieldcheckudata(L, 1, "output", "torch.GPUTensor");
 
-  THGPUTensor *temp = input;
   input = THGPUTensor_newContiguous(input);
   THGPUTensor_resizeAs(output, input);
 
@@ -145,11 +144,7 @@ static int gpunn_SoftMax_updateOutput(lua_State *L)
   else
     THError("vector or matrix expected");
 
-  if (input != temp)
-  {
-    THGPUTensor_free(input);
-    input = NULL;
-  }
+  THGPUTensor_free(input);
 
   return 1;
 

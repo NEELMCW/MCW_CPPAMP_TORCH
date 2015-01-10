@@ -128,7 +128,6 @@ static int gpunn_LogSoftMax_updateOutput(lua_State *L)
   THGPUTensor *input = (THGPUTensor*)luaT_checkudata(L, 2, "torch.GPUTensor");
   THGPUTensor *output = (THGPUTensor*)luaT_getfieldcheckudata(L, 1, "output", "torch.GPUTensor");
 
-  THGPUTensor *temp = input;
   input = THGPUTensor_newContiguous(input);
   //std::cout<<"Before logSoft resize"<<std::endl;
   THGPUTensor_resizeAs(output, input);
@@ -146,13 +145,8 @@ static int gpunn_LogSoftMax_updateOutput(lua_State *L)
   else
   THError("vector or matrix expected");
   //std::cout<<"LogSoftMax finished"<<std::endl;
-  
 
-  if (input != temp)
-  {
-    THGPUTensor_free(input);
-    input = NULL;
-  }
+  THGPUTensor_free(input);
 
   return 1;
 }
@@ -163,8 +157,6 @@ static int gpunn_LogSoftMax_updateGradInput(lua_State *L)
   THGPUTensor *output = (THGPUTensor*)luaT_getfieldcheckudata(L, 1, "output", "torch.GPUTensor");
   THGPUTensor *gradInput = (THGPUTensor*)luaT_getfieldcheckudata(L, 1, "gradInput", "torch.GPUTensor");
 
-  THGPUTensor *tempOutput = output;
-  THGPUTensor *tempGradOutput = gradOutput;
   output = THGPUTensor_newContiguous(output);
   gradOutput = THGPUTensor_newContiguous(gradOutput);
   //std::cout<<"inside logsoftmax input"<<std::endl;
@@ -184,17 +176,8 @@ static int gpunn_LogSoftMax_updateGradInput(lua_State *L)
   else
     THError("vector or matrix expected");
 
-  if (output != tempOutput)
-  {
     THGPUTensor_free(output);
-    output = NULL;
-  }
-
-  if (gradOutput != tempGradOutput)
-  {
     THGPUTensor_free(gradOutput);
-    gradOutput = NULL;
-  }
 
   return 1;
 }
