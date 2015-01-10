@@ -1,12 +1,13 @@
 SET(src 
-   THCGeneral.cpp THCBlas.cpp THCStorage.cpp THCTensor.cpp THCTensorCopy.cpp THCTensorConv.cpp THCTensorMath.cpp THCTensorRandom.cpp)
+   THCGeneral.cpp gemm.cpp
+    THCBlas.cpp THCStorage.cpp THCTensor.cpp THCTensorCopy.cpp THCTensorConv.cpp THCTensorMath.cpp THCTensorRandom.cpp)
 
 # MCW CLAMP Specific. Version >= 0.3 is Must
  # MCW CLAMP Specific. Version >= 0.3 is Must
 SET (OPENCL_INC "$ENV{AMDAPPSDKROOT}/include")
 SET (OPENCL_LIB "$ENV{AMDAPPSDKROOT}/lib/x86_64")
 SET (CLBLAS_INC "$ENV{CLBLASROOT}/include")
-SET (CLBLAS_LIB "$ENV{CLBLASROOT}/lib64/")
+SET (CLBLAS_LIB "$ENV{CLBLASROOT}/lib64")
 SET (BOLT_SRC_INC "$ENV{MCWCPPAMPROOT}/src/Bolt/include/")
 SET (BOOST_SRC_INC "$ENV{MCWCPPAMPROOT}/gmac_exp_build_cache/Bolt/superbuild/external/boost/src/Boost/")
 SET (BOLT_VER_INC "$ENV{MCWCPPAMPROOT}/gmac_exp_build_cache/Bolt/superbuild/Bolt-build/include/")
@@ -31,6 +32,7 @@ SET_PROPERTY(SOURCE THCTensorConv.cpp APPEND_STRING PROPERTY COMPILE_FLAGS " ${C
 SET_PROPERTY(SOURCE THCTensorCopy.cpp APPEND_STRING PROPERTY COMPILE_FLAGS " ${CLAMP_CXXFLAGS}")
 SET_PROPERTY(SOURCE THCTensorRandom.cpp APPEND_STRING PROPERTY COMPILE_FLAGS " ${CLAMP_CXXFLAGS}")
 SET_PROPERTY(SOURCE THCGeneral.cpp APPEND_STRING PROPERTY COMPILE_FLAGS " ${CLAMP_CXXFLAGS}")
+SET_PROPERTY(SOURCE gemm.cpp APPEND_STRING PROPERTY COMPILE_FLAGS " ${CLAMP_CXXFLAGS}")
 
 
 

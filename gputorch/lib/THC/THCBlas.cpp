@@ -1,5 +1,6 @@
 #include "THCBlas.h"
 #include "THCGeneral.h"
+#include "gemm.h"
 #include<iostream>
 
 void THGPUBlas_init(int devices, int device)
@@ -649,7 +650,7 @@ void THGPUBlas_gemm_opt(char transa, char transb,
     clblasOrder order = clblasColumnMajor;
 
 
-    /* Prepare OpenCL memory objects and place matrices inside them. */
+    //Prepare OpenCL memory objects and place matrices inside them. 
     if (cl_A == NULL)
       bufA = clCreateBuffer(mcontext, CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR, m * k * sizeof(*a),  a, &err);
     else
@@ -676,7 +677,7 @@ void THGPUBlas_gemm_opt(char transa, char transb,
     {
       err = clEnqueueReadBuffer(mqueue, bufC, CL_TRUE, cOffset * sizeof(*c), m * n * sizeof(*c), c, 0, NULL, NULL);
     }
-    /* Release OpenCL memory objects. */
+    //Release OpenCL memory objects.
     if (cl_C == NULL)
       clReleaseMemObject(bufC);
     if (cl_B == NULL)
@@ -691,3 +692,14 @@ void THGPUBlas_gemm_opt(char transa, char transb,
           "with the bound [val] <= %d", INT_MAX);
 }
 
+/* Level 3 optimized. bufA, bufB are created outside as m,n,k is not changed in loops*/
+/*void THGPUBlas_gemm_opt(char transa, char transb,
+  long m, long n, long k, float alpha,
+  float *a, long lda, float *b, long ldb, float beta,
+  float *c, long ldc,
+  void* cl_A, void* cl_B, void* cl_C,
+  long aOffset, long bOffset, long cOffset)
+{
+  gemm_AMP(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
+ 
+}*/
