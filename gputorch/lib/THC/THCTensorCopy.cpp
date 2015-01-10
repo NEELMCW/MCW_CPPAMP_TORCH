@@ -223,6 +223,10 @@ void THGPUTensor_kernel_copy(Concurrency::array_view<float>& av_dst,
 
 THC_API void THGPUTensor_copy(THGPUTensor *self, THGPUTensor *src)
 {
+  // Avoid unnecessary copy
+  if (self == src)
+    return;
+
   THArgCheck(THGPUTensor_nElement(self) == THGPUTensor_nElement(src), 2, "sizes do not match");
 
   if (THGPUTensor_nDimension(self) == 0) return;
