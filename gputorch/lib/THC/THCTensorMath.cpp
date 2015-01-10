@@ -18,11 +18,8 @@ void THGPUTensor_fill(THGPUTensor *self_, float value)
   THGPUTensor *self = THGPUTensor_newContiguous(self_);
   THGPUStorage_fill(self->storage,value);
   THGPUTensor_copy(self_, self);
-  if (self != self_)
-  {
-    THGPUStorage_free(self->storage);
-    THGPUTensor_free(self);
-  }
+  
+  THGPUTensor_free(self);
 }
 
 void THGPUTensor_zero(THGPUTensor *self_)
@@ -30,11 +27,7 @@ void THGPUTensor_zero(THGPUTensor *self_)
   THGPUTensor *self = THGPUTensor_newContiguous(self_);
   THGPUStorage_fill(self->storage,0);
   THGPUTensor_copy(self_, self);
-  if (self != self_)
-  {
-    THGPUStorage_free(self->storage);
-    THGPUTensor_free(self);
-  }
+  THGPUTensor_free(self);
 }
 
 
@@ -221,8 +214,6 @@ void THGPUTensor_addcmul(THGPUTensor *self_, THGPUTensor* t, float value, THGPUT
   THArgCheck(THGPUTensor_nElement(src1) == THGPUTensor_nElement(src2), 3, "size do not match");
 
   THGPUTensor *self = THGPUTensor_newContiguous(self_);
-  THGPUTensor *temp1 = src1;
-  THGPUTensor *temp2 = src2;
   long size = THGPUTensor_nElement(self);
   src1 = THGPUTensor_newContiguous(src1);
   src2 = THGPUTensor_newContiguous(src2);
@@ -237,21 +228,9 @@ void THGPUTensor_addcmul(THGPUTensor *self_, THGPUTensor* t, float value, THGPUT
   THGPUTensor_kernel_addcmul(*pavData, value, *pavSrc1, *pavSrc2, size, nThreadPerBlock, nBlockPerRow,nBlockPerColumn);
 
   THGPUTensor_copy(self_, self);
-  if (src1 != temp1)
-  {
-    THGPUStorage_free(src1->storage);
-    THGPUTensor_free(src1);
-  }
-  if (src2 != temp2)
-  {
-    THGPUStorage_free(src2->storage);
-    THGPUTensor_free(src2);
-  }
-  if (self != self_)
-  {
-    THGPUStorage_free(self->storage);
-    THGPUTensor_free(self);
-  }
+  THGPUTensor_free(src1);
+  THGPUTensor_free(src2);
+  THGPUTensor_free(self);
 }
 
 void THGPUTensor_kernel_addcdiv(Concurrency::array_view<float, 1> &Data, float value, Concurrency::array_view<float, 1> &src1Data, Concurrency::array_view<float, 1> &src2Data, long size, const int nThreadPerBlock, int nBlockPerRow, int nBlockPerColumn)
@@ -283,8 +262,7 @@ void THGPUTensor_addcdiv(THGPUTensor *self_, THGPUTensor *t, float value, THGPUT
   THGPUTensor_resizeAs(self_, src1);
   THArgCheck(THGPUTensor_nElement(src1) == THGPUTensor_nElement(src2), 3, "size do not match");
   THGPUTensor *self = THGPUTensor_newContiguous(self_);
-  THGPUTensor *temp1 = src1;
-  THGPUTensor *temp2 = src2;
+
   long size = THGPUTensor_nElement(self);
   src1 = THGPUTensor_newContiguous(src1);
   src2 = THGPUTensor_newContiguous(src2);
@@ -299,21 +277,10 @@ void THGPUTensor_addcdiv(THGPUTensor *self_, THGPUTensor *t, float value, THGPUT
   THGPUTensor_kernel_addcdiv(*pavData, value, *pavSrc1, *pavSrc2, size, nThreadPerBlock, nBlockPerRow,nBlockPerColumn);
 
   THGPUTensor_copy(self_, self);
-  if (src1 != temp1)
-  {
-    THGPUStorage_free(src1->storage);
-    THGPUTensor_free(src1);
-  }
-  if (src2 != temp2)
-  {
-    THGPUStorage_free(src2->storage);
-    THGPUTensor_free(src2);
-  }
-  if (self != self_)
-  {
-    THGPUStorage_free(self->storage);
-    THGPUTensor_free(self);
-  }
+  THGPUTensor_free(src1);
+  THGPUTensor_free(src2);
+  THGPUTensor_free(self);
+
 }
 
 float THGPUTensor_dot(THGPUTensor *self, THGPUTensor *src)
