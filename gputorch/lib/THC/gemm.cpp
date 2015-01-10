@@ -88,15 +88,38 @@ void gemm_NoTransA(Concurrency::array_view<float, 1> &A, Concurrency::array_view
   Concurrency::extent<2> grdExt((N+15)&~15, (M+15)&~15);
   Concurrency::tiled_extent<16, 16> t_ext(grdExt);
   Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<16, 16> tidx) restrict(amp){
-  float temp;
-  int j = tidx.global[0];
-  int i = tidx.global[1];
-  if(i < M && j < N)
+  float CValue = 0;
+
+  int Row = tidx.tile[0]*TILE_DIM + tidx.local[0];
+  int Col = tidx.tile[1]*TILE_DIM + tidx.local[1];
+
+  tile_static float As[TILE_DIM][TILE_DIM];
+  tile_static float Bs[TILE_DIM][TILE_DIM];
+
+  for (int k = 0; k < (TILE_DIM + K - 1)/TILE_DIM; k++)
   {
-    C[cOffset + i+j*ldc] *= beta;
-    for (int l = 0; l < K; ++l) {
-      C[cOffset + i+j*ldc] += A[aOffset + i+l*lda] * alpha * B[bOffset +j+l*ldb];
-    }
+
+    if (k*TILE_DIM + tidx.local[0] < K && (tidx.tile[0]*TILE_DIM + tidx.local[1]) < N)
+      Bs[tidx.local[0]][tidx.local[1]] = B[bOffset + (k*TILE_DIM + tidx.local[0])*N + (tidx.tile[0]*TILE_DIM + tidx.local[1])];
+    else
+      Bs[tidx.local[0]][tidx.local[1]] = 0.0;
+
+    if (k*TILE_DIM + tidx.local[0] < K && Col < M)
+      As[tidx.local[0]][tidx.local[1]] = A[aOffset + (k*TILE_DIM + tidx.local[0])*M + Col];
+    else
+      As[tidx.local[0]][tidx.local[1]] = 0.0;
+
+    tidx.barrier.wait();
+
+    for (int n = 0; n < TILE_DIM; ++n) CValue += Bs[n][tidx.local[0]] * As[n][tidx.local[1]];
+
+    tidx.barrier.wait();
+  }
+
+  if (Row < N && Col < M)
+  {
+    C[cOffset + (Row*M)+Col]*=beta;
+    C[cOffset + (Row*M)+Col]+=CValue * alpha;
   }
   });
 }
