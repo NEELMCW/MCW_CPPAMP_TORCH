@@ -234,8 +234,13 @@ THC_API void THGPUTensor_copy(THGPUTensor *self, THGPUTensor *src)
   if(THGPUTensor_isContiguous(self) && THGPUTensor_isContiguous(src))
   {
    // DECLARE_BOLT_DEVICE_VECTOR_2(src, srcVec, self, desVec);
+   // FIXME: not sure why we can't just use DECLARE_BOLT_DEVICE_VECTOR on src. Will fix it
     bolt::amp::device_vector<float>srcVec(THGPUTensor_data(src),THGPUTensor_data(src) + THGPUTensor_nElement(src));
+   #if 0
     bolt::amp::device_vector<float>desVec(THGPUTensor_data(self),THGPUTensor_data(self) + THGPUTensor_nElement(self));
+   #else
+    DECLARE_BOLT_DEVICE_VECTOR(self, desVec);
+   #endif
     bolt::amp::copy(srcVec.begin(),srcVec.end(),desVec.begin());
   }
   else
