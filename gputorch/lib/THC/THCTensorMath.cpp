@@ -15,6 +15,10 @@
 
 void THGPUTensor_fill(THGPUTensor *self_, float value)
 {
+  if (THGPUTensor_isContiguous(self_)) {
+    THGPUStorage_fill(self_->storage,value);
+    return;
+  }
   THGPUTensor *self = THGPUTensor_newContiguous(self_);
   THGPUStorage_fill(self->storage,value);
   THGPUTensor_copy(self_, self);
@@ -24,6 +28,10 @@ void THGPUTensor_fill(THGPUTensor *self_, float value)
 
 void THGPUTensor_zero(THGPUTensor *self_)
 {
+  if (THGPUTensor_isContiguous(self_)) {
+    THGPUStorage_fill(self_->storage,0);
+    return;
+  }
   THGPUTensor *self = THGPUTensor_newContiguous(self_);
   THGPUStorage_fill(self->storage,0);
   THGPUTensor_copy(self_, self);
