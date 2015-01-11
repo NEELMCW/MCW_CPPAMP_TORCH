@@ -1,12 +1,13 @@
 #define MINUS_LOG_THRESHOLD -18.42
-#define LOGSOFTMAX_THREADS 128
+// use WAVEFRONT SIZE
+#define LOGSOFTMAX_THREADS 256
 #include "amp_math.h"
 
 
 void gpunn_LogSoftMax_updateOutput_kernel(Concurrency::array_view<float,1> &avOutput, Concurrency::array_view<float,1> &avInp, int nframe, int dim)
 {
   // nframe = (nframe + (LOGSOFTMAX_THREADS -1)) &~(LOGSOFTMAX_THREADS-1);
-  Concurrency::extent<1> grdExt(nframe * 128);
+  Concurrency::extent<1> grdExt(nframe * LOGSOFTMAX_THREADS);
   Concurrency::tiled_extent<LOGSOFTMAX_THREADS> t_ext(grdExt);
   //std::cout<<"Update OutPut kernel invoked"<<std::endl;
   Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<LOGSOFTMAX_THREADS> tidx) restrict(amp) 
