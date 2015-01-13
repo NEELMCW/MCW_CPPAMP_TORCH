@@ -39,7 +39,7 @@ Prepare a directory for work space.
    * git clone https://bitbucket.org/multicoreware/cppamp-driver-ng.git src
 
    * git checkout gmac-exp-cache-kernel (gmac-exp-cache-kernel branch is tailor made for torch7 use case)
-(note that you can also use git checkout origina/gmac-exp-cache-kernel)
+(note that you can also use git checkout origin/gmac-exp-cache-kernel)
 
 Create a build directory and configure using CMake.
 
@@ -54,7 +54,23 @@ Build the whole system. This will build clang and other libraries that require o
   * make [-j #] world           (# is the number of parallel builds. Generally it is # of CPU cores)
 
   * make                        (this builds llvm utilities)
- 
+
+Note that you might need to manually check updates from C++ AMP Compiler.
+Please do the following and rebuild the Compiler if any update is available
+
+```
+#!python
+ # check updates from C++AMP Compiler
+ cd mcw_cppamp/src
+ git fetch --all
+ git checkout origin/gmac-exp-cache-kernel
+
+ # check updates from C++AMP Compiler's dependency
+ cd mcw_cppamp/src/compiler/tools/clang
+ git fetch --all
+ git checkout origin/master
+```
+
 (iii) ** Bolt Set up:**
 
 Bolt binaries are automatically built in (ii)

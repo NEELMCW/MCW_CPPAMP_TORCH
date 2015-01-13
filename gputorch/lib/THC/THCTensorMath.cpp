@@ -15,26 +15,27 @@
 
 void THGPUTensor_fill(THGPUTensor *self_, float value)
 {
+  if (THGPUTensor_isContiguous(self_)) {
+    THGPUStorage_fill(self_->storage,value);
+    return;
+  }
   THGPUTensor *self = THGPUTensor_newContiguous(self_);
   THGPUStorage_fill(self->storage,value);
   THGPUTensor_copy(self_, self);
-  if (self != self_)
-  {
-    THGPUStorage_free(self->storage);
-    THGPUTensor_free(self);
-  }
+  
+  THGPUTensor_free(self);
 }
 
 void THGPUTensor_zero(THGPUTensor *self_)
 {
+  if (THGPUTensor_isContiguous(self_)) {
+    THGPUStorage_fill(self_->storage,0);
+    return;
+  }
   THGPUTensor *self = THGPUTensor_newContiguous(self_);
   THGPUStorage_fill(self->storage,0);
   THGPUTensor_copy(self_, self);
-  if (self != self_)
-  {
-    THGPUStorage_free(self->storage);
-    THGPUTensor_free(self);
-  }
+  THGPUTensor_free(self);
 }
 
 
@@ -221,8 +222,6 @@ void THGPUTensor_addcmul(THGPUTensor *self_, THGPUTensor* t, float value, THGPUT
   THArgCheck(THGPUTensor_nElement(src1) == THGPUTensor_nElement(src2), 3, "size do not match");
 
   THGPUTensor *self = THGPUTensor_newContiguous(self_);
-  THGPUTensor *temp1 = src1;
-  THGPUTensor *temp2 = src2;
   long size = THGPUTensor_nElement(self);
   src1 = THGPUTensor_newContiguous(src1);
   src2 = THGPUTensor_newContiguous(src2);
@@ -237,21 +236,9 @@ void THGPUTensor_addcmul(THGPUTensor *self_, THGPUTensor* t, float value, THGPUT
   THGPUTensor_kernel_addcmul(*pavData, value, *pavSrc1, *pavSrc2, size, nThreadPerBlock, nBlockPerRow,nBlockPerColumn);
 
   THGPUTensor_copy(self_, self);
-  if (src1 != temp1)
-  {
-    THGPUStorage_free(src1->storage);
-    THGPUTensor_free(src1);
-  }
-  if (src2 != temp2)
-  {
-    THGPUStorage_free(src2->storage);
-    THGPUTensor_free(src2);
-  }
-  if (self != self_)
-  {
-    THGPUStorage_free(self->storage);
-    THGPUTensor_free(self);
-  }
+  THGPUTensor_free(src1);
+  THGPUTensor_free(src2);
+  THGPUTensor_free(self);
 }
 
 void THGPUTensor_kernel_addcdiv(Concurrency::array_view<float, 1> &Data, float value, Concurrency::array_view<float, 1> &src1Data, Concurrency::array_view<float, 1> &src2Data, long size, const int nThreadPerBlock, int nBlockPerRow, int nBlockPerColumn)
@@ -283,8 +270,7 @@ void THGPUTensor_addcdiv(THGPUTensor *self_, THGPUTensor *t, float value, THGPUT
   THGPUTensor_resizeAs(self_, src1);
   THArgCheck(THGPUTensor_nElement(src1) == THGPUTensor_nElement(src2), 3, "size do not match");
   THGPUTensor *self = THGPUTensor_newContiguous(self_);
-  THGPUTensor *temp1 = src1;
-  THGPUTensor *temp2 = src2;
+
   long size = THGPUTensor_nElement(self);
   src1 = THGPUTensor_newContiguous(src1);
   src2 = THGPUTensor_newContiguous(src2);
@@ -299,21 +285,10 @@ void THGPUTensor_addcdiv(THGPUTensor *self_, THGPUTensor *t, float value, THGPUT
   THGPUTensor_kernel_addcdiv(*pavData, value, *pavSrc1, *pavSrc2, size, nThreadPerBlock, nBlockPerRow,nBlockPerColumn);
 
   THGPUTensor_copy(self_, self);
-  if (src1 != temp1)
-  {
-    THGPUStorage_free(src1->storage);
-    THGPUTensor_free(src1);
-  }
-  if (src2 != temp2)
-  {
-    THGPUStorage_free(src2->storage);
-    THGPUTensor_free(src2);
-  }
-  if (self != self_)
-  {
-    THGPUStorage_free(self->storage);
-    THGPUTensor_free(self);
-  }
+  THGPUTensor_free(src1);
+  THGPUTensor_free(src2);
+  THGPUTensor_free(self);
+
 }
 
 float THGPUTensor_dot(THGPUTensor *self, THGPUTensor *src)
@@ -769,20 +744,24 @@ void THGPUTensor_addmm(THGPUTensor *r_, float beta, THGPUTensor *t, float alpha,
     m2_ = THGPUTensor_newContiguous(m2);
   }
 
+  Concurrency::array_view<float, 1> *m1_Mat = static_cast<Concurrency::array_view<float, 1> *>(m1_->storage->allocatorContext);
+  Concurrency::array_view<float, 1> *m2_Mat = static_cast<Concurrency::array_view<float, 1> *>(m2_->storage->allocatorContext);
+  Concurrency::array_view<float, 1> *r_Mat = static_cast<Concurrency::array_view<float, 1> *>(r__->storage->allocatorContext);
   /* do the operation */
-  THGPUBlas_gemm(transpose_m1,
+  THGPUBlas_gemm_opt(transpose_m1,
                    transpose_m2,
                    r__->size[(transpose_r == 'n' ? 0 : 1)],
                    r__->size[(transpose_r == 'n' ? 1 : 0)],
                    m1_->size[(transpose_r == 'n' ? 1 : 0)],
                    alpha,
-                   THGPUTensor_data(m1_),
+                   *m1_Mat,
                    (transpose_m1 == 'n' ? m1_->stride[(transpose_r == 'n' ? 1 : 0)] : m1_->stride[(transpose_r == 'n' ? 0 : 1)]),
-                   THGPUTensor_data(m2_),
+                   *m2_Mat,
                    (transpose_m2 == 'n' ? m2_->stride[(transpose_r == 'n' ? 1 : 0)] : m2_->stride[(transpose_r == 'n' ? 0 : 1)]),
                    beta,
-                   THGPUTensor_data(r__),
-                   r__->stride[(transpose_r == 'n' ? 1 : 0)]);
+                   *r_Mat,
+                   r__->stride[(transpose_r == 'n' ? 1 : 0)],
+                   NULL, NULL, NULL, 0, 0, 0);
 
   /* free intermediate variables */
   if (m1_ != m1)

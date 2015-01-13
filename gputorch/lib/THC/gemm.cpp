@@ -2,11 +2,12 @@
 #define OFFSET(N, incX) ((incX) > 0 ? 0 : ((N) - 1) * (-(incX)))
 #define BLOCK_SIZE 256
 #define TILE_DIM 16
+#define THREADS 16
 void gemm_NoTransAB(Concurrency::array_view<float, 1> &A, Concurrency::array_view<float, 1> &B, Concurrency::array_view<float, 1> &C, int M, int N, int K, int lda, int ldb, int ldc, float alpha, float beta, long aOffset, long bOffset, long cOffset)
 {
-  Concurrency::extent<2> grdExt((N+15)&~15 , (M+15)&~15);
-  Concurrency::tiled_extent<16, 16> t_ext(grdExt);
-  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<16, 16> tidx) restrict(amp){
+  Concurrency::extent<2> grdExt((N+(THREADS-1))&~(THREADS-1) , (M+(THREADS-1))&~(THREADS-1));
+  Concurrency::tiled_extent<THREADS, THREADS> t_ext(grdExt);
+  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<THREADS, THREADS> tidx) restrict(amp){
   float CValue = 0;
    
   int Row = tidx.tile[0]*TILE_DIM + tidx.local[0];
@@ -43,9 +44,9 @@ void gemm_NoTransAB(Concurrency::array_view<float, 1> &A, Concurrency::array_vie
 
 void gemm_NoTransB(Concurrency::array_view<float, 1> &A, Concurrency::array_view<float, 1> &B, Concurrency::array_view<float, 1> &C, int M, int N, int K, int lda, int ldb, int ldc, float alpha, float beta , long aOffset, long bOffset, long cOffset)
 {
-  Concurrency::extent<2> grdExt((N+15)&~15, (M+15)&~15);
-  Concurrency::tiled_extent<16, 16> t_ext(grdExt);
-  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<16, 16> tidx) restrict(amp){
+  Concurrency::extent<2> grdExt((N+(THREADS-1))&~(THREADS-1), (M+(THREADS-1))&~(THREADS-1));
+  Concurrency::tiled_extent<THREADS, THREADS> t_ext(grdExt);
+  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<THREADS, THREADS> tidx) restrict(amp){
 
   float CValue = 0;
 
@@ -85,9 +86,9 @@ void gemm_NoTransB(Concurrency::array_view<float, 1> &A, Concurrency::array_view
 
 void gemm_NoTransA(Concurrency::array_view<float, 1> &A, Concurrency::array_view<float, 1> &B, Concurrency::array_view<float, 1> &C, int M, int N, int K, int lda, int ldb, int ldc, float alpha, float beta , long aOffset, long bOffset, long cOffset)
 {
-  Concurrency::extent<2> grdExt((N+15)&~15, (M+15)&~15);
-  Concurrency::tiled_extent<16, 16> t_ext(grdExt);
-  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<16, 16> tidx) restrict(amp){
+  Concurrency::extent<2> grdExt((N+(THREADS-1))&~(THREADS-1), (M+(THREADS-1))&~(THREADS-1));
+  Concurrency::tiled_extent<THREADS, THREADS> t_ext(grdExt);
+  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<THREADS, THREADS> tidx) restrict(amp){
   float CValue = 0;
 
   int Row = tidx.tile[0]*TILE_DIM + tidx.local[0];
@@ -126,9 +127,9 @@ void gemm_NoTransA(Concurrency::array_view<float, 1> &A, Concurrency::array_view
 
 void gemm_TransAB(Concurrency::array_view<float, 1> &A, Concurrency::array_view<float, 1> &B, Concurrency::array_view<float, 1> &C, int M, int N, int K, int lda, int ldb, int ldc, float alpha, float beta , long aOffset, long bOffset, long cOffset) 
 {
-  Concurrency::extent<2> grdExt((N+15)&~15, (M+15)&~15);
-  Concurrency::tiled_extent<16, 16> t_ext(grdExt);
-  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<16, 16> tidx) restrict(amp){
+  Concurrency::extent<2> grdExt((N+(THREADS-1))&~(THREADS-1), (M+(THREADS-1))&~(THREADS-1));
+  Concurrency::tiled_extent<THREADS, THREADS> t_ext(grdExt);
+  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<THREADS, THREADS> tidx) restrict(amp){
   float temp;
   int j = tidx.global[0];
   int i = tidx.global[1];
@@ -153,36 +154,6 @@ int gemm_AMP(char TransA, char TransB, const int M, const int N, const int K, co
   float temp;
   // %%= if [:rational,:complex,:value].include?(dtype.type); "#{dtype.long_dtype.sizeof} temp1, temp2;"; end%%
   int i, j, l;
-
-  if (TransA == 'n') 
-    num_rows_a = M;
-  else                        
-    num_rows_a = K;
-
-  if (TransB == 'n') 
-     num_rows_b = K;
-  else                        
-     num_rows_b = N;
-
-  if (M < 0) {
-    fprintf(stderr, "GEMM: Expected M >= 0\n");
-    return 0;
-  } else if (N < 0) {
-    fprintf(stderr, "GEMM: Expected N >= 0\n");
-    return 0;
-  } else if (K < 0) {
-    fprintf(stderr, "GEMM: Expected K >= 0\n");
-    return 0;
-  } else if (lda < std::max(1, num_rows_a)) {
-    fprintf(stderr, "GEMM: Expected lda >= max(1, num_rows_a), with num_rows_a = %d; got lda=%d\n", num_rows_a, lda);
-    return 0;
-  } else if (ldb < std::max(1, num_rows_b)) {
-    fprintf(stderr, "GEMM: Expected ldb >= max(1, num_rows_b), with num_rows_b = %d; got ldb=%d\n", num_rows_b, ldb);
-    return 0;
-  } else if (ldc < std::max(1,M)) {
-    fprintf(stderr, "GEMM: Expected ldc >= max(1,M) with M=%d; got ldc=%d\n", M, ldc);
-    return 0;
-  }
 
   // Quick return if possible
   if (!M || !N || (alpha == 0 || !K) && beta == 1) return 0;

@@ -302,11 +302,7 @@ void THGPUTensor_conv2Dmv(THGPUTensor *output, float beta, THGPUTensor *t_,
     FOR_KERNEL_SPECIALIZED_DIMENSION(nKernelRows, nKernelCols, C_CONV_KERNEL);
 #undef C_CONV_KERNEL
   }
-  if(input != t_)
-  {
-      THGPUStorage_free(input->storage);
-      THGPUTensor_free(input);
-  }
+  THGPUTensor_free(input);
 }
 
 /*

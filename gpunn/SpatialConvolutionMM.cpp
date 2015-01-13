@@ -11,18 +11,24 @@ for (int i = tidx.tile_dim0 * tidx.tile[0] + tidx.local[0]; i < (n); i += t_ext[
 // Kernel for fast unfold+copy
 // (borrowed from Caffe: https://github.com/BVLC/caffe/blob/master/src/caffe/layers/conv_layer.cu)
 
-void im2col_kernel(int n, Concurrency::array_view<float,1> &avData_im, int inp_stride, int elt, int height, int width, int ksize_h,
-                    int ksize_w, int pad_h, int pad_w, int stride_h, int stride_w,
-                    int height_col,  int width_col, Concurrency::array_view<float,1> &avData_col)
+void im2col(Concurrency::array_view<float,1> &avData_im, int inOffset, int channels, int height, int width, int ksize_h,
+            int ksize_w, int pad_h, int pad_w, int stride_h, int stride_w, Concurrency::array_view<float,1> &avData_col)
 {
-  unsigned grdSz = (n+256) - (n%256);
+  int height_col = (height + 2 * pad_h - ksize_h) / stride_h + 1;
+  int width_col = (width + 2 * pad_w - ksize_w) / stride_w + 1;
+  int n = channels * height_col * width_col;
+  
+  unsigned grdSz = (n+255) & ~255;
   Concurrency::extent<2> grdExt(grdSz, ((ksize_h + 3) & ~3));
   Concurrency::tiled_extent<256, 4> t_ext(grdExt);
   Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<256, 4> tidx) restrict(amp)
   {
     float dataCol = 0;
-    float dataIm = 0;
-    for (int i = tidx.global[0]; i < (n); i += t_ext[0])
+    float dataIm = inOffset;
+    int i = tidx.global[0];
+    int p = tidx.global[1];
+    
+    if(i < n && p < ksize_h)
     {
       int w_out = i % width_col;
       i /= width_col;
@@ -32,57 +38,41 @@ void im2col_kernel(int n, Concurrency::array_view<float,1> &avData_im, int inp_s
       int h_in = h_out * stride_h - pad_h;
       int w_in = w_out * stride_w - pad_w;
       dataCol += (channel_out * height_col + h_out) * width_col + w_out;
-      dataIm += (channel_in * height + h_in) * width + w_in;
+      dataIm += (channel_in * height + h_in) * width + w_in ;
       float dataCol_orig = dataCol;
 
-      for (int p = tidx.global[1]; p < ksize_h; p += t_ext[1])
+      if(ksize_w == 11)
       {
-        if(ksize_w == 11)
+        int h = h_in + p;
+        int w = w_in;
+        int xxx = dataIm + p * width;
+        int STEP = 0;
+        dataCol = dataCol_orig + height_col * width_col * ksize_w * p;
+        avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0; 
+        avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0;
+        avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0;
+        avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0;
+        avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0;
+        avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0;
+        avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0;
+        avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0;
+        avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0;          
+        avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0;
+        avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0; 
+      }
+      else
+      {
+        dataCol = dataCol_orig + height_col * width_col * ksize_w * p;
+        for (int j = 0; j < ksize_w; ++j)
         {
           int h = h_in + p;
-          int w = w_in;
-          int xxx = dataIm + p * width + 0 + elt * inp_stride;
-          int STEP = 0;
-          dataCol = dataCol_orig + height_col * width_col * ksize_w * p;
-          avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0; 
-          avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0;
-          avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0;
-          avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0;
-          avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0;
-          avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0;
-          avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0;
-          avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0;
-          avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0;          
-          avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0;
-          avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0; 
-        }
-        else
-        {
-          dataCol = dataCol_orig + height_col * width_col * ksize_w * p;
-          for (int j = 0; j < ksize_w; ++j)
-          {
-            int h = h_in + p;
-            int w = w_in + j;
-            avData_col[dataCol] = (h >= 0 && w >= 0 && h < height && w < width) ? avData_im[ dataIm + p * width + j + elt * inp_stride] : 0;
-            dataCol += height_col * width_col;
-          }
+          int w = w_in + j;
+          avData_col[dataCol] = (h >= 0 && w >= 0 && h < height && w < width) ? avData_im[ dataIm + p * width + j] : 0;
+          dataCol += height_col * width_col;
         }
       }
     }
   });
-}
-
-void im2col(Concurrency::array_view<float,1> &avData_im, int inp_stride, int elt, int channels, int height, int width,
-            int ksize_h, int ksize_w, int pad_h, int pad_w,
-            int stride_h, int stride_w, Concurrency::array_view<float,1> &avData_col)
-{
-  // We are going to launch channels * height_col * width_col kernels, each
-  // kernel responsible for copying a single-channel grid.
-  int height_col = (height + 2 * pad_h - ksize_h) / stride_h + 1;
-  int width_col = (width + 2 * pad_w - ksize_w) / stride_w + 1;
-  int num_kernels = channels * height_col * width_col;
-  // Launch
-  im2col_kernel(num_kernels, avData_im, inp_stride, elt, height, width, ksize_h, ksize_w, pad_h, pad_w, stride_h, stride_w, height_col, width_col, avData_col);
 }
 
 void col2im_kernel(int n, Concurrency::array_view<float,1> &avData_col, int height, int width, int channels,
@@ -109,119 +99,16 @@ void col2im_kernel(int n, Concurrency::array_view<float,1> &avData_col, int heig
       int offset = (c * patch_h * patch_w + h * patch_w + w) * height_col * width_col;
       int coeff_h_col = (1 - stride_h * patch_w * height_col) * width_col;
       int coeff_w_col = (1 - stride_w * height_col * width_col);
-      int iter = w_col_end - w_col_start;
-      for (int h_col = h_col_start; h_col < h_col_end; ++h_col)
+      for (int h_col = h_col_start; h_col < h_col_end; ++h_col) 
       {
-        int index = offset + h_col * coeff_h_col + w_col_start * coeff_w_col; 
-	if(iter == 11)
-	{
-	  val += avData_col[index];
-	  val += avData_col[index += coeff_w_col];
-	  val += avData_col[index += coeff_w_col];
-	  val += avData_col[index += coeff_w_col];
-	  val += avData_col[index += coeff_w_col];
-	  val += avData_col[index += coeff_w_col];
-	  val += avData_col[index += coeff_w_col];
-	  val += avData_col[index += coeff_w_col];
-	  val += avData_col[index += coeff_w_col];
-	  val += avData_col[index += coeff_w_col];
-	  val += avData_col[index += coeff_w_col];
-	}
-	else if(iter == 10)
-	{
-	  val += avData_col[index];
-	  val += avData_col[index += coeff_w_col];
-	  val += avData_col[index += coeff_w_col];
-	  val += avData_col[index += coeff_w_col];
-	  val += avData_col[index += coeff_w_col];
-	  val += avData_col[index += coeff_w_col];
-	  val += avData_col[index += coeff_w_col];
-	  val += avData_col[index += coeff_w_col];
-	  val += avData_col[index += coeff_w_col];
-	  val += avData_col[index += coeff_w_col];
-	}
-	else if(iter == 9)
-	{
-	  val += avData_col[index];
-	  val += avData_col[index += coeff_w_col];
-	  val += avData_col[index += coeff_w_col];
-	  val += avData_col[index += coeff_w_col];
-	  val += avData_col[index += coeff_w_col];
-	  val += avData_col[index += coeff_w_col];
-	  val += avData_col[index += coeff_w_col];
-	  val += avData_col[index += coeff_w_col];
-	  val += avData_col[index += coeff_w_col];
-	}
-	else if(iter == 8)
-	{
-	  val += avData_col[index];
-	  val += avData_col[index += coeff_w_col];
-	  val += avData_col[index += coeff_w_col];
-	  val += avData_col[index += coeff_w_col];
-	  val += avData_col[index += coeff_w_col];
-	  val += avData_col[index += coeff_w_col];
-	  val += avData_col[index += coeff_w_col];
-	  val += avData_col[index += coeff_w_col];
-	}
-	else if(iter == 7)
-	{
-	  val += avData_col[index];
-	  val += avData_col[index += coeff_w_col];
-	  val += avData_col[index += coeff_w_col];
-	  val += avData_col[index += coeff_w_col];
-	  val += avData_col[index += coeff_w_col];
-	  val += avData_col[index += coeff_w_col];
-	  val += avData_col[index += coeff_w_col];
-	}
-	else if(iter == 6)
-	{
-	  val += avData_col[index];
-	  val += avData_col[index += coeff_w_col];
-	  val += avData_col[index += coeff_w_col];
-	  val += avData_col[index += coeff_w_col];
-	  val += avData_col[index += coeff_w_col];
-	  val += avData_col[index += coeff_w_col];
-	}
-	else if(iter == 5)
-	{
-	  val += avData_col[index];
-	  val += avData_col[index += coeff_w_col];
-	  val += avData_col[index += coeff_w_col];
-	  val += avData_col[index += coeff_w_col];
-	  val += avData_col[index += coeff_w_col];
-	}
-	else if(iter == 4)
-	{
-	  val += avData_col[index];
-	  val += avData_col[index += coeff_w_col];
-	  val += avData_col[index += coeff_w_col];
-	  val += avData_col[index += coeff_w_col];
-	}
-	else if(iter == 3)
-	{
-	  val += avData_col[index];
-	  val += avData_col[index += coeff_w_col];
-	  val += avData_col[index += coeff_w_col];
-	}
-	else if(iter == 2)
-	{
-	  val += avData_col[index];
-	  val += avData_col[index += coeff_w_col];
-	}
-	else if(iter == 1)
-	{
-	  val += avData_col[index];
-	}
-	else
-	{
-          for (int w_col = w_col_start; w_col < w_col_end; ++w_col)
-          {
-            val += avData_col[offset + h_col * coeff_h_col + w_col * coeff_w_col];
-          }
-	}
+        for (int w_col = w_col_start; w_col < w_col_end; ++w_col) 
+        {
+          val += avData_col[offset + h_col * coeff_h_col + w_col * coeff_w_col];
+        }
       }
       avData_im[i + elt * inp_stride] = val;
     }
+
   });
 }
 
@@ -325,7 +212,7 @@ static int gpunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
     );
     // Extract columns:
     im2col(
-        *avData_im, input->stride[0], elt,
+        *avData_im, input->stride[0] * elt,
         nInputPlane, inputHeight, inputWidth, kH, kW, padding, padding, dH, dW,
         *avData_col
     );
@@ -513,7 +400,7 @@ static int gpunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
 
     // Extract columns:
     im2col(
-        *avData_im, input->stride[0], elt,
+        *avData_im, input->stride[0] * elt,
         nInputPlane, inputHeight, inputWidth, kH, kW, padding, padding, dH, dW,
         *avData_col
     );
