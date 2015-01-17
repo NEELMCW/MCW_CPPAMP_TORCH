@@ -201,7 +201,7 @@ void THGPUTensor_conv2Dmv(THGPUTensor *output, float beta, THGPUTensor *t_,
   THGPUTensor *input;
   THGPUTensor *kernel;
  
-  THArgCheck(kernel->nDimension == 4 , 4, "kernel: 4D Tensor expected");
+  THArgCheck(k_->nDimension == 4 , 4, "kernel: 4D Tensor expected");
   THArgCheck(srow >= 1, 5, "Stride should be a positive integer");
   THArgCheck(scol >= 1, 6, "Stride should be a positive integer");
   THArgCheck(type[0] == 'v' || type[0] == 'f', 7, "type of convolution can 'v' or 'f'");
@@ -325,7 +325,7 @@ void THGPUTensor_conv2Dmm(THGPUTensor *output, float beta, THGPUTensor *t_,
   THGPUTensor *input;
   THGPUTensor *kernel;
 
-  THArgCheck(kernel->nDimension == 4 , 4, "kernel: 4D Tensor expected");
+  THArgCheck(k_->nDimension == 4 , 4, "kernel: 4D Tensor expected");
   THArgCheck(srow >= 1, 5, "Stride should be a positive integer");
   THArgCheck(scol >= 1, 6, "Stride should be a positive integer");
   THArgCheck(type[0] == 'v' || type[0] == 'f', 7, "type of convolution can 'v' or 'f'");
@@ -898,8 +898,10 @@ void THGPUTensor_conv2Dmap(THGPUTensor *output, THGPUTensor *input,
   THGPUTensor_resize3d(output, nOutputPlane, nOutputRows, nOutputCols);
 
   // set the number of blocks and threads
+  #if 0
   int nthreads_x = 32;
   int nthreads_y = 8;
+  #endif
   int block_height = (int)(16L / nOutputPlane);
   if (block_height < 1)
     block_height = 1;
