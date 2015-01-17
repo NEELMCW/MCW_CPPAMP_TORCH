@@ -166,7 +166,6 @@ void THGPUBlas_axpy(long n, float a, float *x, long incx, float *y, long incy)
   {
     cl_int err;
     cl_mem bufX, bufY;
-    cl_event event = NULL;
     size_t i_n = (size_t)n;
     int i_incx = (int)incx;
     int i_incy = (int)incy;
@@ -218,7 +217,7 @@ float THGPUBlas_dot(long n, float *x, long incx, float *y, long incy)
     int lenX = 1 + (n-1)*abs(i_incx);
     int lenY = 1 + (n-1)*abs(i_incy);
 
-    float result;
+    float result = 0.0;
 
     bufX = clCreateBuffer(mcontext, CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR, (lenX*sizeof(float)), x, &err);
     bufY = clCreateBuffer(mcontext, CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR, (lenY*sizeof(float)), y, &err);
@@ -233,6 +232,7 @@ float THGPUBlas_dot(long n, float *x, long incx, float *y, long incy)
     if (err != CL_SUCCESS)
     {
       printf("clblasSdot() failed with %d\n", err);
+      exit(1);
     }
     else
     {
@@ -259,7 +259,7 @@ float THGPUBlas_dot(long n, float *x, long incx, float *y, long incy)
 void THGPUBlas_gemv(char trans, long m, long n, float alpha, float *a, long lda, float *x, long incx, float beta, float *y, long incy)
 {
 
-  int transa_ = ((trans == 't') || (trans == 'T'));
+  //int transa_ = ((trans == 't') || (trans == 'T'));
 
   if (n == 1)
     lda = m;
@@ -328,100 +328,6 @@ void THGPUBlas_gemv(char trans, long m, long n, float alpha, float *a, long lda,
     clReleaseMemObject(bufY);
     clReleaseMemObject(bufX);
     clReleaseMemObject(bufA);
-
-    //THCublasCheck(cublasSgemv(*current_handle, op, i_m, i_n, &alpha, a, i_lda, x, i_incx, &beta, y, i_incy));
-    return;
-  }
-  THError("Cublas_gemv only supports m, n, lda, incx, incy"
-          "in the range 0 < [val] <= %d", INT_MAX);
-}
-
-/* Level 2 */
-void THGPUBlas_gemv_opt(char trans, long m, long n, float alpha, 
-  float *a, long lda, float *x, long incx, float beta, float *y, long incy,
-  void* cl_A, void* cl_X, void* cl_Y, long aOffset, long xOffset, long yOffset)
-{
-
-  int transa_ = ((trans == 't') || (trans == 'T'));
-
-  if (n == 1)
-    lda = m;
-
-
-  int i_incx = (int)incx;
-  int i_incy = (int)incy;
-  int lenM, lenN;
-  //cublasOperation_t op;
-  clblasTranspose op;
-  if (trans == 't')
-  {
-    op = clblasTrans;
-    lenM = 1 + (m-1)*abs(i_incx);
-    lenN = 1 + (n-1)*abs(i_incy);
-  }
-  else if (trans == 'n')
-  {
-    op = clblasNoTrans;
-    lenM = 1 + (n-1)*abs(i_incx);
-    lenN = 1 + (m-1)*abs(i_incy);
-  }
-  else if (trans == 'c')
-  {
-    op = clblasConjTrans;
-    lenM = 1 + (n-1)*abs(i_incx);
-    lenN = 1 + (m-1)*abs(i_incy);
-  }
-  clblasOrder order = clblasColumnMajor;
-
-
-
-  if( (m <= INT_MAX) && (n <= INT_MAX) &&
-      (lda > 0) && (lda <= INT_MAX) &&
-      (incx > 0) && (incx <= INT_MAX) &&
-      (incy > 0) && (incy <= INT_MAX) )
-  {
-    cl_int err;
-    cl_mem bufX, bufY, bufA;
-    cl_event event = NULL;
-
-    size_t i_m = (size_t)m;
-    size_t i_lda = (size_t)lda;
-
-    size_t i_n = (size_t)n;
-    //int lenM = m;
-    //int lenN = n;
-   if (cl_A == NULL)
-      bufA = clCreateBuffer(mcontext, CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR, lenM * lenN * sizeof(*a), a, &err);
-   else
-     bufA = static_cast<cl_mem>(cl_A);
-   if (cl_X == NULL)
-     bufX = clCreateBuffer(mcontext, CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR, lenM * sizeof(*x), x, &err);
-   else
-    bufX = static_cast<cl_mem>(cl_X);
-   if (cl_Y == NULL)
-     bufY = clCreateBuffer(mcontext, CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR, lenN * sizeof(*y), y, &err);
-   else
-      bufY = static_cast<cl_mem>(cl_Y);
-
-    /* Call clblas extended function. */
-    err = clblasSgemv(order, op, i_m , i_n , alpha, bufA, aOffset, i_lda, bufX, xOffset, i_incx, beta, bufY, yOffset, i_incy, 1, &mqueue, 0, NULL, &event);
-
-    if (err != CL_SUCCESS)
-    {
-      printf("clblasSgemvEx() failed with %d\n", err);
-    }
-    else
-    {
-      /* Fetch results of calculations from GPU memory. */
-      err = clEnqueueReadBuffer(mqueue, bufY, CL_TRUE, yOffset * sizeof(*y), lenN * sizeof(*y), y, 0, NULL, NULL);
-    }
-    /* Release OpenCL memory objects. */
-    if (cl_Y == NULL)
-      clReleaseMemObject(bufY);
-    if (cl_X == NULL)
-      clReleaseMemObject(bufX);
-    if (cl_A == NULL)
-      clReleaseMemObject(bufA);
 
     //THCublasCheck(cublasSgemv(*current_handle, op, i_m, i_n, &alpha, a, i_lda, x, i_incx, &beta, y, i_incy));
     return;
@@ -533,17 +439,12 @@ void THGPUBlas_gemm(char transa, char transb, long m, long n, long k, float alph
 
   if ( (m <= INT_MAX) && (n <= INT_MAX) && (k <= INT_MAX) && (lda <= INT_MAX)  && (ldb <= INT_MAX) && (ldc <= INT_MAX) )
   {
-    size_t i_m = (size_t)m;
-    size_t i_n = (size_t)n;
-    size_t i_k = (size_t)k;
-
     int i_lda = (int)lda;
     int i_ldb = (int)ldb;
     int i_ldc = (int)ldc;
 
     cl_int err;
     cl_mem bufC, bufB, bufA;
-    cl_event event = NULL;
     clblasOrder order = clblasColumnMajor;
 
 
@@ -580,126 +481,107 @@ void* THGPUBlas_clCreateBuffer(long m, long k, float* a) {
 /* Level 3 optimized. bufA, bufB are created outside as m,n,k is not changed in loops*/
 void THGPUBlas_gemm_opt(char transa, char transb,
   long m, long n, long k, float alpha,
-  float *a, long lda, float *b, long ldb, float beta,
-  float *c, long ldc,
+  Concurrency::array_view<float> &a, long lda, Concurrency::array_view<float> &b, long ldb, float beta,
+  Concurrency::array_view<float> &c, long ldc,
   void* cl_A, void* cl_B, void* cl_C,
   long aOffset, long bOffset, long cOffset)
 {
-  int transa_ = ((transa == 't') || (transa == 'T'));
-  int transb_ = ((transb == 't') || (transb == 'T'));
+  gemm_AMP(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc, aOffset, bOffset, cOffset);
+}
+
+void THGPUBlas_gemv_opt(char trans, long m, long n, float alpha, 
+  Concurrency::array_view<float> &a, long aoffset, Concurrency::array_view<float> &x, long incx, float beta, Concurrency::array_view<float> &y, long incy)
+{
+  gemv_AMP(trans,m,n,alpha,a,aoffset,x,incx,beta,y,incy);
+}
+
+/* Level 2 */
+void THGPUBlas_gemv_opt1(char trans, long m, long n, float alpha, 
+  float *a, long lda, float *x, long incx, float beta, float *y, long incy,
+  void* cl_A, void* cl_X, void* cl_Y, long aOffset, long xOffset, long yOffset)
+{
+
+ // int transa_ = ((trans == 't') || (trans == 'T'));
 
   if (n == 1)
-    ldc = m;
+    lda = m;
 
-  if (transa_)
+
+  int i_incx = (int)incx;
+  int i_incy = (int)incy;
+  int lenM, lenN;
+  //cublasOperation_t op;
+  clblasTranspose op;
+  if (trans == 't')
   {
-    if (m == 1)
-      lda = k;
+    op = clblasTrans;
+    lenM = 1 + (m-1)*abs(i_incx);
+    lenN = 1 + (n-1)*abs(i_incy);
   }
-  else
+  else if (trans == 'n')
   {
-    if (k == 1)
-      lda = m;
+    op = clblasNoTrans;
+    lenM = 1 + (n-1)*abs(i_incx);
+    lenN = 1 + (m-1)*abs(i_incy);
   }
-
-  if (transb_)
+  else if (trans == 'c')
   {
-    if (k == 1)
-      ldb = n;
+    op = clblasConjTrans;
+    lenM = 1 + (n-1)*abs(i_incx);
+    lenN = 1 + (m-1)*abs(i_incy);
   }
-  else
+  clblasOrder order = clblasColumnMajor;
+
+
+
+  if( (m <= INT_MAX) && (n <= INT_MAX) &&
+      (lda > 0) && (lda <= INT_MAX) &&
+      (incx > 0) && (incx <= INT_MAX) &&
+      (incy > 0) && (incy <= INT_MAX) )
   {
-    if (n == 1)
-      ldb = k;
-  }
-
-  //cublasOperation_t opa;
-  //if (transa == 't') opa = CUBLAS_OP_T;
-  //else if (transa == 'n') opa = CUBLAS_OP_N;
-  //else if (transa == 'c') opa = CUBLAS_OP_C;
-  //else THError("transa must be one of: t, n, c");
-
-  //cublasOperation_t opb;
-  //if (transb == 't') opb = CUBLAS_OP_T;
-  //else if (transb == 'n') opb = CUBLAS_OP_N;
-  //else if (transb == 'c') opb = CUBLAS_OP_C;
-  //else THError("transb must be one of: t, n, c");
-  clblasTranspose opa;
-  if (transa == 't') opa = clblasTrans;
-  else if (transa == 'n') opa = clblasNoTrans;
-  else if (transa == 'c') opa = clblasConjTrans;
-
-  clblasTranspose opb;
-  if (transb == 't') opb = clblasTrans;
-  else if (transb == 'n') opb = clblasNoTrans;
-  else if (transb == 'c') opb = clblasConjTrans;
-
-  if ( (m <= INT_MAX) && (n <= INT_MAX) && (k <= INT_MAX) && (lda <= INT_MAX)  && (ldb <= INT_MAX) && (ldc <= INT_MAX) )
-  {
-    size_t i_m = (size_t)m;
-    size_t i_n = (size_t)n;
-    size_t i_k = (size_t)k;
-
-    int i_lda = (int)lda;
-    int i_ldb = (int)ldb;
-    int i_ldc = (int)ldc;
-
     cl_int err;
-    cl_mem bufC, bufB, bufA;
+    cl_mem bufX, bufY, bufA;
     cl_event event = NULL;
-    clblasOrder order = clblasColumnMajor;
 
+    size_t i_m = (size_t)m;
+    size_t i_lda = (size_t)lda;
 
-    //Prepare OpenCL memory objects and place matrices inside them. 
-    if (cl_A == NULL)
-      bufA = clCreateBuffer(mcontext, CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR, m * k * sizeof(*a),  a, &err);
-    else
-      bufA = static_cast<cl_mem>(cl_A);
-    if (cl_B == NULL)
-      bufB = clCreateBuffer(mcontext, CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR, k * n * sizeof(*b),  b, &err); 
-    else
-      bufB = static_cast<cl_mem>(cl_B);
-    if (cl_C == NULL)
-    {
-      bufC = clCreateBuffer(mcontext, CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR , m * n * sizeof(*c), c, &err);
-    }
-    else
-    {
-      bufC = static_cast<cl_mem>(cl_C);
-    }
+    size_t i_n = (size_t)n;
+    //int lenM = m;
+    //int lenN = n;
+   if (cl_A == NULL)
+      bufA = clCreateBuffer(mcontext, CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR, lenM * lenN * sizeof(*a), a, &err);
+   else
+     bufA = static_cast<cl_mem>(cl_A);
+   if (cl_X == NULL)
+     bufX = clCreateBuffer(mcontext, CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR, lenM * sizeof(*x), x, &err);
+   else
+    bufX = static_cast<cl_mem>(cl_X);
+   if (cl_Y == NULL)
+     bufY = clCreateBuffer(mcontext, CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR, lenN * sizeof(*y), y, &err);
+   else
+      bufY = static_cast<cl_mem>(cl_Y);
 
-    err = clblasSgemm(order, opa, opb, m, n, k, alpha, bufA, aOffset, i_lda, bufB, bOffset, i_ldb, beta, bufC, cOffset, i_ldc, 1, &mqueue, 0, NULL, NULL);
+    err = clblasSgemv(order, op, i_m , i_n , alpha, bufA, aOffset, i_lda, bufX, xOffset, i_incx, beta, bufY, yOffset, i_incy, 1, &mqueue, 0, NULL, &event);
+
     if (err != CL_SUCCESS)
     {
-      printf("clblasSgemmEx() failed with %d\n", err);
+      printf("clblasSgemvEx() failed with %d\n", err);
     }
     else
     {
-      err = clEnqueueReadBuffer(mqueue, bufC, CL_TRUE, cOffset * sizeof(*c), m * n * sizeof(*c), c, 0, NULL, NULL);
+      err = clEnqueueReadBuffer(mqueue, bufY, CL_TRUE, yOffset * sizeof(*y), lenN * sizeof(*y), y, 0, NULL, NULL);
     }
-    //Release OpenCL memory objects.
-    if (cl_C == NULL)
-      clReleaseMemObject(bufC);
-    if (cl_B == NULL)
-      clReleaseMemObject(bufB);
+    if (cl_Y == NULL)
+      clReleaseMemObject(bufY);
+    if (cl_X == NULL)
+      clReleaseMemObject(bufX);
     if (cl_A == NULL)
       clReleaseMemObject(bufA);
 
-    //THCublasCheck(cublasSgemm(*current_handle, opa, opb, i_m, i_n, i_k, &alpha, a, i_lda, b, i_ldb, &beta, c, i_ldc));
+    //THCublasCheck(cublasSgemv(*current_handle, op, i_m, i_n, &alpha, a, i_lda, x, i_incx, &beta, y, i_incy));
     return;
   }
-  THError("Cublas_gemm only supports m, n, k, lda, ldb, ldc"
-          "with the bound [val] <= %d", INT_MAX);
+  THError("Cublas_gemv only supports m, n, lda, incx, incy"
+          "in the range 0 < [val] <= %d", INT_MAX);
 }
-
-/* Level 3 optimized. bufA, bufB are created outside as m,n,k is not changed in loops*/
-/*void THGPUBlas_gemm_opt(char transa, char transb,
-  long m, long n, long k, float alpha,
-  float *a, long lda, float *b, long ldb, float beta,
-  float *c, long ldc,
-  void* cl_A, void* cl_B, void* cl_C,
-  long aOffset, long bOffset, long cOffset)
-{
-  gemm_AMP(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
- 
-}*/

@@ -185,8 +185,10 @@ void THGPUTensor_kernel_copy(Concurrency::array_view<float>& av_dst,
   //Copy Kernel
   Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1, 16, 16> tidx) restrict(amp)
   {
+    #if 0
     long x = t_ext.tile_dim2;
     long y = t_ext.tile_dim1;
+    #endif
     long k = (tidx.tile[0] * (t_ext[2] / t_ext.tile_dim2) * (t_ext[1] / t_ext.tile_dim1) + tidx.tile[1] * (t_ext[2] / t_ext.tile_dim2) + tidx.tile[2] ) * t_ext.tile_dim1 + tidx.local[1];
     //long i_start = threadIdx.x * src_st[src_dim-1];
     long i_start = tidx.local[2] * av_src_st[Concurrency::index<1>(src_dim - 1)];
@@ -223,6 +225,10 @@ void THGPUTensor_kernel_copy(Concurrency::array_view<float>& av_dst,
 
 THC_API void THGPUTensor_copy(THGPUTensor *self, THGPUTensor *src)
 {
+  // Avoid unnecessary copy
+  if (self == src)
+    return;
+
   THArgCheck(THGPUTensor_nElement(self) == THGPUTensor_nElement(src), 2, "sizes do not match");
 
   if (THGPUTensor_nDimension(self) == 0) return;
@@ -230,8 +236,13 @@ THC_API void THGPUTensor_copy(THGPUTensor *self, THGPUTensor *src)
   if(THGPUTensor_isContiguous(self) && THGPUTensor_isContiguous(src))
   {
    // DECLARE_BOLT_DEVICE_VECTOR_2(src, srcVec, self, desVec);
+   // FIXME: not sure why we can't just use DECLARE_BOLT_DEVICE_VECTOR on src. Will fix it
     bolt::amp::device_vector<float>srcVec(THGPUTensor_data(src),THGPUTensor_data(src) + THGPUTensor_nElement(src));
+   #if 0
     bolt::amp::device_vector<float>desVec(THGPUTensor_data(self),THGPUTensor_data(self) + THGPUTensor_nElement(self));
+   #else
+    DECLARE_BOLT_DEVICE_VECTOR(self, desVec);
+   #endif
     bolt::amp::copy(srcVec.begin(),srcVec.end(),desVec.begin());
   }
   else
