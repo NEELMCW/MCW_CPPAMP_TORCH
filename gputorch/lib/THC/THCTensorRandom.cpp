@@ -131,7 +131,7 @@ void THCRandom_manualSeed(THGPURNGState* state, unsigned long seed)
 
 void THCRandom_manualSeedAll(THGPURNGState* state, unsigned long seed)
 {
-  int currentDevice;
+  //int currentDevice;
  // THGPUCheck(gpuGetDevice(&currentDevice));
   /*for (int i = 0; i < state->num_devices; ++i) {
     THGPUCheck(gpuSetDevice(i));
@@ -228,7 +228,6 @@ void THGPUTensor_uniform(THGPURNGState* state, THGPUTensor *self_, double a, dou
 {
   THGPUTensor *self = THGPUTensor_newContiguous(self_);
   long size = THGPUTensor_nElement(self);
-  float *data = THGPUTensor_data(self);
 
   generate_uniform(size, self, a, b);
 
@@ -239,7 +238,6 @@ void THGPUTensor_bernoulli(THGPURNGState* state, THGPUTensor *self_, double p)
 {
   THGPUTensor *self = THGPUTensor_newContiguous(self_);
   long size = THGPUTensor_nElement(self);
-  float *data = THGPUTensor_data(self);
 
   generate_bernoulli(size, self, p);
 
@@ -250,7 +248,6 @@ void THGPUTensor_normal(THGPURNGState* state, THGPUTensor *self_, double mean, d
 {
   THGPUTensor *self = THGPUTensor_newContiguous(self_);
   long size = THGPUTensor_nElement(self);
-  float *data = THGPUTensor_data(self);
 
   generate_normal(size, self, mean, stdv);
 
@@ -261,7 +258,6 @@ void THGPUTensor_logNormal(THGPURNGState* state, THGPUTensor *self_, double mean
 {
   THGPUTensor *self = THGPUTensor_newContiguous(self_);
   long size = THGPUTensor_nElement(self);
-  float *data = THGPUTensor_data(self);
 
   Concurrency::array_view<float, 1> *pavSelf = static_cast<Concurrency::array_view<float, 1> *>(self->storage->allocatorContext);
 
@@ -274,7 +270,6 @@ void THGPUTensor_geometric(THGPURNGState* state, THGPUTensor *self_, double p)
 {
   THGPUTensor *self = THGPUTensor_newContiguous(self_);
   long size = THGPUTensor_nElement(self);
-  float *data = THGPUTensor_data(self);
 
   generate_geometric(size, self, p);
 
@@ -285,7 +280,6 @@ void THGPUTensor_exponential(THGPURNGState* state, THGPUTensor *self_, double la
 {
   THGPUTensor *self = THGPUTensor_newContiguous(self_);
   long size = THGPUTensor_nElement(self);
-  float *data = THGPUTensor_data(self);
 
   generate_exponential(size, self, lambda);
 
@@ -296,7 +290,6 @@ void THGPUTensor_cauchy(THGPURNGState* state, THGPUTensor *self_, double median,
 {
   THGPUTensor *self = THGPUTensor_newContiguous(self_);
   long size = THGPUTensor_nElement(self);
-  float *data = THGPUTensor_data(self);
 
   generate_cauchy(size, self, median, sigma);
 

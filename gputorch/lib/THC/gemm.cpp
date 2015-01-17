@@ -148,15 +148,13 @@ int gemm_AMP(char TransA, char TransB, const int M, const int N, const int K, co
   Concurrency::array_view<float> &A_mat, int lda, Concurrency::array_view<float>& B_mat, int ldb,
   const float beta, Concurrency::array_view<float>& C_mat,  int ldc, long aOffset, long bOffset, long cOffset)
 {
-  int num_rows_a, /*num_cols_a,*/ num_rows_b; // nrowa, ncola, nrowb
-
   // use longest possible type for intermediate value storage:
-  float temp;
+
   // %%= if [:rational,:complex,:value].include?(dtype.type); "#{dtype.long_dtype.sizeof} temp1, temp2;"; end%%
-  int i, j, l;
+  int i, j;
 
   // Quick return if possible
-  if (!M || !N || (alpha == 0 || !K) && beta == 1) return 0;
+  if (!M || !N || ((alpha == 0 || !K) && beta == 1)) return 0;
 
   // For alpha = 0
   if (alpha == 0) {
@@ -269,7 +267,6 @@ Concurrency::array_view<float> &Y,  int incY)
   if (alpha == 0.0)
     return;
 
-  int  i, j;
   int lenX, lenY;
   if (M == 0 || N == 0)
     return;

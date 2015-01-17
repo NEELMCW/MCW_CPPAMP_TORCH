@@ -17,8 +17,6 @@ INCLUDE_DIRECTORIES("${CMAKE_CURRENT_SOURCE_DIR}/torch")
 
 SET(src Storage.cpp init.cpp Tensor.cpp TensorMath.cpp torch/utils.c)
 
-# MCW CLAMP Specific. Version >= 0.3 is Must
- # MCW CLAMP Specific. Version >= 0.3 is Must
 SET (OPENCL_INC "$ENV{AMDAPPSDKROOT}/include")
 SET (OPENCL_LIB "$ENV{AMDAPPSDKROOT}/lib/x86_64")
 SET (CLBLAS_INC "$ENV{CLBLASROOT}/include")

@@ -124,7 +124,6 @@ void THGPUTensor_div(THGPUTensor *self_, THGPUTensor *src_, float value)
   THGPUTensor *src = THGPUTensor_newContiguous(src_);
   DECLARE_BOLT_DEVICE_VECTOR_2(src, Dsrc_data, self, Dself_data);
   bolt::amp::transform(Dsrc_data.begin(), Dsrc_data.end(), Dself_data.begin(), divvalue_functor(value));
-  long size = THGPUTensor_nElement(self);
   THGPUTensor_free(src);
   THGPUTensor_freeCopyTo(self, self_);
 }
@@ -159,7 +158,6 @@ void THGPUTensor_cmul(THGPUTensor *self_, THGPUTensor *src1, THGPUTensor *src2)
   THArgCheck(THGPUTensor_nElement(src1) == THGPUTensor_nElement(src2), 3, "size do not match");
   {
     THGPUTensor *self = THGPUTensor_newContiguous(self_);
-    long size = THGPUTensor_nElement(self);
     src1 = THGPUTensor_newContiguous(src1);
     src2 = THGPUTensor_newContiguous(src2);
     DECLARE_BOLT_DEVICE_VECTOR_3(src1, Dsrc1_data, src2, Dsrc2_data, self, Dself_data);
@@ -177,7 +175,6 @@ void THGPUTensor_cdiv(THGPUTensor *self_, THGPUTensor *src1, THGPUTensor *src2)
   THArgCheck(THGPUTensor_nElement(src1) == THGPUTensor_nElement(src2), 3, "size do not match");
   {
     THGPUTensor *self = THGPUTensor_newContiguous(self_);
-    long size = THGPUTensor_nElement(self);
     src1 = THGPUTensor_newContiguous(src1);
     src2 = THGPUTensor_newContiguous(src2);
     DECLARE_BOLT_DEVICE_VECTOR_3(src1, Dsrc1_data, src2, Dsrc2_data, self, Dself_data);
@@ -835,8 +832,6 @@ void THGPUTensor_##NAME(THGPUTensor *self_, THGPUTensor *src)                   
   THGPUTensor_resizeAs(self_, src);                                                                                     \
   THGPUTensor *self = THGPUTensor_newContiguous(self_);                                                                 \
   src = THGPUTensor_newContiguous(src);                                                                                 \
-  long size = THGPUTensor_nElement(self);                                                                               \
-                                                                                                                        \
   DECLARE_BOLT_DEVICE_VECTOR_2(src, src_data, self, self_data); \
   bolt::amp::transform(src_data.begin(), src_data.end(), self_data.begin(),NAME##_functor());                           \
                                                                                                                         \
@@ -986,7 +981,6 @@ struct square_functor
 float THGPUTensor_varall(THGPUTensor *self)
 {
   self = THGPUTensor_newContiguous(self);
-  long size = THGPUTensor_nElement(self);
   DECLARE_BOLT_DEVICE_VECTOR(self, self_data);
   float mean = THGPUTensor_meanall(self);
 
@@ -1016,7 +1010,6 @@ void THGPUTensor_logicalValue(THGPUTensor *self_, THGPUTensor *src, Op op)
   THGPUTensor_resizeAs(self_, src);
   
   THGPUTensor *self = THGPUTensor_newContiguous(self_);
-  long size = THGPUTensor_nElement(self);
   src = THGPUTensor_newContiguous(src);
   DECLARE_BOLT_DEVICE_VECTOR_2(src, src_data, self, self_data);
   bolt::amp::transform(src_data.begin(), src_data.end(), self_data.begin(), op);
@@ -1116,7 +1109,6 @@ void THGPUTensor_logicalTensor(THGPUTensor *self_, THGPUTensor *src1, THGPUTenso
   THArgCheck(THGPUTensor_nElement(src1) == THGPUTensor_nElement(src2), 3, "size do not match");
 
   THGPUTensor *self = THGPUTensor_newContiguous(self_);
-  long size = THGPUTensor_nElement(self);
   src1 = THGPUTensor_newContiguous(src1);
   src2 = THGPUTensor_newContiguous(src2);
   DECLARE_BOLT_DEVICE_VECTOR_3(src1, src1_data, src2, src2_data, self, self_data);
@@ -1286,7 +1278,6 @@ struct dist_functor
 float THGPUTensor_dist(THGPUTensor *self, THGPUTensor *src, float value)
 {
   self = THGPUTensor_newContiguous(self);
-  long size = THGPUTensor_nElement(self);
   src = THGPUTensor_newContiguous(src);
   DECLARE_BOLT_DEVICE_VECTOR_2(self, self_data, src, src_data);
   float result = bolt::amp::inner_product(self_data.begin(), self_data.end(), src_data.begin(), (float) 0,bolt::amp::plus<float>(), dist_functor(value));
@@ -1400,7 +1391,6 @@ void THGPUTensor_kernel_indexCopy(Concurrency::array_view<float, 1> &resTensor, 
 
 void THGPUTensor_indexCopy(THGPUTensor *res_, int dim, THLongTensor *indices, THGPUTensor *src)
 {
-  THGPUTensor *indices_;
   Concurrency::array_view<long,1> *stride_;
   long nIndex = indices->size[0];
   long nRes;
@@ -1505,7 +1495,6 @@ void THGPUTensor_kernel_indexSelect(Concurrency::array_view<float, 1> &resTensor
 void THGPUTensor_indexSelect(THGPUTensor *res_, THGPUTensor *src, int dim, THLongTensor *indices)
 {
   THLongStorage *newSize;
-  THGPUTensor *indices_;
   Concurrency::array_view<long> *stride_;
   long nIndex = indices->size[0];
   long nRes;

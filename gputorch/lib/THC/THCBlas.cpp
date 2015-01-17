@@ -166,7 +166,6 @@ void THGPUBlas_axpy(long n, float a, float *x, long incx, float *y, long incy)
   {
     cl_int err;
     cl_mem bufX, bufY;
-    cl_event event = NULL;
     size_t i_n = (size_t)n;
     int i_incx = (int)incx;
     int i_incy = (int)incy;
@@ -218,7 +217,7 @@ float THGPUBlas_dot(long n, float *x, long incx, float *y, long incy)
     int lenX = 1 + (n-1)*abs(i_incx);
     int lenY = 1 + (n-1)*abs(i_incy);
 
-    float result;
+    float result = 0.0;
 
     bufX = clCreateBuffer(mcontext, CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR, (lenX*sizeof(float)), x, &err);
     bufY = clCreateBuffer(mcontext, CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR, (lenY*sizeof(float)), y, &err);
@@ -233,6 +232,7 @@ float THGPUBlas_dot(long n, float *x, long incx, float *y, long incy)
     if (err != CL_SUCCESS)
     {
       printf("clblasSdot() failed with %d\n", err);
+      exit(1);
     }
     else
     {
@@ -259,7 +259,7 @@ float THGPUBlas_dot(long n, float *x, long incx, float *y, long incy)
 void THGPUBlas_gemv(char trans, long m, long n, float alpha, float *a, long lda, float *x, long incx, float beta, float *y, long incy)
 {
 
-  int transa_ = ((trans == 't') || (trans == 'T'));
+  //int transa_ = ((trans == 't') || (trans == 'T'));
 
   if (n == 1)
     lda = m;
@@ -439,17 +439,12 @@ void THGPUBlas_gemm(char transa, char transb, long m, long n, long k, float alph
 
   if ( (m <= INT_MAX) && (n <= INT_MAX) && (k <= INT_MAX) && (lda <= INT_MAX)  && (ldb <= INT_MAX) && (ldc <= INT_MAX) )
   {
-    size_t i_m = (size_t)m;
-    size_t i_n = (size_t)n;
-    size_t i_k = (size_t)k;
-
     int i_lda = (int)lda;
     int i_ldb = (int)ldb;
     int i_ldc = (int)ldc;
 
     cl_int err;
     cl_mem bufC, bufB, bufA;
-    cl_event event = NULL;
     clblasOrder order = clblasColumnMajor;
 
 
@@ -506,7 +501,7 @@ void THGPUBlas_gemv_opt1(char trans, long m, long n, float alpha,
   void* cl_A, void* cl_X, void* cl_Y, long aOffset, long xOffset, long yOffset)
 {
 
-  int transa_ = ((trans == 't') || (trans == 'T'));
+ // int transa_ = ((trans == 't') || (trans == 'T'));
 
   if (n == 1)
     lda = m;

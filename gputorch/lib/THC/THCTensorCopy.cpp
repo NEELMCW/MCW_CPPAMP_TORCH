@@ -185,8 +185,10 @@ void THGPUTensor_kernel_copy(Concurrency::array_view<float>& av_dst,
   //Copy Kernel
   Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1, 16, 16> tidx) restrict(amp)
   {
+    #if 0
     long x = t_ext.tile_dim2;
     long y = t_ext.tile_dim1;
+    #endif
     long k = (tidx.tile[0] * (t_ext[2] / t_ext.tile_dim2) * (t_ext[1] / t_ext.tile_dim1) + tidx.tile[1] * (t_ext[2] / t_ext.tile_dim2) + tidx.tile[2] ) * t_ext.tile_dim1 + tidx.local[1];
     //long i_start = threadIdx.x * src_st[src_dim-1];
     long i_start = tidx.local[2] * av_src_st[Concurrency::index<1>(src_dim - 1)];
