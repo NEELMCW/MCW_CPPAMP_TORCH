@@ -23,7 +23,7 @@
 #include "SpatialConvolutionGPU.cpp"
 #include "SpatialSubSampling.cpp"
 #include "SpatialMaxPooling.cpp"
-#include "SpatialMaxPoolingGPU.cpp"
+//#include "SpatialMaxPoolingGPU.cpp"
 #include "Square.cpp"
 #include "Sqrt.cpp"
 //#include "MultiMarginCriterion.cpp"
@@ -54,7 +54,7 @@ int open_libgpunn(lua_State *L)
   gpunn_SpatialConvolutionMM_init(L);
   gpunn_SpatialConvolutionMM_BHWD_init(L);
   gpunn_SpatialMaxPooling_init(L);
-  gpunn_SpatialMaxPoolingGPU_init(L);
+  //gpunn_SpatialMaxPoolingGPU_init(L);
   gpunn_SpatialSubSampling_init(L);
   //gpunn_MultiMarginCriterion_init(L);
   gpunn_Square_init(L);

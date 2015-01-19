@@ -39,13 +39,9 @@
 
 #define PREPARE_AV(Tensor_data, av_ptr) \
   Concurrency::array_view<float, 1> *av_ptr= \
-    static_cast<Concurrency::array_view<float, 1> *>(Tensor_data->storage->allocatorContext);\
-  /* TODO: remove the following line when get a true singleton version of AMPAllocator in mcw clamp */\
-  Concurrency::array_view<float, 1> Tensor_data##NOT_CARE(THGPUTensor_nElement(Tensor_data), av_ptr->data());
+    static_cast<Concurrency::array_view<float, 1> *>(Tensor_data->storage->allocatorContext);
 
 #define PREPARE_AV_WITH_STORAGE(Storage, av_ptr) \
     Concurrency::array_view<float, 1> *av_ptr= \
-      static_cast<Concurrency::array_view<float, 1> *>(Storage->allocatorContext);\
-    /* TODO: remove the following line when get a true singleton version of AMPAllocator in mcw clamp */\
-    Concurrency::array_view<float, 1> Storage##NOT_CARE(Storage->size, av_ptr->data());
+      static_cast<Concurrency::array_view<float, 1> *>(Storage->allocatorContext);
 
