@@ -1,5 +1,4 @@
 INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR})
-message("a=${CMAKE_CURRENT_SOURCE_DIR}")
 SET(src 
    THCGeneral.cpp gemm.cpp
     THCBlas.cpp THCStorage.cpp THCTensor.cpp THCTensorCopy.cpp THCTensorConv.cpp THCTensorMath.cpp THCTensorRandom.cpp)
