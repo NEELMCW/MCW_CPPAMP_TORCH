@@ -5,7 +5,7 @@ for (int i = tidx.tile_dim0 * tidx.tile[0] + tidx.local[0]; i < (n); i += t_ext[
 
 #include "amp_math.h"
 #include "THBlas.h"
-#include "../gputorch/lib/THC/THCBlas.h"
+#include "THCBlas.h"
 #include "THCGeneral.h"
 
 // Kernel for fast unfold+copy

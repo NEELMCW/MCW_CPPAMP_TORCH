@@ -3,7 +3,7 @@
 // Kernel for fast unfold+copy
 // (borrowed from Caffe: https://github.com/BVLC/caffe/blob/master/src/caffe/layers/conv_layer.cu)
 
-#include "../gputorch/lib/THC/THCBlas.h"
+#include "THCBlas.h"
 
 #define GPU_NUM_THREADS 256
 

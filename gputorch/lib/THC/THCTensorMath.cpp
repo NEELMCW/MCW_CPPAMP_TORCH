@@ -1507,7 +1507,7 @@ void THGPUTensor_indexSelect(THGPUTensor *res_, THGPUTensor *src, int dim, THLon
   newSize->data[dim] = nIndex;
   THGPUTensor_resize(res_, newSize, NULL);
   THLongStorage_free(newSize);
-  
+
   nRes = THGPUTensor_nElement(res_);
   long nblockx = (long)(ceil((float)nRes / nIndex/(16 * 16)));
 
