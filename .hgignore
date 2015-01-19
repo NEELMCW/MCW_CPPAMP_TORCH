@@ -10,3 +10,6 @@ gpunn/build/*
 mcw_torch7_core/build/*
 mcw_nn/build/*
 imagenet-barebones/*
+external/*
+gputorch-nn/*
+standalone/Build/*
