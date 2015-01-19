@@ -1,13 +1,18 @@
 INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR})
+INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/gpunn-impl/)
+INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/gpunn-impl/SpatialConvolutionGPU/)
+INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/gpunn-impl/SpatialPoolingGPU/)
+INCLUDE_DIRECTORIES($ENV{MCWCPPAMPROOT}/cppamp-driver-ng/include)
 SET(src 
    THCGeneral.cpp gemm.cpp
     THCBlas.cpp THCStorage.cpp THCTensor.cpp THCTensorCopy.cpp THCTensorConv.cpp THCTensorMath.cpp THCTensorRandom.cpp)
+SET(gpunnsrc gpunn-impl/SpatialConvolutionGPU/updateOutput.cpp gpunn-impl/SpatialConvolutionGPU/updateGradInput.cpp gpunn-impl/SpatialConvolutionGPU/accGradParameters.cpp gpunn-impl/SpatialPoolingGPU/updateGradInput.cpp gpunn-impl/init.cpp)
 
 SET (OPENCL_INC "$ENV{AMDAPPSDKROOT}/include")
 SET (OPENCL_LIB "$ENV{AMDAPPSDKROOT}/lib/x86_64")
 SET (CLBLAS_INC "$ENV{CLBLASROOT}/include")
 SET (CLBLAS_LIB "$ENV{CLBLASROOT}/lib64")
-SET (BOLT_SRC_INC "$ENV{MCWCPPAMPROOT}/src/Bolt/include/")
+SET (BOLT_SRC_INC "$ENV{MCWCPPAMPROOT}/cppamp-driver-ng/Bolt/include/")
 SET (BOOST_SRC_INC "$ENV{MCWCPPAMPROOT}/gmac_exp_build_cache/Bolt/superbuild/external/boost/src/Boost/")
 SET (BOLT_VER_INC "$ENV{MCWCPPAMPROOT}/gmac_exp_build_cache/Bolt/superbuild/Bolt-build/include/")
 SET (PREFIX "$ENV{MCWCPPAMPROOT}/gmac_exp_build_cache")
@@ -32,12 +37,13 @@ SET_PROPERTY(SOURCE THCTensorCopy.cpp APPEND_STRING PROPERTY COMPILE_FLAGS " ${C
 SET_PROPERTY(SOURCE THCTensorRandom.cpp APPEND_STRING PROPERTY COMPILE_FLAGS " ${CLAMP_CXXFLAGS}")
 SET_PROPERTY(SOURCE THCGeneral.cpp APPEND_STRING PROPERTY COMPILE_FLAGS " ${CLAMP_CXXFLAGS}")
 SET_PROPERTY(SOURCE gemm.cpp APPEND_STRING PROPERTY COMPILE_FLAGS " ${CLAMP_CXXFLAGS}")
-
-
-
+SET_PROPERTY(SOURCE gpunn-impl/SpatialConvolutionGPU/updateOutput.cpp APPEND_STRING PROPERTY COMPILE_FLAGS " ${CLAMP_CXXFLAGS}")
+SET_PROPERTY(SOURCE gpunn-impl/SpatialConvolutionGPU/updateGradInput.cpp APPEND_STRING PROPERTY COMPILE_FLAGS " ${CLAMP_CXXFLAGS}")
+SET_PROPERTY(SOURCE gpunn-impl/SpatialConvolutionGPU/accGradParameters.cpp APPEND_STRING PROPERTY COMPILE_FLAGS " ${CLAMP_CXXFLAGS}")
+SET_PROPERTY(SOURCE gpunn-impl/SpatialPoolingGPU/updateGradInput.cpp APPEND_STRING PROPERTY COMPILE_FLAGS " ${CLAMP_CXXFLAGS}")
 SET_PROPERTY(SOURCE gpunn-impl/init.cpp APPEND_STRING PROPERTY COMPILE_FLAGS " ${CLAMP_CXXFLAGS}")
 
-ADD_LIBRARY(THC SHARED ${src} gpunn-impl/init.cpp)
+ADD_LIBRARY(THC SHARED ${src} ${gpunnsrc})
 
 TARGET_LINK_LIBRARIES(THC TH)
 

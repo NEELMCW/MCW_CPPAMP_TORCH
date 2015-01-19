@@ -4,9 +4,12 @@
  * licensed under a BSD license.
  */
 
-#ifndef SPATIAL_POOL_BPROP_CU
-#define	SPATIAL_POOL_BPROP_CU
 
+#define MIN(a,b) (a) < (b) ? (a) : (b)
+#define MAX(a,b) (a) > (b) ? (a) : (b)
+#ifndef DIVUP
+#define DIVUP(x,y) (((x) + (y) - 1) / (y))
+#endif
 /*
  * Block size B_YxB_X
  * blockIdx.x determines pixel.x, image idx in batches of B_X*imgsPerThread
@@ -26,8 +29,11 @@
  * numFilters must be divisible by B_Y*filtersPerThread
  */
 
+#include "amp.h"
+#include "amp_math.h"
+
 template<int B_Y, int B_X, int imgsPerThread, int filtersPerThread, bool add, bool checkCaseBounds>
-void kLocalMaxUndo(Concurrency::array_view<float,1> &avImages,
+inline void kLocalMaxUndo(Concurrency::array_view<float,1> &avImages,
                               Concurrency::array_view<float,1> &avMaxGrads, Concurrency::array_view<float,1> &avMaxActs,
                               Concurrency::array_view<float,1> &avTargets, int imgSize, int numFilters,
                               int numImages, int subsX, int startX, int strideX, int outputsX,
@@ -238,4 +244,3 @@ void spatialMaxPooling_updateGradInput
   }
 }
 
-#endif	/* SPATIAL_POOL_BPROP_CU */

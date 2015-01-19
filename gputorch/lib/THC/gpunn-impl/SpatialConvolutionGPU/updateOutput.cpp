@@ -29,6 +29,10 @@
  * The imgSize here is the size of the actual image without the padding.
  *
  */
+#include "amp.h"
+#ifndef DIVUP
+#define DIVUP(x,y) (((x) + (y) - 1) / (y))
+#endif
 
 template <int B_Y, int B_X, int imgsPerThread, int filtersPerThread, int numColors, bool scale, bool checkImgBounds>
 void filterActs_YxX_color( Concurrency::array_view<float,1>&avImages,

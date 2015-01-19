@@ -27,6 +27,21 @@
  * It only loads 16 weights at a time, so those aren't fully coalesced.
  * This version conserves shared memory by loading 16 filters at a time rather than 32.
  */
+#include "amp.h"
+#ifndef DIVUP
+#define DIVUP(x,y) (((x) + (y) - 1) / (y))
+#endif
+
+#define MIN(a,b) (a) < (b) ? (a) : (b)
+
+#ifndef assert
+#define assert(e)                              \
+    if (!(e)) {                                \
+        printf("failed assertion `%s'\n", #e); \
+        THError("aborting...");                \
+    };
+#endif
+
 template <int imgsPerThread, int numColors, bool scale, bool checkCaseBounds, bool conv>
 void img_acts_color(Concurrency::array_view<float,1> &avhidActs,
                     Concurrency::array_view<float,1> &avFilters, Concurrency::array_view<float,1> &avTargets,

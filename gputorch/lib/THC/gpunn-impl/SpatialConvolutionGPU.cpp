@@ -13,9 +13,49 @@
     };
 #endif
 
-#include "SpatialConvolutionGPU/updateOutput.cpp"
-#include "SpatialConvolutionGPU/updateGradInput.cpp"
-#include "SpatialConvolutionGPU/accGradParameters.cpp"
+//#include "SpatialConvolutionGPU/updateOutput.cpp"
+//#include "SpatialConvolutionGPU/updateGradInput.cpp"
+//#include "SpatialConvolutionGPU/accGradParameters.cpp"
+
+extern  void spatialConv_updateOutput(
+  // raw pointers:
+  Concurrency::array_view<float,1>&images, Concurrency::array_view<float,1>&filters, Concurrency::array_view<float,1>&targets,
+  // input dim:
+  int numImgColors, int imgSizeY, int imgSizeX, int numImages,
+  // output dim:
+  int numFilters, int numModulesY, int numModulesX, 
+  // filter size:
+  int filterSizeY, int filterSizeX,
+  // input params:
+  int paddingStart, int moduleStride,
+  // output params:
+  float scaleTargets, float scaleOutput, 
+  // are filters convolutional or local:
+  bool conv);
+
+
+extern  void spatialConv_updateGradInput(Concurrency::array_view<float, 1>&hidActs,
+                                  Concurrency::array_view<float, 1>&filters, Concurrency::array_view<float, 1>&targets,
+                                  int numImgColors, int imgSizeY, int imgSizeX, int numImages,int numFilters,int numModulesY,
+                                  int numModulesX, int filterSizeY, int filterSizeX, int paddingStart,
+                                  int moduleStride, float scaleTargets, float scaleOutput, bool conv);
+
+
+extern  void spatialConv_accGradParameters(
+    // raw pointers:
+    Concurrency::array_view<float,1>&images, Concurrency::array_view<float,1>&hidActs, Concurrency::array_view<float,1>&targets,
+    // input dim:
+    int numImgColors, int imgSizeY, int imgSizeX, int numImages,
+    // output dim:
+    int numFilters, int numModulesY, int numModulesX, 
+    // filter size:
+    int filterSizeY, int filterSizeX,
+    // input params:
+    int paddingStart, int moduleStride,
+    // output params:
+    float scaleTargets, float scaleOutput,
+    int partialSum
+);
 
 static int gpunn_SpatialConvolutionGPU_updateOutput(lua_State *L)
 {

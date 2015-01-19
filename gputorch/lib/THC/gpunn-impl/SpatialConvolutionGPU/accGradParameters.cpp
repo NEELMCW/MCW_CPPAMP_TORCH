@@ -4,6 +4,20 @@
  * licensed under a BSD license.
  */
 
+#include "amp.h"
+#ifndef DIVUP
+#define DIVUP(x,y) (((x) + (y) - 1) / (y))
+#endif
+
+#define MIN(a,b) (a) < (b) ? (a) : (b)
+
+#ifndef assert
+#define assert(e)                              \
+    if (!(e)) {                                \
+        printf("failed assertion `%s'\n", #e); \
+        THError("aborting...");                \
+    };
+#endif
 #define LO16(x)     ((x) & 0x0000FFFF)
 #define HI16(x)     ((x) >> 16)
 
