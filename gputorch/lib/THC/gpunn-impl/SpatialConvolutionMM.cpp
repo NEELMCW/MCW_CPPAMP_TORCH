@@ -19,9 +19,9 @@ void im2col(Concurrency::array_view<float,1> &avData_im, int inOffset, int chann
   int n = channels * height_col * width_col;
   
   unsigned grdSz = (n+255) & ~255;
-  Concurrency::extent<2> grdExt(grdSz, ((ksize_h + 3) & ~3));
-  Concurrency::tiled_extent<256, 4> t_ext(grdExt);
-  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<256, 4> tidx) restrict(amp)
+  Concurrency::extent<2> grdExt(grdSz, ksize_h);
+  Concurrency::tiled_extent<256, 1> t_ext(grdExt);
+  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<256, 1> tidx) restrict(amp)
   {
     float dataCol = 0;
     float dataIm = inOffset;
@@ -53,8 +53,8 @@ void im2col(Concurrency::array_view<float,1> &avData_im, int inOffset, int chann
         avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0;
         avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0;
         avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0;
-        avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0;
-        avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0;
+	avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0;
+	avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0;
         avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0;
         avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0;          
         avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0;
@@ -424,6 +424,8 @@ static int gpunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
   // For each elt in batch, do:
   Concurrency::AMPAllocator& alloc = Concurrency::getAllocator();
 
+  bool readNow=false;
+
   for (int elt = 0; elt < batchSize; elt ++) {
     if(elt == 1)
     {
@@ -462,6 +464,9 @@ static int gpunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
     long k_ = outputHeight * outputWidth;
 
     // Do GEMV (note: this is a bit confusing because gemv assumes column-major matrices)
+
+    if(elt==batchSize-1)
+      readNow = true;
     THGPUBlas_gemv_opt1(
         't',
         k_, m_,
@@ -471,7 +476,7 @@ static int gpunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
         1,
         THGPUTensor_data(gradBias), 1,
         buf_Output, bufX, bufY,
-        gradOutput->stride[0] * elt, 0, 0
+        gradOutput->stride[0] * elt, 0, 0, readNow
     );
   }
   alloc.writeNow = true;

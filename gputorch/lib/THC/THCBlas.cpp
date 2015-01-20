@@ -498,7 +498,7 @@ void THGPUBlas_gemv_opt(char trans, long m, long n, float alpha,
 /* Level 2 */
 void THGPUBlas_gemv_opt1(char trans, long m, long n, float alpha, 
   float *a, long lda, float *x, long incx, float beta, float *y, long incy,
-  void* cl_A, void* cl_X, void* cl_Y, long aOffset, long xOffset, long yOffset)
+  void* cl_A, void* cl_X, void* cl_Y, long aOffset, long xOffset, long yOffset, bool ReadNow)
 {
 
  // int transa_ = ((trans == 't') || (trans == 'T'));
@@ -570,6 +570,7 @@ void THGPUBlas_gemv_opt1(char trans, long m, long n, float alpha,
     }
     else
     {
+     if(ReadNow)
       err = clEnqueueReadBuffer(mqueue, bufY, CL_TRUE, yOffset * sizeof(*y), lenN * sizeof(*y), y, 0, NULL, NULL);
     }
     if (cl_Y == NULL)

@@ -38,7 +38,7 @@ void THGPUBlas_gemm_opt(char transa, char transb,
 
 void THGPUBlas_gemv_opt1(char trans, long m, long n, float alpha, 
   float *a, long lda, float *x, long incx, float beta, float *y, long incy,
-  void* cl_A, void* cl_X, void* cl_Y, long aOffset, long xOffset, long yOffset);
+  void* cl_A, void* cl_X, void* cl_Y, long aOffset, long xOffset, long yOffset,bool readNow);
 
 void THGPUBlas_gemm_opt1(char transa, char transb,
   long m, long n, long k, float alpha,
