@@ -392,9 +392,34 @@ void THGPUTensor_kernel_transformReduceOuterDim(Concurrency::array_view<float, 1
         for (unsigned col = tidx.global[2]; col < avSize[0]; col += t_ext[2]) 
         {
           float acc = init;
-          for (unsigned i = 0; i < avSize[reduce]; i++)
+          unsigned idx = z * avSrc_stride[2] + y * avSrc_stride[1] + col;
+          unsigned i = 0;
+          if (avSize[reduce] >= 8)
           {
-            acc = binary_op(acc, unary_op(avSrc[z * avSrc_stride[2] + y * avSrc_stride[1] + col + i * avSrc_stride[reduce]]));
+          for (i = 0; i < avSize[reduce]/8; i+=8)
+          {
+            acc = binary_op(acc, (avSrc[idx]));
+            idx += avSrc_stride[reduce];
+            acc = binary_op(acc, (avSrc[idx]));
+            idx += avSrc_stride[reduce];
+            acc = binary_op(acc, (avSrc[idx]));
+            idx += avSrc_stride[reduce];
+            acc = binary_op(acc, (avSrc[idx]));
+            idx += avSrc_stride[reduce];
+            acc = binary_op(acc, (avSrc[idx]));
+            idx += avSrc_stride[reduce];
+            acc = binary_op(acc, (avSrc[idx]));
+            idx += avSrc_stride[reduce];
+            acc = binary_op(acc, (avSrc[idx]));
+            idx += avSrc_stride[reduce];
+            acc = binary_op(acc, (avSrc[idx]));
+            idx += avSrc_stride[reduce];
+          }
+          }
+          for (; i < avSize[reduce]; i++)
+          {
+            acc = binary_op(acc, (avSrc[idx]));
+            idx += avSrc_stride[reduce];
           }
           avTgt[z * avTgt_stride[2] + y * avTgt_stride[1] + col] = float(acc);
         }
