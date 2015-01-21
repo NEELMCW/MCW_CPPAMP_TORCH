@@ -392,36 +392,37 @@ void THGPUTensor_kernel_transformReduceOuterDim(Concurrency::array_view<float, 1
         for (unsigned col = tidx.global[2]; col < avSize[0]; col += t_ext[2]) 
         {
           float acc = init;
-          unsigned idx = z * avSrc_stride[2] + y * avSrc_stride[1] + col;
+          unsigned idx = z * avSrc_stride[2] + y * avSrc_stride[1] + col;  //moved the loop independent expression outside the loop
           unsigned i = 0;
-          if (avSize[reduce] >= 8)
+          if (avSize[reduce] >= 8)  //Do loop unrolling if size in reduction dimension is above 8
           {
-          for (i = 0; i < avSize[reduce]/8; i+=8)
-          {
-            acc = binary_op(acc, (avSrc[idx]));
-            idx += avSrc_stride[reduce];
-            acc = binary_op(acc, (avSrc[idx]));
-            idx += avSrc_stride[reduce];
-            acc = binary_op(acc, (avSrc[idx]));
-            idx += avSrc_stride[reduce];
-            acc = binary_op(acc, (avSrc[idx]));
-            idx += avSrc_stride[reduce];
-            acc = binary_op(acc, (avSrc[idx]));
-            idx += avSrc_stride[reduce];
-            acc = binary_op(acc, (avSrc[idx]));
-            idx += avSrc_stride[reduce];
-            acc = binary_op(acc, (avSrc[idx]));
-            idx += avSrc_stride[reduce];
-            acc = binary_op(acc, (avSrc[idx]));
-            idx += avSrc_stride[reduce];
+            for (i = 0; i < avSize[reduce]/8; i+=8)
+            {
+              acc = binary_op(acc, (avSrc[idx]));  //removed unary_op as it returns the passesd parameter itself
+              idx += avSrc_stride[reduce];         //replaced multiplication with addition
+              acc = binary_op(acc, (avSrc[idx]));
+              idx += avSrc_stride[reduce];
+              acc = binary_op(acc, (avSrc[idx]));
+              idx += avSrc_stride[reduce];
+              acc = binary_op(acc, (avSrc[idx]));
+              idx += avSrc_stride[reduce];
+              acc = binary_op(acc, (avSrc[idx]));
+              idx += avSrc_stride[reduce];
+              acc = binary_op(acc, (avSrc[idx]));
+              idx += avSrc_stride[reduce];
+              acc = binary_op(acc, (on fail avSrc[idx]));
+              idx += avSrc_stride[reduce];
+              acc = binary_op(acc, (avSrc[idx]));
+              idx += avSrc_stride[reduce];
+            }
           }
-          }
+          //remaining iterations
           for (; i < avSize[reduce]; i++)
           {
-            acc = binary_op(acc, (avSrc[idx]));
+            acc = binary_op(acc, (avSrc[idx]));  //adding all elemets of reduced outer dimension
             idx += avSrc_stride[reduce];
           }
-          avTgt[z * avTgt_stride[2] + y * avTgt_stride[1] + col] = float(acc);
+          avTgt[z * avTgt_stride[2] + y * avTgt_stride[1] + col] = float(acc);  //store shrunk value in reduced dimension
         }
       }
     }
