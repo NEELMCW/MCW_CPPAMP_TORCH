@@ -188,24 +188,24 @@ void THGPUTensor_cdiv(THGPUTensor *self_, THGPUTensor *src1, THGPUTensor *src2)
   
 }
 
-void THGPUTensor_kernel_addcmul( Concurrency::array_view<float,1> &Data, float value, Concurrency::array_view<float,1>&src1Data, Concurrency::array_view<float,1>&src2Data, long size, const int nThreadPerBlock, int nBlockPerRow, int nBlockPerColumn)
+void THGPUTensor_kernel_addcmul( Concurrency::array_view<float,1> &Data, float value, Concurrency::array_view<float,1>&src1Data, Concurrency::array_view<float,1>&src2Data, long size)
 {
   const int nthreads = 256;
-  nBlockPerRow = (nBlockPerRow + (nthreads -1)) & ~(nthreads -1);
-  Concurrency::extent<2> gridExt(nBlockPerColumn,nBlockPerRow);
-  Concurrency::tiled_extent<1,nthreads> t_ext(gridExt);
+  int sz = size / 8;
+  sz = (sz + (nthreads -1)) & ~(nthreads -1);
+  Concurrency::extent<2> gridExt(8, sz);
+  Concurrency::tiled_extent<1, nthreads> t_ext(gridExt);
 
-  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1,nthreads>tidx) restrict(amp)
+  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1, nthreads>tidx) restrict(amp)
   {
-    long k = (((tidx.tile[0] * t_ext[1]/t_ext.tile_dim1) + tidx.tile[1]) * t_ext.tile_dim1) + tidx.local[1];
+    long k = tidx.tile[0] * t_ext[1] + tidx.global[1];
     if(k < size)
     {
-      Data[Concurrency::index<1>(k)] += value*src1Data[Concurrency::index<1>(k)]*src2Data[Concurrency::index<1>(k)];
+      Data[k] += value * src1Data[k] * src2Data[k];
     }
 
   });
 }
-
 
 void THGPUTensor_addcmul(THGPUTensor *self_, THGPUTensor* t, float value, THGPUTensor *src1, THGPUTensor *src2)
 {
@@ -223,14 +223,14 @@ void THGPUTensor_addcmul(THGPUTensor *self_, THGPUTensor* t, float value, THGPUT
   src1 = THGPUTensor_newContiguous(src1);
   src2 = THGPUTensor_newContiguous(src2);
 
-  int nBlockPerRow, nBlockPerColumn, nThreadPerBlock;
-  THGPUGetGridSize(&nBlockPerRow, &nBlockPerColumn, &nThreadPerBlock, size);
+  //int nBlockPerRow, nBlockPerColumn, nThreadPerBlock;
+  //THGPUGetGridSize(&nBlockPerRow, &nBlockPerColumn, &nThreadPerBlock, size);
 
   Concurrency::array_view<float,1> *pavData = static_cast<Concurrency::array_view<float,1> *>(self->storage->allocatorContext);
   Concurrency::array_view<float,1> *pavSrc1 = static_cast<Concurrency::array_view<float,1> *>(src1->storage->allocatorContext);
   Concurrency::array_view<float,1> *pavSrc2 = static_cast<Concurrency::array_view<float,1> *>(src2->storage->allocatorContext);
 
-  THGPUTensor_kernel_addcmul(*pavData, value, *pavSrc1, *pavSrc2, size, nThreadPerBlock, nBlockPerRow,nBlockPerColumn);
+  THGPUTensor_kernel_addcmul(*pavData, value, *pavSrc1, *pavSrc2, size);
 
   THGPUTensor_copy(self_, self);
   THGPUTensor_free(src1);
