@@ -410,7 +410,7 @@ void THGPUTensor_kernel_transformReduceOuterDim(Concurrency::array_view<float, 1
               idx += avSrc_stride[reduce];
               acc = binary_op(acc, (avSrc[idx]));
               idx += avSrc_stride[reduce];
-              acc = binary_op(acc, (on fail avSrc[idx]));
+              acc = binary_op(acc, (avSrc[idx]));
               idx += avSrc_stride[reduce];
               acc = binary_op(acc, (avSrc[idx]));
               idx += avSrc_stride[reduce];
