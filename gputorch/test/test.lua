@@ -226,7 +226,7 @@ function test.reshape()
    compareFloatAndGPUTensorArgs(x, 'reshape', sz1/2, sz2*2)
 end
 
-function test.zeros()
+--[[function test.zeros()
    local sz1 = math.floor(torch.uniform(minsize,maxsize))
    local sz2 = math.floor(torch.uniform(minsize,maxsize))
    local t = torch.getdefaulttensortype()
@@ -244,7 +244,7 @@ function test.ones()
    local x = torch.ones(sz1, sz2)
    assert(x:sum() == x:nElement())
    torch.setdefaulttensortype(t)
-end
+end]]--
 
 
 function test.add()
