@@ -34,6 +34,7 @@ void THGPUTensor_copyFloat(THGPUTensor *self, struct THFloatTensor *src)
     //  (4) THGPUTensor_free         (1 GPU memory de-allocation)
     Concurrency::array_view<float, 1> *avSelfCopy= static_cast<Concurrency::array_view<float, 1> *>(self->storage->allocatorContext);
     Concurrency::copy(src->storage->data, src->storage->data+src->storage->size, *avSelfCopy);
+    avSelfCopy->synchronize();
     #endif
     THFloatTensor_free(src);
     THGPUTensor_freeCopyTo(selfc, self);
@@ -80,6 +81,7 @@ void THFloatTensor_copyGPU(THFloatTensor *self, struct THGPUTensor *src)
     Concurrency::copy(arrSrc, avSelfCopy);
     #else
     Concurrency::array_view<float, 1> *avSrc= static_cast<Concurrency::array_view<float, 1> *>(src->storage->allocatorContext);
+    avSrc->synchronize();
     Concurrency::copy(*avSrc, self->storage->data);
     #endif
 
