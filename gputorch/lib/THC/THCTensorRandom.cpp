@@ -178,12 +178,12 @@ void THCRandom_setRNGState(THGPURNGState* state, THByteTensor *rng_state)
 void NAME(int size, THGPUTensor *result, ARG1)                                                           \
 {                                                                                                        \
   std::mt19937 gen;                                                                                      \
-  Concurrency::array_view<float, 1> avResult(THGPUTensor_nElement(result), THGPUTensor_data(result));    \
+  Concurrency::array_view<float, 1> *avResult = static_cast<Concurrency::array_view<float, 1> *>(result->storage->allocatorContext);\
   for (int i = 0; i < size; i++) {                                                                       \
     std::CURAND_FUNC<float> rand(0.0, 0.9);                                                              \
     float x = rand(gen);                                                                                 \
     x = TRANSFORM;                                                                                       \
-    avResult[i] = x;                                                                                     \
+    (*avResult)[i] = x;                                                                                     \
   }                                                                                                      \
 }
 
@@ -191,12 +191,12 @@ void NAME(int size, THGPUTensor *result, ARG1)                                  
 void NAME(int size, THGPUTensor *result, ARG1, ARG2)                                                     \
 {                                                                                                        \
   std::mt19937 gen;                                                                                      \
-  Concurrency::array_view<float, 1> avResult(THGPUTensor_nElement(result), THGPUTensor_data(result));    \
+  Concurrency::array_view<float, 1> *avResult = static_cast<Concurrency::array_view<float, 1> *>(result->storage->allocatorContext);\
   for (int i = 0; i < size; i++) {                                                                       \
     std::CURAND_FUNC<float> rand(0, 0.9);                                                                \
     float x = rand(gen);                                                                                 \
     x = TRANSFORM;                                                                                       \
-    avResult[i] = x;                                                                                     \
+    (*avResult)[i] = x;                                                                                     \
   }                                                                                                      \
 }
 
