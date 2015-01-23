@@ -192,20 +192,7 @@ static int gpunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
   PREPARE_AV(output, avData_output);
   PREPARE_AV(weight, avData_weight);
   // For each elt in batch, do:
-
-  Concurrency::AMPAllocator& alloc = Concurrency::getAllocator();
   for (int elt = 0; elt < batchSize; elt ++) {
-
-    if(elt == 1)
-    {
-      alloc.writeNow = false;
-      alloc.readNow = false;
-    }
-
-    if(elt == batchSize-1)
-    {
-        alloc.readNow=true;
-    }
     // Matrix mulitply per output:
 
     // Do Bias first:
@@ -244,7 +231,6 @@ static int gpunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
         0, 0, output->stride[0] * elt
     );
   }
-  alloc.writeNow = true;
 
   // Resize output
   if (batch == 0) {
@@ -307,18 +293,7 @@ static int gpunn_SpatialConvolutionMM_updateGradInput(lua_State *L) {
   long k = weight->size[0];
 
  // For each elt in batch, do:
-  Concurrency::AMPAllocator& alloc = Concurrency::getAllocator();
-
   for (int elt = 0; elt < batchSize; elt ++) {
-
-   if(elt == 1)
-   {
-     alloc.writeNow = false;
-     alloc.readNow = false;
-   }
-
-   if(elt == batchSize -1)
-     alloc.readNow = true;
     // Matrix mulitply per sample:
 
     // M,N,K are dims of matrix A and B
@@ -343,7 +318,6 @@ static int gpunn_SpatialConvolutionMM_updateGradInput(lua_State *L) {
         *avData_im, gradInput->stride[0], elt
     );
   }
-  alloc.writeNow = true;
 
   // Resize output
   if (batch == 0) {
@@ -422,19 +396,9 @@ static int gpunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
   PREPARE_AV(gradOutput, avData_gradOutput);
   PREPARE_AV(gradWeight, avData_gradWeight);
   // For each elt in batch, do:
-  Concurrency::AMPAllocator& alloc = Concurrency::getAllocator();
-
   bool readNow=false;
 
   for (int elt = 0; elt < batchSize; elt ++) {
-    if(elt == 1)
-    {
-      alloc.writeNow = false;
-      alloc.readNow = false;
-    }
-
-    if(elt == batchSize - 1)
-      alloc.readNow = true;
     // Extract columns:
     im2col(
         *avData_im, input->stride[0] * elt,
@@ -479,7 +443,6 @@ static int gpunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
         gradOutput->stride[0] * elt, 0, 0, readNow
     );
   }
-  alloc.writeNow = true;
 
   clReleaseMemObject(static_cast<cl_mem>(buf_Output));
   clReleaseMemObject(static_cast<cl_mem>(bufY));
