@@ -17,11 +17,6 @@ void THGPUTensor_copyFloat(THGPUTensor *self, struct THFloatTensor *src)
   {
     THGPUTensor *selfc = THGPUTensor_newContiguous(self);
     src = THFloatTensor_newContiguous(src);
-    #if 0
-    Concurrency::array<float> arrSrc(Concurrency::extent<1>(src->storage->size), src->storage->data);
-    Concurrency::array_view<float> avSelfCopy(Concurrency::extent<1>(self->storage->size), self->storage->data);
-    Concurrency::copy(arrSrc, avSelfCopy);
-    #else
     // Hui: Re-implement without any array ctor and by reusing preallocated array_view
     // Note that, providing the following code snippets in lua
     //    local x_cpu    = x:float()
@@ -32,9 +27,17 @@ void THGPUTensor_copyFloat(THGPUTensor *self, struct THFloatTensor *src)
     //  (2) THGPUStorage_resize     (1 GPU memory allocation)
     //  (3) THGPUTensor_copyFloat (now, 0 GPU memory operation)
     //  (4) THGPUTensor_free         (1 GPU memory de-allocation)
+    
+    // FIXME: Concurrency::copy from underlying AMP is host2host, it is not safe to use
+    #if 0
     Concurrency::array_view<float, 1> *avSelfCopy= static_cast<Concurrency::array_view<float, 1> *>(self->storage->allocatorContext);
     Concurrency::copy(src->storage->data, src->storage->data+src->storage->size, *avSelfCopy);
     avSelfCopy->synchronize();
+    #else
+    Concurrency::array_view<float, 1> *pavSelf = static_cast<Concurrency::array_view<float, 1> *>(self->storage->allocatorContext);
+    // avSelv - no need to copying from host
+    bolt::amp::device_vector<float> avSelf(*pavSelf,THGPUTensor_nElement(self), true);
+    bolt::amp::copy(src->storage->data, src->storage->data+src->storage->size, avSelf.begin());
     #endif
     THFloatTensor_free(src);
     THGPUTensor_freeCopyTo(selfc, self);
@@ -82,6 +85,7 @@ void THFloatTensor_copyGPU(THFloatTensor *self, struct THGPUTensor *src)
     #else
     Concurrency::array_view<float, 1> *avSrc= static_cast<Concurrency::array_view<float, 1> *>(src->storage->allocatorContext);
     avSrc->synchronize();
+    // FIXME: it is not safe to call Concurrency::copy since its implementation is host2host
     Concurrency::copy(*avSrc, self->storage->data);
     #endif
 
