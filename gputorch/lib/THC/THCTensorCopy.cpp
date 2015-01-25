@@ -271,7 +271,8 @@ THC_API void THGPUTensor_copy(THGPUTensor *self, THGPUTensor *src)
     int nblocks_z = number_blocks_dim_y;
 
     Concurrency::array_view<float,1> *avSelf = static_cast<Concurrency::array_view<float> *>(self->storage->allocatorContext);
-
+    // since it is write-only in the kernel- no need to copying
+    avSelf->discard_data();
 
     THGPUTensor_kernel_copy(*avSelf, src,
                            *d_self_sz, *d_self_st, self_dim,
