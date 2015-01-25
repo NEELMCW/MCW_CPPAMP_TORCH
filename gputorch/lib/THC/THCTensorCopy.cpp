@@ -182,8 +182,7 @@ void THGPUTensor_kernel_copy(Concurrency::array_view<float>& av_dst,
 {
   Concurrency::extent<3> copyExt(nblockz, nblocky *16, nblockx * 16);
   Concurrency::tiled_extent<1, 16, 16> t_ext(copyExt);
-  //Concurrency::array_view<float, 1> av_dst(self->storage->size, THGPUTensor_data(self));
-  Concurrency::array_view<float, 1> av_src(src->storage->size, THGPUTensor_data(src));
+  Concurrency::array_view<float, 1>& av_src= *(static_cast<Concurrency::array_view<float, 1> *>(src->storage->allocatorContext));
   //Copy Kernel
   Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1, 16, 16> tidx) restrict(amp)
   {
