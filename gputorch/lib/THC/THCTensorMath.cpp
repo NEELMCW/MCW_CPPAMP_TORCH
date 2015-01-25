@@ -315,7 +315,9 @@ float THGPUTensor_minall(THGPUTensor *self)
 float THGPUTensor_maxall(THGPUTensor *self)
 {
   self = THGPUTensor_newContiguous(self);
-  DECLARE_BOLT_DEVICE_VECTOR(self, self_data);
+  Concurrency::array_view<float, 1> *pavSelf = static_cast<Concurrency::array_view<float, 1> *>(self->storage->allocatorContext);
+  // no need to copy from host
+  bolt::amp::device_vector<float> self_data(*pavSelf,THGPUTensor_nElement(self), true);
   float result = bolt::amp::reduce(self_data.begin(), self_data.begin()+THGPUTensor_nElement(self), (float)(-THInf), bolt::amp::maximum<float>());
   THGPUTensor_free(self);
   return result;
