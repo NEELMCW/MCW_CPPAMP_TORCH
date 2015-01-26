@@ -525,6 +525,11 @@ void THGPUTensor_transformReduceInnermostDim(THGPUTensor *tgt, THGPUTensor *src,
   unsigned int size[4] = { 1, 1, 1, 1 };
   unsigned int gridConfig[3];
   unsigned ndim = THGPUTensor_nDimension(src);
+  Concurrency::array_view<float, 1> *pavSrc = static_cast<Concurrency::array_view<float, 1> *>(src->storage->allocatorContext);
+  Concurrency::array_view<float, 1> *pavTgt = static_cast<Concurrency::array_view<float, 1> *>(tgt->storage->allocatorContext);
+  // TODO: remove sync if there is no read-only data accessment of these arrays before running pfe
+  pavSrc->synchronize();
+  pavTgt->synchronize();
   for (unsigned dim = 0; dim < ndim; dim++) 
   {
     unsigned odim = ndim - 1 - dim;
@@ -539,8 +544,6 @@ void THGPUTensor_transformReduceInnermostDim(THGPUTensor *tgt, THGPUTensor *src,
   gridConfig[1]= std::min(maxGridDim, nBlockPerRow);
   gridConfig[2] = std::min(maxGridDim, size[3]);
 
-  Concurrency::array_view<float, 1> *pavTgt = static_cast<Concurrency::array_view<float, 1> *>(tgt->storage->allocatorContext);
-  Concurrency::array_view<float, 1> *pavSrc = static_cast<Concurrency::array_view<float, 1> *>(src->storage->allocatorContext);  
   Concurrency::array_view<unsigned int, 1> avSrc_stride(4, src_stride);
   Concurrency::array_view<unsigned int, 1> avTgt_stride(4, tgt_stride);
   Concurrency::array_view<unsigned int, 1> avSize(4, size);
