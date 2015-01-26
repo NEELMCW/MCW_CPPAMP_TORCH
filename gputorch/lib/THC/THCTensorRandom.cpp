@@ -217,15 +217,17 @@ GENERATE_KERNEL2(generate_cauchy, double median, double sigma, uniform_real_dist
 #undef GENERATE_KERNEL2
 
 /* Separate kernel because curand_log_normal gets extra parameters. */
-void generate_log_normal(int size, Concurrency::array_view<float, 1> &avResult, float mean, float stddev)
+void generate_log_normal(int size, THGPUTensor *self_, float mean, float stddev)
 {
   std::mt19937 gen;
+  float vec[size];
   for (int i = 0; i < size; i++)
   {
     std::lognormal_distribution<float> rand(mean, stddev);
     float x = rand(gen);
-    avResult[i] = x;
+    vec[i] = x;
   }
+  MemcpyHostToTHGPUTensor(vec, size, self_);
 }
 
 
@@ -264,10 +266,7 @@ void THGPUTensor_logNormal(THGPURNGState* state, THGPUTensor *self_, double mean
 {
   THGPUTensor *self = THGPUTensor_newContiguous(self_);
   long size = THGPUTensor_nElement(self);
-
-  Concurrency::array_view<float, 1> *pavSelf = static_cast<Concurrency::array_view<float, 1> *>(self->storage->allocatorContext);
-
-  generate_log_normal(size, *pavSelf, mean, stdv);
+  generate_log_normal(size, self_, mean, stdv);
 
   THGPUTensor_freeCopyTo(self, self_);
 };
