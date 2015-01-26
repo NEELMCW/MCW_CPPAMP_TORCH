@@ -145,6 +145,9 @@ void THGPUTensor_cadd(THGPUTensor *self_, THGPUTensor* src1, float value, THGPUT
 
     src2 = THGPUTensor_newContiguous(src2);
 
+    // TODO: no need to sync data from device to host if with amp-based blast
+    THGPUTensorMemcpyDeviceToHost(self);
+    THGPUTensorMemcpyDeviceToHost(src2);
     THGPUBlas_axpy(THGPUTensor_nElement(self), value, THGPUTensor_data(src2), 1, THGPUTensor_data(self), 1);
 
     THGPUTensor_free(src2);
@@ -294,6 +297,9 @@ float THGPUTensor_dot(THGPUTensor *self, THGPUTensor *src)
   {
     self = THGPUTensor_newContiguous(self);
     src = THGPUTensor_newContiguous(src);
+    // TODO: no need to sync data from device to host if with amp-based blast
+    THGPUTensorMemcpyDeviceToHost(self);
+    THGPUTensorMemcpyDeviceToHost(src);
     float result = THGPUBlas_dot(THGPUTensor_nElement(self),
                                   THGPUTensor_data(self), 1,
                                   THGPUTensor_data(src), 1);
@@ -801,6 +807,10 @@ void THGPUTensor_addr(THGPUTensor *r_, float beta, THGPUTensor *t, float alpha, 
 
   if (r_->stride[0] == 1)
   {
+    // TODO: no need to sync data from device to host if with amp-based blast
+    THGPUTensorMemcpyDeviceToHost(vec1);
+    THGPUTensorMemcpyDeviceToHost(vec2);
+    THGPUTensorMemcpyDeviceToHost(r_);
     THGPUBlas_ger(vec1->size[0], vec2->size[0],
                     alpha, THGPUTensor_data(vec1), vec1->stride[0],
                     THGPUTensor_data(vec2), vec2->stride[0],
@@ -808,6 +818,10 @@ void THGPUTensor_addr(THGPUTensor *r_, float beta, THGPUTensor *t, float alpha, 
   }
   else if (r_->stride[1] == 1)
   {
+    // TODO: no need to sync data from device to host if with amp-based blast
+    THGPUTensorMemcpyDeviceToHost(vec1);
+    THGPUTensorMemcpyDeviceToHost(vec2);
+    THGPUTensorMemcpyDeviceToHost(r_);
     THGPUBlas_ger(vec2->size[0], vec1->size[0],
                     alpha, THGPUTensor_data(vec2), vec2->stride[0],
                     THGPUTensor_data(vec1), vec1->stride[0],
@@ -816,7 +830,10 @@ void THGPUTensor_addr(THGPUTensor *r_, float beta, THGPUTensor *t, float alpha, 
   else
   {
     THGPUTensor *cr = THGPUTensor_newClone(r_);
-
+    // TODO: no need to sync data from device to host if with amp-based blast
+    THGPUTensorMemcpyDeviceToHost(vec1);
+    THGPUTensorMemcpyDeviceToHost(vec2);
+    THGPUTensorMemcpyDeviceToHost(cr);
     THGPUBlas_ger(vec2->size[0], vec1->size[0],
                     alpha, THGPUTensor_data(vec2), vec2->stride[0],
                     THGPUTensor_data(vec1), vec1->stride[0],

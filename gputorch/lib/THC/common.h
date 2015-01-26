@@ -30,3 +30,12 @@
   DECLARE_BOLT_DEVICE_VECTOR(host_1, dv_1); \
   DECLARE_BOLT_DEVICE_VECTOR(host_2, dv_2); \
   DECLARE_BOLT_DEVICE_VECTOR(host_3, dv_3);
+
+#ifdef THGPUTensorMemcpyDeviceToHost
+#undef THGPUTensorMemcpyDeviceToHost
+#endif
+
+// Memory copy from device to host
+#define THGPUTensorMemcpyDeviceToHost(THGPUTensor_Ptr)\
+  Concurrency::array_view<float, 1> *av_##THGPUTensor_Ptr= static_cast<Concurrency::array_view<float, 1> *>(THGPUTensor_Ptr->storage->allocatorContext);\
+  av_##THGPUTensor_Ptr->synchronize();
