@@ -415,6 +415,11 @@ void THGPUTensor_transformReduceOuterDim(THGPUTensor *tgt, THGPUTensor *src, lon
   unsigned int size[4] = { 1, 1, 1, 1 };
   unsigned int gridConfig[3];
   unsigned ndim = THGPUTensor_nDimension(src);
+  Concurrency::array_view<float, 1> *pavTgt = static_cast<Concurrency::array_view<float, 1> *>(tgt->storage->allocatorContext);
+  Concurrency::array_view<float, 1> *pavSrc = static_cast<Concurrency::array_view<float, 1> *>(src->storage->allocatorContext);
+  // TODO: remove sync if there is no read-only data accessment of these arrays before running pfe
+  pavTgt->synchronize();
+  pavSrc->synchronize();
   for (unsigned idim = 0, o = ndim - 2; idim < ndim; idim++) 
   {
     unsigned odim = idim == rdim ? reduce : o--;
@@ -430,8 +435,6 @@ void THGPUTensor_transformReduceOuterDim(THGPUTensor *tgt, THGPUTensor *src, lon
   gridConfig[1] = Concurrency::fast_math::fmin(maxGridDim, size[1]);
   gridConfig[2] = Concurrency::fast_math::fmin(maxGridDim, size[2]);
 
-  Concurrency::array_view<float, 1> *pavTgt = static_cast<Concurrency::array_view<float, 1> *>(tgt->storage->allocatorContext);
-  Concurrency::array_view<float, 1> *pavSrc = static_cast<Concurrency::array_view<float, 1> *>(src->storage->allocatorContext);
   Concurrency::array_view<unsigned int, 1> avSrc_stride(4, src_stride);
   Concurrency::array_view<unsigned int, 1> avTgt_stride(4, tgt_stride);
   Concurrency::array_view<unsigned int, 1> avSize(4, size);
