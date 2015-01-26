@@ -50,8 +50,14 @@ void THGPUTensor_copyFloat(THGPUTensor *self, struct THFloatTensor *src)
     avSelfCopy->synchronize();
     #else
     Concurrency::array_view<float, 1> *pavSelf = static_cast<Concurrency::array_view<float, 1> *>(self->storage->allocatorContext);
-    // avSelv - no need to copying from host
+    // avSelf - no need to copying from host
     bolt::amp::device_vector<float> avSelf(*pavSelf,THGPUTensor_nElement(self), true);
+
+    // Data transfer:
+    //   1 for reading data from host to device side of src
+    // Memory objects created and released
+    //   1 created and released for constructing/destructing device _vector of src (src->storage->size bytes)
+    //   1 created and released for empty array_view initialisation in device_vector (4 bytes)
     bolt::amp::copy(src->storage->data, src->storage->data+src->storage->size, avSelf.begin());
     #endif
     THFloatTensor_free(src);
