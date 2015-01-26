@@ -8,6 +8,18 @@
 
 using namespace std;
 
+// Perform memory copying from host to device side of THGPUTensor
+// first: source data pointer on host
+// size: size of source data in byte
+// dest: pointer to the THGPUTensor
+void MemcpyHostToTHGPUTensor(float* first, int size, void *dest)
+{
+  THGPUTensor *p = static_cast<THGPUTensor *>(dest);
+  Concurrency::array_view<float, 1> *pavDest = static_cast<Concurrency::array_view<float, 1> *>(p->storage->allocatorContext);
+  bolt::amp::device_vector<float> avDest(*pavDest,THGPUTensor_nElement(p), true);
+  bolt::amp::copy(first, first+size, avDest.begin());
+}
+
 /* specific methods */
 
 void THGPUTensor_copyFloat(THGPUTensor *self, struct THFloatTensor *src)

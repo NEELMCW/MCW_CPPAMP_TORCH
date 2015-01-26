@@ -9,6 +9,7 @@
 #include "bolt/amp/inner_product.h"
 #include "bolt/amp/copy.h"
 
+void MemcpyHostToTHGPUTensor(float* first, int size, void* dest);
 #ifdef DECLARE_BOLT_DEVICE_VECTOR
 #undef DECLARE_BOLT_DEVICE_VECTOR
 #endif
