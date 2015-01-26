@@ -196,7 +196,12 @@ TH_CUDA_STORAGE_IMPLEMENT_COPYTO(Double)
 
 void THGPUStorage_fill(THGPUStorage *self, float value)
 {
-  bolt::amp::fill(self->data, self->data+self->size, value);
+  // Make sure every changes need to be made to its array_view
+  Concurrency::array_view<float, 1> *pavSelf = static_cast<Concurrency::array_view<float, 1> *>(self->allocatorContext);
+
+  // Discard host data
+  bolt::amp::device_vector<float> avSelf(*pavSelf, self->size, true);
+  bolt::amp::fill(avSelf.begin(), avSelf.end(), value);
 }
 
 void THGPUStorage_resize(THGPUStorage *self, long size)
