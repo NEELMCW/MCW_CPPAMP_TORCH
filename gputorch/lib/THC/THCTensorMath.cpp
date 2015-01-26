@@ -312,7 +312,13 @@ float THGPUTensor_dot(THGPUTensor *self, THGPUTensor *src)
 float THGPUTensor_minall(THGPUTensor *self)
 {
   self = THGPUTensor_newContiguous(self);
-  DECLARE_BOLT_DEVICE_VECTOR(self, self_data);
+  Concurrency::array_view<float, 1> *pavSelf = static_cast<Concurrency::array_view<float, 1> *>(self->storage->allocatorContext);
+  bolt::amp::device_vector<float> self_data(*pavSelf,THGPUTensor_nElement(self), true);
+  // Data transfer:
+  //   1 for reading data from host to result array (not necessary but seems mandotary when construct array)
+  //   1 for writing back data from device to host side of result array
+  // Memory objects created and released
+  //   1 created and released for constructing/destructing result array (tiles number depending on input)
   float result = bolt::amp::reduce(self_data.begin(), self_data.begin()+THGPUTensor_nElement(self), (float)(THInf), bolt::amp::minimum<float>());
   THGPUTensor_free(self);
   return result;
