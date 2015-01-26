@@ -324,6 +324,11 @@ float THGPUTensor_maxall(THGPUTensor *self)
   Concurrency::array_view<float, 1> *pavSelf = static_cast<Concurrency::array_view<float, 1> *>(self->storage->allocatorContext);
   // no need to copy from host
   bolt::amp::device_vector<float> self_data(*pavSelf,THGPUTensor_nElement(self), true);
+  // Data transfer:
+  //   1 for reading data from host to result array (not necessary but seems mandotary when construct array)
+  //   1 for writing back data from device to host side of result array
+  // Memory objects created and released
+  //   1 created and released for constructing/destructing result array (tiles number depending on input)
   float result = bolt::amp::reduce(self_data.begin(), self_data.begin()+THGPUTensor_nElement(self), (float)(-THInf), bolt::amp::maximum<float>());
   THGPUTensor_free(self);
   return result;
