@@ -5,6 +5,9 @@
 #include "common.h"
 #include "amp_math.h"
 
+// FIXME: suggest to call the same bolt::amp APIs in this file to avoid multiple definition error
+// introduced by the Compiler. Will fix.
+// See bolt::amp::copy in MemcpyHostToTHGPUTensor and THFloatTensor_copyGPU
 
 using namespace std;
 
