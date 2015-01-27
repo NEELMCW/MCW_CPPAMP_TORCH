@@ -201,6 +201,8 @@ void THGPUStorage_fill(THGPUStorage *self, float value)
 
   // Discard host data
   bolt::amp::device_vector<float> avSelf(*pavSelf, self->size, true);
+  // Data transfer: 0
+  // Memory objects created and released: 0
   bolt::amp::fill(avSelf.begin(), avSelf.end(), value);
 }
 
