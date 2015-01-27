@@ -49,5 +49,6 @@ void THGPUBlas_gemm_opt1(char transa, char transb,
 
 void THGPUBlas_axpy_opt(long n, float a, Concurrency::array_view<float> &x, long incx, Concurrency::array_view<float> &y, long incy);
 
+void THGPUBlas_ger_opt(long m, long n, float alpha, Concurrency::array_view<float> &x, long incx, Concurrency::array_view<float> &y, long incy, Concurrency::array_view<float> &a, long lda);
 #endif
 

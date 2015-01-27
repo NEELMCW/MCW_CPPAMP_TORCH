@@ -494,6 +494,11 @@ void THGPUBlas_axpy_opt(long n, float a, Concurrency::array_view<float> &x, long
     axpy_AMP(n, a, x, incx, y, incy);
 }
 
+void THGPUBlas_ger_opt(long m, long n, float alpha, Concurrency::array_view<float> &x, long incx, Concurrency::array_view<float> &y, long incy, Concurrency::array_view<float> &a, long lda)
+{ 
+    ger_AMP(m, n, alpha, x, incx, y, incy, a, lda);
+}
+
 void THGPUBlas_gemv_opt(char trans, long m, long n, float alpha, 
   Concurrency::array_view<float> &a, long aoffset, Concurrency::array_view<float> &x, long incx, float beta, Concurrency::array_view<float> &y, long incy)
 {

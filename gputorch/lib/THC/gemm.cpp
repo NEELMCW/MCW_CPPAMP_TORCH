@@ -301,3 +301,19 @@ void axpy_AMP(long n, float alpha, Concurrency::array_view<float> &X, long incx,
     }
   });
 }
+
+void ger_AMP(long m, long n, float alpha, Concurrency::array_view<float> &x, long incx, Concurrency::array_view<float> &y, long incy, Concurrency::array_view<float> &a, long lda)
+{
+  long M = (m + 15) & ~15;
+  long N = (n + 15) & ~15;
+  Concurrency::extent<2> compute_domain(M, N);
+  Concurrency::parallel_for_each(compute_domain.tile<16, 16>(),[=] (Concurrency::tiled_index<16, 16> tidx) restrict(amp)
+  {
+    int i = tidx.global[0];
+    int j = tidx.global[1];
+    if(i < m && j < n)
+    {
+      a[j*m + i] += x[i] * y[j] * alpha;
+    }
+  });
+}

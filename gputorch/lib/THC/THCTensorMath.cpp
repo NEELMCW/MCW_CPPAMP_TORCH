@@ -816,41 +816,30 @@ void THGPUTensor_addr(THGPUTensor *r_, float beta, THGPUTensor *t, float alpha, 
   if (beta != 1)
     THGPUTensor_mul(r_, r_, beta);
 
+  PREPARE_AV(vec1, avData_vec1);
+  PREPARE_AV(vec2, avData_vec2);
+  PREPARE_AV(r_, avData_r);
+
   if (r_->stride[0] == 1)
   {
-    // TODO: no need to sync data from device to host if with amp-based blast
-    THGPUTensorMemcpyDeviceToHost(vec1);
-    THGPUTensorMemcpyDeviceToHost(vec2);
-    THGPUTensorMemcpyDeviceToHost(r_);
-    THGPUBlas_ger(vec1->size[0], vec2->size[0],
-                    alpha, THGPUTensor_data(vec1), vec1->stride[0],
-                    THGPUTensor_data(vec2), vec2->stride[0],
-                    THGPUTensor_data(r_), r_->stride[1]);
+    THGPUBlas_ger_opt(vec1->size[0], vec2->size[0],
+                    alpha, *avData_vec1, vec1->stride[0],
+                    *avData_vec2, vec2->stride[0],
+                    *avData_r, r_->stride[1]);
   }
   else if (r_->stride[1] == 1)
   {
-    // TODO: no need to sync data from device to host if with amp-based blast
-    THGPUTensorMemcpyDeviceToHost(vec1);
-    THGPUTensorMemcpyDeviceToHost(vec2);
-    THGPUTensorMemcpyDeviceToHost(r_);
-    THGPUBlas_ger(vec2->size[0], vec1->size[0],
-                    alpha, THGPUTensor_data(vec2), vec2->stride[0],
-                    THGPUTensor_data(vec1), vec1->stride[0],
-                    THGPUTensor_data(r_), r_->stride[0]);
+    THGPUBlas_ger_opt(vec2->size[0], vec1->size[0],
+                    alpha, *avData_vec2, vec2->stride[0],
+                    *avData_vec1, vec1->stride[0],
+                    *avData_r, r_->stride[0]);
   }
   else
   {
-    THGPUTensor *cr = THGPUTensor_newClone(r_);
-    // TODO: no need to sync data from device to host if with amp-based blast
-    THGPUTensorMemcpyDeviceToHost(vec1);
-    THGPUTensorMemcpyDeviceToHost(vec2);
-    THGPUTensorMemcpyDeviceToHost(cr);
-    THGPUBlas_ger(vec2->size[0], vec1->size[0],
-                    alpha, THGPUTensor_data(vec2), vec2->stride[0],
-                    THGPUTensor_data(vec1), vec1->stride[0],
-                    THGPUTensor_data(cr), cr->stride[0]);
-
-    THGPUTensor_freeCopyTo(cr, r_);
+    THGPUBlas_ger_opt(vec2->size[0], vec1->size[0],
+                    alpha, *avData_vec2, vec2->stride[0],
+                    *avData_vec1, vec1->stride[0],
+                    *avData_r, r_->stride[0]);
   }
 }
 
