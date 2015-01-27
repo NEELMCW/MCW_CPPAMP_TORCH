@@ -261,14 +261,13 @@ THC_API void THGPUTensor_copy(THGPUTensor *self, THGPUTensor *src)
 
   if(THGPUTensor_isContiguous(self) && THGPUTensor_isContiguous(src))
   {
-   // DECLARE_BOLT_DEVICE_VECTOR_2(src, srcVec, self, desVec);
-   // FIXME: not sure why we can't just use DECLARE_BOLT_DEVICE_VECTOR on src. Will fix it
-    bolt::amp::device_vector<float>srcVec(THGPUTensor_data(src),THGPUTensor_data(src) + THGPUTensor_nElement(src));
-   #if 0
-    bolt::amp::device_vector<float>desVec(THGPUTensor_data(self),THGPUTensor_data(self) + THGPUTensor_nElement(self));
-   #else
-    DECLARE_BOLT_DEVICE_VECTOR(self, desVec);
-   #endif
+    // discard host both for src and self
+    Concurrency::array_view<float, 1> *pavSrc = static_cast<Concurrency::array_view<float, 1> *>(src->storage->allocatorContext);
+    bolt::amp::device_vector<float> srcVec(*pavSrc,THGPUTensor_nElement(src), true);
+    Concurrency::array_view<float, 1> *pavSelf = static_cast<Concurrency::array_view<float, 1> *>(self->storage->allocatorContext);
+    bolt::amp::device_vector<float> desVec(*pavSelf,THGPUTensor_nElement(self), true);
+    // Data transfer: 0
+    // Memory objects created and released: 0
     bolt::amp::copy(srcVec.begin(),srcVec.end(),desVec.begin());
   }
   else
