@@ -133,8 +133,10 @@ static int gpunn_LogSoftMax_updateOutput(lua_State *L)
   //std::cout<<"Before logSoft resize"<<std::endl;
   THGPUTensor_resizeAs(output, input);
 
-  PREPARE_AV(output, pavOutput);
-  PREPARE_AV(input, pavInput);
+  Concurrency::array_view<float, 1> *pavOutput = static_cast<Concurrency::array_view<float, 1> *>(output->storage->allocatorContext);
+  pavOutput->discard_data();
+  Concurrency::array_view<float, 1> *pavInput = static_cast<Concurrency::array_view<float, 1> *>(input->storage->allocatorContext);
+  pavInput->discard_data();
   if (input->nDimension == 1)
   {
     gpunn_LogSoftMax_updateOutput_kernel(*pavOutput, *pavInput, 1, input->size[0]);
@@ -163,9 +165,12 @@ static int gpunn_LogSoftMax_updateGradInput(lua_State *L)
   //std::cout<<"inside logsoftmax input"<<std::endl;
   THGPUTensor_resizeAs(gradInput, output);
 
-  PREPARE_AV(gradInput, pavGradInput);
-  PREPARE_AV(output, pavOutput);
-  PREPARE_AV(gradOutput, pavGradOutput);
+  Concurrency::array_view<float, 1> *pavGradInput = static_cast<Concurrency::array_view<float, 1> *>(gradInput->storage->allocatorContext);
+  pavGradInput->discard_data();
+  Concurrency::array_view<float, 1> *pavOutput = static_cast<Concurrency::array_view<float, 1> *>(output->storage->allocatorContext);
+  pavOutput->discard_data();
+  Concurrency::array_view<float, 1> *pavGradOutput = static_cast<Concurrency::array_view<float, 1> *>(gradOutput->storage->allocatorContext);
+  pavGradOutput->discard_data();
   if (gradInput->nDimension == 1)
   {
     gpunn_LogSoftMax_updateGradInput_kernel(*pavGradInput, *pavOutput, *pavGradOutput, 1, gradInput->size[0]);
