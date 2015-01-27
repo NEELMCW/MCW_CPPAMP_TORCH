@@ -7,6 +7,7 @@ for (int i = tidx.tile_dim0 * tidx.tile[0] + tidx.local[0]; i < (n); i += t_ext[
 #include "THBlas.h"
 #include "THCBlas.h"
 #include "THCGeneral.h"
+#include "common.h"
 
 // Kernel for fast unfold+copy
 // (borrowed from Caffe: https://github.com/BVLC/caffe/blob/master/src/caffe/layers/conv_layer.cu)
@@ -200,6 +201,10 @@ static int gpunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
     // (see http://docs.nvidia.com/gpu/cublas/#cublas-lt-t-gt-gemm)
 
     // Do GEMM (note: this is a bit confusing because gemm assumes column-major matrices)
+    // Ugly codes but it is the way to deal with unnecessary copying from host
+    avData_ones->discard_data();
+    avData_bias->discard_data();
+    avData_output->discard_data();
     THGPUBlas_gemm_opt(
         't', 'n',
         n_, m_, k_,
@@ -211,6 +216,8 @@ static int gpunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
         0, 0, output->stride[0] * elt
     );
     // Extract columns:
+    avData_im->discard_data();
+    avData_col->discard_data();
     im2col(
         *avData_im, input->stride[0] * elt,
         nInputPlane, inputHeight, inputWidth, kH, kW, padding, padding, dH, dW,
@@ -220,6 +227,9 @@ static int gpunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
     // (see http://docs.nvidia.com/gpu/cublas/#cublas-lt-t-gt-gemm)
 
     // Do GEMM (note: this is a bit confusing because gemm assumes column-major matrices)
+    avData_col->discard_data();
+    avData_weight->discard_data();
+    avData_output->discard_data();
     THGPUBlas_gemm_opt(
         'n', 'n',
         n, m, k,
@@ -300,6 +310,10 @@ static int gpunn_SpatialConvolutionMM_updateGradInput(lua_State *L) {
     // (see http://docs.nvidia.com/gpu/cublas/#cublas-lt-t-gt-gemm)
 
     // Do GEMM (note: this is a bit confusing because gemm assumes column-major matrices)
+    // Ugly codes but it is the way to deal with unnecessary copying from host
+    avData_gradOutput->discard_data();
+    avData_weight->discard_data();
+    avData_col->discard_data();
     THGPUBlas_gemm_opt(
         'n', 't',
         n, m, k,
@@ -312,6 +326,8 @@ static int gpunn_SpatialConvolutionMM_updateGradInput(lua_State *L) {
     );
 
     // Unpack columns back into input:
+    avData_col->discard_data();
+    avData_im->discard_data();
     col2im(
         *avData_col,
         nInputPlane, inputHeight, inputWidth, kH, kW, padding, padding, dH, dW,
@@ -395,11 +411,19 @@ static int gpunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
   PREPARE_AV(input, avData_im);
   PREPARE_AV(gradOutput, avData_gradOutput);
   PREPARE_AV(gradWeight, avData_gradWeight);
+  
+  // ones & gradBias are host pointer that will be used in kernels
+  // Just sync from device to host here
+  THGPUTensorMemcpyDeviceToHost(ones);
+  THGPUTensorMemcpyDeviceToHost(gradBias);
   // For each elt in batch, do:
   bool readNow=false;
 
   for (int elt = 0; elt < batchSize; elt ++) {
     // Extract columns:
+    // Ugly codes but it is the way to deal with unnecessary copying from host
+    avData_im->discard_data();
+    avData_col->discard_data();
     im2col(
         *avData_im, input->stride[0] * elt,
         nInputPlane, inputHeight, inputWidth, kH, kW, padding, padding, dH, dW,
@@ -410,6 +434,9 @@ static int gpunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
     // (see http://docs.nvidia.com/gpu/cublas/#cublas-lt-t-gt-gemm)
 
     // Do GEMM (note: this is a bit confusing because gemm assumes column-major matrices)
+    avData_col->discard_data();
+    avData_gradOutput->discard_data();
+    avData_gradWeight->discard_data();
     THGPUBlas_gemm_opt(
         't', 'n',
         n, m, k,

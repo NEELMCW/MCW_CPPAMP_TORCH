@@ -45,3 +45,8 @@
     Concurrency::array_view<float, 1> *av_ptr= \
       static_cast<Concurrency::array_view<float, 1> *>(Storage->allocatorContext);
 
+// Memory copy from device to host
+#define THGPUTensorMemcpyDeviceToHost(THGPUTensor_Ptr)\
+        Concurrency::array_view<float, 1> *av_##THGPUTensor_Ptr= static_cast<Concurrency::array_view<float, 1> *>(THGPUTensor_Ptr->storage->allocatorContext);\
+        av_##THGPUTensor_Ptr->synchronize();
+
