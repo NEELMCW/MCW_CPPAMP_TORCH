@@ -145,10 +145,10 @@ void THGPUTensor_cadd(THGPUTensor *self_, THGPUTensor* src1, float value, THGPUT
 
     src2 = THGPUTensor_newContiguous(src2);
 
-    // TODO: no need to sync data from device to host if with amp-based blast
-    THGPUTensorMemcpyDeviceToHost(self);
-    THGPUTensorMemcpyDeviceToHost(src2);
-    THGPUBlas_axpy(THGPUTensor_nElement(self), value, THGPUTensor_data(src2), 1, THGPUTensor_data(self), 1);
+    PREPARE_AV(src2, avData_src2);
+    PREPARE_AV(self, avData_self); 
+
+    THGPUBlas_axpy_opt(THGPUTensor_nElement(self), value, *avData_src2, 1, *avData_self, 1);
 
     THGPUTensor_free(src2);
     THGPUTensor_freeCopyTo(self, self_);

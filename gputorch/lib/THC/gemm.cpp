@@ -289,3 +289,15 @@ Concurrency::array_view<float> &Y,  int incY)
   } 
 }
 
+void axpy_AMP(long n, float alpha, Concurrency::array_view<float> &X, long incx, Concurrency::array_view<float> &Y, long incy)
+{
+  long size = (n + BLOCK_SIZE - 1) & ~(BLOCK_SIZE - 1);
+  Concurrency::extent<1> compute_domain(size);
+  Concurrency::parallel_for_each(compute_domain.tile<BLOCK_SIZE>(),[=] (Concurrency::tiled_index<BLOCK_SIZE> tidx) restrict(amp)
+  {
+    if(tidx.global[0] < n)
+    {
+      Y[tidx.global[0]] += X[tidx.global[0]] * alpha;
+    }
+  });
+}

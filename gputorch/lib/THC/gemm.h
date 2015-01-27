@@ -12,4 +12,6 @@ void gemv_AMP(char TransA,
 int M, int N, float alpha, Concurrency::array_view<float> &A,
 int lda, Concurrency::array_view<float> &X,  int incX, float beta,
 Concurrency::array_view<float> &Y,  int incY);
+
+void axpy_AMP(long n, float alpha, Concurrency::array_view<float> &X, long incx, Concurrency::array_view<float> &Y, long incy);
 #endif

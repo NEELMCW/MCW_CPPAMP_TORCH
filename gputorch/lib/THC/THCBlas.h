@@ -47,6 +47,7 @@ void THGPUBlas_gemm_opt1(char transa, char transb,
   void* cl_A, void* cl_B, void* cl_C,
   long aOffset, long bOffset, long cOffset);
 
+void THGPUBlas_axpy_opt(long n, float a, Concurrency::array_view<float> &x, long incx, Concurrency::array_view<float> &y, long incy);
 
 #endif
 

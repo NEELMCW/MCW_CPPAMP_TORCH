@@ -40,3 +40,7 @@ void MemcpyHostToTHGPUTensor(float* first, int size, void* dest);
 #define THGPUTensorMemcpyDeviceToHost(THGPUTensor_Ptr)\
   Concurrency::array_view<float, 1> *av_##THGPUTensor_Ptr= static_cast<Concurrency::array_view<float, 1> *>(THGPUTensor_Ptr->storage->allocatorContext);\
   av_##THGPUTensor_Ptr->synchronize();
+
+#define PREPARE_AV(Tensor_data, av_ptr) \
+  Concurrency::array_view<float, 1> *av_ptr= \
+    static_cast<Concurrency::array_view<float, 1> *>(Tensor_data->storage->allocatorContext);

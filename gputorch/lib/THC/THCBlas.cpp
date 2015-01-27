@@ -489,6 +489,11 @@ void THGPUBlas_gemm_opt(char transa, char transb,
   gemm_AMP(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc, aOffset, bOffset, cOffset);
 }
 
+void THGPUBlas_axpy_opt(long n, float a, Concurrency::array_view<float> &x, long incx, Concurrency::array_view<float> &y, long incy)
+{
+    axpy_AMP(n, a, x, incx, y, incy);
+}
+
 void THGPUBlas_gemv_opt(char trans, long m, long n, float alpha, 
   Concurrency::array_view<float> &a, long aoffset, Concurrency::array_view<float> &x, long incx, float beta, Concurrency::array_view<float> &y, long incy)
 {
@@ -586,3 +591,5 @@ void THGPUBlas_gemv_opt1(char trans, long m, long n, float alpha,
   THError("Cublas_gemv only supports m, n, lda, incx, incy"
           "in the range 0 < [val] <= %d", INT_MAX);
 }
+
+
