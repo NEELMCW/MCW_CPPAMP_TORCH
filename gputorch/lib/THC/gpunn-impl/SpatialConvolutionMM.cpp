@@ -385,16 +385,12 @@ static int gpunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
   long m_ = nOutputPlane;
   long k_ = outputHeight * outputWidth;
 
-  void* buf_Output = THGPUBlas_clCreateBuffer(k, m * batchSize, gradOutput->storage->data);
-
-  // char trans = 't', see gemv in the loop body
-  void* bufX = THGPUBlas_clCreateBuffer(k_, 1 ,THGPUTensor_data(ones));
-  void* bufY = THGPUBlas_clCreateBuffer(m_, 1 ,THGPUTensor_data(gradBias));
-
   PREPARE_AV(columns, avData_col);
   PREPARE_AV(input, avData_im);
   PREPARE_AV(gradOutput, avData_gradOutput);
   PREPARE_AV(gradWeight, avData_gradWeight);
+  PREPARE_AV(ones, avData_ones);
+  PREPARE_AV(gradBias, avData_gradBias);
   // For each elt in batch, do:
   bool readNow=false;
 
@@ -421,33 +417,20 @@ static int gpunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
         0, gradOutput->stride[0] * elt, 0
     );
 
-    // Do Bias:
-    // M,N,K are dims of matrix A and B
-    // (see http://docs.nvidia.com/gpu/cublas/#cublas-lt-t-gt-gemm)
-    long m_ = nOutputPlane;
-    long k_ = outputHeight * outputWidth;
-
     // Do GEMV (note: this is a bit confusing because gemv assumes column-major matrices)
 
     if(elt==batchSize-1)
       readNow = true;
-    THGPUBlas_gemv_opt1(
+    THGPUBlas_gemv_opt(
         't',
         k_, m_,
         scale,
-        gradOutput->storage->data + gradOutput->stride[0] * elt, k_,
-        THGPUTensor_data(ones), 1,
+        *avData_gradOutput, gradOutput->stride[0] * elt,
+        *avData_ones, 1,
         1,
-        THGPUTensor_data(gradBias), 1,
-        buf_Output, bufX, bufY,
-        gradOutput->stride[0] * elt, 0, 0, readNow
+        *avData_gradBias, 1
     );
   }
-
-  clReleaseMemObject(static_cast<cl_mem>(buf_Output));
-  clReleaseMemObject(static_cast<cl_mem>(bufY));
-  clReleaseMemObject(static_cast<cl_mem>(bufX));
-  // Free
 
   // Resize
   if (batch == 0) {
