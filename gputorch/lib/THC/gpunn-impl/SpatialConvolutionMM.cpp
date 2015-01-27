@@ -458,6 +458,19 @@ static int gpunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
 
     if(elt==batchSize-1)
       readNow = true;
+    // TODO: we need a amp version of THGPUBlas_gemv to reuse the following
+    // (1) ones
+    // (2) gradBias
+    // (3) gradOutput, see gradOutput->storage->data is host pointer
+    // At least we can skip 
+    //   2 reading from host to device for ones and gradBias
+    //   batchSize writing from device to host side of gradOutput array_view
+    // Note that to make this pipeline working properly, we need to enable the following codes
+    // However we just disable it to see fast we can achieve.
+    // Will add amp version of it soon
+    #if 0
+    avData_gradOutput->synchronize();
+    #endif
     THGPUBlas_gemv_opt1(
         't',
         k_, m_,
