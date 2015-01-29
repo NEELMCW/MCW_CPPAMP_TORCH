@@ -1,7 +1,7 @@
 #include "gemm.h"
 #define OFFSET(N, incX) ((incX) > 0 ? 0 : ((N) - 1) * (-(incX)))
 #define BLOCK_SIZE 256
-#define TILE_DIM 16
+#define TILE_DIM 16 
 #define THREADS 16
 void gemm_NoTransAB(Concurrency::array_view<float, 1> &A, Concurrency::array_view<float, 1> &B, Concurrency::array_view<float, 1> &C, int M, int N, int K, int lda, int ldb, int ldc, float alpha, float beta, long aOffset, long bOffset, long cOffset)
 {
@@ -46,40 +46,48 @@ void gemm_NoTransB(Concurrency::array_view<float, 1> &A, Concurrency::array_view
 {
   Concurrency::extent<2> grdExt((N+(THREADS-1))&~(THREADS-1), (M+(THREADS-1))&~(THREADS-1));
   Concurrency::tiled_extent<THREADS, THREADS> t_ext(grdExt);
+  Concurrency::array_view<float,2> Cmat = C.view_as<2>(Concurrency::extent<2>(N,M));
+  Concurrency::array_view<float,2> Amat = A.view_as<2>(Concurrency::extent<2>(M,K));
+  Concurrency::array_view<float,2> Bmat = B.view_as<2>(Concurrency::extent<2>(N,K));
   Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<THREADS, THREADS> tidx) restrict(amp){
 
   float CValue = 0;
 
-  int Row = tidx.tile[0]*TILE_DIM + tidx.local[0];
-  int Col = tidx.tile[1]*TILE_DIM + tidx.local[1];
+  int Row = tidx.global[0];
+  int Col = tidx.global[1];
 
   tile_static float As[TILE_DIM][TILE_DIM];
   tile_static float Bs[TILE_DIM][TILE_DIM];
 
-  for (int k = 0; k < (TILE_DIM + K - 1)/TILE_DIM; k++)
+  for (int k = 0; k < ((K+(TILE_DIM-1))&~(TILE_DIM-1)) ; k+=TILE_DIM)
   {
 
-    if (k*TILE_DIM + tidx.local[1] < K && Row < N)
-      Bs[tidx.local[0]][tidx.local[1]] = B[bOffset + Row*K + k*TILE_DIM + tidx.local[1]];
+    if (k + tidx.local[1] < K && Row < N)
+      Bs[tidx.local[0]][tidx.local[1]] = Bmat[Row][bOffset + k + tidx.local[1]];
     else
       Bs[tidx.local[0]][tidx.local[1]] = 0.0;
 
-    if (k*TILE_DIM + tidx.local[1] < K && (tidx.tile[1]*TILE_DIM + tidx.local[0]) < M)
-      As[tidx.local[0]][tidx.local[1]] = A[aOffset + (tidx.tile[1]*TILE_DIM + tidx.local[0])*K + k*TILE_DIM + tidx.local[1]];
+    if (k + tidx.local[1] < K && (tidx.tile[1]*TILE_DIM + tidx.local[0]) < M)
+      As[tidx.local[0]][tidx.local[1]] = Amat[(tidx.tile[1]*TILE_DIM + tidx.local[0])] [aOffset + k + tidx.local[1]];
     else
       As[tidx.local[0]][tidx.local[1]] = 0.0;
 
     tidx.barrier.wait();
 
-    for (int n = 0; n < TILE_DIM; ++n) CValue += Bs[tidx.local[0]][n] * As[tidx.local[1]][n];
+
+    CValue += Bs[tidx.local[0]][0] * As[tidx.local[1]][0] + Bs[tidx.local[0]][1] * As[tidx.local[1]][1] + Bs[tidx.local[0]][2] * As[tidx.local[1]][2] + Bs[tidx.local[0]][3] * As[tidx.local[1]][3]
+           + Bs[tidx.local[0]][4] * As[tidx.local[1]][4] + Bs[tidx.local[0]][5] * As[tidx.local[1]][5] + Bs[tidx.local[0]][6] * As[tidx.local[1]][6] + Bs[tidx.local[0]][7] * As[tidx.local[1]][7]
+           + Bs[tidx.local[0]][8] * As[tidx.local[1]][8] + Bs[tidx.local[0]][9] * As[tidx.local[1]][9] + Bs[tidx.local[0]][10] * As[tidx.local[1]][10] + Bs[tidx.local[0]][11] * As[tidx.local[1]][11]
+           + Bs[tidx.local[0]][12] * As[tidx.local[1]][12] + Bs[tidx.local[0]][13] * As[tidx.local[1]][13] + Bs[tidx.local[0]][14] * As[tidx.local[1]][14] + Bs[tidx.local[0]][15] * As[tidx.local[1]][15];
+    
 
     tidx.barrier.wait();
   }
 
   if (Row < N && Col < M)
   {
-    C[cOffset + (Row*M)+Col]*=beta;
-    C[cOffset + (Row*M)+Col]+=CValue * alpha;
+    Cmat[Row][cOffset +Col]*=beta;
+    Cmat[Row][cOffset +Col]+=CValue * alpha;
   }
   });
 }
