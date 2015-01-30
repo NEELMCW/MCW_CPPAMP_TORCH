@@ -19,6 +19,7 @@ void imt2col_kernel(int n, THGPUTensor* data_im, int height, int width, int ksiz
                     int height_col, int width_col, Concurrency::array_view<float,1> &avData_col)
 {
   Concurrency::array_view<float,1> avData_im(THGPUTensor_nElement(data_im), THGPUTensor_data(data_im));
+  avData_im.discard_data();
   unsigned grdSz = (n + 255) & ~255;
   Concurrency::extent<1> grdExt(grdSz);
   Concurrency::tiled_extent<256> t_ext(grdExt);
