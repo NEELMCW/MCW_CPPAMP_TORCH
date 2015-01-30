@@ -401,6 +401,11 @@ static int gpunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
   long m_ = nOutputPlane;
   long k_ = outputHeight * outputWidth;
 
+  // ones & gradBias are host pointer that will be used in kernels
+  // Just sync from device to host here
+  THGPUTensorMemcpyDeviceToHost(ones);
+  THGPUTensorMemcpyDeviceToHost(gradBias);
+  
   void* buf_Output = THGPUBlas_clCreateBuffer(k, m * batchSize, gradOutput->storage->data);
 
   // char trans = 't', see gemv in the loop body
@@ -412,10 +417,7 @@ static int gpunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
   PREPARE_AV(gradOutput, avData_gradOutput);
   PREPARE_AV(gradWeight, avData_gradWeight);
   
-  // ones & gradBias are host pointer that will be used in kernels
-  // Just sync from device to host here
-  THGPUTensorMemcpyDeviceToHost(ones);
-  THGPUTensorMemcpyDeviceToHost(gradBias);
+
   // For each elt in batch, do:
   bool readNow=false;
 
