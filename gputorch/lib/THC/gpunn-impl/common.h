@@ -14,9 +14,7 @@
 #endif
 #define DECLARE_BOLT_DEVICE_VECTOR(host_a, dv_a) \
   Concurrency::array_view<float, 1> *pav_##host_a = static_cast<Concurrency::array_view<float, 1> *>(host_a->storage->allocatorContext);\
-  /* TODO: remove the following line when get a true singleton version of AMPAllocator in mcw clamp */\
-  /*Concurrency::array_view<float, 1> dv_a##NOT_CARE(THGPUTensor_nElement(host_a), pav_##host_a->data());*/\
-  bolt::amp::device_vector<float> dv_a(*pav_##host_a,THGPUTensor_nElement(host_a));
+  bolt::amp::device_vector<float> dv_a(*pav_##host_a,THGPUTensor_nElement(host_a),true);
 
 #ifdef DECLARE_BOLT_DEVICE_VECTOR_2
 #undef DECLARE_BOLT_DEVICE_VECTOR_2
@@ -39,14 +37,16 @@
 
 #define PREPARE_AV(Tensor_data, av_ptr) \
   Concurrency::array_view<float, 1> *av_ptr= \
-    static_cast<Concurrency::array_view<float, 1> *>(Tensor_data->storage->allocatorContext);
+    static_cast<Concurrency::array_view<float, 1> *>(Tensor_data->storage->allocatorContext);\
+  av_ptr->discard_data();
 
 #define PREPARE_AV_WITH_STORAGE(Storage, av_ptr) \
-    Concurrency::array_view<float, 1> *av_ptr= \
-      static_cast<Concurrency::array_view<float, 1> *>(Storage->allocatorContext);
+  Concurrency::array_view<float, 1> *av_ptr= \
+    static_cast<Concurrency::array_view<float, 1> *>(Storage->allocatorContext);\
+  av_ptr->discard_data();
 
 // Memory copy from device to host
 #define THGPUTensorMemcpyDeviceToHost(THGPUTensor_Ptr)\
-        Concurrency::array_view<float, 1> *av_##THGPUTensor_Ptr= static_cast<Concurrency::array_view<float, 1> *>(THGPUTensor_Ptr->storage->allocatorContext);\
-        av_##THGPUTensor_Ptr->synchronize();
+  Concurrency::array_view<float, 1> *av_##THGPUTensor_Ptr= static_cast<Concurrency::array_view<float, 1> *>(THGPUTensor_Ptr->storage->allocatorContext);\
+  Concurrency::copy(*av_##THGPUTensor_Ptr, av_##THGPUTensor_Ptr->data());
 
