@@ -659,6 +659,26 @@ void THGPUTensor_addmv(THGPUTensor *r_, float beta, THGPUTensor *t, float alpha,
   Concurrency::array_view<float, 1> *pavMat = static_cast<Concurrency::array_view<float, 1> *>(mat->storage->allocatorContext);
   Concurrency::array_view<float, 1> *pavVec = static_cast<Concurrency::array_view<float, 1> *>(vec->storage->allocatorContext);
   Concurrency::array_view<float, 1> *pavR_ = static_cast<Concurrency::array_view<float, 1> *>(r_->storage->allocatorContext);
+  int lenX;
+  int lenY;
+
+  if (mat->stride[0] == 1)
+  {
+    lenX = mat->size[0];
+    lenY = mat->size[1];
+  }
+  else
+  {
+    lenX = mat->size[1];
+    lenY = mat->size[0];
+  }
+
+  int len_X = (lenX + 255) & ~255;
+  int numBlocks = len_X / 256;
+
+  float* tempBuf = (float*)malloc(numBlocks*lenY*sizeof(float));
+  Concurrency::extent<1> ext(numBlocks*lenY);
+  Concurrency::array_view<float,1> temp_buf(ext, tempBuf);
   
 
   if (mat->stride[0] == 1)
@@ -666,14 +686,14 @@ void THGPUTensor_addmv(THGPUTensor *r_, float beta, THGPUTensor *t, float alpha,
     THGPUBlas_gemv_opt('n', mat->size[0], mat->size[1],
                      alpha, *pavMat, 0,
                      *pavVec, vec->stride[0],
-                     beta, *pavR_, r_->stride[0]);
+                     beta, *pavR_, r_->stride[0], temp_buf);
   }
   else if (mat->stride[1] == 1)
   {
     THGPUBlas_gemv_opt('t',  mat->size[1], mat->size[0],
                      alpha, *pavMat, 0,
                      *pavVec, vec->stride[0],
-                     beta, *pavR_, r_->stride[0]);
+                     beta, *pavR_, r_->stride[0], temp_buf);
   }
   else
   {
@@ -683,7 +703,7 @@ void THGPUTensor_addmv(THGPUTensor *r_, float beta, THGPUTensor *t, float alpha,
     THGPUBlas_gemv_opt('t',  mat->size[1], mat->size[0],
                      alpha, *pavCMat, 0,
                      *pavVec, vec->stride[0],
-                     beta, *pavR_, r_->stride[0]);
+                     beta, *pavR_, r_->stride[0], temp_buf);
 
     THGPUTensor_free(cmat);
   }
