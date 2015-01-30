@@ -222,12 +222,9 @@ static int gpunn_SpatialMaxPooling_updateOutput(lua_State *L)
     int xblocks = nInputPlane;
     
     // no need to sync from host for input & output & indices array_view
-    Concurrency::array_view<float, 1> *pavInput= static_cast<Concurrency::array_view<float, 1> *>(input->storage->allocatorContext);    
-    pavInput->discard_data();
-    Concurrency::array_view<float, 1> *pavOutput= static_cast<Concurrency::array_view<float, 1> *>(output->storage->allocatorContext);
-    pavOutput->discard_data();
-    Concurrency::array_view<float, 1> *pavIndices= static_cast<Concurrency::array_view<float, 1> *>(indices->storage->allocatorContext);
-    pavIndices->discard_data();
+    PREPARE_AV(input, pavInput);
+    PREPARE_AV(output, pavOutput);
+    PREPARE_AV(indices, pavIndices);
 
     // run maxpool kernel
     maxpool(*pavInput, *pavOutput, 
@@ -254,12 +251,9 @@ static int gpunn_SpatialMaxPooling_updateOutput(lua_State *L)
     int xblocks = nInputPlane * nbatch;
 
     // no need to sync from host for input & output & indices array_view
-    Concurrency::array_view<float, 1> *pavInput= static_cast<Concurrency::array_view<float, 1> *>(input->storage->allocatorContext);    
-    pavInput->discard_data();
-    Concurrency::array_view<float, 1> *pavOutput= static_cast<Concurrency::array_view<float, 1> *>(output->storage->allocatorContext);
-    pavOutput->discard_data();
-    Concurrency::array_view<float, 1> *pavIndices= static_cast<Concurrency::array_view<float, 1> *>(indices->storage->allocatorContext);
-    pavIndices->discard_data();
+    PREPARE_AV(input, pavInput);
+    PREPARE_AV(output, pavOutput);
+    PREPARE_AV(indices, pavIndices);    
     
     // run maxpool kernel
     maxpool(*pavInput, *pavOutput, 
