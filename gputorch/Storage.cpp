@@ -10,22 +10,24 @@
 
 #define torch_Storage_(NAME) TH_CONCAT_4(torch_,Real,Storage_,NAME)
 
+// FIXME: copy_to might not perform host2device copying
 #define THFile_readRealRaw(file, data, size)                            \
   {                                                                     \
-    float *fdata = (float *)THAlloc(sizeof(float)*size);                         \
+    float *fdata = (float *)THAlloc(sizeof(float)*size);                \
     THFile_readFloatRaw(file, fdata, size);                             \
     Concurrency::array_view<float> avData(Concurrency::extent<1>(size),data); \
     Concurrency::array_view<float> avFData(Concurrency::extent<1>(size),fdata); \
-    avFData.copy_to(avData); \
+    avFData.copy_to(avData);                                            \
     THFree(fdata);                                                      \
   }
 
+// FIXME: copy_to might not perform device2host copying
 #define THFile_writeRealRaw(file, data, size)                           \
   {                                                                     \
-    float *fdata = (float *)THAlloc(sizeof(float)*size);                         \
+    float *fdata = (float *)THAlloc(sizeof(float)*size);                \
     Concurrency::array_view<float> avData(Concurrency::extent<1>(size),data); \
     Concurrency::array_view<float> avFData(Concurrency::extent<1>(size),fdata); \
-    avData.copy_to(avFData); \
+    avData.copy_to(avFData);                                            \
     THFile_writeFloatRaw(file, fdata, size);                            \
     THFree(fdata);                                                      \
   }
@@ -46,23 +48,23 @@
     TH##TYPEC##Storage *storage = (TH##TYPEC##Storage *)luaT_checkudata(L, 1, "torch." #TYPEC "Storage"); \
     void *src;                                                          \
     if( (src = luaT_toudata(L, 2, "torch." #TYPEC "Storage")) )         \
-      TH##TYPEC##Storage_copy(storage, (TH##TYPEC##Storage *)src);                            \
+      TH##TYPEC##Storage_copy(storage, (TH##TYPEC##Storage *)src);      \
     else if( (src = luaT_toudata(L, 2, "torch.ByteStorage")) )          \
-      TH##TYPEC##Storage_copyByte(storage, (THByteStorage *)src);                        \
+      TH##TYPEC##Storage_copyByte(storage, (THByteStorage *)src);       \
     else if( (src = luaT_toudata(L, 2, "torch.CharStorage")) )          \
-      TH##TYPEC##Storage_copyChar(storage, (THCharStorage *)src);                        \
+      TH##TYPEC##Storage_copyChar(storage, (THCharStorage *)src);       \
     else if( (src = luaT_toudata(L, 2, "torch.ShortStorage")) )         \
-      TH##TYPEC##Storage_copyShort(storage, (THShortStorage *)src);                       \
+      TH##TYPEC##Storage_copyShort(storage, (THShortStorage *)src);     \
     else if( (src = luaT_toudata(L, 2, "torch.IntStorage")) )           \
-      TH##TYPEC##Storage_copyInt(storage, (THIntStorage *)src);                         \
+      TH##TYPEC##Storage_copyInt(storage, (THIntStorage *)src);         \
     else if( (src = luaT_toudata(L, 2, "torch.LongStorage")) )          \
-      TH##TYPEC##Storage_copyLong(storage, (THLongStorage *)src);                        \
+      TH##TYPEC##Storage_copyLong(storage, (THLongStorage *)src);       \
     else if( (src = luaT_toudata(L, 2, "torch.FloatStorage")) )         \
-      TH##TYPEC##Storage_copyFloat(storage, (THFloatStorage *)src);                       \
+      TH##TYPEC##Storage_copyFloat(storage, (THFloatStorage *)src);     \
     else if( (src = luaT_toudata(L, 2, "torch.DoubleStorage")) )        \
-      TH##TYPEC##Storage_copyDouble(storage, (THDoubleStorage*)src);                      \
-    else if( (src = luaT_toudata(L, 2, "torch.GPUStorage")) )          \
-      TH##TYPEC##Storage_copyGPU(storage, (THGPUStorage *)src);                        \
+      TH##TYPEC##Storage_copyDouble(storage, (THDoubleStorage*)src);    \
+    else if( (src = luaT_toudata(L, 2, "torch.GPUStorage")) )           \
+      TH##TYPEC##Storage_copyGPU(storage, (THGPUStorage *)src);         \
     else                                                                \
       luaL_typerror(L, 2, "torch.*Storage");                            \
                                                                         \

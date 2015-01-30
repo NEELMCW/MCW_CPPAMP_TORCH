@@ -187,7 +187,7 @@ void NAME(int size, THGPUTensor *result, ARG1)                                  
     x = TRANSFORM;                                                                                       \
     vec[i] = x;                                                                                          \
   }                                                                                                      \
-  MemcpyHostToTHGPUTensor(vec,size, result);\
+  MemcpyHostToTHGPUTensor(vec,size,result);                                                              \
 }
 
 // TODO: currently can't use pfe since no kernel versions of all CURAND_FUNC from underlying AMP
@@ -203,7 +203,7 @@ void NAME(int size, THGPUTensor *result, ARG1, ARG2)                            
     x = TRANSFORM;                                                                                       \
     vec[i] = x;                                                                                          \
   }                                                                                                      \
-  MemcpyHostToTHGPUTensor(vec,size, result);                                                                             \
+  MemcpyHostToTHGPUTensor(vec,size,result);                                                              \
 }
 
 GENERATE_KERNEL2(generate_uniform, double a, double b, uniform_real_distribution, x * (b-a) + a)
