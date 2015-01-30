@@ -11,39 +11,41 @@ struct THGPUState
 
 static int gputorch_GPUTensor_zero(lua_State *L)
 {
-  int narg = lua_gettop(L);
-  THGPUTensor *arg1 = NULL;
-  int arg1_idx = 0;
-
-  if(narg == 1 && (arg1 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor")))
-  {
-    arg1_idx = 1;
-  }
-  else
-    luaL_error(L, "expected arguments: *GPUTensor*");
-  
-  lua_pushvalue(L, arg1_idx);
-  THGPUTensor_zero(arg1);
-  return 1;
+int narg = lua_gettop(L);
+THGPUTensor *arg1 = NULL;
+int arg1_idx = 0;
+if(narg == 1
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+)
+{
+arg1_idx = 1;
+}
+else
+luaL_error(L, "expected arguments: *CudaTensor*");
+lua_pushvalue(L, arg1_idx);
+THGPUTensor_zero(arg1);
+return 1;
 }
 
 static int gputorch_GPUTensor_fill(lua_State *L)
 {
-  int narg = lua_gettop(L);
-  THGPUTensor *arg1 = NULL;
-  int arg1_idx = 0;
-  float arg2 = 0;
-  if(narg == 2 && (arg1 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor")) && lua_isnumber(L, 2))
-  {
-    arg1_idx = 1;
-    arg2 = (float)lua_tonumber(L, 2);
-  }
-  else
-    luaL_error(L, "expected arguments: *GPUTensor* float");
-    
-  lua_pushvalue(L, arg1_idx);
-  THGPUTensor_fill(arg1,arg2);
-  return 1;
+int narg = lua_gettop(L);
+THGPUTensor *arg1 = NULL;
+int arg1_idx = 0;
+float arg2 = 0;
+if(narg == 2
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& lua_isnumber(L, 2)
+)
+{
+arg1_idx = 1;
+arg2 = (float)lua_tonumber(L, 2);
+}
+else
+luaL_error(L, "expected arguments: *CudaTensor* float");
+lua_pushvalue(L, arg1_idx);
+THGPUTensor_fill(arg1,arg2);
+return 1;
 }
 
 static int gputorch_GPUTensor_zeros(lua_State *L)
@@ -60,7 +62,7 @@ arg2 = gputorch_checklongargs(L, 1);
 arg1 = THGPUTensor_new();
 }
 else if(narg >= 2
-&& (arg1 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && gputorch_islongargs(L, 2)
 )
 {
@@ -92,7 +94,7 @@ arg2 = gputorch_checklongargs(L, 1);
 arg1 = THGPUTensor_new();
 }
 else if(narg >= 2
-&& (arg1 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && gputorch_islongargs(L, 2)
 )
 {
@@ -118,7 +120,7 @@ int arg1_idx = 0;
 THGPUTensor *arg2 = NULL;
 THLongStorage *arg3 = NULL;
 if(narg >= 2
-&& (arg2 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && gputorch_islongargs(L, 2)
 )
 {
@@ -126,8 +128,8 @@ arg3 = gputorch_checklongargs(L, 2);
 arg1 = THGPUTensor_new();
 }
 else if(narg >= 3
-&& (arg1 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
-&& (arg2 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 && gputorch_islongargs(L, 3)
 )
 {
@@ -151,7 +153,7 @@ int narg = lua_gettop(L);
 THGPUTensor *arg1 = NULL;
 long arg2 = 0;
 if(narg == 1
-&& (arg1 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 )
 {
 }
@@ -176,7 +178,7 @@ THGPUTensor *arg5 = NULL;
 float arg6 = 1;
 THGPUTensor *arg7 = NULL;
 if(narg == 2
-&& (arg2 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
 )
 {
@@ -185,8 +187,8 @@ arg3 = (float)lua_tonumber(L, 2);
 arg1 = THGPUTensor_new();
 }
 else if(narg == 3
-&& (arg1 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
-&& (arg2 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 && lua_isnumber(L, 3)
 )
 {
@@ -195,26 +197,26 @@ arg1_idx = 1;
 arg3 = (float)lua_tonumber(L, 3);
 }
 else if(narg == 2
-&& (arg5 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
-&& (arg7 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg7 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 )
 {
 argset = 2;
 arg4 = THGPUTensor_new();
 }
 else if(narg == 3
-&& (arg4 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
-&& (arg5 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
-&& (arg7 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor"))
+&& (arg4 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
+&& (arg7 = (THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor"))
 )
 {
 argset = 2;
 arg4_idx = 1;
 }
 else if(narg == 3
-&& (arg5 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
-&& (arg7 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor"))
+&& (arg7 = (THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor"))
 )
 {
 argset = 2;
@@ -222,10 +224,10 @@ arg6 = (float)lua_tonumber(L, 2);
 arg4 = THGPUTensor_new();
 }
 else if(narg == 4
-&& (arg4 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
-&& (arg5 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
+&& (arg4 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 && lua_isnumber(L, 3)
-&& (arg7 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 4, "torch.GPUTensor"))
+&& (arg7 = (THGPUTensor *)luaT_toudata(L, 4, "torch.GPUTensor"))
 )
 {
 argset = 2;
@@ -263,7 +265,7 @@ int arg1_idx = 0;
 THGPUTensor *arg2 = NULL;
 float arg3 = 0;
 if(narg == 2
-&& (arg2 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
 )
 {
@@ -271,8 +273,8 @@ arg3 = (float)lua_tonumber(L, 2);
 arg1 = THGPUTensor_new();
 }
 else if(narg == 3
-&& (arg1 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
-&& (arg2 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 && lua_isnumber(L, 3)
 )
 {
@@ -297,7 +299,7 @@ int arg1_idx = 0;
 THGPUTensor *arg2 = NULL;
 float arg3 = 0;
 if(narg == 2
-&& (arg2 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
 )
 {
@@ -305,8 +307,8 @@ arg3 = (float)lua_tonumber(L, 2);
 arg1 = THGPUTensor_new();
 }
 else if(narg == 3
-&& (arg1 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
-&& (arg2 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 && lua_isnumber(L, 3)
 )
 {
@@ -331,17 +333,17 @@ int arg1_idx = 0;
 THGPUTensor *arg2 = NULL;
 THGPUTensor *arg3 = NULL;
 if(narg == 2
-&& (arg1 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
-&& (arg3 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg3 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 arg2 = arg1;
 }
 else if(narg == 3
-&& (arg1 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
-&& (arg2 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
-&& (arg3 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
+&& (arg3 = (THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
@@ -361,17 +363,17 @@ int arg1_idx = 0;
 THGPUTensor *arg2 = NULL;
 THGPUTensor *arg3 = NULL;
 if(narg == 2
-&& (arg1 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
-&& (arg3 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg3 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 arg2 = arg1;
 }
 else if(narg == 3
-&& (arg1 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
-&& (arg2 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
-&& (arg3 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
+&& (arg3 = (THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
@@ -393,38 +395,38 @@ float arg3 = 1;
 THGPUTensor *arg4 = NULL;
 THGPUTensor *arg5 = NULL;
 if(narg == 3
-&& (arg2 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
-&& (arg4 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
-&& (arg5 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg4 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor"))
 )
 {
 arg1 = THGPUTensor_new();
 }
 else if(narg == 4
-&& (arg1 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
-&& (arg2 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
-&& (arg4 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor"))
-&& (arg5 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 4, "torch.GPUTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
+&& (arg4 = (THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor"))
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 4, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 }
 else if(narg == 4
-&& (arg2 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
-&& (arg4 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor"))
-&& (arg5 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 4, "torch.GPUTensor"))
+&& (arg4 = (THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor"))
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 4, "torch.GPUTensor"))
 )
 {
 arg3 = (float)lua_tonumber(L, 2);
 arg1 = THGPUTensor_new();
 }
 else if(narg == 5
-&& (arg1 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
-&& (arg2 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 && lua_isnumber(L, 3)
-&& (arg4 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 4, "torch.GPUTensor"))
-&& (arg5 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 5, "torch.GPUTensor"))
+&& (arg4 = (THGPUTensor *)luaT_toudata(L, 4, "torch.GPUTensor"))
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 5, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
@@ -450,38 +452,38 @@ float arg3 = 1;
 THGPUTensor *arg4 = NULL;
 THGPUTensor *arg5 = NULL;
 if(narg == 3
-&& (arg2 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
-&& (arg4 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
-&& (arg5 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg4 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor"))
 )
 {
 arg1 = THGPUTensor_new();
 }
 else if(narg == 4
-&& (arg1 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
-&& (arg2 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
-&& (arg4 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor"))
-&& (arg5 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 4, "torch.GPUTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
+&& (arg4 = (THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor"))
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 4, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
 }
 else if(narg == 4
-&& (arg2 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
 && lua_isnumber(L, 2)
-&& (arg4 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor"))
-&& (arg5 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 4, "torch.GPUTensor"))
+&& (arg4 = (THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor"))
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 4, "torch.GPUTensor"))
 )
 {
 arg3 = (float)lua_tonumber(L, 2);
 arg1 = THGPUTensor_new();
 }
 else if(narg == 5
-&& (arg1 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
-&& (arg2 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg2 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor"))
 && lua_isnumber(L, 3)
-&& (arg4 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 4, "torch.GPUTensor"))
-&& (arg5 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 5, "torch.GPUTensor"))
+&& (arg4 = (THGPUTensor *)luaT_toudata(L, 4, "torch.GPUTensor"))
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 5, "torch.GPUTensor"))
 )
 {
 arg1_idx = 1;
@@ -508,8 +510,8 @@ float arg4 = 1;
 THGPUTensor *arg5 = NULL;
 THGPUTensor *arg6 = NULL;
 if(narg == 2
-&& (arg5 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor")) && (arg5->nDimension == 2)
-&& (arg6 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor")) && (arg6->nDimension == 1)
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor")) && (arg5->nDimension == 2)
+&& (arg6 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor")) && (arg6->nDimension == 1)
 )
 {
 arg1 = THGPUTensor_new();
@@ -517,9 +519,9 @@ THGPUTensor_resize1d(arg1, arg5->size[0]);
 arg3 = arg1;
 }
 else if(narg == 3
-&& (arg1 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
-&& (arg5 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor")) && (arg5->nDimension == 2)
-&& (arg6 = (THGPUTensor *)(THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor")) && (arg6->nDimension == 1)
+&& (arg1 = (THGPUTensor *)luaT_toudata(L, 1, "torch.GPUTensor"))
+&& (arg5 = (THGPUTensor *)luaT_toudata(L, 2, "torch.GPUTensor")) && (arg5->nDimension == 2)
+&& (arg6 = (THGPUTensor *)luaT_toudata(L, 3, "torch.GPUTensor")) && (arg6->nDimension == 1)
 )
 {
 arg1_idx = 1;
