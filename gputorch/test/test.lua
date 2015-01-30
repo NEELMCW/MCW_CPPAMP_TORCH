@@ -1,4 +1,3 @@
-
 local runtests = false
 if not gputorch then
    require 'gputorch'
@@ -8,11 +7,13 @@ local tester
 local test = {}
 local msize = 100
 local minsize = 100
-local maxsize = 600
+local maxsize = 1000
 local minvalue = 2
 local maxvalue = 20
 local nloop = 100
 local times = {}
+-- smaller as 0.001 if gpu supports double floating point
+local fp_tolerance = 0.1
 
 --e.g. unit test cmd: th -lgputorch -e "gputorch.test{'view','viewAs'}"
 
@@ -28,9 +29,9 @@ local function isEqual(a, b, tolerance, ...)
       b = b:typeAs(a) -- TODO: remove the need for this (a-b doesnt work for bytetensor, gputensor pairs)
    end
    local diff = a-b
-   --print(diff)
+   --if gpu not support double fp
+   tolerance = fp_tolerance
    --tolerance = tolerance or 0.000001
-   tolerance = 0.1
    if type(a) == 'number' then
       return math.abs(diff) < tolerance
    else
@@ -150,6 +151,187 @@ function test.repeatTensor()
    compareFloatAndGPU(x, 'repeatTensor', sz, 2)
 end
 
+-- not working in our case
+--[[function test.copyRandomizedTest()
+   local maxSize = 1000000 -- 1M elements max
+   local ndimInput = torch.random(10)
+   local function randomSizeGenerator(ndimInput)
+      local size = {}
+      local totalSize = 1
+      for i = 1, ndimInput do
+         size[i] = torch.random(25)
+         totalSize = totalSize * size[i]
+      end
+      return size, totalSize
+   end
+   local inputSize, nElem = randomSizeGenerator(ndimInput)
+   local attemptsAtSizeGeneration = 1
+   while nElem > maxSize do
+      attemptsAtSizeGeneration = attemptsAtSizeGeneration + 1
+      -- make atmost 100 attempts to generate sizes randomly.
+      -- this guarantees that even in the worst case,
+      -- this test does not run forever
+      if attemptsAtSizeGeneration == 100 then
+         inputSize = {1, 10, 100}
+         break
+      end
+      inputSize, nElem = randomSizeGenerator(ndimInput)
+   end
+
+   -- http://rosettacode.org/wiki/Prime_decomposition#Lua
+   local function IsPrime(n)
+      if n <= 1 or (n ~= 2 and n % 2 == 0) then return false end
+      for i = 3, math.sqrt(n), 2 do if n % i == 0 then return false end end
+         return true
+   end
+   local function PrimeDecomposition(n)
+      local f = {}
+      if IsPrime(n) then f[1] = n; return f end
+      local i = 2
+      repeat
+         while n % i == 0 do f[#f + 1] = i; n = n / i end
+         repeat i = i + 1 until IsPrime( i )
+      until n == 1
+      return f
+   end
+   local function constructOutput(size)
+      local outputSize = {}
+      for i = 1, #size do outputSize[i] = size[i] end
+      for i = 1, 10 do -- 10 randomizations
+         -- pick an input dim
+         local dim = torch.random(1, #size)
+         -- factor it
+         local factors = PrimeDecomposition(outputSize[dim])
+         if #factors ~= 0 then
+            -- remove one of the factors
+            local factor = factors[torch.random(#factors)]
+            local addNewDim = torch.random(1, 2)
+            if addNewDim == 1 then -- add it as a new dimension
+               outputSize[dim] = outputSize[dim] / factor
+               -- where to insert new dimension
+               local where = torch.random(1, #outputSize)
+               local o = {}
+               o[where] = factor
+               local index = 1
+               for j = 1, #outputSize + 1 do
+                  if j == where then
+                     o[j] = factor
+                  else
+                     o[j] = outputSize[index]
+                     index = index + 1
+                  end
+               end
+               outputSize = o
+            else -- or multiply the factor to another dimension
+               local where = torch.random(1, #outputSize)
+               outputSize[dim] = outputSize[dim] / factor
+               outputSize[where] = outputSize[where] * factor
+            end
+         end
+      end
+      return outputSize
+   end
+   local outputSize = constructOutput(inputSize)
+   local nelem1 = 1
+   local nelem2 = 1
+   for i = 1, #inputSize do nelem1 = nelem1 * inputSize[i] end
+   for i = 1, #outputSize do nelem2 = nelem2 * outputSize[i] end
+   tester:assert(nelem1, nelem2, 'input and output sizes have to be the same')
+   local input, output
+
+   local function createHoledTensor(size)
+      local osize = {}
+      for i = 1, #size do osize[i] = size[i] end
+      -- randomly inflate a few dimensions in osize
+      for i = 1, 3 do
+         local dim = torch.random(1,#osize)
+         local add = torch.random(4, 15)
+         osize[dim] = osize[dim] + add
+      end
+      local input = torch.FloatTensor(torch.LongStorage(osize))
+      -- now extract the input of correct size from 'input'
+      for i = 1, #size do
+         if input:size(i) ~= size[i] then
+            local bounds = torch.random(1, input:size(i) - size[i] + 1)
+            input = input:narrow(i, bounds, size[i])
+         end
+      end
+      return input
+   end
+
+   -- extract a sub-cube with probability 50%
+   -- (to introduce unreachable storage locations)
+   local holedInput = torch.random(1, 2)
+   local holedOutput = torch.random(1, 2)
+   if holedInput == 1 then
+      input = createHoledTensor(inputSize)
+   else
+      input = torch.FloatTensor(torch.LongStorage(inputSize))
+   end
+   input:storage():fill(-150)
+   input:copy(torch.linspace(1, input:nElement(), input:nElement()))
+
+   if holedOutput == 1 then
+      output = createHoledTensor(outputSize)
+   else
+      output = torch.FloatTensor(torch.LongStorage(outputSize))
+   end
+
+   output:storage():fill(-100)
+   output:fill(-1)
+   -- function to randomly transpose a tensor
+   local function randomlyTranspose(input)
+      local d1 = torch.random(1, input:dim())
+      local d2 = torch.random(1, input:dim())
+      if d1 ~= d2 then input = input:transpose(d1, d2) end
+      return input
+   end
+   -- randomly transpose with 50% prob
+   local transposeInput = torch.random(1, 2)
+   local transposeOutput = torch.random(1, 2)
+   if transposeInput == 1 then
+      for i = 1, 10 do input = randomlyTranspose(input) end
+   end
+   if transposeOutput == 1 then
+      for i = 1, 10 do output = randomlyTranspose(output) end
+   end
+
+   local input_tensor_float = input
+   local output_tensor_float = output
+   local input_storage_float = input:storage()
+   local output_storage_float = output:storage()
+   local input_storage_gpu =
+      torch.GPUStorage(input_storage_float:size()):copy(input_storage_float)
+   local output_storage_gpu =
+      torch.GPUStorage(output_storage_float:size()):copy(output_storage_float)
+   local input_tensor_gpu = torch.GPUTensor(input_storage_gpu,
+                                          input_tensor_float:storageOffset(),
+                                          input_tensor_float:size(),
+                                          input_tensor_float:stride())
+   local output_tensor_gpu = torch.GPUTensor(output_storage_gpu,
+                                          output_tensor_float:storageOffset(),
+                                          output_tensor_float:size(),
+                                          output_tensor_float:stride())
+
+   output_tensor_float:copy(input_tensor_float)
+   output_tensor_gpu:copy(input_tensor_gpu)
+
+   -- now compare output_storage_gpu and output_storage_float for exactness
+   local flat_tensor_float = torch.FloatTensor(input_storage_float)
+   local flat_storage_gpu =
+      torch.FloatStorage(input_storage_gpu:size()):copy(input_storage_gpu)
+   local flat_tensor_gpu = torch.FloatTensor(flat_storage_gpu)
+
+   local err = (flat_tensor_float - flat_tensor_gpu):abs():max()
+   if err ~= 0 then
+      print('copyRandomizedTest failure input size: ', input:size())
+      print('copyRandomizedTest failure input stride: ', input:stride())
+      print('copyRandomizedTest failure output size: ', output:size())
+      print('copyRandomizedTest failure output stride: ', output:stride())
+   end
+   tester:assert(err == 0, 'diverging input and output in copy test')
+end]]--
+
 function test.copyNoncontiguous()
      local x = torch.FloatTensor():rand(1, 1)
      local f = function(src)
@@ -193,11 +375,34 @@ function test.copyNoncontiguous()
       return src.new(sz, sz):copy(src)
    end
    compareFloatAndGPU(x, f)
+   -- not working in our case
+   -- case for https://github.com/torch/cutorch/issues/90
+   --[[do
+      local val = 1
+      local ps = torch.LongStorage({4, 4, 4})
+      local cube = torch.Tensor(ps):apply(
+         function()
+            val = val + 1
+            return val
+         end
+                                     ):gpu()
+
+      local ps = torch.LongStorage({4, 12})
+      local x = torch.GPUTensor(ps):fill(-1)
+
+      local l = 2
+      local h = 1
+      local w = 2
+
+      x[{{1},{1,9}}]:copy(cube[l][{{h,h+2},{w,w+2}}])
+      tester:assert((x[{1,{1,9}}]-cube[l][{{h,h+2},{w,w+2}}]):abs():max() == 0,
+         'diverging input and output in copy test')
+   end]]--
 end
 
 function test.largeNoncontiguous()
    local x = torch.FloatTensor():randn(20, 1, 60, 60)
-   local sz = math.floor(torch.uniform(maxsize, maxsize))
+   local sz = math.floor(torch.uniform(maxsize, 2*maxsize))
    local f = function(src)
       return src.new(20, sz, 60, 60):copy(src:expand(20, sz, 60, 60))
    end
@@ -328,6 +533,8 @@ function test.logicalTensor()
    local x = torch.FloatTensor():rand(sz1, sz2)
    local y = torch.FloatTensor():rand(sz1, sz2)
    local z = torch.FloatTensor():rand(sz1, sz2)
+   -- not working in our case
+   --compareFloatAndGPUTensorArgs(x, 'gt', z)
    compareFloatAndGPUTensorArgs(x, 'gt', y, z)
 end
 
@@ -392,7 +599,7 @@ function test.var()
    local sz2 = math.floor(torch.uniform(minsize,maxsize))
    local x = torch.FloatTensor():rand(sz1, sz2)
    compareFloatAndGPU(x, 'var')
-   -- multi-dim var is not implemented
+   -- multi-dim var is not implemented in our case
    -- compareFloatAndGPU(x, 'var', 1, true)
    -- compareFloatAndGPU(x, 'var', 1, false)
    -- compareFloatAndGPU(x, 'var', 2, true)
@@ -404,7 +611,7 @@ function test.std()
    local sz2 = math.floor(torch.uniform(minsize,maxsize))
    local x = torch.FloatTensor():rand(sz1, sz2)
    compareFloatAndGPU(x, 'std')
-   -- multi-dim std is not implemented
+   -- multi-dim std is not implemented in our case
    -- compareFloatAndGPU(x, 'std', 1, true)
    -- compareFloatAndGPU(x, 'std', 1, false)
    -- compareFloatAndGPU(x, 'std', 2, true)
@@ -499,6 +706,30 @@ function test.clamp2()
    compareFloatAndGPUTensorArgs(y, 'clamp', x, min_val, max_val)
 end
 
+function test.index()
+   local sz1 = math.floor(torch.uniform(minsize,maxsize))
+   local sz2 = math.floor(torch.uniform(minsize,maxsize))
+   local sz3 = math.floor(torch.uniform(10,20))
+   local x = torch.FloatTensor():rand(sz1, sz2)
+
+   local longIndex = torch.LongTensor{math.floor(torch.uniform(1, sz1)), math.floor(torch.uniform(1, sz1))}
+   local index = 1
+   compareFloatAndGPU(x, 'index', index, longIndex)
+
+   index = 2
+   longIndex =  torch.LongTensor{math.floor(torch.uniform(1, sz2)), math.floor(torch.uniform(1, sz2))}
+   compareFloatAndGPU(x, 'index', index, longIndex)
+
+   x = torch.FloatTensor():rand(sz1)
+   index = 1
+   longIndex = torch.LongTensor{math.floor(torch.uniform(1, sz1)), math.floor(torch.uniform(1, sz1))}
+   compareFloatAndGPU(x, 'index', index, longIndex)
+
+   x = torch.FloatTensor():rand(sz1,sz2,sz3)
+   index = 3
+   longIndex = torch.randperm(sz3):long()
+   compareFloatAndGPU(x, 'index', index, longIndex)
+end
 
 function test.indexCopy()
    local sz1 = math.floor(torch.uniform(minsize,maxsize)) -- dim1
@@ -600,10 +831,12 @@ function test.indexSelect()
       z:index(x, 2, indices)
    end
    tm.gpu = clock:time().real
+
    tester:assertTensorEq(groundtruth, resgpu, 0.00001, "Error in indexSelect")
 end
 
 function test.addmv()
+   --[[ Size ]]--
    local sizes = {
       {2,1},
       {1,2},
@@ -622,7 +855,8 @@ function test.addmv()
    end
 end
 
---[[function test.mv()
+function test.mv()
+   --[[ Size ]]--
    local sizes = {
       {2,1},
       {1,2},
@@ -639,9 +873,10 @@ end
       local b = torch.randn(m)
       compareFloatAndGPUTensorArgs(c, 'mv', a, b)
    end
-end]]--
+end
 
 function test.addr()
+   --[[ Size ]]--
    local sizes = {
       {2,1},
       {1,2},
@@ -661,6 +896,7 @@ function test.addr()
 end
 
 function test.addmm()
+   --[[ Size ]]--
    local sizes = {
       {16, 3, 1},
       {1, 12, 1},
@@ -679,7 +915,8 @@ function test.addmm()
    end
 end
 
---[[function test.mm()
+function test.mm()
+   --[[ Size ]]--
    local sizes = {
       {16, 3, 1},
       {1, 12, 1},
@@ -696,9 +933,10 @@ end
       local b = torch.randn(k, m)
       compareFloatAndGPUTensorArgs(c, 'mm', a, b)
    end
-end]]--
+end
 
---[[function test.ger()
+function test.ger()
+   --[[ Size ]]--
    local sizes = {
       {16, 1},
       {1, 12},
@@ -715,7 +953,7 @@ end]]--
       local b = torch.randn(m)
       compareFloatAndGPUTensorArgs(c, 'ger', a, b)
    end
-end]]--
+end
 
 function test.isSameSizeAs()
    local t1 = torch.GPUTensor(3, 4, 9, 10)
@@ -743,7 +981,7 @@ function test.uniform()
    local t = torch.GPUTensor(sz1, sz2)
 
    t:uniform(min, max)
-   checkIfUniformlyDistributed(t, min, max, tolerance)
+   checkIfUniformlyDistributed(t, min, max)
 end
 
 function test.bernoulli()
@@ -751,6 +989,7 @@ function test.bernoulli()
    local sz2 = math.floor(torch.uniform(minsize,maxsize))
    local p = torch.uniform()
    local t = torch.GPUTensor(sz1, sz2)
+
    t:bernoulli(p)
    tester:assertalmosteq(t:mean(), p, 0.1, "mean is not equal to p")
    local f = t:float()
@@ -764,7 +1003,7 @@ function test.normal()
    local sz1 = math.floor(torch.uniform(minsize,maxsize))
    local sz2 = math.floor(torch.uniform(minsize,maxsize))
    local mean, std = torch.uniform(), torch.uniform()
-   local tolerance = 0.1
+   local tolerance = fp_tolerance;
    local t = torch.GPUTensor(sz1, sz2)
 
    t:normal(mean, std)
@@ -776,7 +1015,7 @@ function test.logNormal()
    local sz1 = math.floor(torch.uniform(minsize,maxsize))
    local sz2 = math.floor(torch.uniform(minsize,maxsize))
    local mean, std = torch.uniform(), torch.uniform()
-   local tolerance = 0.1
+   local tolerance = fp_tolerance;
    local t = torch.GPUTensor(sz1, sz2)
 
    t:logNormal(mean, std)
@@ -859,6 +1098,8 @@ end]]--
 function gputorch.test(tests)
    math.randomseed(os.time())
    torch.manualSeed(os.time())
+   -- not working in our case
+   --cutorch.manualSeedAll(os.time())
    tester = torch.Tester()
    tester:add(test)
    tester:run(tests)
