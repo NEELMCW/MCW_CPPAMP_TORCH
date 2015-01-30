@@ -18,9 +18,25 @@ using namespace std;
 void MemcpyHostToTHGPUTensor(float* first, int size, void *dest)
 {
   THGPUTensor *p = static_cast<THGPUTensor *>(dest);
-  Concurrency::array_view<float, 1> *pavDest = static_cast<Concurrency::array_view<float, 1> *>(p->storage->allocatorContext);
-  bolt::amp::device_vector<float> avDest(*pavDest,THGPUTensor_nElement(p), true);
-  bolt::amp::copy(first, first+size, avDest.begin());
+  PREPARE_AV(p, pavDest);
+  Concurrency::copy(first, *pavDest);
+}
+
+// Perform memory copying from device side to device side of THGPUTensor
+// src: source THGPUTensor
+// dest: dest THGPUTensor
+void MemcpyAVToAV(void* src, void *dest)
+{
+  Concurrency::array_view<float, 1> *pavSrc = static_cast<Concurrency::array_view<float, 1> *>(src);
+  bolt::amp::device_vector<float> srcVec(*pavSrc,pavSrc->get_extent()[0],true);
+  Concurrency::array_view<float, 1> *pavDest = static_cast<Concurrency::array_view<float, 1> *>(dest);
+  bolt::amp::device_vector<float> destVec(*pavDest,pavDest->get_extent()[0],true);
+  // Data transfer:
+  //   1 for reading data from host to device side of src
+  // Memory objects created and released
+  //   1 created and released for constructing/destructing device _vector of src (src->storage->size bytes)
+  //   1 created and released for empty array_view initialisation in device_vector (4 bytes)
+  bolt::amp::copy(srcVec.begin(),srcVec.end(),destVec.begin());
 }
 
 /* specific methods */
@@ -42,24 +58,10 @@ void THGPUTensor_copyFloat(THGPUTensor *self, struct THFloatTensor *src)
     //  (2) THGPUStorage_resize     (1 GPU memory allocation)
     //  (3) THGPUTensor_copyFloat (now, 0 GPU memory operation)
     //  (4) THGPUTensor_free         (1 GPU memory de-allocation)
-    
-    // FIXME: Concurrency::copy from underlying AMP is host2host, it is not safe to use
-    #if 0
-    Concurrency::array_view<float, 1> *avSelfCopy= static_cast<Concurrency::array_view<float, 1> *>(self->storage->allocatorContext);
-    Concurrency::copy(src->storage->data, src->storage->data+src->storage->size, *avSelfCopy);
-    avSelfCopy->synchronize();
-    #else
-    Concurrency::array_view<float, 1> *pavSelf = static_cast<Concurrency::array_view<float, 1> *>(self->storage->allocatorContext);
-    // avSelf - no need to copying from host
-    bolt::amp::device_vector<float> avSelf(*pavSelf,THGPUTensor_nElement(self), true);
 
-    // Data transfer:
-    //   1 for reading data from host to device side of src
-    // Memory objects created and released
-    //   1 created and released for constructing/destructing device _vector of src (src->storage->size bytes)
-    //   1 created and released for empty array_view initialisation in device_vector (4 bytes)
-    bolt::amp::copy(src->storage->data, src->storage->data+src->storage->size, avSelf.begin());
-    #endif
+
+    MemcpyHostToTHGPUTensor(src->storage->data, src->storage->size, self);
+
     THFloatTensor_free(src);
     THGPUTensor_freeCopyTo(selfc, self);
   }
@@ -99,16 +101,8 @@ void THFloatTensor_copyGPU(THFloatTensor *self, struct THGPUTensor *src)
   {
     THFloatTensor *selfc = THFloatTensor_newContiguous(self);
     src = THGPUTensor_newContiguous(src);
-    #if 0
-    Concurrency::array<float> arrSrc(Concurrency::extent<1>(self->storage->size), src->storage->data);
-    Concurrency::array_view<float> avSelfCopy(Concurrency::extent<1>(self->storage->size), self->storage->data);
-    Concurrency::copy(arrSrc, avSelfCopy);
-    #else
-    Concurrency::array_view<float, 1> *avSrc= static_cast<Concurrency::array_view<float, 1> *>(src->storage->allocatorContext);
-    avSrc->synchronize();
-    // FIXME: it is not safe to call Concurrency::copy since its implementation is host2host
+    PREPARE_AV(src, avSrc);
     Concurrency::copy(*avSrc, self->storage->data);
-    #endif
 
     THGPUTensor_free(src);
     THFloatTensor_freeCopyTo(selfc, self);
@@ -199,7 +193,7 @@ static void THGPUTensor_computesz(THGPUTensor *self, Concurrency::array_view<lon
 }
 
 void THGPUTensor_kernel_copy(Concurrency::array_view<float>& av_dst,
-                             THGPUTensor* src, Concurrency::array_view<long, 1> &av_dst_sz,
+                             Concurrency::array_view<float>& av_src, Concurrency::array_view<long, 1> &av_dst_sz,
                              Concurrency::array_view<long, 1> &av_dst_st, int dst_dim, 
                              Concurrency::array_view<long, 1> &av_src_sz, Concurrency::array_view<long, 1> &av_src_st,
                              int src_dim, long n_elem, long innerdim, int nblockx, int nblocky,
@@ -207,7 +201,7 @@ void THGPUTensor_kernel_copy(Concurrency::array_view<float>& av_dst,
 {
   Concurrency::extent<3> copyExt(nblockz, nblocky *16, nblockx * 16);
   Concurrency::tiled_extent<1, 16, 16> t_ext(copyExt);
-  Concurrency::array_view<float, 1>& av_src= *(static_cast<Concurrency::array_view<float, 1> *>(src->storage->allocatorContext));
+
   //Copy Kernel
   Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1, 16, 16> tidx) restrict(amp)
   {
@@ -262,10 +256,7 @@ THC_API void THGPUTensor_copy(THGPUTensor *self, THGPUTensor *src)
   if(THGPUTensor_isContiguous(self) && THGPUTensor_isContiguous(src))
   {
     // discard host both for src and self
-    Concurrency::array_view<float, 1> *pavSrc = static_cast<Concurrency::array_view<float, 1> *>(src->storage->allocatorContext);
-    bolt::amp::device_vector<float> srcVec(*pavSrc,THGPUTensor_nElement(src), true);
-    Concurrency::array_view<float, 1> *pavSelf = static_cast<Concurrency::array_view<float, 1> *>(self->storage->allocatorContext);
-    bolt::amp::device_vector<float> desVec(*pavSelf,THGPUTensor_nElement(self), true);
+    DECLARE_BOLT_DEVICE_VECTOR_2(src, srcVec , self, desVec);
     // Data transfer: 0
     // Memory objects created and released: 0
     bolt::amp::copy(srcVec.begin(),srcVec.end(),desVec.begin());
@@ -277,6 +268,7 @@ THC_API void THGPUTensor_copy(THGPUTensor *self, THGPUTensor *src)
     long size = THGPUTensor_nElement(self);
     long innermostdim;
 
+    // Data is valid only in device side of d_src_sz, d_src_st, d_self_sz, d_self_st
     THGPUTensor_computesz(src, &d_src_sz, &d_src_st, &src_dim, &innermostdim);
     THGPUTensor_computesz(self, &d_self_sz, &d_self_st, &self_dim, &innermostdim);
 
@@ -293,11 +285,13 @@ THC_API void THGPUTensor_copy(THGPUTensor *self, THGPUTensor *src)
     int number_blocks_dim_y = DIVUP(nblocks, nblocks_x * nblocks_y);
     int nblocks_z = number_blocks_dim_y;
 
-    Concurrency::array_view<float,1> *avSelf = static_cast<Concurrency::array_view<float> *>(self->storage->allocatorContext);
-    // since it is write-only in the kernel- no need to copying
-    avSelf->discard_data();
-
-    THGPUTensor_kernel_copy(*avSelf, src,
+    PREPARE_AV(self, avSelf);
+    PREPARE_AV(src, avSrc);
+    d_self_sz->discard_data();
+    d_self_st->discard_data();
+    d_src_sz->discard_data();
+    d_src_st->discard_data();
+    THGPUTensor_kernel_copy(*avSelf, *avSrc,
                            *d_self_sz, *d_self_st, self_dim,
                            *d_src_sz, *d_src_st, src_dim,
                           size, innermostdim, nblocks_x, nblocks_y, nblocks_z);
