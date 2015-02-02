@@ -25,12 +25,12 @@ void MemcpyHostToTHGPUTensor(float* first, int size, void *dest)
 // Perform memory copying from device side to device side of THGPUTensor
 // src: source THGPUTensor
 // dest: dest THGPUTensor
-void MemcpyAVToAV(void* src, void *dest)
+void MemcpyAVToAV(void* src, int size, void *dest)
 {
   Concurrency::array_view<float, 1> *pavSrc = static_cast<Concurrency::array_view<float, 1> *>(src);
-  bolt::amp::device_vector<float> srcVec(*pavSrc,pavSrc->get_extent()[0],true);
+  bolt::amp::device_vector<float> srcVec(*pavSrc, size, true);
   Concurrency::array_view<float, 1> *pavDest = static_cast<Concurrency::array_view<float, 1> *>(dest);
-  bolt::amp::device_vector<float> destVec(*pavDest,pavDest->get_extent()[0],true);
+  bolt::amp::device_vector<float> destVec(*pavDest, size, true);
   // Data transfer:
   //   1 for reading data from host to device side of src
   // Memory objects created and released

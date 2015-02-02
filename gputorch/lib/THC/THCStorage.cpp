@@ -275,7 +275,7 @@ void THGPUStorage_copy(THGPUStorage *self, THGPUStorage *src)
   THArgCheck(self->size == src->size, 2, "size does not match");
   PREPARE_AV_WITH_STORAGE(src, arrSrc);
   PREPARE_AV_WITH_STORAGE(self, avSelfCopy);
-  MemcpyAVToAV(arrSrc, avSelfCopy);
+  MemcpyAVToAV(arrSrc, src->size, avSelfCopy);
 }
 
 void THGPUStorage_copyGPU(THGPUStorage *self, THGPUStorage *src)
@@ -283,5 +283,5 @@ void THGPUStorage_copyGPU(THGPUStorage *self, THGPUStorage *src)
   THArgCheck(self->size == src->size, 2, "size does not match");
   PREPARE_AV_WITH_STORAGE(src, arrSrc);
   PREPARE_AV_WITH_STORAGE(self, avSelfCopy);
-  MemcpyAVToAV(arrSrc, avSelfCopy);
+  MemcpyAVToAV(arrSrc, src->size, avSelfCopy);
 }

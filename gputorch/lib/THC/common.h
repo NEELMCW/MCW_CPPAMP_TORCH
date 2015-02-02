@@ -10,7 +10,7 @@
 #include "bolt/amp/copy.h"
 
 void MemcpyHostToTHGPUTensor(float* first, int size, void* dest);
-void MemcpyAVToAV(void* src, void* dest);
+void MemcpyAVToAV(void* src, int size, void* dest);
 
 
 #ifdef DECLARE_BOLT_DEVICE_VECTOR
