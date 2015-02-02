@@ -13,7 +13,7 @@ using namespace std;
 
 // Perform memory copying from host to device side of THGPUTensor
 // first: source data pointer on host
-// size: size of source data in byte
+// size: length of elements in source to copy
 // dest: pointer to the THGPUTensor
 void MemcpyHostToTHGPUTensor(float* first, int size, void *dest)
 {
@@ -30,7 +30,7 @@ void MemcpyHostToTHGPUTensor(float* first, int size, void *dest)
 
 // Perform memory copying from host to device side of array_views
 // first: source data pointer on host
-// size: size of source data in byte
+// size: length of elements in source to copy
 // dest: reference of destination array_view<float,1>
 // TODO: need to add template
 void MemcpyHostToAV(float* first, int size, Concurrency::array_view<float,1> &dest)
@@ -44,8 +44,9 @@ void MemcpyHostToAV(float* first, int size, Concurrency::array_view<float,1> &de
 }
 
 // Perform memory copying from device side to device side of THGPUTensor
-// src: source THGPUTensor
-// dest: dest THGPUTensor
+// src: source array_view<float, 1>
+// size: length of elements in source to copy
+// dest: dest array_view<float, 1>
 void MemcpyAVToAV(void* src, int size, void *dest)
 {
   Concurrency::array_view<float, 1> *pavSrc = static_cast<Concurrency::array_view<float, 1> *>(src);
@@ -58,6 +59,25 @@ void MemcpyAVToAV(void* src, int size, void *dest)
   //   1 created and released for constructing/destructing device _vector of src (src->storage->size bytes)
   //   1 created and released for empty array_view initialisation in device_vector (4 bytes)
   bolt::amp::copy(srcVec.begin(),srcVec.end(),destVec.begin());
+}
+
+// Perform memory copying from device side of THGPUTensor to host
+// src: source THGPUTensor
+// size: length of elements THGPUTensor to copy
+// dest: dest raw pointer
+void MemcpyTHGPUTensorToHost(void* src, int size, float *dest)
+{
+  THGPUTensor *p = static_cast<THGPUTensor *>(src);
+  #if 0
+  PREPARE_AV(p, avSrc);
+  avSrc->synchronize();
+  Concurrency::copy(*avSrc, dest);
+  #else
+  DECLARE_BOLT_DEVICE_VECTOR(p, avSrc);
+  bolt::amp::device_vector<float> destVec(dest, dest+size, true);
+  bolt::amp::copy(avSrc.begin(), avSrc.end(), destVec.begin());
+  destVec.data();
+  #endif
 }
 
 /* specific methods */
@@ -122,9 +142,7 @@ void THFloatTensor_copyGPU(THFloatTensor *self, struct THGPUTensor *src)
   {
     THFloatTensor *selfc = THFloatTensor_newContiguous(self);
     src = THGPUTensor_newContiguous(src);
-    PREPARE_AV(src, avSrc);
-    Concurrency::copy(*avSrc, selfc->storage->data);
-
+    MemcpyTHGPUTensorToHost(src, THGPUTensor_nElement(src), selfc->storage->data);
     THGPUTensor_free(src);
     THFloatTensor_freeCopyTo(selfc, self);
   }
