@@ -60,7 +60,7 @@ void THGPUTensor_copyFloat(THGPUTensor *self, struct THFloatTensor *src)
     //  (4) THGPUTensor_free         (1 GPU memory de-allocation)
 
 
-    MemcpyHostToTHGPUTensor(src->storage->data, src->storage->size, self);
+    MemcpyHostToTHGPUTensor(src->storage->data, src->storage->size, selfc);
 
     THFloatTensor_free(src);
     THGPUTensor_freeCopyTo(selfc, self);
@@ -102,7 +102,7 @@ void THFloatTensor_copyGPU(THFloatTensor *self, struct THGPUTensor *src)
     THFloatTensor *selfc = THFloatTensor_newContiguous(self);
     src = THGPUTensor_newContiguous(src);
     PREPARE_AV(src, avSrc);
-    Concurrency::copy(*avSrc, self->storage->data);
+    Concurrency::copy(*avSrc, selfc->storage->data);
 
     THGPUTensor_free(src);
     THFloatTensor_freeCopyTo(selfc, self);
