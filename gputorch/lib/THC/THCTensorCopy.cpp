@@ -189,9 +189,16 @@ static void THGPUTensor_computesz(THGPUTensor *self, Concurrency::array_view<lon
       last_sz = self->size[i];
     }
   }
-
+  // FIXME: use kernel to do copy
+#if 0
   Concurrency::copy(szh, **sz_);
   Concurrency::copy(sth, **st_);
+#else
+  bolt::amp::device_vector<long> dvSz_(**sz_, dim, true);
+  bolt::amp::device_vector<long> dvSt_(**st_, dim, true);
+  bolt::amp::copy(szh, szh+dim, dvSz_.begin());
+  bolt::amp::copy(sth, sth+dim, dvSt_.begin());
+#endif
   THFree(szh);
   THFree(sth);
 
