@@ -18,8 +18,14 @@ using namespace std;
 void MemcpyHostToTHGPUTensor(float* first, int size, void *dest)
 {
   THGPUTensor *p = static_cast<THGPUTensor *>(dest);
+  // FIXME: host blokcing introduced between consecutive batches, use kernel copy instead
+  #if 0
   PREPARE_AV(p, pavDest);
   Concurrency::copy(first, *pavDest);
+  #else
+  DECLARE_BOLT_DEVICE_VECTOR(p,avDest);
+  bolt::amp::copy(first, first+size, avDest.begin());
+  #endif
 }
 
 // Perform memory copying from device side to device side of THGPUTensor
