@@ -266,7 +266,7 @@ void THGPUStorage_rawCopy(THGPUStorage *self, float *src)
 {
   Concurrency::array_view<float> avSelfCopy(Concurrency::extent<1>(self->size), self->data);
   avSelfCopy.discard_data();
-  Concurrency::copy(src, avSelfCopy);
+  MemcpyHostToAV(src, self->size, avSelfCopy);
 }
 
 // FIXME: same as THGPUStorage_copyGPU 

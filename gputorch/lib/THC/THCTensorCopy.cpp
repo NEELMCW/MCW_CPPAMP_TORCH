@@ -28,6 +28,21 @@ void MemcpyHostToTHGPUTensor(float* first, int size, void *dest)
   #endif
 }
 
+// Perform memory copying from host to device side of array_views
+// first: source data pointer on host
+// size: size of source data in byte
+// dest: reference of destination array_view<float,1>
+// TODO: need to add template
+void MemcpyHostToAV(float* first, int size, Concurrency::array_view<float,1> &dest)
+{
+  #if 0
+  Concurrency::copy(first, dest);
+  #else
+  bolt::amp::device_vector<float> avDest(dest, size, true);
+  bolt::amp::copy(first, first+size, avDest.begin());
+  #endif
+}
+
 // Perform memory copying from device side to device side of THGPUTensor
 // src: source THGPUTensor
 // dest: dest THGPUTensor
