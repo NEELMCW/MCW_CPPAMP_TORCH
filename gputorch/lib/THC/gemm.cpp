@@ -258,7 +258,7 @@ void gemv_NoTransA(Concurrency::array_view<float> &A, Concurrency::array_view<fl
   Concurrency::parallel_for_each(t_ext,[=] (Concurrency::tiled_index<256> tidx) restrict(amp)
   {
     int j = tidx.global[0];
-    if(j >= lenY)
+    if(j >= lenX)
       return;
     const float temp = alpha * X[j];
     if (temp != 0.0) {
