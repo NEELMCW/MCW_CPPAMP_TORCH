@@ -30,7 +30,6 @@ void gpunn_SoftMax_updateOutput_kernel(Concurrency::array_view<float,1> &avOutpu
       if(buffer[i_start] < z)
         buffer[i_start] = z;
     }
-    //__syncthreads();
     tidx.barrier.wait();
 
     // reduce
@@ -44,7 +43,6 @@ void gpunn_SoftMax_updateOutput_kernel(Concurrency::array_view<float,1> &avOutpu
       }
       buffer[SOFTMAX_THREADS] = max_k;
     }
-    //__syncthreads();
     tidx.barrier.wait();
 
     // sum?
@@ -55,7 +53,6 @@ void gpunn_SoftMax_updateOutput_kernel(Concurrency::array_view<float,1> &avOutpu
       buffer[i_start] += z;
       output_k[i] = z;
     }
-    //__syncthreads();
     tidx.barrier.wait();
 
     // reduce
@@ -66,7 +63,6 @@ void gpunn_SoftMax_updateOutput_kernel(Concurrency::array_view<float,1> &avOutpu
         sum_k += buffer[i];
       buffer[SOFTMAX_THREADS] = sum_k;
     }
-    //__syncthreads();
     tidx.barrier.wait();
 
     // softmax
@@ -103,7 +99,6 @@ void gpunn_SoftMax_updateGradInput_kernel(Concurrency::array_view<float, 1> &avG
     buffer[i_start] = 0;
     for (int i=i_start; i<i_end; i+=i_step)
       buffer[i_start] += gradOutput_k[i] * output_k[i];
-    //__syncthreads();
     tidx.barrier.wait();
 
     // reduce
@@ -114,7 +109,6 @@ void gpunn_SoftMax_updateGradInput_kernel(Concurrency::array_view<float, 1> &avG
         sum_k += buffer[i];
       buffer[0] = sum_k;
     }
-    //__syncthreads();
     tidx.barrier.wait();
 
     float sum_k = buffer[0];

@@ -9,7 +9,6 @@ void gpunn_LogSoftMax_updateOutput_kernel(Concurrency::array_view<float,1> &avOu
   // nframe = (nframe + (LOGSOFTMAX_THREADS -1)) &~(LOGSOFTMAX_THREADS-1);
   Concurrency::extent<1> grdExt(nframe * LOGSOFTMAX_THREADS);
   Concurrency::tiled_extent<LOGSOFTMAX_THREADS> t_ext(grdExt);
-  //std::cout<<"Update OutPut kernel invoked"<<std::endl;
   Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<LOGSOFTMAX_THREADS> tidx) restrict(amp) 
   {
     tile_static float buffer[LOGSOFTMAX_THREADS+1];
@@ -34,7 +33,6 @@ void gpunn_LogSoftMax_updateOutput_kernel(Concurrency::array_view<float,1> &avOu
     // reduce
     for (unsigned int stride = i_step >> 1; stride > 0; stride >>= 1)
     {
-      //__syncthreads();
       tidx.barrier.wait();
       if ((i_start < stride) && (buffer[i_start] < buffer[i_start + stride]))
         buffer[i_start] = buffer[i_start + stride];
@@ -47,7 +45,6 @@ void gpunn_LogSoftMax_updateOutput_kernel(Concurrency::array_view<float,1> &avOu
       buffer[LOGSOFTMAX_THREADS] = max_k;
     }
 
-    //__syncthreads();
     tidx.barrier.wait();
 
     // logadd?
@@ -59,7 +56,6 @@ void gpunn_LogSoftMax_updateOutput_kernel(Concurrency::array_view<float,1> &avOu
     // reduce
     for (unsigned int stride = i_step >> 1; stride > 0; stride >>= 1)
     {
-      //__syncthreads();
       tidx.barrier.wait();
       if (i_start < stride)
         buffer[i_start] += buffer[i_start+stride];
@@ -67,7 +63,6 @@ void gpunn_LogSoftMax_updateOutput_kernel(Concurrency::array_view<float,1> &avOu
     if (i_start == 0)
       buffer[LOGSOFTMAX_THREADS] = max_k + Concurrency::fast_math::logf(buffer[0]);
 
-    //__syncthreads();
     tidx.barrier.wait();
     // logsoftmax
     float logsum_k = buffer[LOGSOFTMAX_THREADS];
@@ -109,13 +104,11 @@ void gpunn_LogSoftMax_updateGradInput_kernel(Concurrency::array_view<float,1> &a
     // reduce
     for (unsigned int stride = t_ext.tile_dim0 >> 1; stride > 0; stride >>= 1)
     {
-      //__syncthreads();
       tidx.barrier.wait();
       if (tx < stride)
         buffer[tx] += buffer[tx+stride];
     }
 
-    //__syncthreads();
     tidx.barrier.wait();
 
     float sum_k = buffer[0];
@@ -130,7 +123,7 @@ static int gpunn_LogSoftMax_updateOutput(lua_State *L)
   THGPUTensor *output = (THGPUTensor*)luaT_getfieldcheckudata(L, 1, "output", "torch.GPUTensor");
 
   input = THGPUTensor_newContiguous(input);
-  //std::cout<<"Before logSoft resize"<<std::endl;
+
   THGPUTensor_resizeAs(output, input);
   PREPARE_AV(output, pavOutput);
   PREPARE_AV(input, pavInput);
@@ -144,7 +137,6 @@ static int gpunn_LogSoftMax_updateOutput(lua_State *L)
   }
   else
   THError("vector or matrix expected");
-  //std::cout<<"LogSoftMax finished"<<std::endl;
 
   THGPUTensor_free(input);
 
@@ -159,7 +151,7 @@ static int gpunn_LogSoftMax_updateGradInput(lua_State *L)
 
   output = THGPUTensor_newContiguous(output);
   gradOutput = THGPUTensor_newContiguous(gradOutput);
-  //std::cout<<"inside logsoftmax input"<<std::endl;
+
   THGPUTensor_resizeAs(gradInput, output);
   PREPARE_AV(gradInput, pavGradInput);
   PREPARE_AV(gradOutput, pavGradOutput);

@@ -152,45 +152,7 @@ void gpunn_MSECriterion_updateGradInput_kernel(Concurrency::array_view<float,1> 
   });
 }
 
-/*static int gpunn_MSECriterion_updateOutput2(lua_State *L)
-{
-  THGPUTensor *input = (THGPUTensor*)luaT_checkudata(L, 2, "torch.GPUTensor");
-  THGPUTensor *target = (THGPUTensor*)luaT_checkudata(L, 3, "torch.GPUTensor");
-  int sizeAverage = luaT_getfieldcheckboolean(L, 1, "sizeAverage");
-  long size = THGPUTensor_nElement(input);
-  THGPUTensor *temp1 = input;
-  THGPUTensor *temp2 = target;
-
-  input = THGPUTensor_newContiguous(input);
-  target = THGPUTensor_newContiguous(target);
-
-  THGPUStorage *output = THGPUStorage_newWithSize(1);
-
-  size = (size + (MSECRITERION_THREADS - 1)) & ~(MSECRITERION_THREADS - 1);
-  gpunn_MSECriterion_updateOutput_kernel(output, input, target, 1, size);
-
-  lua_pushnumber(L, THGPUStorage_get(output, 0));
-
-  if (input != temp1)
-  {
-    THGPUTensor_free(input);
-    input = NULL;
-  }
-  if (target != temp2)
-  {
-    THGPUTensor_free(target);
-    target = NULL;
-  }
-  THGPUStorage_free(output);
-
-  lua_pushstring(L, "output");
-  lua_pushvalue(L, -2);
-  lua_rawset(L, 1);
-
-  return 1;
-}*/
-
-static int gpunn_MSECriterion_updateOutput2(lua_State *L)
+static int cunn_MSECriterion_updateOutput2(lua_State *L)
 {
   THGPUTensor *input = (THGPUTensor*)luaT_checkudata(L, 2, "torch.GPUTensor");
   THGPUTensor *target = (THGPUTensor*)luaT_checkudata(L, 3, "torch.GPUTensor");

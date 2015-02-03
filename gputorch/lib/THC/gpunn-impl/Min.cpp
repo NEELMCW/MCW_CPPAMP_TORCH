@@ -7,7 +7,6 @@
 void min_output(Concurrency::array_view<float, 1> &avInp, Concurrency::array_view<float,1> &avOut, Concurrency::array_view<float,1> &avInD, unsigned int inpSz, unsigned int outSz,
                unsigned int indSz, long nrows, long ncols, unsigned int numBlocks)
 {
-  // output offset:
   Concurrency::extent<1> grdExt(numBlocks * 256);
   Concurrency::tiled_extent<256> t_ext(grdExt);
 
@@ -38,7 +37,6 @@ void min_output(Concurrency::array_view<float, 1> &avInp, Concurrency::array_vie
 void min_gradInput(Concurrency::array_view<float, 1> &avInp, Concurrency::array_view<float,1> &avOut, Concurrency::array_view<float,1> &avInD, unsigned int inputSz, unsigned int outSz,
                   unsigned int indSz, long nrows, long ncols, unsigned int numBlocks)
 {
-  // output offset:
   Concurrency::extent<1> grdExt(numBlocks * 256);
   Concurrency::tiled_extent<256> t_ext(grdExt);
 
