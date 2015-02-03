@@ -1,11 +1,6 @@
 #include "luaT.h"
 #include "THC.h"
 
-/*#include <thrust/transform.h>
-#include <thrust/reduce.h>
-#include <thrust/transform_reduce.h>
-#include <thrust/functional.h>*/
-
 
 /*
  * Description:
@@ -48,7 +43,6 @@ int translate_idx_inv(int ii, int d1, int d2, int d3, int scale_factor, int off_
 void upscale(Concurrency::array_view<float,1> &avInp, Concurrency::array_view<float,1> &avOut, unsigned int inpSz, unsigned int outSz, long no_elements,
                         int scale_factor, int d1, int d2, int d3, unsigned int grdConf[])
 {
-  // output offset:
   Concurrency::extent<2> grdExt(grdConf[1],grdConf[0]*256);
   Concurrency::tiled_extent<1,256> t_ext(grdExt);
 
@@ -100,7 +94,7 @@ static int gpunn_SpatialUpSamplingNearest_updateOutput(lua_State *L)
   // Max number of blocks: http://en.wikipedia.org/wiki/GPU
   // 65535 for SM 2.x, 2^32 -1 for >= 3.0
   // TODO: When we move to SM 3.5 we should update this
-  long n_xblocks = fmin(fmax((int)ceil((float)no_elements / nthreads), 1), 65535);
+  long n_xblocks = std::min(std::max((int)ceil((float)no_elements / nthreads), 1), 65535);
   long n_yblocks = (long)ceil((float)no_elements / (float)(n_xblocks * nthreads));
   if (n_yblocks > 65535)
   {
@@ -188,7 +182,7 @@ static int gpunn_SpatialUpSamplingNearest_updateGradInput(lua_State *L)
   // Max number of blocks: http://en.wikipedia.org/wiki/GPU
   // 65535 for SM 2.x, 2^32 -1 for >= 3.0
   // TODO: When we move to SM 3.5 we should update this
-  long n_xblocks = fmin(fmax((int)ceil((float)no_elements / nthreads), 1), 65535);
+  long n_xblocks = std::min(std::max((int)ceil((float)no_elements / nthreads), 1), 65535);
   long n_yblocks = (long)ceil((float)no_elements / (float)(n_xblocks * nthreads));
   if (n_yblocks > 65535) 
   {
