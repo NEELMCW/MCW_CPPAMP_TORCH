@@ -230,21 +230,30 @@ void gemv_TransA(Concurrency::array_view<float> &A_mat, int aOffset, Concurrency
     }
   });
   
-  int len_Y = (lenY + 15) & ~15;
-  Concurrency::extent<1> grdExt1(len_Y);
-  Concurrency::tiled_extent<16> t_ext1(grdExt1);
-  Concurrency::parallel_for_each(t_ext1,[=] (Concurrency::tiled_index<16> tidx) restrict(amp)
+  Concurrency::extent<1> grdExt1(256);
+  Concurrency::tiled_extent<256> t_ext1(grdExt1);
+  Concurrency::parallel_for_each(t_ext1,[=] (Concurrency::tiled_index<256> tidx) restrict(amp)
   {
-    int Col = tidx.global[0];
-    if(Col < lenY)
-    {     
-      float Pvalue = 0;
-      for(int i = 0; i < len_X/256; i++)
+    for(int Col=0; Col<lenY; Col++)
+    {
+      tile_static float sh[256];
+      int threadId = tidx.local[0];
+
+      sh[tidx.local[0]] = 0;
+
+      for(int i = threadId; i < len_X/256; i += tidx.tile_dim0)
       {
-        Pvalue += tempBuf[Col * (len_X/256) + i];
+        sh[i] += tempBuf[Col * (len_X/256) + i];
       }
+      tidx.barrier.wait();
+      for(int stride = 128; stride >= 1; stride /= 2)
+      {
+        if(threadId < stride)
+          sh[threadId] += sh[threadId + stride];
+      }
+      tidx.barrier.wait();
       Y_vec[Col] *= beta; 
-      Y_vec[Col] += alpha * Pvalue;
+      Y_vec[Col] += alpha * sh[0];
     }
   });
 }
