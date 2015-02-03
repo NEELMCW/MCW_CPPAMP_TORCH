@@ -58,6 +58,8 @@ static int gpunn_DistKLDivCriterion_updateGradInput(lua_State *L)
   THGPUTensor *target = (THGPUTensor*)luaT_checkudata(L, 3, "torch.GPUTensor");
   int sizeAverage = luaT_getfieldcheckboolean(L, 1, "sizeAverage");
   THGPUTensor *gradInput = (THGPUTensor*)luaT_getfieldcheckudata(L, 1, "gradInput", "torch.GPUTensor");
+  luaL_argcheck(L, THGPUTensor_nElement(input) == THGPUTensor_nElement(target), 2,
+                "input and target need to have the same number of elements");
 
   long size = THGPUTensor_nElement(input);
   float norm = (sizeAverage ? 2./size : 2.);
