@@ -47,8 +47,11 @@ void gemm_NoTransB(Concurrency::array_view<float, 1> &A, Concurrency::array_view
   Concurrency::extent<2> grdExt((N+(THREADS-1))&~(THREADS-1), (M+(THREADS-1))&~(THREADS-1));
   Concurrency::tiled_extent<THREADS, THREADS> t_ext(grdExt);
   Concurrency::array_view<float,2> Cmat = C.view_as<2>(Concurrency::extent<2>(N,M));
+  Cmat.discard_data();
   Concurrency::array_view<float,2> Amat = A.view_as<2>(Concurrency::extent<2>(M,K));
+  Amat.discard_data();
   Concurrency::array_view<float,2> Bmat = B.view_as<2>(Concurrency::extent<2>(N,K));
+  Bmat.discard_data();
   Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<THREADS, THREADS> tidx) restrict(amp){
 
   float CValue = 0;
