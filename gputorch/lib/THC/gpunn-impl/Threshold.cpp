@@ -54,11 +54,13 @@ static int gpunn_Threshold_updateGradInput(lua_State *L)
   double threshold = luaT_getfieldchecknumber(L, 1, "threshold");
 
   gradOutput = THGPUTensor_newContiguous(gradOutput);
+  input = THGPUTensor_newContiguous(input);
   THGPUTensor_resizeAs(gradInput, output);
 
   DECLARE_BOLT_DEVICE_VECTOR_3(input, input_data, gradInput, gradInput_data, gradOutput, gradOutput_data);
   bolt::amp::transform(input_data.begin(), input_data.end(), gradOutput_data.begin(), gradInput_data.begin(), thresholdupdateGradInput_functor(threshold, val));
 
+  THGPUTensor_free(input);
   THGPUTensor_free(gradOutput);
   return 1;
 }

@@ -39,11 +39,13 @@ static int gpunn_Square_updateGradInput(lua_State *L)
   THGPUTensor *gradInput = (THGPUTensor*)luaT_getfieldcheckudata(L, 1, "gradInput", "torch.GPUTensor");
 
   gradOutput = THGPUTensor_newContiguous(gradOutput);
+  input = THGPUTensor_newContiguous(input);
   THGPUTensor_resizeAs(gradInput, input);
 
   DECLARE_BOLT_DEVICE_VECTOR_3(input, input_data, gradInput, gradInput_data, gradOutput, gradOutput_data);
   bolt::amp::transform(input_data.begin(), input_data.end(), gradOutput_data.begin(),gradInput_data.begin(), squareupdateGradInput_functor());
 
+  THGPUTensor_free(input);
   THGPUTensor_free(gradOutput);
   return 1;
 }
