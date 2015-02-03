@@ -220,10 +220,12 @@ static int gpunn_SpatialMaxPooling_updateOutput(lua_State *L)
     int yblocks = (int)(16L / nInputPlane);
     yblocks = yblocks < 1 ? 1 : yblocks;
     int xblocks = nInputPlane;
-
+    
+    // no need to sync from host for input & output & indices array_view
     PREPARE_AV(input, pavInput);
     PREPARE_AV(output, pavOutput);
     PREPARE_AV(indices, pavIndices);
+
     // run maxpool kernel
     maxpool(*pavInput, *pavOutput, 
            *pavIndices, nOutputCols, nOutputRows,
@@ -248,9 +250,11 @@ static int gpunn_SpatialMaxPooling_updateOutput(lua_State *L)
     yblocks = yblocks < 1 ? 1 : yblocks;
     int xblocks = nInputPlane * nbatch;
 
+    // no need to sync from host for input & output & indices array_view
     PREPARE_AV(input, pavInput);
     PREPARE_AV(output, pavOutput);
-    PREPARE_AV(indices, pavIndices);
+    PREPARE_AV(indices, pavIndices);    
+    
     // run maxpool kernel
     maxpool(*pavInput, *pavOutput, 
            *pavIndices, nOutputCols, nOutputRows,

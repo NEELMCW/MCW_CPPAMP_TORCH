@@ -132,7 +132,6 @@ static int gpunn_LogSoftMax_updateOutput(lua_State *L)
   input = THGPUTensor_newContiguous(input);
   //std::cout<<"Before logSoft resize"<<std::endl;
   THGPUTensor_resizeAs(output, input);
-
   PREPARE_AV(output, pavOutput);
   PREPARE_AV(input, pavInput);
   if (input->nDimension == 1)
@@ -162,10 +161,9 @@ static int gpunn_LogSoftMax_updateGradInput(lua_State *L)
   gradOutput = THGPUTensor_newContiguous(gradOutput);
   //std::cout<<"inside logsoftmax input"<<std::endl;
   THGPUTensor_resizeAs(gradInput, output);
-
   PREPARE_AV(gradInput, pavGradInput);
-  PREPARE_AV(output, pavOutput);
   PREPARE_AV(gradOutput, pavGradOutput);
+  PREPARE_AV(output, pavOutput);
   if (gradInput->nDimension == 1)
   {
     gpunn_LogSoftMax_updateGradInput_kernel(*pavGradInput, *pavOutput, *pavGradOutput, 1, gradInput->size[0]);

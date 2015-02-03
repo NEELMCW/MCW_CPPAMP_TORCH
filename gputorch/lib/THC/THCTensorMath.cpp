@@ -145,7 +145,10 @@ void THGPUTensor_cadd(THGPUTensor *self_, THGPUTensor* src1, float value, THGPUT
 
     src2 = THGPUTensor_newContiguous(src2);
 
-    THGPUBlas_axpy(THGPUTensor_nElement(self), value, THGPUTensor_data(src2), 1, THGPUTensor_data(self), 1);
+    PREPARE_AV(src2, avData_src2);
+    PREPARE_AV(self, avData_self); 
+
+    THGPUBlas_axpy_opt(THGPUTensor_nElement(self), value, *avData_src2, 1, *avData_self, 1);
 
     THGPUTensor_free(src2);
     THGPUTensor_freeCopyTo(self, self_);
@@ -179,7 +182,6 @@ void THGPUTensor_cdiv(THGPUTensor *self_, THGPUTensor *src1, THGPUTensor *src2)
     src2 = THGPUTensor_newContiguous(src2);
     DECLARE_BOLT_DEVICE_VECTOR_3(src1, Dsrc1_data, src2, Dsrc2_data, self, Dself_data);
     bolt::amp::transform(Dsrc1_data.begin(), Dsrc1_data.end(), Dsrc2_data.begin(), Dself_data.begin(), bolt::amp::divides<float>());
-
 
     THGPUTensor_free(src1);
     THGPUTensor_free(src2);
@@ -223,9 +225,9 @@ void THGPUTensor_addcmul(THGPUTensor *self_, THGPUTensor* t, float value, THGPUT
   src1 = THGPUTensor_newContiguous(src1);
   src2 = THGPUTensor_newContiguous(src2);
 
-  Concurrency::array_view<float,1> *pavData = static_cast<Concurrency::array_view<float,1> *>(self->storage->allocatorContext);
-  Concurrency::array_view<float,1> *pavSrc1 = static_cast<Concurrency::array_view<float,1> *>(src1->storage->allocatorContext);
-  Concurrency::array_view<float,1> *pavSrc2 = static_cast<Concurrency::array_view<float,1> *>(src2->storage->allocatorContext);
+  PREPARE_AV(self, pavData);
+  PREPARE_AV(src1, pavSrc1);
+  PREPARE_AV(src2, pavSrc2);
 
   THGPUTensor_kernel_addcmul(*pavData, value, *pavSrc1, *pavSrc2, size);
 
@@ -269,10 +271,9 @@ void THGPUTensor_addcdiv(THGPUTensor *self_, THGPUTensor *t, float value, THGPUT
   src1 = THGPUTensor_newContiguous(src1);
   src2 = THGPUTensor_newContiguous(src2);
 
-  Concurrency::array_view<float, 1> *pavData = static_cast<Concurrency::array_view<float, 1> *>(self->storage->allocatorContext);
-  Concurrency::array_view<float, 1> *pavSrc1 = static_cast<Concurrency::array_view<float, 1> *>(src1->storage->allocatorContext);
-  Concurrency::array_view<float, 1> *pavSrc2 = static_cast<Concurrency::array_view<float, 1> *>(src2->storage->allocatorContext);
-
+  PREPARE_AV(self, pavData);
+  PREPARE_AV(src1, pavSrc1);
+  PREPARE_AV(src2, pavSrc2);
   THGPUTensor_kernel_addcdiv(*pavData, value, *pavSrc1, *pavSrc2, size);
 
   THGPUTensor_copy(self_, self);
@@ -287,6 +288,9 @@ float THGPUTensor_dot(THGPUTensor *self, THGPUTensor *src)
   {
     self = THGPUTensor_newContiguous(self);
     src = THGPUTensor_newContiguous(src);
+    // TODO: no need to sync data from device to host if with amp-based blast
+    THGPUTensorMemcpyDeviceToHost(self);
+    THGPUTensorMemcpyDeviceToHost(src);
     float result = THGPUBlas_dot(THGPUTensor_nElement(self),
                                   THGPUTensor_data(self), 1,
                                   THGPUTensor_data(src), 1);
@@ -300,6 +304,11 @@ float THGPUTensor_minall(THGPUTensor *self)
 {
   self = THGPUTensor_newContiguous(self);
   DECLARE_BOLT_DEVICE_VECTOR(self, self_data);
+  // Data transfer:
+  //   1 for reading data from host to result array (not necessary but seems mandotary when construct array)
+  //   1 for writing back data from device to host side of result array
+  // Memory objects created and released
+  //   1 created and released for constructing/destructing result array (tiles number depending on input)
   float result = bolt::amp::reduce(self_data.begin(), self_data.begin()+THGPUTensor_nElement(self), (float)(THInf), bolt::amp::minimum<float>());
   THGPUTensor_free(self);
   return result;
@@ -309,6 +318,11 @@ float THGPUTensor_maxall(THGPUTensor *self)
 {
   self = THGPUTensor_newContiguous(self);
   DECLARE_BOLT_DEVICE_VECTOR(self, self_data);
+  // Data transfer:
+  //   1 for reading data from host to result array (not necessary but seems mandotary when construct array)
+  //   1 for writing back data from device to host side of result array
+  // Memory objects created and released
+  //   1 created and released for constructing/destructing result array (tiles number depending on input)
   float result = bolt::amp::reduce(self_data.begin(), self_data.begin()+THGPUTensor_nElement(self), (float)(-THInf), bolt::amp::maximum<float>());
   THGPUTensor_free(self);
   return result;
@@ -432,6 +446,8 @@ void THGPUTensor_transformReduceOuterDim(THGPUTensor *tgt, THGPUTensor *src, lon
   unsigned int size[4] = { 1, 1, 1, 1 };
   unsigned int gridConfig[3];
   unsigned ndim = THGPUTensor_nDimension(src);
+  PREPARE_AV(tgt, pavTgt);
+  PREPARE_AV(src, pavSrc);
   for (unsigned idim = 0, o = ndim - 2; idim < ndim; idim++) 
   {
     unsigned odim = idim == rdim ? reduce : o--;
@@ -447,8 +463,6 @@ void THGPUTensor_transformReduceOuterDim(THGPUTensor *tgt, THGPUTensor *src, lon
   gridConfig[1] = Concurrency::fast_math::fmin(maxGridDim, size[1]);
   gridConfig[2] = Concurrency::fast_math::fmin(maxGridDim, size[2]);
 
-  Concurrency::array_view<float, 1> *pavTgt = static_cast<Concurrency::array_view<float, 1> *>(tgt->storage->allocatorContext);
-  Concurrency::array_view<float, 1> *pavSrc = static_cast<Concurrency::array_view<float, 1> *>(src->storage->allocatorContext);
   Concurrency::array_view<unsigned int, 1> avSrc_stride(4, src_stride);
   Concurrency::array_view<unsigned int, 1> avTgt_stride(4, tgt_stride);
   Concurrency::array_view<unsigned int, 1> avSize(4, size);
@@ -542,6 +556,8 @@ void THGPUTensor_transformReduceInnermostDim(THGPUTensor *tgt, THGPUTensor *src,
   unsigned int size[4] = { 1, 1, 1, 1 };
   unsigned int gridConfig[3];
   unsigned ndim = THGPUTensor_nDimension(src);
+  PREPARE_AV(tgt, pavTgt);
+  PREPARE_AV(src, pavSrc);
   for (unsigned dim = 0; dim < ndim; dim++) 
   {
     unsigned odim = ndim - 1 - dim;
@@ -556,8 +572,6 @@ void THGPUTensor_transformReduceInnermostDim(THGPUTensor *tgt, THGPUTensor *src,
   gridConfig[1]= std::min(maxGridDim, nBlockPerRow);
   gridConfig[2] = std::min(maxGridDim, size[3]);
 
-  Concurrency::array_view<float, 1> *pavTgt = static_cast<Concurrency::array_view<float, 1> *>(tgt->storage->allocatorContext);
-  Concurrency::array_view<float, 1> *pavSrc = static_cast<Concurrency::array_view<float, 1> *>(src->storage->allocatorContext);  
   Concurrency::array_view<unsigned int, 1> avSrc_stride(4, src_stride);
   Concurrency::array_view<unsigned int, 1> avTgt_stride(4, tgt_stride);
   Concurrency::array_view<unsigned int, 1> avSize(4, size);
@@ -650,34 +664,53 @@ void THGPUTensor_addmv(THGPUTensor *r_, float beta, THGPUTensor *t, float alpha,
     THGPUTensor_copy(r_, t);
   }
 
-  Concurrency::array_view<float, 1> *pavMat = static_cast<Concurrency::array_view<float, 1> *>(mat->storage->allocatorContext);
-  Concurrency::array_view<float, 1> *pavVec = static_cast<Concurrency::array_view<float, 1> *>(vec->storage->allocatorContext);
-  Concurrency::array_view<float, 1> *pavR_ = static_cast<Concurrency::array_view<float, 1> *>(r_->storage->allocatorContext);
-  
+  PREPARE_AV(vec, pavVec);
+  PREPARE_AV(r_, pavR_);
+  int lenX;
+  int lenY;
 
   if (mat->stride[0] == 1)
   {
+    lenX = mat->size[0];
+    lenY = mat->size[1];
+  }
+  else
+  {
+    lenX = mat->size[1];
+    lenY = mat->size[0];
+  }
+
+  int len_X = (lenX + 255) & ~255;
+  int numBlocks = len_X / 256;
+
+  float* tempBuf = (float*)malloc(numBlocks*lenY*sizeof(float));
+  Concurrency::extent<1> ext(numBlocks*lenY);
+  Concurrency::array_view<float,1> temp_buf(ext, tempBuf);
+
+  if (mat->stride[0] == 1)
+  {
+    PREPARE_AV(mat, pavMat);
     THGPUBlas_gemv_opt('n', mat->size[0], mat->size[1],
                      alpha, *pavMat, 0,
                      *pavVec, vec->stride[0],
-                     beta, *pavR_, r_->stride[0]);
+                     beta, *pavR_, r_->stride[0], temp_buf);
   }
   else if (mat->stride[1] == 1)
   {
+    PREPARE_AV(mat, pavMat);
     THGPUBlas_gemv_opt('t',  mat->size[1], mat->size[0],
                      alpha, *pavMat, 0,
                      *pavVec, vec->stride[0],
-                     beta, *pavR_, r_->stride[0]);
+                     beta, *pavR_, r_->stride[0], temp_buf);
   }
   else
   {
     THGPUTensor *cmat = THGPUTensor_newContiguous(mat);
-    Concurrency::array_view<float, 1> *pavCMat = static_cast<Concurrency::array_view<float, 1> *>(cmat->storage->allocatorContext);
-
+    PREPARE_AV(cmat, pavCMat);
     THGPUBlas_gemv_opt('t',  mat->size[1], mat->size[0],
                      alpha, *pavCMat, 0,
                      *pavVec, vec->stride[0],
-                     beta, *pavR_, r_->stride[0]);
+                     beta, *pavR_, r_->stride[0], temp_buf);
 
     THGPUTensor_free(cmat);
   }
@@ -760,9 +793,9 @@ void THGPUTensor_addmm(THGPUTensor *r_, float beta, THGPUTensor *t, float alpha,
     m2_ = THGPUTensor_newContiguous(m2);
   }
 
-  Concurrency::array_view<float, 1> *m1_Mat = static_cast<Concurrency::array_view<float, 1> *>(m1_->storage->allocatorContext);
-  Concurrency::array_view<float, 1> *m2_Mat = static_cast<Concurrency::array_view<float, 1> *>(m2_->storage->allocatorContext);
-  Concurrency::array_view<float, 1> *r_Mat = static_cast<Concurrency::array_view<float, 1> *>(r__->storage->allocatorContext);
+  PREPARE_AV(m1_, m1_Mat);
+  PREPARE_AV(m2_, m2_Mat);
+  PREPARE_AV(r_, r_Mat);
   /* do the operation */
   THGPUBlas_gemm_opt(transpose_m1,
                    transpose_m2,
@@ -810,30 +843,30 @@ void THGPUTensor_addr(THGPUTensor *r_, float beta, THGPUTensor *t, float alpha, 
   if (beta != 1)
     THGPUTensor_mul(r_, r_, beta);
 
+  PREPARE_AV(vec1, avData_vec1);
+  PREPARE_AV(vec2, avData_vec2);
+  PREPARE_AV(r_, avData_r);
+
   if (r_->stride[0] == 1)
   {
-    THGPUBlas_ger(vec1->size[0], vec2->size[0],
-                    alpha, THGPUTensor_data(vec1), vec1->stride[0],
-                    THGPUTensor_data(vec2), vec2->stride[0],
-                    THGPUTensor_data(r_), r_->stride[1]);
+    THGPUBlas_ger_opt(vec1->size[0], vec2->size[0],
+                    alpha, *avData_vec1, vec1->stride[0],
+                    *avData_vec2, vec2->stride[0],
+                    *avData_r, r_->stride[1]);
   }
   else if (r_->stride[1] == 1)
   {
-    THGPUBlas_ger(vec2->size[0], vec1->size[0],
-                    alpha, THGPUTensor_data(vec2), vec2->stride[0],
-                    THGPUTensor_data(vec1), vec1->stride[0],
-                    THGPUTensor_data(r_), r_->stride[0]);
+    THGPUBlas_ger_opt(vec2->size[0], vec1->size[0],
+                    alpha, *avData_vec2, vec2->stride[0],
+                    *avData_vec1, vec1->stride[0],
+                    *avData_r, r_->stride[0]);
   }
   else
   {
-    THGPUTensor *cr = THGPUTensor_newClone(r_);
-
-    THGPUBlas_ger(vec2->size[0], vec1->size[0],
-                    alpha, THGPUTensor_data(vec2), vec2->stride[0],
-                    THGPUTensor_data(vec1), vec1->stride[0],
-                    THGPUTensor_data(cr), cr->stride[0]);
-
-    THGPUTensor_freeCopyTo(cr, r_);
+    THGPUBlas_ger_opt(vec2->size[0], vec1->size[0],
+                    alpha, *avData_vec2, vec2->stride[0],
+                    *avData_vec1, vec1->stride[0],
+                    *avData_r, r_->stride[0]);
   }
 }
 
@@ -851,7 +884,7 @@ void THGPUTensor_##NAME(THGPUTensor *self_, THGPUTensor *src)                   
   THGPUTensor_resizeAs(self_, src);                                                                                     \
   THGPUTensor *self = THGPUTensor_newContiguous(self_);                                                                 \
   src = THGPUTensor_newContiguous(src);                                                                                 \
-  DECLARE_BOLT_DEVICE_VECTOR_2(src, src_data, self, self_data); \
+  DECLARE_BOLT_DEVICE_VECTOR_2(src, src_data, self, self_data);                                                         \
   bolt::amp::transform(src_data.begin(), src_data.end(), self_data.begin(),NAME##_functor());                           \
                                                                                                                         \
   THGPUTensor_free(src);                                                                                                \
@@ -1271,7 +1304,7 @@ void THGPUTensor_renorm(THGPUTensor* self, THGPUTensor* src, float value, long d
   THArgCheck(THGPUTensor_nDimension(src) > 1, 1, "need at least 2 dimensions");
   long gridSize = data->size[0] * 32;
 
-  Concurrency::array_view<float, 1> *pavData = static_cast<Concurrency::array_view<float, 1> *>(data->storage->allocatorContext);
+  PREPARE_AV(data, pavData);
 
   THGPUTensor_kernel_renorm(*pavData, value, size, maxnorm, gridSize);
 
@@ -1426,8 +1459,8 @@ void THGPUTensor_indexCopy(THGPUTensor *res_, int dim, THLongTensor *indices, TH
   long nblockx = (long)(ceil((float)nRes / nIndex / (16*16)));
   stride_ =  new Concurrency::array_view<long,1>(Concurrency::extent<1>(res_->nDimension),res_->stride);
 
-  Concurrency::array_view<float, 1> *pavRes = static_cast<Concurrency::array_view<float, 1> *>(res_->storage->allocatorContext);
-  Concurrency::array_view<float, 1> *pavSrc = static_cast<Concurrency::array_view<float, 1> *>(src->storage->allocatorContext);
+  PREPARE_AV(res_, pavRes);
+  PREPARE_AV(src, pavSrc);
   Concurrency::array_view<long, 1> pavInd(indices->storage->size, indices->storage->data);
   
   THGPUTensor_kernel_indexCopy(*pavRes, *pavSrc, 
@@ -1455,7 +1488,7 @@ void THGPUTensor_indexFill(THGPUTensor *res_, int dim, THLongTensor *indices, fl
 
   stride_ =  new Concurrency::array_view<long,1>(Concurrency::extent<1>(res_->nDimension),res_->stride);
 
-  Concurrency::array_view<float, 1> *pavRes = static_cast<Concurrency::array_view<float, 1> *>(res_->storage->allocatorContext);
+  PREPARE_AV(res_, pavRes);
   Concurrency::array_view<long, 1> pavInd(indices->storage->size, indices->storage->data);
   
   THGPUTensor_kernel_indexFill(*pavRes, *stride_, pavInd, res_->nDimension, 
@@ -1531,10 +1564,9 @@ void THGPUTensor_indexSelect(THGPUTensor *res_, THGPUTensor *src, int dim, THLon
   long nblockx = (long)(ceil((float)nRes / nIndex/(16 * 16)));
 
   stride_ =  new Concurrency::array_view<long,1>(Concurrency::extent<1>(src->nDimension),src->stride);
-  
-  Concurrency::array_view<float, 1> *pavRes = static_cast<Concurrency::array_view<float, 1> *>(res_->storage->allocatorContext);
-  Concurrency::array_view<float, 1> *pavSrc = static_cast<Concurrency::array_view<float, 1> *>(src->storage->allocatorContext);
 
+  PREPARE_AV(res_, pavRes);
+  PREPARE_AV(src, pavSrc);
   THGPUTensor_kernel_indexSelect(*pavRes, *pavSrc, *stride_, indices, src->nDimension, dim, 
                                  indices->size[0], nRes,THGPUTensor_nElement(src), src->size[dim],nblockx);
 

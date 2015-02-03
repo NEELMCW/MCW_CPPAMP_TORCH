@@ -489,10 +489,20 @@ void THGPUBlas_gemm_opt(char transa, char transb,
   gemm_AMP(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc, aOffset, bOffset, cOffset);
 }
 
-void THGPUBlas_gemv_opt(char trans, long m, long n, float alpha, 
-  Concurrency::array_view<float> &a, long aoffset, Concurrency::array_view<float> &x, long incx, float beta, Concurrency::array_view<float> &y, long incy)
+void THGPUBlas_axpy_opt(long n, float a, Concurrency::array_view<float> &x, long incx, Concurrency::array_view<float> &y, long incy)
 {
-  gemv_AMP(trans,m,n,alpha,a,aoffset,x,incx,beta,y,incy);
+    axpy_AMP(n, a, x, incx, y, incy);
+}
+
+void THGPUBlas_ger_opt(long m, long n, float alpha, Concurrency::array_view<float> &x, long incx, Concurrency::array_view<float> &y, long incy, Concurrency::array_view<float> &a, long lda)
+{ 
+    ger_AMP(m, n, alpha, x, incx, y, incy, a, lda);
+}
+
+void THGPUBlas_gemv_opt(char trans, long m, long n, float alpha, 
+  Concurrency::array_view<float> &a, long aoffset, Concurrency::array_view<float> &x, long incx, float beta, Concurrency::array_view<float> &y, long incy, Concurrency::array_view<float> &temp_buf)
+{
+  gemv_AMP(trans,m,n,alpha,a,aoffset,x,incx,beta,y,incy, temp_buf);
 }
 
 /* Level 2 */
@@ -586,3 +596,5 @@ void THGPUBlas_gemv_opt1(char trans, long m, long n, float alpha,
   THError("Cublas_gemv only supports m, n, lda, incx, incy"
           "in the range 0 < [val] <= %d", INT_MAX);
 }
+
+

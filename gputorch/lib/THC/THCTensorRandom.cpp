@@ -1,6 +1,6 @@
 #include "THCTensorRandom.h"
 #include "THCGeneral.h"
-
+#include "common.h"
 /*#include <thrust/functional.h>
 #include <curand.h>
 #include <curand_kernel.h>
@@ -174,30 +174,36 @@ void THCRandom_setRNGState(THGPURNGState* state, THByteTensor *rng_state)
   memcpy(&state->current_gen->initial_seed, THByteTensor_data(rng_state) + states_size, seed_size);*/
 }
 
+// TODO: currently can't use pfe since no kernel versions of all CURAND_FUNC from underlying AMP
+// Just prepare data on host and then copy to device side of the array
 #define GENERATE_KERNEL1(NAME, ARG1, CURAND_FUNC, TRANSFORM)                                             \
 void NAME(int size, THGPUTensor *result, ARG1)                                                           \
 {                                                                                                        \
   std::mt19937 gen;                                                                                      \
-  Concurrency::array_view<float, 1> avResult(THGPUTensor_nElement(result), THGPUTensor_data(result));    \
+  float vec[size];                                                                                       \
   for (int i = 0; i < size; i++) {                                                                       \
     std::CURAND_FUNC<float> rand(0.0, 0.9);                                                              \
     float x = rand(gen);                                                                                 \
     x = TRANSFORM;                                                                                       \
-    avResult[i] = x;                                                                                     \
+    vec[i] = x;                                                                                          \
   }                                                                                                      \
+  MemcpyHostToTHGPUTensor(vec,size,result);                                                              \
 }
 
+// TODO: currently can't use pfe since no kernel versions of all CURAND_FUNC from underlying AMP
+// Just prepare data on host and then copy to device side of the array
 #define GENERATE_KERNEL2(NAME, ARG1, ARG2, CURAND_FUNC, TRANSFORM)                                       \
 void NAME(int size, THGPUTensor *result, ARG1, ARG2)                                                     \
 {                                                                                                        \
   std::mt19937 gen;                                                                                      \
-  Concurrency::array_view<float, 1> avResult(THGPUTensor_nElement(result), THGPUTensor_data(result));    \
+  float vec[size];                                                                                       \
   for (int i = 0; i < size; i++) {                                                                       \
     std::CURAND_FUNC<float> rand(0, 0.9);                                                                \
     float x = rand(gen);                                                                                 \
     x = TRANSFORM;                                                                                       \
-    avResult[i] = x;                                                                                     \
+    vec[i] = x;                                                                                          \
   }                                                                                                      \
+  MemcpyHostToTHGPUTensor(vec,size,result);                                                              \
 }
 
 GENERATE_KERNEL2(generate_uniform, double a, double b, uniform_real_distribution, x * (b-a) + a)
@@ -211,15 +217,17 @@ GENERATE_KERNEL2(generate_cauchy, double median, double sigma, uniform_real_dist
 #undef GENERATE_KERNEL2
 
 /* Separate kernel because curand_log_normal gets extra parameters. */
-void generate_log_normal(int size, Concurrency::array_view<float, 1> &avResult, float mean, float stddev)
+void generate_log_normal(int size, THGPUTensor *self_, float mean, float stddev)
 {
   std::mt19937 gen;
+  float vec[size];
   for (int i = 0; i < size; i++)
   {
     std::lognormal_distribution<float> rand(mean, stddev);
     float x = rand(gen);
-    avResult[i] = x;
+    vec[i] = x;
   }
+  MemcpyHostToTHGPUTensor(vec, size, self_);
 }
 
 
@@ -258,10 +266,7 @@ void THGPUTensor_logNormal(THGPURNGState* state, THGPUTensor *self_, double mean
 {
   THGPUTensor *self = THGPUTensor_newContiguous(self_);
   long size = THGPUTensor_nElement(self);
-
-  Concurrency::array_view<float, 1> *pavSelf = static_cast<Concurrency::array_view<float, 1> *>(self->storage->allocatorContext);
-
-  generate_log_normal(size, *pavSelf, mean, stdv);
+  generate_log_normal(size, self_, mean, stdv);
 
   THGPUTensor_freeCopyTo(self, self_);
 };

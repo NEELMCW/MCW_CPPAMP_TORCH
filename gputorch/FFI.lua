@@ -48,4 +48,3 @@ typedef struct THGPUTensor
    )
 
 end
-

@@ -1,6 +1,7 @@
 #include "THCTensorConv.h"
 #include "THCGeneral.h"
 #include "THCTensorMath.h"
+#include "common.h"
 #include <stdio.h>
 
 #define CUDA_SHARED_MEM_SIZE (8*1024-32)
@@ -276,9 +277,9 @@ void THGPUTensor_conv2Dmv(THGPUTensor *output, float beta, THGPUTensor *t_,
   int yblocks = (int)(16L / nOutputPlane);
   yblocks = yblocks < 1 ? 1 : yblocks;
 
-  Concurrency::array_view<float, 1> *pavInput = static_cast<Concurrency::array_view<float, 1> *> (input->storage->allocatorContext);
-  Concurrency::array_view<float, 1> *pavKernel = static_cast<Concurrency::array_view<float, 1> *> (kernel->storage->allocatorContext);
-  Concurrency::array_view<float, 1> *pavOutput = static_cast<Concurrency::array_view<float, 1> *> (output->storage->allocatorContext);
+  PREPARE_AV(input, pavInput);
+  PREPARE_AV(kernel, pavKernel);
+  PREPARE_AV(output, pavOutput);
 
   // convolution: xcorr2 or conv2
   if (type[1] == 'X') {
@@ -397,9 +398,9 @@ void THGPUTensor_conv2Dmm(THGPUTensor *output, float beta, THGPUTensor *t_,
   int yblocks = (int)(16L / nOutputPlane);
   yblocks = yblocks < 1 ? 1 : yblocks;
 
-  Concurrency::array_view<float, 1> *pavInput = static_cast<Concurrency::array_view<float, 1> *>(input->storage->allocatorContext);
-  Concurrency::array_view<float, 1> *pavKernel = static_cast<Concurrency::array_view<float, 1> *>(kernel->storage->allocatorContext);
-  Concurrency::array_view<float, 1> *pavOutput = static_cast<Concurrency::array_view<float, 1> *>(output->storage->allocatorContext);
+  PREPARE_AV(input, pavInput);
+  PREPARE_AV(kernel, pavKernel);
+  PREPARE_AV(output, pavOutput);
 
   // convolution: xcorr2 or conv2
   if (type[1] == 'X') {
@@ -445,8 +446,11 @@ void THGPUTensor_kernel_conv2genericrev(THGPUTensor *input, THGPUTensor *kernel,
   Concurrency::extent<3> copyExt(1,nInputPlane*16,nKernelPlane*16);
   Concurrency::tiled_extent<1,16,16> t_ext(copyExt);
   Concurrency::array_view<float,1>input_data(Concurrency::extent<1>(input->storage->size),THGPUTensor_data(input));
+  input_data.discard_data();
   Concurrency::array_view<float,1>kernel_data(Concurrency::extent<1>(kernel->storage->size),THGPUTensor_data(kernel));
+  kernel_data.discard_data();
   Concurrency::array_view<float,1>output_o(Concurrency::extent<1>(output->storage->size),THGPUTensor_data(output));
+  output_o.discard_data();
 
   Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1,16,16> tidx) restrict(amp)
   {
@@ -906,10 +910,10 @@ void THGPUTensor_conv2Dmap(THGPUTensor *output, THGPUTensor *input,
   if (block_height < 1)
     block_height = 1;
 
-  Concurrency::array_view<float, 1> *pavInput = static_cast<Concurrency::array_view<float, 1> *>(input->storage->allocatorContext);
-  Concurrency::array_view<float, 1> *pavKernel = static_cast<Concurrency::array_view<float, 1> *>(kernel->storage->allocatorContext);
-  Concurrency::array_view<float, 1> *pavOutput = static_cast<Concurrency::array_view<float, 1> *>(output->storage->allocatorContext);
-  Concurrency::array_view<float, 1> *pavTable = static_cast<Concurrency::array_view<float, 1> *>(table->storage->allocatorContext);
+  PREPARE_AV(input, pavInput);
+  PREPARE_AV(kernel, pavKernel);
+  PREPARE_AV(output, pavOutput);
+  PREPARE_AV(table, pavTable);
 
 #define GENERIC_MAP_KERNEL(dim)                                     \
   THGPUTensor_kernel_conv2mapgeneric <false, (dim), (dim)>(         \

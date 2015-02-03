@@ -7,6 +7,7 @@ for (int i = tidx.tile_dim0 * tidx.tile[0] + tidx.local[0]; i < (n); i += t_ext[
 #include "THBlas.h"
 #include "THCBlas.h"
 #include "THCGeneral.h"
+#include "common.h"
 
 // Kernel for fast unfold+copy
 // (borrowed from Caffe: https://github.com/BVLC/caffe/blob/master/src/caffe/layers/conv_layer.cu)
@@ -192,20 +193,7 @@ static int gpunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
   PREPARE_AV(output, avData_output);
   PREPARE_AV(weight, avData_weight);
   // For each elt in batch, do:
-
-  Concurrency::AMPAllocator& alloc = Concurrency::getAllocator();
   for (int elt = 0; elt < batchSize; elt ++) {
-
-    if(elt == 1)
-    {
-      alloc.writeNow = false;
-      alloc.readNow = false;
-    }
-
-    if(elt == batchSize-1)
-    {
-        alloc.readNow=true;
-    }
     // Matrix mulitply per output:
 
     // Do Bias first:
@@ -213,6 +201,10 @@ static int gpunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
     // (see http://docs.nvidia.com/gpu/cublas/#cublas-lt-t-gt-gemm)
 
     // Do GEMM (note: this is a bit confusing because gemm assumes column-major matrices)
+    // Ugly codes but it is the way to deal with unnecessary copying from host
+    avData_ones->discard_data();
+    avData_bias->discard_data();
+    avData_output->discard_data();
     THGPUBlas_gemm_opt(
         't', 'n',
         n_, m_, k_,
@@ -224,6 +216,8 @@ static int gpunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
         0, 0, output->stride[0] * elt
     );
     // Extract columns:
+    avData_im->discard_data();
+    avData_col->discard_data();
     im2col(
         *avData_im, input->stride[0] * elt,
         nInputPlane, inputHeight, inputWidth, kH, kW, padding, padding, dH, dW,
@@ -233,6 +227,9 @@ static int gpunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
     // (see http://docs.nvidia.com/gpu/cublas/#cublas-lt-t-gt-gemm)
 
     // Do GEMM (note: this is a bit confusing because gemm assumes column-major matrices)
+    avData_col->discard_data();
+    avData_weight->discard_data();
+    avData_output->discard_data();
     THGPUBlas_gemm_opt(
         'n', 'n',
         n, m, k,
@@ -244,7 +241,6 @@ static int gpunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
         0, 0, output->stride[0] * elt
     );
   }
-  alloc.writeNow = true;
 
   // Resize output
   if (batch == 0) {
@@ -307,24 +303,17 @@ static int gpunn_SpatialConvolutionMM_updateGradInput(lua_State *L) {
   long k = weight->size[0];
 
  // For each elt in batch, do:
-  Concurrency::AMPAllocator& alloc = Concurrency::getAllocator();
-
   for (int elt = 0; elt < batchSize; elt ++) {
-
-   if(elt == 1)
-   {
-     alloc.writeNow = false;
-     alloc.readNow = false;
-   }
-
-   if(elt == batchSize -1)
-     alloc.readNow = true;
     // Matrix mulitply per sample:
 
     // M,N,K are dims of matrix A and B
     // (see http://docs.nvidia.com/gpu/cublas/#cublas-lt-t-gt-gemm)
 
     // Do GEMM (note: this is a bit confusing because gemm assumes column-major matrices)
+    // Ugly codes but it is the way to deal with unnecessary copying from host
+    avData_gradOutput->discard_data();
+    avData_weight->discard_data();
+    avData_col->discard_data();
     THGPUBlas_gemm_opt(
         'n', 't',
         n, m, k,
@@ -337,13 +326,14 @@ static int gpunn_SpatialConvolutionMM_updateGradInput(lua_State *L) {
     );
 
     // Unpack columns back into input:
+    avData_col->discard_data();
+    avData_im->discard_data();
     col2im(
         *avData_col,
         nInputPlane, inputHeight, inputWidth, kH, kW, padding, padding, dH, dW,
         *avData_im, gradInput->stride[0], elt
     );
   }
-  alloc.writeNow = true;
 
   // Resize output
   if (batch == 0) {
@@ -411,31 +401,36 @@ static int gpunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
   long m_ = nOutputPlane;
   long k_ = outputHeight * outputWidth;
 
-  void* buf_Output = THGPUBlas_clCreateBuffer(k, m * batchSize, gradOutput->storage->data);
-
-  // char trans = 't', see gemv in the loop body
-  void* bufX = THGPUBlas_clCreateBuffer(k_, 1 ,THGPUTensor_data(ones));
-  void* bufY = THGPUBlas_clCreateBuffer(m_, 1 ,THGPUTensor_data(gradBias));
-
+  // ones & gradBias are host pointer that will be used in kernels
+  // Just sync from device to host here
+  THGPUTensorMemcpyDeviceToHost(ones);
+  THGPUTensorMemcpyDeviceToHost(gradBias);
+  
   PREPARE_AV(columns, avData_col);
   PREPARE_AV(input, avData_im);
   PREPARE_AV(gradOutput, avData_gradOutput);
   PREPARE_AV(gradWeight, avData_gradWeight);
-  // For each elt in batch, do:
-  Concurrency::AMPAllocator& alloc = Concurrency::getAllocator();
+  PREPARE_AV(ones, avData_ones);
+  PREPARE_AV(gradBias, avData_gradBias);
+  
 
+  // For each elt in batch, do:
   bool readNow=false;
 
-  for (int elt = 0; elt < batchSize; elt ++) {
-    if(elt == 1)
-    {
-      alloc.writeNow = false;
-      alloc.readNow = false;
-    }
+  int lenX = k_;
+  int lenY = m_;
+  int len_X = (lenX + 255) & ~255;
+  int numBlocks = len_X / 256;
 
-    if(elt == batchSize - 1)
-      alloc.readNow = true;
+  float* tempBuf = (float*)malloc(numBlocks*lenY*sizeof(float));
+  Concurrency::extent<1> ext(numBlocks*lenY);
+  Concurrency::array_view<float,1> temp_buf(ext, tempBuf);
+
+  for (int elt = 0; elt < batchSize; elt ++) {
     // Extract columns:
+    // Ugly codes but it is the way to deal with unnecessary copying from host
+    avData_im->discard_data();
+    avData_col->discard_data();
     im2col(
         *avData_im, input->stride[0] * elt,
         nInputPlane, inputHeight, inputWidth, kH, kW, padding, padding, dH, dW,
@@ -446,6 +441,9 @@ static int gpunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
     // (see http://docs.nvidia.com/gpu/cublas/#cublas-lt-t-gt-gemm)
 
     // Do GEMM (note: this is a bit confusing because gemm assumes column-major matrices)
+    avData_col->discard_data();
+    avData_gradOutput->discard_data();
+    avData_gradWeight->discard_data();
     THGPUBlas_gemm_opt(
         't', 'n',
         n, m, k,
@@ -457,34 +455,23 @@ static int gpunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
         0, gradOutput->stride[0] * elt, 0
     );
 
-    // Do Bias:
-    // M,N,K are dims of matrix A and B
-    // (see http://docs.nvidia.com/gpu/cublas/#cublas-lt-t-gt-gemm)
-    long m_ = nOutputPlane;
-    long k_ = outputHeight * outputWidth;
-
-    // Do GEMV (note: this is a bit confusing because gemv assumes column-major matrices)
-
     if(elt==batchSize-1)
       readNow = true;
-    THGPUBlas_gemv_opt1(
+
+    avData_ones->discard_data();
+    avData_gradBias->discard_data();
+    temp_buf.discard_data();
+
+    THGPUBlas_gemv_opt(
         't',
         k_, m_,
         scale,
-        gradOutput->storage->data + gradOutput->stride[0] * elt, k_,
-        THGPUTensor_data(ones), 1,
+        *avData_gradOutput, gradOutput->stride[0] * elt,
+        *avData_ones, 1,
         1,
-        THGPUTensor_data(gradBias), 1,
-        buf_Output, bufX, bufY,
-        gradOutput->stride[0] * elt, 0, 0, readNow
+        *avData_gradBias, 1, temp_buf
     );
   }
-  alloc.writeNow = true;
-
-  clReleaseMemObject(static_cast<cl_mem>(buf_Output));
-  clReleaseMemObject(static_cast<cl_mem>(bufY));
-  clReleaseMemObject(static_cast<cl_mem>(bufX));
-  // Free
 
   // Resize
   if (batch == 0) {
