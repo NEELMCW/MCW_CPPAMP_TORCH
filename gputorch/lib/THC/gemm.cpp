@@ -252,8 +252,14 @@ void gemv_TransA(Concurrency::array_view<float> &A_mat, int aOffset, Concurrency
 
 void gemv_NoTransA(Concurrency::array_view<float> &A, Concurrency::array_view<float> &X, Concurrency::array_view<float> &Y, float alpha, float beta,int lenX, int lenY)
 {
-  for (int j = 0; j < lenX; j++) 
+  int len_X = (lenX + 255) & ~255;
+  Concurrency::extent<1> grdExt(len_X);
+  Concurrency::tiled_extent<256> t_ext(grdExt);
+  Concurrency::parallel_for_each(t_ext,[=] (Concurrency::tiled_index<256> tidx) restrict(amp)
   {
+    int j = tidx.global[0];
+    if(j >= lenY)
+      return;
     const float temp = alpha * X[j];
     if (temp != 0.0) {
       for (int i = 0; i < lenY; i++) {
@@ -261,7 +267,7 @@ void gemv_NoTransA(Concurrency::array_view<float> &A, Concurrency::array_view<fl
         Y[i] += temp * A[lenX * j + i];
       }
     }
-  }
+  });
 }
 
 void gemv_AMP(char TransA,
