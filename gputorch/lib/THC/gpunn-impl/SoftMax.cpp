@@ -1,5 +1,5 @@
 #define MINUS_LOG_THRESHOLD -18.42
-#define SOFTMAX_THREADS 128
+#define SOFTMAX_THREADS 256
 
 void gpunn_SoftMax_updateOutput_kernel(Concurrency::array_view<float,1> &avOutput, Concurrency::array_view<float,1>&avInp, int nframe, int dim)
 {
