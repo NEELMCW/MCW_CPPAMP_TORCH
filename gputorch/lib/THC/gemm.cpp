@@ -200,8 +200,10 @@ int gemm_AMP(char TransA, char TransB, const int M, const int N, const int K, co
 }
 
 void gemv_TransA(Concurrency::array_view<float> &A_mat, int aOffset, Concurrency::array_view<float> &X_vec, Concurrency::array_view<float> &Y_vec, float alpha, float beta,int lenX, int lenY, Concurrency::array_view<float> &tempBuf)
-{ 
+{
   int len_X = (lenX + 255) & ~255;
+  int num_blocks = len_X/256;
+
   Concurrency::extent<1> grdExt(len_X);
   Concurrency::tiled_extent<256> t_ext(grdExt);
   Concurrency::parallel_for_each(t_ext,[=] (Concurrency::tiled_index<256> tidx) restrict(amp)
@@ -210,54 +212,50 @@ void gemv_TransA(Concurrency::array_view<float> &A_mat, int aOffset, Concurrency
     for(int Col = 0; Col < lenY; Col++)
     {
       int blockIdx = tidx.tile[0];
-      int k = tidx.local[0];
+      int threadIdx = tidx.local[0];
 
-      tempBuf[Col * (len_X/256) + blockIdx] = 0;
-      t[k] = 0;
+      tempBuf[Col * num_blocks + blockIdx] = 0;
+      t[threadIdx] = 0;
 
-      if(Col < lenY && blockIdx * 256 + k < lenX)
-        t[k] = X_vec[blockIdx * 256 + k] * A_mat[aOffset + Col * lenX + blockIdx * 256 + k];
+      if(Col < lenY && blockIdx * 256 + threadIdx < lenX)
+        t[threadIdx] = X_vec[blockIdx * 256 + threadIdx] * A_mat[aOffset + Col * lenX + blockIdx * 256 + threadIdx];
       tidx.barrier.wait();
-    
+
       for(int stride = 128; stride >= 1; stride /= 2)
       {
-        if(k < stride)
-          t[k] += t[k + stride];
+        if(threadIdx < stride)
+          t[threadIdx] += t[threadIdx + stride];
       }
 
-      tempBuf[Col * (len_X/256) + blockIdx] = t[0];
+      tempBuf[Col * num_blocks + blockIdx] = t[0];
       tidx.barrier.wait();
     }
-  });
-  
-  Concurrency::extent<1> grdExt1(256);
-  Concurrency::tiled_extent<256> t_ext1(grdExt1);
-  Concurrency::parallel_for_each(t_ext1,[=] (Concurrency::tiled_index<256> tidx) restrict(amp)
-  {
-    for(int Col=0; Col<lenY; Col++)
+    if(tidx.tile[0] == 0)
     {
-      tile_static float sh[256];
-      int threadId = tidx.local[0];
-
-      sh[tidx.local[0]] = 0;
-
-      for(int i = threadId; i < len_X/256; i += tidx.tile_dim0)
+      for(int Col=0; Col<lenY; Col++)
       {
-        sh[i] += tempBuf[Col * (len_X/256) + i];
+        tile_static float sh[256];
+        int threadId = tidx.local[0];
+
+        sh[tidx.local[0]] = 0;
+
+        for(int i = threadId; i < num_blocks; i += tidx.tile_dim0)
+        {
+          sh[i] += tempBuf[Col * num_blocks + i];
+        }
+        tidx.barrier.wait();
+        for(int stride = 128; stride >= 1; stride /= 2)
+        {
+          if(threadId < stride)
+            sh[threadId] += sh[threadId + stride];
+        }
+        tidx.barrier.wait();
+        Y_vec[Col] *= beta;
+        Y_vec[Col] += alpha * sh[0];
       }
-      tidx.barrier.wait();
-      for(int stride = 128; stride >= 1; stride /= 2)
-      {
-        if(threadId < stride)
-          sh[threadId] += sh[threadId + stride];
-      }
-      tidx.barrier.wait();
-      Y_vec[Col] *= beta; 
-      Y_vec[Col] += alpha * sh[0];
     }
   });
 }
-
 
 void gemv_NoTransA(Concurrency::array_view<float> &A, Concurrency::array_view<float> &X, Concurrency::array_view<float> &Y, float alpha, float beta,int lenX, int lenY)
 {
