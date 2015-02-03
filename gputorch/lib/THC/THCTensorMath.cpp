@@ -190,24 +190,24 @@ void THGPUTensor_cdiv(THGPUTensor *self_, THGPUTensor *src1, THGPUTensor *src2)
   
 }
 
-void THGPUTensor_kernel_addcmul( Concurrency::array_view<float,1> &Data, float value, Concurrency::array_view<float,1>&src1Data, Concurrency::array_view<float,1>&src2Data, long size, const int nThreadPerBlock, int nBlockPerRow, int nBlockPerColumn)
+void THGPUTensor_kernel_addcmul( Concurrency::array_view<float,1> &Data, float value, Concurrency::array_view<float,1>&src1Data, Concurrency::array_view<float,1>&src2Data, long size)
 {
   const int nthreads = 256;
-  nBlockPerRow = (nBlockPerRow + (nthreads -1)) & ~(nthreads -1);
-  Concurrency::extent<2> gridExt(nBlockPerColumn,nBlockPerRow);
-  Concurrency::tiled_extent<1,nthreads> t_ext(gridExt);
+  int sz = size / 8;
+  sz = (sz + (nthreads -1)) & ~(nthreads -1);
+  Concurrency::extent<2> gridExt(8, sz);
+  Concurrency::tiled_extent<1, nthreads> t_ext(gridExt);
 
-  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1,nthreads>tidx) restrict(amp)
+  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1, nthreads>tidx) restrict(amp)
   {
-    long k = (((tidx.tile[0] * t_ext[1]/t_ext.tile_dim1) + tidx.tile[1]) * t_ext.tile_dim1) + tidx.local[1];
+    long k = tidx.tile[0] * t_ext[1] + tidx.global[1];
     if(k < size)
     {
-      Data[Concurrency::index<1>(k)] += value*src1Data[Concurrency::index<1>(k)]*src2Data[Concurrency::index<1>(k)];
+      Data[k] += value * src1Data[k] * src2Data[k];
     }
 
   });
 }
-
 
 void THGPUTensor_addcmul(THGPUTensor *self_, THGPUTensor* t, float value, THGPUTensor *src1, THGPUTensor *src2)
 {
@@ -225,14 +225,11 @@ void THGPUTensor_addcmul(THGPUTensor *self_, THGPUTensor* t, float value, THGPUT
   src1 = THGPUTensor_newContiguous(src1);
   src2 = THGPUTensor_newContiguous(src2);
 
-  int nBlockPerRow, nBlockPerColumn, nThreadPerBlock;
-  THGPUGetGridSize(&nBlockPerRow, &nBlockPerColumn, &nThreadPerBlock, size);
-
   PREPARE_AV(self, pavData);
   PREPARE_AV(src1, pavSrc1);
   PREPARE_AV(src2, pavSrc2);
 
-  THGPUTensor_kernel_addcmul(*pavData, value, *pavSrc1, *pavSrc2, size, nThreadPerBlock, nBlockPerRow,nBlockPerColumn);
+  THGPUTensor_kernel_addcmul(*pavData, value, *pavSrc1, *pavSrc2, size);
 
   THGPUTensor_copy(self_, self);
   THGPUTensor_free(src1);
@@ -240,24 +237,24 @@ void THGPUTensor_addcmul(THGPUTensor *self_, THGPUTensor* t, float value, THGPUT
   THGPUTensor_free(self);
 }
 
-void THGPUTensor_kernel_addcdiv(Concurrency::array_view<float, 1> &Data, float value, Concurrency::array_view<float, 1> &src1Data, Concurrency::array_view<float, 1> &src2Data, long size, const int nThreadPerBlock, int nBlockPerRow, int nBlockPerColumn)
+void THGPUTensor_kernel_addcdiv(Concurrency::array_view<float, 1> &Data, float value, Concurrency::array_view<float, 1> &src1Data, Concurrency::array_view<float, 1> &src2Data, long size)
 {
   const int nthreads = 256;
-  nBlockPerRow = (nBlockPerRow + (nthreads -1)) & ~(nthreads -1);
-  Concurrency::extent<2> gridExt(nBlockPerColumn,nBlockPerRow);
+  int sz = size / 8;
+  sz = (sz + (nthreads -1)) & ~(nthreads -1);
+  Concurrency::extent<2> gridExt(8, sz);
   Concurrency::tiled_extent<1,nthreads> t_ext(gridExt);
 
   Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1,nthreads>tidx) restrict(amp)
   {
-    long k = (((tidx.tile[0] * t_ext[1]/t_ext.tile_dim1) + tidx.tile[1]) * t_ext.tile_dim1) + tidx.local[1];
+    long k = tidx.tile[0] * t_ext[1] + tidx.global[1];
     if(k < size)
     {
-      Data[Concurrency::index<1>(k)] += (float) value * (src1Data[k] / src2Data[k]); 
+      Data[k] += (float) value * (src1Data[k] / src2Data[k]); 
     }
 
   });
 }
-
 
 void THGPUTensor_addcdiv(THGPUTensor *self_, THGPUTensor *t, float value, THGPUTensor *src1, THGPUTensor *src2)
 {
@@ -274,19 +271,15 @@ void THGPUTensor_addcdiv(THGPUTensor *self_, THGPUTensor *t, float value, THGPUT
   src1 = THGPUTensor_newContiguous(src1);
   src2 = THGPUTensor_newContiguous(src2);
 
-  int nBlockPerRow, nBlockPerColumn, nThreadPerBlock;
-  THGPUGetGridSize(&nBlockPerRow, &nBlockPerColumn, &nThreadPerBlock, size);
-
   PREPARE_AV(self, pavData);
   PREPARE_AV(src1, pavSrc1);
   PREPARE_AV(src2, pavSrc2);
-  THGPUTensor_kernel_addcdiv(*pavData, value, *pavSrc1, *pavSrc2, size, nThreadPerBlock, nBlockPerRow,nBlockPerColumn);
+  THGPUTensor_kernel_addcdiv(*pavData, value, *pavSrc1, *pavSrc2, size);
 
   THGPUTensor_copy(self_, self);
   THGPUTensor_free(src1);
   THGPUTensor_free(src2);
   THGPUTensor_free(self);
-
 }
 
 float THGPUTensor_dot(THGPUTensor *self, THGPUTensor *src)
@@ -406,11 +399,37 @@ void THGPUTensor_kernel_transformReduceOuterDim(Concurrency::array_view<float, 1
         for (unsigned col = tidx.global[2]; col < avSize[0]; col += t_ext[2]) 
         {
           float acc = init;
-          for (unsigned i = 0; i < avSize[reduce]; i++)
+          unsigned idx = z * avSrc_stride[2] + y * avSrc_stride[1] + col;  //moved the loop independent expression outside the loop
+          unsigned i = 0;
+          if (avSize[reduce] >= 8)  //Do loop unrolling if size in reduction dimension is above 8
           {
-            acc = binary_op(acc, unary_op(avSrc[z * avSrc_stride[2] + y * avSrc_stride[1] + col + i * avSrc_stride[reduce]]));
+            for (i = 0; i < avSize[reduce]/8; i+=8)
+            {
+              acc = binary_op(acc, (avSrc[idx]));  //removed unary_op as it returns the passesd parameter itself
+              idx += avSrc_stride[reduce];         //replaced multiplication with addition
+              acc = binary_op(acc, (avSrc[idx]));
+              idx += avSrc_stride[reduce];
+              acc = binary_op(acc, (avSrc[idx]));
+              idx += avSrc_stride[reduce];
+              acc = binary_op(acc, (avSrc[idx]));
+              idx += avSrc_stride[reduce];
+              acc = binary_op(acc, (avSrc[idx]));
+              idx += avSrc_stride[reduce];
+              acc = binary_op(acc, (avSrc[idx]));
+              idx += avSrc_stride[reduce];
+              acc = binary_op(acc, (avSrc[idx]));
+              idx += avSrc_stride[reduce];
+              acc = binary_op(acc, (avSrc[idx]));
+              idx += avSrc_stride[reduce];
+            }
           }
-          avTgt[z * avTgt_stride[2] + y * avTgt_stride[1] + col] = float(acc);
+          //remaining iterations
+          for (; i < avSize[reduce]; i++)
+          {
+            acc = binary_op(acc, (avSrc[idx]));  //adding all elemets of reduced outer dimension
+            idx += avSrc_stride[reduce];
+          }
+          avTgt[z * avTgt_stride[2] + y * avTgt_stride[1] + col] = float(acc);  //store shrunk value in reduced dimension
         }
       }
     }
