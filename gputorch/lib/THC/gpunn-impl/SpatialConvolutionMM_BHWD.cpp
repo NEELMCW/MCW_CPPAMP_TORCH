@@ -14,11 +14,10 @@ inline int GET_BLOCKS(const int N) {
   return (N + GPU_NUM_THREADS - 1) / GPU_NUM_THREADS;
 }
 
-void imt2col_kernel(int n, THGPUTensor* data_im, int height, int width, int ksize_h,
+void imt2col_kernel(int n, Concurrency::array_view<float> & avData_im, int inOffset, int height, int width, int ksize_h,
                     int ksize_w, int pad_h, int pad_w, int stride_h, int stride_w,
                     int height_col, int width_col, Concurrency::array_view<float,1> &avData_col)
 {
-  Concurrency::array_view<float,1> avData_im(THGPUTensor_nElement(data_im), THGPUTensor_data(data_im));
   avData_im.discard_data();
   unsigned grdSz = (n + 255) & ~255;
   Concurrency::extent<1> grdExt(grdSz);
@@ -27,7 +26,7 @@ void imt2col_kernel(int n, THGPUTensor* data_im, int height, int width, int ksiz
   {
     //for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < (n); i += blockDim.x * gridDim.x)
     float dataCol = 0;
-    float dataIm = 0;
+    float dataIm = inOffset;
     for (int i = tidx.global[0]; i < (n); i += t_ext[0])
     {
       int w_out = i % width_col;
@@ -53,7 +52,7 @@ void imt2col_kernel(int n, THGPUTensor* data_im, int height, int width, int ksiz
   });
 }
 
-void imt2col(THGPUTensor* data_im, int channels, int height, int width,
+void imt2col(Concurrency::array_view<float> &data_im, int inOffset, int channels, int height, int width,
              int ksize_h, int ksize_w, int pad_h, int pad_w,
              int stride_h, int stride_w, Concurrency::array_view<float,1>&data_col)
 {
@@ -64,7 +63,7 @@ void imt2col(THGPUTensor* data_im, int channels, int height, int width,
   int num_kernels = channels * height_col * width_col;
   //std::cout<<"Im2Col num_kernels:"<<num_kernels<<std::endl;
   // Launch
-  imt2col_kernel(num_kernels, data_im, height, width, ksize_h, ksize_w, pad_h, pad_w, stride_h, stride_w, height_col, width_col, data_col);
+  imt2col_kernel(num_kernels,data_im,inOffset, height, width, ksize_h, ksize_w, pad_h, pad_w, stride_h, stride_w, height_col, width_col, data_col);
 }
 
 static int gpunn_SpatialConvolutionMM_BHWD_updateOutput(lua_State *L) {
@@ -113,63 +112,71 @@ static int gpunn_SpatialConvolutionMM_BHWD_updateOutput(lua_State *L) {
   }
 
   // Helpers
-  THGPUTensor *input_n = THGPUTensor_new();
-  THGPUTensor *output_n = THGPUTensor_new();
 
-  PREPARE_AV(columns, pavColumns);
+  PREPARE_AV(columns, avData_col);
+  PREPARE_AV(input, avData_im);
+  long m_ = nOutputPlane;
+  long n_ = outputHeight * outputWidth;
+  long k_ = 1;
+  long m = weight->size[0];
+  long n = columns->size[1];
+  long k = weight->size[1];
+
+  
+  PREPARE_AV(ones, avData_ones);
+  PREPARE_AV(bias, avData_bias);
+  PREPARE_AV(output, avData_output);
+  PREPARE_AV(weight, avData_weight);
   // For each elt in batch, do:
   for (int elt = 0; elt < batchSize; elt ++) {
     // Matrix mulitply per output:
-    THGPUTensor_select(input_n, input, 0, elt);
-    THGPUTensor_select(output_n, output, 0, elt);
 
     // Do Bias first:
     // M,N,K are dims of matrix A and B
     // (see http://docs.nvidia.com/gpu/cublas/#cublas-lt-t-gt-gemm)
-    long m_ = nOutputPlane;
-    long n_ = outputHeight * outputWidth;
-    long k_ = 1;
 
     // Do GEMM (note: this is a bit confusing because gemm assumes column-major matrices)
-    THGPUBlas_gemm(
+
+    // Extract columns:
+    avData_ones->discard_data();
+    avData_bias->discard_data();
+    avData_output->discard_data();
+    THGPUBlas_gemm_opt(
         't', 'n',
         n_, m_, k_,
         1,
-        THGPUTensor_data(ones), k_,
-        THGPUTensor_data(bias), k_,
-        0,
-        THGPUTensor_data(output_n), n_
+        *avData_ones, k_,
+        *avData_bias, k_, 0,
+        *avData_output, n_,
+        NULL, NULL, NULL,
+        0, 0, output->stride[0] * elt
     );
-
     // Extract columns:
+    avData_im->discard_data();
+    avData_col->discard_data();
     imt2col(
-        input_n,
+        *avData_im, input->stride[0] * elt,
         nInputPlane, inputHeight, inputWidth, kH, kW, padding, padding, dH, dW,
-        *pavColumns
+        *avData_col
     );
-
     // M,N,K are dims of matrix A and B
     // (see http://docs.nvidia.com/gpu/cublas/#cublas-lt-t-gt-gemm)
-    long m = weight->size[0];
-    long n = columns->size[1];
-    long k = weight->size[1];
 
     // Do GEMM (note: this is a bit confusing because gemm assumes column-major matrices)
-    THGPUBlas_gemm(
+    avData_col->discard_data();
+    avData_weight->discard_data();
+    avData_output->discard_data();
+    THGPUBlas_gemm_opt(
         'n', 'n',
         n, m, k,
         1,
-        THGPUTensor_data(columns), n,
-        THGPUTensor_data(weight), k,
-        1,
-        THGPUTensor_data(output_n), n
+        *avData_col, n,
+        *avData_weight, k, 1,
+        *avData_output, n,
+        NULL, NULL, NULL,
+        0, 0, output->stride[0] * elt
     );
   }
-
-  // Free
-  THGPUTensor_free(input_n);
-  THGPUTensor_free(output_n);
-
 
   // return output
   return 1;
