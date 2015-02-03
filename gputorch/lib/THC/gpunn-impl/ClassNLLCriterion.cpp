@@ -3,7 +3,8 @@
  */
 
 #include<assert.h>
-
+extern void MemcpyTHGPUTensorToHost(void* src, int size, float *dest);
+extern void MemcpyHostToTHGPUTensor(float* first, int size, void* dest, int offset=0);
 static const int NTHREADS = 32;
 
 void gpunn_ClassNLLCriterion_updateOutput_kernel1(Concurrency::array_view<float,1> &avOutput,
@@ -132,7 +133,6 @@ static int gpunn_ClassNLLCriterion_updateGradInput(lua_State *L)
 
   THGPUTensor *target = (THGPUTensor *)luaT_checkudata(L, 3, "torch.GPUTensor");
   target = THGPUTensor_newContiguous(target);
-  float *target_data = THGPUTensor_data(target);
 
   int ntarget = 1;
   if (target->nDimension > 1)
@@ -140,18 +140,19 @@ static int gpunn_ClassNLLCriterion_updateGradInput(lua_State *L)
 
   THGPUTensor *gradInput = (THGPUTensor *)luaT_getfieldcheckudata( L, 1, "gradInput", "torch.GPUTensor");
   gradInput = THGPUTensor_newContiguous(gradInput);
-  float *gradInput_data = THGPUTensor_data(gradInput);
-
+  PREPARE_AV(gradInput, pavGradInput);
+  PREPARE_AV(target, pavTarget);
   float grad = -1.0;
   if (input->nDimension == 1)
   {
     if (ntarget > 1)
       THArgCheck(0, 2, "multi-target not implemented");
     float tid;
+    // Perform device2host: tid = target_data[0];
+    MemcpyTHGPUTensorToHost(pavTarget, 1, &tid);
 
-    tid = target_data[0];
-    gradInput_data[(int)tid - 1] = grad;
-
+    // Perform host2device: gradInput_data[(int)tid - 1] = grad;
+    MemcpyHostToTHGPUTensor(&grad, 1, pavGradInput, (int)tid-1);
   }
   else if (input->nDimension == 2)
   {
@@ -160,9 +161,6 @@ static int gpunn_ClassNLLCriterion_updateGradInput(lua_State *L)
     int sizeAverage = luaT_getfieldcheckboolean(L, 1, "sizeAverage");
     if (sizeAverage)
       grad /= nframe;
-
-    PREPARE_AV(gradInput, pavGradInput);
-    PREPARE_AV(target, pavTarget);
     gpunn_ClassNLLCriterion_updateGradInput_kernel(*pavGradInput, *pavTarget, nframe, ndim, grad, ntarget);
   }
   else

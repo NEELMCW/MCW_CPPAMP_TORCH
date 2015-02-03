@@ -9,7 +9,7 @@
 #include "bolt/amp/inner_product.h"
 #include "bolt/amp/copy.h"
 
-void MemcpyHostToTHGPUTensor(float* first, int size, void* dest);
+void MemcpyHostToTHGPUTensor(float* first, int size, void* dest, int offset = 0);
 void MemcpyHostToAV(float* first, int size, Concurrency::array_view<float,1> &dest);
 void MemcpyAVToAV(void* src, int size, void* dest);
 

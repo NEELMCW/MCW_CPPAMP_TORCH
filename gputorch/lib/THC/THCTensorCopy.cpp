@@ -15,7 +15,7 @@ using namespace std;
 // first: source data pointer on host
 // size: length of elements in source to copy
 // dest: pointer to the THGPUTensor
-void MemcpyHostToTHGPUTensor(float* first, int size, void *dest)
+void MemcpyHostToTHGPUTensor(float* first, int size, void *dest, int offset)
 {
   THGPUTensor *p = static_cast<THGPUTensor *>(dest);
   // FIXME: host blokcing introduced between consecutive batches, use kernel copy instead
@@ -24,7 +24,7 @@ void MemcpyHostToTHGPUTensor(float* first, int size, void *dest)
   Concurrency::copy(first, *pavDest);
   #else
   DECLARE_BOLT_DEVICE_VECTOR(p,avDest);
-  bolt::amp::copy(first, first+size, avDest.begin());
+  bolt::amp::copy(first, first+size, avDest.begin()+offset);
   #endif
 }
 
@@ -58,7 +58,7 @@ void MemcpyAVToAV(void* src, int size, void *dest)
   // Memory objects created and released
   //   1 created and released for constructing/destructing device _vector of src (src->storage->size bytes)
   //   1 created and released for empty array_view initialisation in device_vector (4 bytes)
-  bolt::amp::copy(srcVec.begin(),srcVec.end(),destVec.begin());
+  bolt::amp::copy(srcVec.begin(),srcVec.begin()+size,destVec.begin());
 }
 
 // Perform memory copying from device side of THGPUTensor to host
@@ -75,7 +75,7 @@ void MemcpyTHGPUTensorToHost(void* src, int size, float *dest)
   #else
   DECLARE_BOLT_DEVICE_VECTOR(p, avSrc);
   bolt::amp::device_vector<float> destVec(dest, dest+size, true);
-  bolt::amp::copy(avSrc.begin(), avSrc.end(), destVec.begin());
+  bolt::amp::copy(avSrc.begin(), avSrc.begin()+size, destVec.begin());
   destVec.data();
   #endif
 }
