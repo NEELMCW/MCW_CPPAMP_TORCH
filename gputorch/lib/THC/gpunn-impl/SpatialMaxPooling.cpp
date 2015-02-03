@@ -184,6 +184,7 @@ void atomicmaxgradinput(Concurrency::array_view<float,1>&input_data,
 
         // atomic add since different threads could update same variable
         //Concurrency::atomic_fetch_add((int*)(&(ptr_gradInput[argmax_x + argmax_y*input_w])), (int)z);
+        // TODO: need atomicAdd for float
         input_data[ptr_gradInput + argmax_x + argmax_y*input_w] += z;
       }
     }
@@ -276,6 +277,11 @@ static int gpunn_SpatialMaxPooling_updateGradInput(lua_State *L)
   int kH = luaT_getfieldcheckint(L, 1, "kH");
   int dW = luaT_getfieldcheckint(L, 1, "dW");
   int dH = luaT_getfieldcheckint(L, 1, "dH");
+
+  // FIXME: Check the argument as we dont support atomicAdd for float for now
+  luaL_argcheck(L, dW == kW, 1, "dW and kW must be equal (this will be fixed soon)");
+  luaL_argcheck(L, dH == kH, 1, "dH and kH must be equal (this will be fixed soon)");
+
   bool atomic = (dW != kW) || (dH != kH); 
   THGPUTensor *gradInput = (THGPUTensor *)luaT_getfieldcheckudata(L, 1, "gradInput", "torch.GPUTensor");
   THGPUTensor *indices = (THGPUTensor *)luaT_getfieldcheckudata(L, 1, "indices", "torch.GPUTensor");
@@ -363,3 +369,5 @@ static void gpunn_SpatialMaxPooling_init(lua_State *L)
   luaT_registeratname(L, gpunn_SpatialMaxPooling__, "nn");
   lua_pop(L,1);
 }
+
+#undef GPU_MAX_THREADS
