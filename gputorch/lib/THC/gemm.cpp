@@ -257,23 +257,35 @@ void gemv_TransA(Concurrency::array_view<float> &A_mat, int aOffset, Concurrency
   });
 }
 
-void gemv_NoTransA(Concurrency::array_view<float> &A, Concurrency::array_view<float> &X, Concurrency::array_view<float> &Y, float alpha, float beta,int lenX, int lenY)
+void gemv_NoTransA(Concurrency::array_view<float> &A, int aOffset, Concurrency::array_view<float> &X, Concurrency::array_view<float> &Y, float alpha, float beta,int lenX, int lenY)
 {
-  int len_X = (lenX + (BLOCK_SIZE - 1)) & ~(BLOCK_SIZE - 1);
-  Concurrency::extent<1> grdExt(len_X);
-  Concurrency::tiled_extent<BLOCK_SIZE> t_ext(grdExt);
-  Concurrency::parallel_for_each(t_ext,[=] (Concurrency::tiled_index<BLOCK_SIZE> tidx) restrict(amp)
+  long size = (lenY + 255) & ~255;
+  Concurrency::extent<1> compute_domain(size);
+  Concurrency::parallel_for_each(compute_domain.tile<BLOCK_SIZE>(),[=] (Concurrency::tiled_index<BLOCK_SIZE> tidx) restrict(amp)
   {
-    int j = tidx.global[0];
-    if(j >= lenX)
-      return;
-    const float temp = alpha * X[j];
-    if (temp != 0.0) {
-      for (int i = 0; i < lenY; i++) {
-        Y[i]*=beta;
-        Y[i] += temp * A[lenX * j + i];
-      }
+    int bx = tidx.tile[0];
+    int tx = tidx.local[0];
+    tile_static float Xds[BLOCK_SIZE];
+    int Col = bx * BLOCK_SIZE + tx;
+    float Pvalue = 0;
+    for(int m = 0; m < (lenX -1)/BLOCK_SIZE+1; ++m)
+    {
+      if(m * BLOCK_SIZE + tx < lenX)
+        Xds[tx] = X[m*BLOCK_SIZE+tx];
+      else
+        Xds[tx]=0;
+      tidx.barrier.wait();
+      for(int k = 0; k < BLOCK_SIZE; k++)
+        if(Col < lenY && m * BLOCK_SIZE + k < lenX)
+          Pvalue += Xds[k] * A[aOffset + Col + (m * BLOCK_SIZE + k) * lenY];
+      tidx.barrier.wait();
     }
+   if(Col < lenY)
+   {
+      Y[Col] *= beta; 
+      Y[Col] += alpha * Pvalue;
+   }
+   tidx.barrier.wait();
   });
 }
 
@@ -303,7 +315,7 @@ Concurrency::array_view<float> &Y,  int incY, Concurrency::array_view<float> &te
     /* form y := alpha*A*x + y */
   } else if (TransA == 'n'){
   /* form y := alpha*A'*x + y */
-    gemv_NoTransA(A, X, Y, alpha, beta, lenX, lenY);
+    gemv_NoTransA(A, aOffset, X, Y, alpha, beta, lenX, lenY);
   } 
 }
 
