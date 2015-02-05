@@ -5,43 +5,37 @@ INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/gpunn-impl/SpatialPoolingGPU/)
 INCLUDE_DIRECTORIES($ENV{MCWCPPAMPROOT}/cppamp-driver-ng/include)
 SET(src 
    THCGeneral.cpp gemm.cpp
-    THCBlas.cpp THCStorage.cpp THCTensor.cpp THCTensorCopy.cpp THCTensorConv.cpp THCTensorMath.cpp THCTensorRandom.cpp)
-SET(gpunnsrc gpunn-impl/SpatialConvolutionGPU/updateOutput.cpp gpunn-impl/SpatialConvolutionGPU/updateGradInput.cpp gpunn-impl/SpatialConvolutionGPU/accGradParameters.cpp  gpunn-impl/init.cpp)
+   THCBlas.cpp THCStorage.cpp THCTensor.cpp THCTensorCopy.cpp THCTensorConv.cpp THCTensorMath.cpp THCTensorRandom.cpp)
+SET(gpunnsrc gpunn-impl/SpatialConvolutionGPU/updateOutput.cpp gpunn-impl/SpatialConvolutionGPU/updateGradInput.cpp
+    gpunn-impl/SpatialConvolutionGPU/accGradParameters.cpp  gpunn-impl/init.cpp)
 
-SET (OPENCL_INC "$ENV{AMDAPPSDKROOT}/include")
-SET (OPENCL_LIB "$ENV{AMDAPPSDKROOT}/lib/x86_64")
-SET (CLBLAS_INC "$ENV{CLBLASROOT}/include")
-SET (CLBLAS_LIB "$ENV{CLBLASROOT}/lib64")
-SET (BOLT_SRC_INC "$ENV{MCWCPPAMPROOT}/src/Bolt/include/")
-SET (BOOST_SRC_INC "$ENV{MCWCPPAMPROOT}/gmac_exp_build_cache/Bolt/superbuild/external/boost/src/Boost/")
-SET (BOLT_VER_INC "$ENV{MCWCPPAMPROOT}/gmac_exp_build_cache/Bolt/superbuild/Bolt-build/include/")
-SET (PREFIX "$ENV{MCWCPPAMPROOT}/gmac_exp_build_cache")
-SET (CLANG_AMP "${PREFIX}/compiler/bin/clang++")
-SET (CLAMP_CONFIG "${PREFIX}/build/Release/bin/clamp-config")
-execute_process(COMMAND ${CLAMP_CONFIG} --build --cxxflags
+SET(OPENCL_INC "$ENV{AMDAPPSDKROOT}/include")
+SET(OPENCL_LIB "$ENV{AMDAPPSDKROOT}/lib/x86_64")
+SET(CLBLAS_INC "$ENV{CLBLASROOT}/include")
+SET(CLBLAS_LIB "$ENV{CLBLASROOT}/lib64")
+SET(BOLT_SRC_INC "$ENV{MCWCPPAMPROOT}/src/Bolt/include/")
+SET(BOOST_SRC_INC "$ENV{MCWCPPAMPROOT}/gmac_exp_build_cache/Bolt/superbuild/external/boost/src/Boost/")
+SET(BOLT_VER_INC "$ENV{MCWCPPAMPROOT}/gmac_exp_build_cache/Bolt/superbuild/Bolt-build/include/")
+SET(PREFIX "$ENV{MCWCPPAMPROOT}/gmac_exp_build_cache")
+SET(CLANG_AMP "${PREFIX}/compiler/bin/clang++")
+SET(CLAMP_CONFIG "${PREFIX}/build/Release/bin/clamp-config")
+EXECUTE_PROCESS(COMMAND ${CLAMP_CONFIG} --build --cxxflags
     OUTPUT_VARIABLE CLAMP_CXXFLAGS)
-string(STRIP ${CLAMP_CXXFLAGS} CLAMP_CXXFLAGS)
-set (CLAMP_CXXFLAGS "${CLAMP_CXXFLAGS} -I${OPENCL_INC}")
-execute_process(COMMAND ${CLAMP_CONFIG} --build --ldflags --shared
+STRING(STRIP ${CLAMP_CXXFLAGS} CLAMP_CXXFLAGS)
+SET(CLAMP_CXXFLAGS "${CLAMP_CXXFLAGS} -I${OPENCL_INC}")
+EXECUTE_PROCESS(COMMAND ${CLAMP_CONFIG} --build --ldflags --shared
     OUTPUT_VARIABLE CLAMP_LDFLAGS)
-string(STRIP ${CLAMP_LDFLAGS} CLAMP_LDFLAGS)
-set (CLAMP_CXXFLAGS "${CLAMP_CXXFLAGS} -I${OPENCL_INC} -I${CLBLAS_INC} -I${BOLT_SRC_INC} -I${BOLT_VER_INC} -I${BOOST_SRC_INC} -Wall")
-set (CLAMP_LDFLAGS "${CLAMP_LDFLAGS} -L${OPENCL_LIB} -L${CLBLAS_LIB} -lclBLAS")
+STRING(STRIP ${CLAMP_LDFLAGS} CLAMP_LDFLAGS)
+SET(CLAMP_CXXFLAGS "${CLAMP_CXXFLAGS} -I${OPENCL_INC} -I${CLBLAS_INC} -I${BOLT_SRC_INC} -I${BOLT_VER_INC} -I${BOOST_SRC_INC} -Wall")
+SET(CLAMP_LDFLAGS "${CLAMP_LDFLAGS} -L${OPENCL_LIB} -L${CLBLAS_LIB} -lclBLAS")
 
-SET_PROPERTY(SOURCE THCBlas.cpp APPEND_STRING PROPERTY COMPILE_FLAGS " ${CLAMP_CXXFLAGS}")
-SET_PROPERTY(SOURCE THCStorage.cpp APPEND_STRING PROPERTY COMPILE_FLAGS " ${CLAMP_CXXFLAGS}")
-SET_PROPERTY(SOURCE THCTensor.cpp APPEND_STRING PROPERTY COMPILE_FLAGS " ${CLAMP_CXXFLAGS}")
-SET_PROPERTY(SOURCE THCTensorMath.cpp APPEND_STRING PROPERTY COMPILE_FLAGS " ${CLAMP_CXXFLAGS}")
-SET_PROPERTY(SOURCE THCTensorConv.cpp APPEND_STRING PROPERTY COMPILE_FLAGS " ${CLAMP_CXXFLAGS}")
-SET_PROPERTY(SOURCE THCTensorCopy.cpp APPEND_STRING PROPERTY COMPILE_FLAGS " ${CLAMP_CXXFLAGS}")
-SET_PROPERTY(SOURCE THCTensorRandom.cpp APPEND_STRING PROPERTY COMPILE_FLAGS " ${CLAMP_CXXFLAGS}")
-SET_PROPERTY(SOURCE THCGeneral.cpp APPEND_STRING PROPERTY COMPILE_FLAGS " ${CLAMP_CXXFLAGS}")
-SET_PROPERTY(SOURCE gemm.cpp APPEND_STRING PROPERTY COMPILE_FLAGS " ${CLAMP_CXXFLAGS}")
-SET_PROPERTY(SOURCE gpunn-impl/SpatialConvolutionGPU/updateOutput.cpp APPEND_STRING PROPERTY COMPILE_FLAGS " ${CLAMP_CXXFLAGS}")
-SET_PROPERTY(SOURCE gpunn-impl/SpatialConvolutionGPU/updateGradInput.cpp APPEND_STRING PROPERTY COMPILE_FLAGS " ${CLAMP_CXXFLAGS}")
-SET_PROPERTY(SOURCE gpunn-impl/SpatialConvolutionGPU/accGradParameters.cpp APPEND_STRING PROPERTY COMPILE_FLAGS " ${CLAMP_CXXFLAGS}")
-SET_PROPERTY(SOURCE gpunn-impl/SpatialPoolingGPU/updateGradInput.cpp APPEND_STRING PROPERTY COMPILE_FLAGS " ${CLAMP_CXXFLAGS}")
-SET_PROPERTY(SOURCE gpunn-impl/init.cpp APPEND_STRING PROPERTY COMPILE_FLAGS " ${CLAMP_CXXFLAGS}")
+FOREACH(src_file ${src})
+  SET_PROPERTY(SOURCE ${src_file} APPEND_STRING PROPERTY COMPILE_FLAGS " ${CLAMP_CXXFLAGS}")
+ENDFOREACH()
+
+FOREACH(gpunnsrc_file ${gpunnsrc})
+  SET_PROPERTY(SOURCE ${gpunnsrc_file} APPEND_STRING PROPERTY COMPILE_FLAGS " ${CLAMP_CXXFLAGS}")
+ENDFOREACH()
 
 ADD_LIBRARY(THC SHARED ${src} ${gpunnsrc})
 
@@ -57,7 +51,7 @@ INSTALL(TARGETS THC
 INSTALL(FILES
           THC.h
           THCGeneral.h
-          THCGeneral.h
+          THCBlas.h
           THCStorage.h
           THCTensor.h
           THCTensorRandom.h
