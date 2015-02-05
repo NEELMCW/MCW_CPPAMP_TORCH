@@ -19,7 +19,7 @@ void MemcpyHostToTHGPUTensor(float* first, int size, void *dest, int offset)
 {
   THGPUTensor *p = static_cast<THGPUTensor *>(dest);
   // FIXME: host blokcing introduced between consecutive batches, use kernel copy instead
-  #if 1 
+  #if 0
   PREPARE_AV(p, pavDest);
   Concurrency::copy(first, *pavDest);
   #else
@@ -223,7 +223,7 @@ static void THGPUTensor_computesz(THGPUTensor *self, Concurrency::array_view<lon
     }
   }
   // FIXME: use kernel to do copy
-#if 1 
+#if 0
   Concurrency::copy(szh, **sz_);
   Concurrency::copy(sth, **st_);
 #else
@@ -239,7 +239,7 @@ static void THGPUTensor_computesz(THGPUTensor *self, Concurrency::array_view<lon
 }
 
 void THGPUTensor_kernel_copy(Concurrency::array_view<float>& av_dst,
-                             Concurrency::array_view<float>& av_src, long desOffset, long srcOffset,  Concurrency::array_view<long, 1> &av_dst_sz,
+                             Concurrency::array_view<float>& av_src, Concurrency::array_view<long, 1> &av_dst_sz,
                              Concurrency::array_view<long, 1> &av_dst_st, int dst_dim, 
                              Concurrency::array_view<long, 1> &av_src_sz, Concurrency::array_view<long, 1> &av_src_st,
                              int src_dim, long n_elem, long innerdim, int nblockx, int nblocky,
@@ -247,6 +247,8 @@ void THGPUTensor_kernel_copy(Concurrency::array_view<float>& av_dst,
 {
   Concurrency::extent<3> copyExt(nblockz, nblocky *16, nblockx * 16);
   Concurrency::tiled_extent<1, 16, 16> t_ext(copyExt);
+
+  //Copy Kernel
   Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1, 16, 16> tidx) restrict(amp)
   {
     #if 0
@@ -281,7 +283,7 @@ void THGPUTensor_kernel_copy(Concurrency::array_view<float>& av_dst,
       }
       for (int i = i_start, o = o_start; o < o_end; i += i_step, o += o_step)
       {
-        av_dst[Concurrency::index<1>(desOffset + dst_idx + o)] = av_src[Concurrency::index<1>(srcOffset + src_idx + i)];
+        av_dst[Concurrency::index<1>(dst_idx + o)] = av_src[Concurrency::index<1>(src_idx + i)];
       }
     }
   });
@@ -299,14 +301,10 @@ THC_API void THGPUTensor_copy(THGPUTensor *self, THGPUTensor *src)
 
   if(THGPUTensor_isContiguous(self) && THGPUTensor_isContiguous(src))
   {
-   // DECLARE_BOLT_DEVICE_VECTOR_2(src, srcVec, self, desVec);
-   // FIXME: not sure why we can't just use DECLARE_BOLT_DEVICE_VECTOR on src. Will fix it
-    bolt::amp::device_vector<float>srcVec(THGPUTensor_data(src),THGPUTensor_data(src) + THGPUTensor_nElement(src));
-   #if 0
-    bolt::amp::device_vector<float>desVec(THGPUTensor_data(self),THGPUTensor_data(self) + THGPUTensor_nElement(self));
-   #else
-    DECLARE_BOLT_DEVICE_VECTOR(self, desVec);
-   #endif
+    // discard host both for src and self
+    DECLARE_BOLT_DEVICE_VECTOR_2(src, srcVec , self, desVec);
+    // Data transfer: 0
+    // Memory objects created and released: 0
     bolt::amp::copy(srcVec.begin(),srcVec.end(),desVec.begin());
   }
   else
@@ -316,6 +314,7 @@ THC_API void THGPUTensor_copy(THGPUTensor *self, THGPUTensor *src)
     long size = THGPUTensor_nElement(self);
     long innermostdim;
 
+    // Data is valid only in device side of d_src_sz, d_src_st, d_self_sz, d_self_st
     THGPUTensor_computesz(src, &d_src_sz, &d_src_st, &src_dim, &innermostdim);
     THGPUTensor_computesz(self, &d_self_sz, &d_self_st, &self_dim, &innermostdim);
 
@@ -332,11 +331,13 @@ THC_API void THGPUTensor_copy(THGPUTensor *self, THGPUTensor *src)
     int number_blocks_dim_y = DIVUP(nblocks, nblocks_x * nblocks_y);
     int nblocks_z = number_blocks_dim_y;
 
-    Concurrency::array_view<float,1> *avSelf = static_cast<Concurrency::array_view<float> *>(self->storage->allocatorContext);
-    Concurrency::array_view<float,1> *avSrc = static_cast<Concurrency::array_view<float> *>(src->storage->allocatorContext);
-
-    // Adding Offset parameters to get the right starting position for both src and dest
-    THGPUTensor_kernel_copy(*avSelf, *avSrc, self->storageOffset, src->storageOffset,
+    PREPARE_AV(self, avSelf);
+    PREPARE_AV(src, avSrc);
+    d_self_sz->discard_data();
+    d_self_st->discard_data();
+    d_src_sz->discard_data();
+    d_src_st->discard_data();
+    THGPUTensor_kernel_copy(*avSelf, *avSrc,
                            *d_self_sz, *d_self_st, self_dim,
                            *d_src_sz, *d_src_st, src_dim,
                           size, innermostdim, nblocks_x, nblocks_y, nblocks_z);
