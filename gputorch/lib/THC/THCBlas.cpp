@@ -484,9 +484,9 @@ void THGPUBlas_gemm_opt(char transa, char transb,
   Concurrency::array_view<float> &a, long lda, Concurrency::array_view<float> &b, long ldb, float beta,
   Concurrency::array_view<float> &c, long ldc,
   void* cl_A, void* cl_B, void* cl_C,
-  long aOffset, long bOffset, long cOffset)
+  long aOffset, long bOffset, long cOffset, Concurrency::array_view<float> &temp_buff)
 {
-  gemm_AMP(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc, aOffset, bOffset, cOffset);
+  gemm_AMP(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc, aOffset, bOffset, cOffset, temp_buff);
 }
 
 void THGPUBlas_axpy_opt(long n, float a, Concurrency::array_view<float> &x, long incx, Concurrency::array_view<float> &y, long incy)

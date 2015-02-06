@@ -192,6 +192,7 @@ static int gpunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
   PREPARE_AV(bias, avData_bias);
   PREPARE_AV(output, avData_output);
   PREPARE_AV(weight, avData_weight);
+  Concurrency::array_view<float> *temp_buf = NULL;
   // For each elt in batch, do:
   for (int elt = 0; elt < batchSize; elt ++) {
     // Matrix mulitply per output:
@@ -213,7 +214,7 @@ static int gpunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
         *avData_bias, k_, 0,
         *avData_output, n_,
         NULL, NULL, NULL,
-        0, 0, output->stride[0] * elt
+        0, 0, output->stride[0] * elt, *temp_buf
     );
     // Extract columns:
     avData_im->discard_data();
@@ -238,7 +239,7 @@ static int gpunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
         *avData_weight, k, 1,
         *avData_output, n,
         NULL, NULL, NULL,
-        0, 0, output->stride[0] * elt
+        0, 0, output->stride[0] * elt, *temp_buf
     );
   }
 
@@ -302,6 +303,8 @@ static int gpunn_SpatialConvolutionMM_updateGradInput(lua_State *L) {
   long n = gradColumns->size[1];
   long k = weight->size[0];
 
+  Concurrency::array_view<float> *temp_buf = NULL;
+
  // For each elt in batch, do:
   for (int elt = 0; elt < batchSize; elt ++) {
     // Matrix mulitply per sample:
@@ -322,7 +325,7 @@ static int gpunn_SpatialConvolutionMM_updateGradInput(lua_State *L) {
         *avData_weight, m, 0,
         *avData_col, n,
         NULL, NULL, NULL,
-        gradOutput->stride[0] * elt, 0, 0
+        gradOutput->stride[0] * elt, 0, 0, *temp_buf
     );
 
     // Unpack columns back into input:
@@ -426,6 +429,12 @@ static int gpunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
   Concurrency::extent<1> ext(numBlocks*lenY);
   Concurrency::array_view<float,1> temp_buf(ext, tempBuf);
 
+  numBlocks = ((k + 255) & ~255)/256;
+ 
+  float* tempBuf1 = (float*)malloc(n*m*numBlocks*sizeof(float));
+  Concurrency::extent<1> ext1(n*m*numBlocks);
+  Concurrency::array_view<float,1> temp_buf1(ext1, tempBuf1);
+
   for (int elt = 0; elt < batchSize; elt ++) {
     // Extract columns:
     // Ugly codes but it is the way to deal with unnecessary copying from host
@@ -452,7 +461,7 @@ static int gpunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
         *avData_gradOutput, k, 1,
         *avData_gradWeight, n,
         NULL, NULL, NULL,
-        0, gradOutput->stride[0] * elt, 0
+        0, gradOutput->stride[0] * elt, 0, temp_buf1
     );
 
     if(elt==batchSize-1)

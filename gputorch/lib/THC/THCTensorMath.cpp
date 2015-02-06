@@ -797,6 +797,16 @@ void THGPUTensor_addmm(THGPUTensor *r_, float beta, THGPUTensor *t, float alpha,
   PREPARE_AV(m2_, m2_Mat);
   PREPARE_AV(r_, r_Mat);
   /* do the operation */
+  int n = r__->size[(transpose_r == 'n' ? 0 : 1)];
+  int m = r__->size[(transpose_r == 'n' ? 1 : 0)];
+  int k = m1_->size[(transpose_r == 'n' ? 1 : 0)];
+
+  int numBlocks = ((k + 255) & ~255)/256;
+ 
+  float* tempBuf = (float*)malloc(n*m*numBlocks*sizeof(float));
+  Concurrency::extent<1> ext(n*m*numBlocks);
+  Concurrency::array_view<float,1> temp_buf(ext, tempBuf);
+
   THGPUBlas_gemm_opt(transpose_m1,
                    transpose_m2,
                    r__->size[(transpose_r == 'n' ? 0 : 1)],
@@ -810,7 +820,7 @@ void THGPUTensor_addmm(THGPUTensor *r_, float beta, THGPUTensor *t, float alpha,
                    beta,
                    *r_Mat,
                    r__->stride[(transpose_r == 'n' ? 1 : 0)],
-                   NULL, NULL, NULL, 0, 0, 0);
+                   NULL, NULL, NULL, 0, 0, 0, temp_buf);
 
   /* free intermediate variables */
   if (m1_ != m1)

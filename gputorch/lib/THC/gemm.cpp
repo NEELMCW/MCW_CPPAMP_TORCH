@@ -213,7 +213,7 @@ void gemm_TransAB(Concurrency::array_view<float, 1> &A, Concurrency::array_view<
 
 int gemm_AMP(char TransA, char TransB, const int M, const int N, const int K, const float alpha,
   Concurrency::array_view<float> &A_mat, int lda, Concurrency::array_view<float>& B_mat, int ldb,
-  const float beta, Concurrency::array_view<float>& C_mat,  int ldc, long aOffset, long bOffset, long cOffset)
+  const float beta, Concurrency::array_view<float>& C_mat,  int ldc, long aOffset, long bOffset, long cOffset, Concurrency::array_view<float> &temp_buf)
 {
   // use longest possible type for intermediate value storage:
 
@@ -247,11 +247,6 @@ int gemm_AMP(char TransA, char TransB, const int M, const int N, const int K, co
     } else {
 
       // C = alpha*A**T*B + beta*C
-      int numBlocks = ((K + 255) & ~255)/256;
- 
-      float* tempBuf = (float*)malloc(N*M*numBlocks*sizeof(float));
-      Concurrency::extent<1> ext(N*M*numBlocks);
-      Concurrency::array_view<float,1> temp_buf(ext, tempBuf);
       gemm_NoTransB(A_mat, B_mat, C_mat, M, N, K, lda, ldb, ldc, alpha, beta, aOffset, bOffset, cOffset, temp_buf);
     }
 
