@@ -42,8 +42,71 @@ void gemm_NoTransAB(Concurrency::array_view<float, 1> &A, Concurrency::array_vie
   });
 }
 
-void gemm_NoTransB(Concurrency::array_view<float, 1> &A, Concurrency::array_view<float, 1> &B, Concurrency::array_view<float, 1> &C, int M, int N, int K, int lda, int ldb, int ldc, float alpha, float beta , long aOffset, long bOffset, long cOffset)
+void gemm_NoTransB(Concurrency::array_view<float, 1> &A, Concurrency::array_view<float, 1> &B, Concurrency::array_view<float, 1> &C, int M, int N, int K, int lda, int ldb, int ldc, float alpha, float beta , long aOffset, long bOffset, long cOffset, Concurrency::array_view<float,1> &temp_buf)
 {
+  if(K > N)
+  {
+  std::cout<<"within if"<<std::endl;
+  Concurrency::extent<1> grdExt((K+255)&~255);
+  Concurrency::tiled_extent<256> t_ext(grdExt);
+  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<256> tidx) restrict(amp){
+
+  int num_blocks = ((K + 255) & ~255)/256;
+  
+  for(int i = 0; i < N; i++)
+  {
+  for(int j = 0; j < M; j++)
+  {
+    tile_static float sh[256];
+
+    sh[tidx.local[0]] = 0;
+    temp_buf[i * M * num_blocks + j * num_blocks + tidx.tile[0]] = 0;
+
+    if(tidx.tile[0] * 256 + tidx.local[0] < K)
+      sh[tidx.local[0]] += A[aOffset + j * K + tidx.tile[0] * 256 + tidx.local[0]] * B[bOffset + i * K + tidx.tile[0] * 256 + tidx.local[0]];
+    tidx.barrier.wait();
+
+    for(int stride = 128; stride >= 1; stride /= 2)
+    {
+      if(tidx.local[0] < stride)
+        sh[tidx.local[0]] += sh[tidx.local[0] + stride];
+    }
+
+    tidx.barrier.wait();   
+ 
+    temp_buf[i * M * num_blocks + j * num_blocks + tidx.tile[0]] = sh[0];
+    tidx.barrier.wait();
+   }
+   }
+
+    if(tidx.tile[0] == 0)
+    { 
+  for(int i = 0; i < N; i++)
+  {
+  for(int j = 0; j < M; j++)
+  {
+       tile_static float sh[256];
+       sh[tidx.local[0]] = 0;
+      for(int t = tidx.local[0]; t < num_blocks; t += tidx.tile_dim0)
+      {
+        sh[tidx.local[0]] += temp_buf[i * M * num_blocks + j * num_blocks + t];
+      }
+      tidx.barrier.wait();
+      for(int stride = 128; stride >= 1; stride /= 2)
+      {
+        if(tidx.local[0] < stride)
+          sh[tidx.local[0]] += sh[tidx.local[0] + stride];
+      }
+      tidx.barrier.wait();
+      C[cOffset + i * M + j] *= beta;
+      C[cOffset + i * M + j] += sh[0] * alpha;
+    }
+  }
+  }
+  });
+  }
+  else
+  {
   Concurrency::extent<2> grdExt((N+(THREADS-1))&~(THREADS-1), (M+(THREADS-1))&~(THREADS-1));
   Concurrency::tiled_extent<THREADS, THREADS> t_ext(grdExt);
   Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<THREADS, THREADS> tidx) restrict(amp){
@@ -82,6 +145,7 @@ void gemm_NoTransB(Concurrency::array_view<float, 1> &A, Concurrency::array_view
     C[cOffset + (Row*M)+Col]+=CValue * alpha;
   }
   });
+  }
 }
 
 void gemm_NoTransA(Concurrency::array_view<float, 1> &A, Concurrency::array_view<float, 1> &B, Concurrency::array_view<float, 1> &C, int M, int N, int K, int lda, int ldb, int ldc, float alpha, float beta , long aOffset, long bOffset, long cOffset)
@@ -180,8 +244,12 @@ int gemm_AMP(char TransA, char TransB, const int M, const int N, const int K, co
     } else {
 
       // C = alpha*A**T*B + beta*C
-
-      gemm_NoTransB(A_mat, B_mat, C_mat, M, N, K, lda, ldb, ldc, alpha, beta, aOffset, bOffset, cOffset);
+      int numBlocks = ((K + 255) & ~255)/256;
+ 
+      float* tempBuf = (float*)malloc(N*M*numBlocks*sizeof(float));
+      Concurrency::extent<1> ext(N*M*numBlocks);
+      Concurrency::array_view<float,1> temp_buf(ext, tempBuf);
+      gemm_NoTransB(A_mat, B_mat, C_mat, M, N, K, lda, ldb, ldc, alpha, beta, aOffset, bOffset, cOffset, temp_buf);
     }
 
   } else if (TransA == 'n') {
