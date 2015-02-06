@@ -19,11 +19,12 @@ void MemcpyHostToTHGPUTensor(float* first, int size, void *dest, int offset)
 {
   THGPUTensor *p = static_cast<THGPUTensor *>(dest);
   // FIXME: host blokcing introduced between consecutive batches, use kernel copy instead
-  #if 1 
+  #if 0 
   PREPARE_AV(p, pavDest);
   Concurrency::copy(first, *pavDest);
   #else
-  DECLARE_BOLT_DEVICE_VECTOR(p,avDest);
+  //DECLARE_BOLT_DEVICE_VECTOR(p,avDest);
+  bolt::amp::device_vector<float> avDest(p->storage->data,p->storage->data + p->storage->size);
   bolt::amp::copy(first, first+size, avDest.begin()+offset);
   #endif
 }
