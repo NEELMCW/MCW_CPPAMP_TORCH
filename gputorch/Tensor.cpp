@@ -6,17 +6,17 @@
 
 static void THGPUTensor_maskedFill(THGPUTensor *tensor, THByteTensor *mask, float value)
 {
-  THError("not yet implemented for CUDA");
+  THError("not yet implemented for GPU");
 }
 
 static void THGPUTensor_maskedCopy(THGPUTensor *tensor, THByteTensor *mask, THGPUTensor* src)
 {
-  THError("not yet implemented for CUDA");
+  THError("not yet implemented for GPU");
 }
 
 void THGPUTensor_maskedSelect(THGPUTensor *tensor, THGPUTensor* src, THByteTensor *mask)
 {
-  THError("not yet implemented for CUDA");
+  THError("not yet implemented for GPU");
 }
 
 #define real float
@@ -36,29 +36,29 @@ void THGPUTensor_maskedSelect(THGPUTensor *tensor, THGPUTensor* src, THByteTenso
 
 /* now we overwrite some methods specific to GPUTensor */
 
-#define CUDA_IMPLEMENT_TENSOR_COPY(TYPEC)                               \
-  static int gputorch_##TYPEC##Tensor_copy(lua_State *L)                 \
+#define GPU_IMPLEMENT_TENSOR_COPY(TYPEC)                                \
+  static int gputorch_##TYPEC##Tensor_copy(lua_State *L)                \
   {                                                                     \
     TH##TYPEC##Tensor *storage = (TH##TYPEC##Tensor *)luaT_checkudata(L, 1, "torch." #TYPEC "Tensor"); \
     void *src;                                                          \
     if( (src = luaT_toudata(L, 2, "torch." #TYPEC "Tensor")) )          \
-      TH##TYPEC##Tensor_copy(storage, (TH##TYPEC##Tensor *)src);                             \
+      TH##TYPEC##Tensor_copy(storage, (TH##TYPEC##Tensor *)src);        \
     else if( (src = luaT_toudata(L, 2, "torch.ByteTensor")) )           \
-      TH##TYPEC##Tensor_copyByte(storage, (THByteTensor *)src);                         \
+      TH##TYPEC##Tensor_copyByte(storage, (THByteTensor *)src);         \
     else if( (src = luaT_toudata(L, 2, "torch.CharTensor")) )           \
-      TH##TYPEC##Tensor_copyChar(storage, (THCharTensor *)src);                         \
+      TH##TYPEC##Tensor_copyChar(storage, (THCharTensor *)src);         \
     else if( (src = luaT_toudata(L, 2, "torch.ShortTensor")) )          \
-      TH##TYPEC##Tensor_copyShort(storage, (THShortTensor *)src);                        \
+      TH##TYPEC##Tensor_copyShort(storage, (THShortTensor *)src);       \
     else if( (src = luaT_toudata(L, 2, "torch.IntTensor")) )            \
-      TH##TYPEC##Tensor_copyInt(storage, (THIntTensor *)src);                          \
+      TH##TYPEC##Tensor_copyInt(storage, (THIntTensor *)src);           \
     else if( (src = luaT_toudata(L, 2, "torch.LongTensor")) )           \
-      TH##TYPEC##Tensor_copyLong(storage, (THLongTensor *)src);                         \
+      TH##TYPEC##Tensor_copyLong(storage, (THLongTensor *)src);         \
     else if( (src = luaT_toudata(L, 2, "torch.FloatTensor")) )          \
-      TH##TYPEC##Tensor_copyFloat(storage, (THFloatTensor *)src);                        \
+      TH##TYPEC##Tensor_copyFloat(storage, (THFloatTensor *)src);       \
     else if( (src = luaT_toudata(L, 2, "torch.DoubleTensor")) )         \
-      TH##TYPEC##Tensor_copyDouble(storage, (THDoubleTensor *)src);                       \
-    else if( (src = luaT_toudata(L, 2, "torch.GPUTensor")) )           \
-      TH##TYPEC##Tensor_copyGPU(storage, (THGPUTensor *)src);                         \
+      TH##TYPEC##Tensor_copyDouble(storage, (THDoubleTensor *)src);     \
+    else if( (src = luaT_toudata(L, 2, "torch.GPUTensor")) )            \
+      TH##TYPEC##Tensor_copyGPU(storage, (THGPUTensor *)src);           \
     else                                                                \
       luaL_typerror(L, 2, "torch.*Tensor");                             \
                                                                         \
@@ -66,14 +66,14 @@ void THGPUTensor_maskedSelect(THGPUTensor *tensor, THGPUTensor* src, THByteTenso
     return 1;                                                           \
   }
 
-CUDA_IMPLEMENT_TENSOR_COPY(Byte)
-CUDA_IMPLEMENT_TENSOR_COPY(Char)
-CUDA_IMPLEMENT_TENSOR_COPY(Short)
-CUDA_IMPLEMENT_TENSOR_COPY(Int)
-CUDA_IMPLEMENT_TENSOR_COPY(Long)
-CUDA_IMPLEMENT_TENSOR_COPY(Float)
-CUDA_IMPLEMENT_TENSOR_COPY(Double)
-CUDA_IMPLEMENT_TENSOR_COPY(GPU)
+GPU_IMPLEMENT_TENSOR_COPY(Byte)
+GPU_IMPLEMENT_TENSOR_COPY(Char)
+GPU_IMPLEMENT_TENSOR_COPY(Short)
+GPU_IMPLEMENT_TENSOR_COPY(Int)
+GPU_IMPLEMENT_TENSOR_COPY(Long)
+GPU_IMPLEMENT_TENSOR_COPY(Float)
+GPU_IMPLEMENT_TENSOR_COPY(Double)
+GPU_IMPLEMENT_TENSOR_COPY(GPU)
 
 static void THFloatTensor_computesz(THFloatTensor *self, long **sz_, long **st_)
 {
@@ -100,8 +100,11 @@ static void THFloatTensor_computesz(THFloatTensor *self, long **sz_, long **st_)
   *st_ = st;
 }
 
-void THFloatTensor_kernel_copy(float *dst, long *dst_sz, long *dst_st, int dst_dim, float *src,
-                              long *src_sz, long *src_st, int src_dim, long n_elem)
+void THFloatTensor_kernel_copy(float *dst, 
+                               long *dst_sz, long *dst_st, int dst_dim,
+                               float *src,
+                               long *src_sz, long *src_st, int src_dim,
+                               long n_elem)
 {
   long k;
 

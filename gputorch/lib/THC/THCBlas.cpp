@@ -596,5 +596,3 @@ void THGPUBlas_gemv_opt1(char trans, long m, long n, float alpha,
   THError("Cublas_gemv only supports m, n, lda, incx, incy"
           "in the range 0 < [val] <= %d", INT_MAX);
 }
-
-

@@ -13,7 +13,7 @@
 // FIXME: copy_to might not perform host2device copying
 #define THFile_readRealRaw(file, data, size)                            \
   {                                                                     \
-    float *fdata = (float *)THAlloc(sizeof(float)*size);                \
+    float *fdata = (float*)THAlloc(sizeof(float)*size);                 \
     THFile_readFloatRaw(file, fdata, size);                             \
     Concurrency::array_view<float> avData(Concurrency::extent<1>(size),data); \
     Concurrency::array_view<float> avFData(Concurrency::extent<1>(size),fdata); \
@@ -24,7 +24,7 @@
 // FIXME: copy_to might not perform device2host copying
 #define THFile_writeRealRaw(file, data, size)                           \
   {                                                                     \
-    float *fdata = (float *)THAlloc(sizeof(float)*size);                \
+    float *fdata = (float*)THAlloc(sizeof(float)*size);                 \
     Concurrency::array_view<float> avData(Concurrency::extent<1>(size),data); \
     Concurrency::array_view<float> avFData(Concurrency::extent<1>(size),fdata); \
     avData.copy_to(avFData);                                            \
@@ -40,10 +40,8 @@
 #undef Real
 #undef TH_GENERIC_FILE
 
-/* now we overwrite some methods specific to GPUStorage */
-
-#define CUDA_IMPLEMENT_STORAGE_COPY(TYPEC)                              \
-  static int gputorch_##TYPEC##Storage_copy(lua_State *L)                \
+#define GPU_IMPLEMENT_STORAGE_COPY(TYPEC)                               \
+  static int gputorch_##TYPEC##Storage_copy(lua_State *L)               \
   {                                                                     \
     TH##TYPEC##Storage *storage = (TH##TYPEC##Storage *)luaT_checkudata(L, 1, "torch." #TYPEC "Storage"); \
     void *src;                                                          \
@@ -72,14 +70,14 @@
     return 1;                                                           \
 }
 
-CUDA_IMPLEMENT_STORAGE_COPY(Byte)
-CUDA_IMPLEMENT_STORAGE_COPY(Char)
-CUDA_IMPLEMENT_STORAGE_COPY(Short)
-CUDA_IMPLEMENT_STORAGE_COPY(Int)
-CUDA_IMPLEMENT_STORAGE_COPY(Long)
-CUDA_IMPLEMENT_STORAGE_COPY(Float)
-CUDA_IMPLEMENT_STORAGE_COPY(Double)
-CUDA_IMPLEMENT_STORAGE_COPY(GPU)
+GPU_IMPLEMENT_STORAGE_COPY(Byte)
+GPU_IMPLEMENT_STORAGE_COPY(Char)
+GPU_IMPLEMENT_STORAGE_COPY(Short)
+GPU_IMPLEMENT_STORAGE_COPY(Int)
+GPU_IMPLEMENT_STORAGE_COPY(Long)
+GPU_IMPLEMENT_STORAGE_COPY(Float)
+GPU_IMPLEMENT_STORAGE_COPY(Double)
+GPU_IMPLEMENT_STORAGE_COPY(GPU)
 
 void gputorch_GPUStorage_init(lua_State* L)
 {
@@ -108,7 +106,7 @@ void gputorch_GPUStorage_init(lua_State* L)
                                           gputorch_DoubleStorage_copy,
                                           gputorch_GPUStorage_copy};
 
-    for (i = 0; i < 8; i++)
+    for(i = 0; i < 8; i++)
     {
       luaT_pushmetatable(L, tnames[i]);
       lua_pushcfunction(L, funcs[i]);

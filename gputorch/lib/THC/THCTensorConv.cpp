@@ -155,6 +155,7 @@ void THGPUTensor_kernel_conv2generic(Concurrency::array_view<float, 1> &input_da
     }
 
   } else { // not enough shared mem for kernels, simply stream them
+
     // convolution loop
     for(oo = oo_start; oo < oo_end; oo++) {
       for(ii = ii_start; ii < ii_end; ii++) {
@@ -893,13 +894,18 @@ void THGPUTensor_conv2Dmap(THGPUTensor *output, THGPUTensor *input,
   nKernelRows  = kernel->size[1];
   nKernelCols  = kernel->size[2];
   nOutputPlane = kernel->size[0] / fanin;
+  // THArgCheck(kernel->size[1] == nInputPlane, 2, "invalid number of input planes");
+
   THArgCheck( (nInputRows >= nKernelRows && nInputCols >= nKernelCols), 2,
               "conv2Dmap : Input image is smaller than kernel");
+
   // output dims
   nOutputRows = (nInputRows - nKernelRows) / stride_y + 1;
   nOutputCols = (nInputCols - nKernelCols) / stride_x + 1;
 
+  // long nelem = THCudaTensor_nElement(state, output);
   THGPUTensor_resize3d(output, nOutputPlane, nOutputRows, nOutputCols);
+
 
   // set the number of blocks and threads
   #if 0

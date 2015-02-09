@@ -10,6 +10,7 @@ cl_command_queue mqueue=0;
 void THGPUInit()
 {
   int count = 0;
+
   int device = 0;
 
   mdevice = Concurrency::getAllocator().device;
@@ -23,7 +24,6 @@ void THGPUShutdown()
   THGPUBlas_shutdown();
 }
 
-
 void THGPUGetGridSize(int *nBlockPerColumn_, int *nBlockPerRow_, int *nThreadPerBlock_, long size)
 {
   const int nThreadPerBlock = 256;
@@ -31,15 +31,15 @@ void THGPUGetGridSize(int *nBlockPerColumn_, int *nBlockPerRow_, int *nThreadPer
   long nBlockPerColumn = 0L;
   long nBlockPerRow = 0L;
 
-  if (size % nThreadPerBlock)
+  if(size % nThreadPerBlock)
     nBlockPerGrid++;
 
-  if (nBlockPerGrid <= 65535)
+  if(nBlockPerGrid <= 65535)
   {
     nBlockPerRow = nBlockPerGrid;
     nBlockPerColumn = 1;
   }
-  else if (nBlockPerGrid <= (65355L * 65355L))
+  else if(nBlockPerGrid <= (65355L * 65355L))
   {
     unsigned int uiSqrt = (unsigned int)(sqrt((float)nBlockPerGrid));
     nBlockPerRow = uiSqrt;

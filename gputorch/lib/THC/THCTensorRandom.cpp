@@ -1,12 +1,7 @@
 #include "THCTensorRandom.h"
 #include "THCGeneral.h"
-#include "common.h"
-/*#include <thrust/functional.h>
-#include <curand.h>
-#include <curand_kernel.h>
-#include <curand_mtgp32_host.h>
-#include <curand_mtgp32dc_p_11213.h>*/
 
+#include "common.h"
 #define MAX_NUM_BLOCKS 64
 #define BLOCK_SIZE 256
 
@@ -229,7 +224,6 @@ void generate_log_normal(int size, THGPUTensor *self_, float mean, float stddev)
   }
   MemcpyHostToTHGPUTensor(vec, size, self_);
 }
-
 
 #define NUM_BLOCKS min((int)DIVUP(size, BLOCK_SIZE), MAX_NUM_BLOCKS)
 void THGPUTensor_uniform(THGPURNGState* state, THGPUTensor *self_, double a, double b)

@@ -1,3 +1,4 @@
+#include "utils.h"
 #include "luaT.h"
 #include "THCGeneral.h"
 #include "THCTensorRandom.h"
@@ -75,7 +76,7 @@ static int gputorch_getDeviceProperties(lua_State *L)
   SET_DEVN_PROP(pciDomainID);
   SET_DEVN_PROP(maxTexture1D);
   SET_DEVN_PROP(maxTexture1DLinear);
-  
+
   size_t freeMem;
   THGPUCheck(gpuMemGetInfo (&freeMem, NULL));
   lua_pushnumber(L, freeMem);
