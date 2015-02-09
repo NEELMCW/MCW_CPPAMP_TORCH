@@ -5,6 +5,7 @@
 void THGPUStorage_set(THGPUStorage *self, long index, float value)
 {
   THArgCheck((index >= 0) && (index < self->size), 2, "index out of bounds");
+  // FIXME: host2device copy
   Concurrency::array_view<float> *avData = static_cast<Concurrency::array_view<float> *>(self->allocatorContext);
   (*avData)[Concurrency::index<1>(index)] = value;
 }
@@ -13,6 +14,7 @@ float THGPUStorage_get(const THGPUStorage *self, long index)
 {
   float value;
   THArgCheck((index >= 0) && (index < self->size), 2, "index out of bounds");
+  // FIXME: device2host copy
   Concurrency::array_view<float> *avData = static_cast<Concurrency::array_view<float> *>(self->allocatorContext);
   value = (*avData)[Concurrency::index<1>(index)];
   return value;
@@ -35,7 +37,7 @@ THGPUStorage* THGPUStorage_newWithSize(long size)
 {
   THArgCheck(size >= 0, 2, "invalid size");
 
-  if (size > 0)
+  if(size > 0)
   {
     THGPUStorage *storage = (THGPUStorage *)THAlloc(sizeof(THGPUStorage));
     Concurrency::extent<1> eA(size);
@@ -108,18 +110,18 @@ THGPUStorage* THGPUStorage_newWithData(float *data, long size)
 
 void THGPUStorage_retain(THGPUStorage *self)
 {
-  if (self && (self->flag & TH_STORAGE_REFCOUNTED))
+  if(self && (self->flag & TH_STORAGE_REFCOUNTED))
     ++self->refcount;
 }
 
 void THGPUStorage_free(THGPUStorage *self)
 {
-  if (!(self->flag & TH_STORAGE_REFCOUNTED))
+  if(!(self->flag & TH_STORAGE_REFCOUNTED))
     return;
 
   if (--(self->refcount) <= 0)
   {
-    if (self->flag & TH_STORAGE_FREEMEM)
+    if(self->flag & TH_STORAGE_FREEMEM)
     {
       if (self->allocatorContext)
       {
@@ -143,56 +145,6 @@ void THGPUStorage_free(THGPUStorage *self)
     THFree(self);
   }
 }
-
-void THGPUStorage_copyFloat(THGPUStorage *self, struct THFloatStorage *src)
-{
-  THArgCheck(self->size == src->size, 2, "size does not match");
-  THGPUStorage_rawCopy(self, src->data);
-}
-
-#define TH_CUDA_STORAGE_IMPLEMENT_COPY(TYPEC)                                     \
-void THGPUStorage_copy##TYPEC(THGPUStorage *self, struct TH##TYPEC##Storage *src) \
-{                                                                                 \
-  THFloatStorage *buffer;                                                         \
-  THArgCheck(self->size == src->size, 2, "size does not match");                  \
-  buffer = THFloatStorage_newWithSize(src->size);                                 \
-  THFloatStorage_copy##TYPEC(buffer, src);                                        \
-  THGPUStorage_copyFloat(self, buffer);                                           \
-  THFloatStorage_free(buffer);                                                    \
-}
-
-TH_CUDA_STORAGE_IMPLEMENT_COPY(Byte)
-TH_CUDA_STORAGE_IMPLEMENT_COPY(Char)
-TH_CUDA_STORAGE_IMPLEMENT_COPY(Short)
-TH_CUDA_STORAGE_IMPLEMENT_COPY(Int)
-TH_CUDA_STORAGE_IMPLEMENT_COPY(Long)
-TH_CUDA_STORAGE_IMPLEMENT_COPY(Double)
-
-void THFloatStorage_copyGPU(THFloatStorage *self, struct THGPUStorage *src)
-{
-  THArgCheck(self->size == src->size, 2, "size does not match");
-  Concurrency::array_view<float, 1> arrSrc(Concurrency::extent<1>(self->size), src->data);
-  Concurrency::array_view<float, 1> avSelfCopy(Concurrency::extent<1>(self->size), self->data);
-  copy(arrSrc, avSelfCopy);
-}
-
-#define TH_CUDA_STORAGE_IMPLEMENT_COPYTO(TYPEC)                                     \
-void TH##TYPEC##Storage_copyGPU(TH##TYPEC##Storage *self, struct THGPUStorage *src) \
-{                                                                                   \
-  THFloatStorage *buffer;                                                           \
-  THArgCheck(self->size == src->size, 2, "size does not match");                    \
-  buffer = THFloatStorage_newWithSize(src->size);                                   \
-  THFloatStorage_copyGPU(buffer, src);                                              \
-  TH##TYPEC##Storage_copyFloat(self, buffer);                                       \
-  THFloatStorage_free(buffer);                                                      \
-}
-
-TH_CUDA_STORAGE_IMPLEMENT_COPYTO(Byte)
-TH_CUDA_STORAGE_IMPLEMENT_COPYTO(Char)
-TH_CUDA_STORAGE_IMPLEMENT_COPYTO(Short)
-TH_CUDA_STORAGE_IMPLEMENT_COPYTO(Int)
-TH_CUDA_STORAGE_IMPLEMENT_COPYTO(Long)
-TH_CUDA_STORAGE_IMPLEMENT_COPYTO(Double)
 
 void THGPUStorage_fill(THGPUStorage *self, float value)
 {
@@ -262,26 +214,3 @@ void THGPUStorage_resize(THGPUStorage *self, long size)
   }
 }
 
-void THGPUStorage_rawCopy(THGPUStorage *self, float *src)
-{
-  Concurrency::array_view<float> avSelfCopy(Concurrency::extent<1>(self->size), self->data);
-  avSelfCopy.discard_data();
-  MemcpyHostToAV(src, self->size, avSelfCopy);
-}
-
-// FIXME: same as THGPUStorage_copyGPU 
-void THGPUStorage_copy(THGPUStorage *self, THGPUStorage *src)
-{
-  THArgCheck(self->size == src->size, 2, "size does not match");
-  PREPARE_AV_WITH_STORAGE(src, arrSrc);
-  PREPARE_AV_WITH_STORAGE(self, avSelfCopy);
-  MemcpyAVToAV(arrSrc, src->size, avSelfCopy);
-}
-
-void THGPUStorage_copyGPU(THGPUStorage *self, THGPUStorage *src)
-{
-  THArgCheck(self->size == src->size, 2, "size does not match");
-  PREPARE_AV_WITH_STORAGE(src, arrSrc);
-  PREPARE_AV_WITH_STORAGE(self, avSelfCopy);
-  MemcpyAVToAV(arrSrc, src->size, avSelfCopy);
-}
