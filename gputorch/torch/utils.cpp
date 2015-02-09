@@ -8,7 +8,7 @@ THLongStorage* gputorch_checklongargs(lua_State *L, int index)
 
   if (narg == 1 && luaT_toudata(L, index, "torch.LongStorage"))
   {
-    THLongStorage *storagesrc = luaT_toudata(L, index, "torch.LongStorage");
+    THLongStorage *storagesrc = (THLongStorage *)luaT_toudata(L, index, "torch.LongStorage");
     storage = THLongStorage_newWithSize(storagesrc->size);
     THLongStorage_copy(storage, storagesrc);
   }
