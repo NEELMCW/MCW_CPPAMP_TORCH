@@ -26,7 +26,7 @@ static int gpunn_DistKLDivCriterion_updateOutput(lua_State *L)
   target = THGPUTensor_newContiguous(target);
 
   DECLARE_BOLT_DEVICE_VECTOR_2(input, input_data, target, target_data);
-  sum = bolt::amp::inner_product(input_data.begin(), input_data.end(), target_data.begin(), (float) 0, bolt::amp::plus<float>(), kl_functor());
+  sum = std::inner_product(input_data.begin(), input_data.end(), target_data.begin(), (float) 0, bolt::amp::plus<float>(), kl_functor());
   if (sizeAverage)
     sum /= size;
 

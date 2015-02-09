@@ -30,7 +30,7 @@ static int gpunn_MSECriterion_updateOutput(lua_State *L)
   target = THGPUTensor_newContiguous(target);
 
   DECLARE_BOLT_DEVICE_VECTOR_2(input, input_data, target, target_data);
-  sum = bolt::amp::inner_product(input_data.begin(), input_data.end(), target_data.begin(), (float) 0, bolt::amp::plus<float>(), mse_functor());
+  sum = std::inner_product(input_data.begin(), input_data.end(), target_data.begin(), (float) 0, bolt::amp::plus<float>(), mse_functor());
 
   if(sizeAverage)
     sum /= size;
@@ -152,7 +152,7 @@ void gpunn_MSECriterion_updateGradInput_kernel(Concurrency::array_view<float,1> 
   });
 }
 
-static int cunn_MSECriterion_updateOutput2(lua_State *L)
+static int gpunn_MSECriterion_updateOutput2(lua_State *L)
 {
   THGPUTensor *input = (THGPUTensor*)luaT_checkudata(L, 2, "torch.GPUTensor");
   THGPUTensor *target = (THGPUTensor*)luaT_checkudata(L, 3, "torch.GPUTensor");
