@@ -7,8 +7,8 @@
 // Kernel for fast unfold+copy
 // (borrowed from Caffe: https://github.com/BVLC/caffe/blob/master/src/caffe/layers/conv_layer.cu)
 
-void im2col(Concurrency::array_view<float,1> &avData_im, int inOffset, int channels, int height, int width, int ksize_h,
-            int ksize_w, int pad_h, int pad_w, int stride_h, int stride_w, Concurrency::array_view<float,1> &avData_col)
+void im2col(Concurrency::array_view<float,1> &avData_im, long imOffset, int inOffset, int channels, int height, int width, int ksize_h,
+            int ksize_w, int pad_h, int pad_w, int stride_h, int stride_w, Concurrency::array_view<float,1> &avData_col, long colOffset)
 {
   int height_col = (height + 2 * pad_h - ksize_h) / stride_h + 1;
   int width_col = (width + 2 * pad_w - ksize_w) / stride_w + 1;
@@ -19,8 +19,8 @@ void im2col(Concurrency::array_view<float,1> &avData_im, int inOffset, int chann
   Concurrency::tiled_extent<256, 1> t_ext(grdExt);
   Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<256, 1> tidx) restrict(amp)
   {
-    float dataCol = 0;
-    float dataIm = inOffset;
+    float dataCol = colOffset;
+    float dataIm = imOffset + inOffset;
     int i = tidx.global[0];
     int p = tidx.global[1];
     
@@ -71,9 +71,9 @@ void im2col(Concurrency::array_view<float,1> &avData_im, int inOffset, int chann
   });
 }
 
-void col2im_kernel(int n, Concurrency::array_view<float,1> &avData_col, int height, int width, int channels,
+void col2im_kernel(int n, Concurrency::array_view<float,1> &avData_col, long colOffset, int height, int width, int channels,
                    int patch_h, int patch_w, int pad_h, int pad_w, int stride_h,
-                   int stride_w, int height_col, int width_col, Concurrency::array_view<float,1> &avData_im, int inp_stride, int elt)
+                   int stride_w, int height_col, int width_col, Concurrency::array_view<float,1> &avData_im, long imOffset, int inp_stride, int elt)
 {
   unsigned grdSz = (n + 256) -(n%256);
   Concurrency::extent<1> grdExt(grdSz);
@@ -99,26 +99,26 @@ void col2im_kernel(int n, Concurrency::array_view<float,1> &avData_col, int heig
       {
         for (int w_col = w_col_start; w_col < w_col_end; ++w_col) 
         {
-          val += avData_col[offset + h_col * coeff_h_col + w_col * coeff_w_col];
+          val += avData_col[colOffset + offset + h_col * coeff_h_col + w_col * coeff_w_col];
         }
       }
-      avData_im[i + elt * inp_stride] = val;
+      avData_im[imOffset + i + elt * inp_stride] = val;
     }
 
   });
 }
 
-void col2im(Concurrency::array_view<float,1> &avData_col, int channels, int height, int width,
+inline void col2im(Concurrency::array_view<float,1> &avData_col, long colOffset, int channels, int height, int width,
             int patch_h, int patch_w, int pad_h, int pad_w,
-            int stride_h, int stride_w, Concurrency::array_view<float,1> &avData_im, int inp_stride, int elt)
+            int stride_h, int stride_w, Concurrency::array_view<float,1> &avData_im, long imOffset, int inp_stride, int elt)
 {
   int height_col = (height + 2 * pad_h - patch_h) / stride_h + 1;
   int width_col = (width + 2 * pad_w - patch_w) / stride_w + 1;
   int num_kernels = channels * height * width;
   // To avoid involving atomic operations, we will launch one kernel per
   // bottom dimension, and then in the kernel add up the top dimensions.
-   col2im_kernel(num_kernels, avData_col, height, width, channels, patch_h, patch_w,
-                 pad_h, pad_w, stride_h, stride_w, height_col, width_col, avData_im, inp_stride, elt);
+   col2im_kernel(num_kernels, avData_col, colOffset, height, width, channels, patch_h, patch_w,
+                 pad_h, pad_w, stride_h, stride_w, height_col, width_col, avData_im, imOffset, inp_stride, elt);
 }
 
 static int gpunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
@@ -139,6 +139,7 @@ static int gpunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
   THGPUTensor *columns = (THGPUTensor*)luaT_getfieldcheckudata(L, 1, "finput", "torch.GPUTensor");
   THGPUTensor *ones = (THGPUTensor*)luaT_getfieldcheckudata(L, 1, "fgradInput", "torch.GPUTensor");
   THGPUTensor *output = (THGPUTensor*)luaT_getfieldcheckudata(L, 1, "output", "torch.GPUTensor");
+
 
   luaL_argcheck(L, input->nDimension == 3 || input->nDimension == 4, 2, "3D or 4D (batch mode) tensor is expected");
 
@@ -211,15 +212,16 @@ static int gpunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
         *avData_bias, k_, 0,
         *avData_output, n_,
         NULL, NULL, NULL,
-        0, 0, output->stride[0] * elt
+        ones->storageOffset, bias->storageOffset, output->storageOffset + output->stride[0] * elt
+
     );
     // Extract columns:
     avData_im->discard_data();
     avData_col->discard_data();
     im2col(
-        *avData_im, input->stride[0] * elt,
+        *avData_im, input->storageOffset, input->stride[0] * elt,
         nInputPlane, inputHeight, inputWidth, kH, kW, padding, padding, dH, dW,
-        *avData_col
+        *avData_col, columns->storageOffset
     );
     // M,N,K are dims of matrix A and B
     // (see http://docs.nvidia.com/gpu/cublas/#cublas-lt-t-gt-gemm)
@@ -236,7 +238,7 @@ static int gpunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
         *avData_weight, k, 1,
         *avData_output, n,
         NULL, NULL, NULL,
-        0, 0, output->stride[0] * elt
+        columns->storageOffset, weight->storageOffset, output->storageOffset + output->stride[0] * elt
     );
   }
 
@@ -296,6 +298,10 @@ static int gpunn_SpatialConvolutionMM_updateGradInput(lua_State *L) {
   PREPARE_AV(gradInput, avData_im);
   PREPARE_AV(gradOutput, avData_gradOutput);
   PREPARE_AV(weight, avData_weight);
+  long colOffset = gradColumns->storageOffset;
+  long imOffset = gradInput->storageOffset;
+  long gradOutOffset = gradOutput->storageOffset;
+  long weightOffset = weight->storageOffset;
   long m = weight->size[1];
   long n = gradColumns->size[1];
   long k = weight->size[0];
@@ -320,16 +326,16 @@ static int gpunn_SpatialConvolutionMM_updateGradInput(lua_State *L) {
         *avData_weight, m, 0,
         *avData_col, n,
         NULL, NULL, NULL,
-        gradOutput->stride[0] * elt, 0, 0
+        gradOutOffset + gradOutput->stride[0] * elt, weightOffset, colOffset
     );
 
     // Unpack columns back into input:
     avData_col->discard_data();
     avData_im->discard_data();
     col2im(
-        *avData_col,
+        *avData_col, colOffset,
         nInputPlane, inputHeight, inputWidth, kH, kW, padding, padding, dH, dW,
-        *avData_im, gradInput->stride[0], elt
+        *avData_im, imOffset, gradInput->stride[0], elt
     );
   }
 
@@ -410,6 +416,13 @@ static int gpunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
   PREPARE_AV(gradWeight, avData_gradWeight);
   PREPARE_AV(ones, avData_ones);
   PREPARE_AV(gradBias, avData_gradBias);
+ 
+  long colOffset = columns->storageOffset;
+  long imOffset = input->storageOffset;
+  long gradOutOffset = gradOutput->storageOffset;
+  long gradweiOffset = gradWeight->storageOffset;
+  long onesOffset = ones->storageOffset;
+  long gradBiasOffset = gradBias->storageOffset;
   
 
   // For each elt in batch, do:
@@ -430,9 +443,9 @@ static int gpunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
     avData_im->discard_data();
     avData_col->discard_data();
     im2col(
-        *avData_im, input->stride[0] * elt,
+        *avData_im, imOffset, input->stride[0] * elt,
         nInputPlane, inputHeight, inputWidth, kH, kW, padding, padding, dH, dW,
-        *avData_col
+        *avData_col, colOffset
     );
 
     // M,N,K are dims of matrix A and B
@@ -450,7 +463,7 @@ static int gpunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
         *avData_gradOutput, k, 1,
         *avData_gradWeight, n,
         NULL, NULL, NULL,
-        0, gradOutput->stride[0] * elt, 0
+        colOffset, gradOutOffset + gradOutput->stride[0] * elt, gradweiOffset
     );
 
     if(elt==batchSize-1)
@@ -464,10 +477,10 @@ static int gpunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
         't',
         k_, m_,
         scale,
-        *avData_gradOutput, gradOutput->stride[0] * elt,
-        *avData_ones, 1,
+        *avData_gradOutput, gradOutOffset + gradOutput->stride[0] * elt,
+        *avData_ones, onesOffset, 1,
         1,
-        *avData_gradBias, 1, temp_buf
+        *avData_gradBias, gradBiasOffset, 1, temp_buf
     );
   }
 

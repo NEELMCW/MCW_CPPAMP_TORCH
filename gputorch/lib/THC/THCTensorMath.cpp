@@ -691,26 +691,26 @@ void THGPUTensor_addmv(THGPUTensor *r_, float beta, THGPUTensor *t, float alpha,
   {
     PREPARE_AV(mat, pavMat);
     THGPUBlas_gemv_opt('n', mat->size[0], mat->size[1],
-                     alpha, *pavMat, 0,
-                     *pavVec, vec->stride[0],
-                     beta, *pavR_, r_->stride[0], temp_buf);
+                     alpha, *pavMat, mat->storageOffset + 0,
+                     *pavVec, vec->storageOffset, vec->stride[0],
+                     beta, *pavR_,r_->storageOffset, r_->stride[0], temp_buf);
   }
   else if (mat->stride[1] == 1)
   {
     PREPARE_AV(mat, pavMat);
     THGPUBlas_gemv_opt('t',  mat->size[1], mat->size[0],
-                     alpha, *pavMat, 0,
-                     *pavVec, vec->stride[0],
-                     beta, *pavR_, r_->stride[0], temp_buf);
+                     alpha, *pavMat, mat->storageOffset + 0,
+                     *pavVec, vec->storageOffset, vec->stride[0],
+                     beta, *pavR_, r_->storageOffset, r_->stride[0], temp_buf);
   }
   else
   {
     THGPUTensor *cmat = THGPUTensor_newContiguous(mat);
     PREPARE_AV(cmat, pavCMat);
     THGPUBlas_gemv_opt('t',  mat->size[1], mat->size[0],
-                     alpha, *pavCMat, 0,
-                     *pavVec, vec->stride[0],
-                     beta, *pavR_, r_->stride[0], temp_buf);
+                     alpha, *pavCMat, cmat->storageOffset + 0,
+                     *pavVec, vec->storageOffset, vec->stride[0],
+                     beta, *pavR_, r_->storageOffset, r_->stride[0], temp_buf);
 
     THGPUTensor_free(cmat);
   }

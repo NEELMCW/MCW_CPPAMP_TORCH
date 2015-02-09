@@ -10,8 +10,8 @@ int gemm_AMP(char TransA, char TransB, const int M, const int N, const int K, co
 
 void gemv_AMP(char TransA,
 int M, int N, float alpha, Concurrency::array_view<float> &A,
-int lda, Concurrency::array_view<float> &X,  int incX, float beta,
-Concurrency::array_view<float> &Y,  int incY, Concurrency::array_view<float> &temp_buf);
+int aOffset, Concurrency::array_view<float> &X, long xOffset,  int incX, float beta,
+Concurrency::array_view<float> &Y, long yOffset, int incY, Concurrency::array_view<float> &temp_buf);
 
 void axpy_AMP(long n, float alpha, Concurrency::array_view<float> &X, long incx, Concurrency::array_view<float> &Y, long incy);
 

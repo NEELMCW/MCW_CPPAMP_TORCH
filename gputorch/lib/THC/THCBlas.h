@@ -27,7 +27,7 @@
 #include "amp.h"
 
 void THGPUBlas_gemv_opt(char trans, long m, long n, float alpha, 
-  Concurrency::array_view<float> &a, long lda, Concurrency::array_view<float> &x, long incx, float beta, Concurrency::array_view<float> &y, long incy, Concurrency::array_view<float> &temp_buf);
+  Concurrency::array_view<float> &a, long aOffset, Concurrency::array_view<float> &x, long xOffset, long incx, float beta, Concurrency::array_view<float> &y, long yOffset, long incy, Concurrency::array_view<float> &temp_buf);
 
 void THGPUBlas_gemm_opt(char transa, char transb,
   long m, long n, long k, float alpha,
