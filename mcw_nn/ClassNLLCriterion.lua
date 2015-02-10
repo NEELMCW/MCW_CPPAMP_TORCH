@@ -11,7 +11,7 @@ function ClassNLLCriterion:__init(weights)
 end
 
 function ClassNLLCriterion:updateOutput(input, target)
-   if input:type() == 'torch.CudaTensor' and not self.weights then
+   if input:type() == 'torch.GPUTensor' and not self.weights then
        input.nn.ClassNLLCriterion_updateOutput(self, input, target)
        self.output = self.outputTensor[1]
        return self.output
@@ -45,7 +45,7 @@ function ClassNLLCriterion:updateGradInput(input, target)
    self.gradInput:resizeAs(input)
    self.gradInput:zero()
 
-  if input:type() == 'torch.CudaTensor' and not self.weights then
+  if input:type() == 'torch.GPUTensor' and not self.weights then
       input.nn.ClassNLLCriterion_updateGradInput(self, input, target)
       return self.gradInput
   end
