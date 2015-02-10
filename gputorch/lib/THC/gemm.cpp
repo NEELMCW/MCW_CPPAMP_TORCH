@@ -44,7 +44,7 @@ void gemm_NoTransAB(Concurrency::array_view<float, 1> &A, Concurrency::array_vie
 
 void gemm_NoTransB(Concurrency::array_view<float, 1> &A, Concurrency::array_view<float, 1> &B, Concurrency::array_view<float, 1> &C, int M, int N, int K, int lda, int ldb, int ldc, float alpha, float beta , long aOffset, long bOffset, long cOffset, Concurrency::array_view<float,1> &temp_buf)
 {
-  if (K > N)
+  if (K > N && K > M)
   {
     Concurrency::extent<1> grdExt((K + (BLOCK_SIZE - 1)) & ~(BLOCK_SIZE - 1));
     Concurrency::tiled_extent<BLOCK_SIZE> t_ext(grdExt);
