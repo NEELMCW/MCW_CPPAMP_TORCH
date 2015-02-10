@@ -1,6 +1,6 @@
 #include "THCBlas.h"
 #include "THCGeneral.h"
-#include "gemm.h"
+#include "THCAMPBlasImpl.h"
 #include<iostream>
 
 void THGPUBlas_init(int devices, int device)

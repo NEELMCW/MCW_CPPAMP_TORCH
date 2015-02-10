@@ -1,4 +1,4 @@
-#include "gemm.h"
+#include "THCAMPBlasImpl.h"
 #define OFFSET(N, incX) ((incX) > 0 ? 0 : ((N) - 1) * (-(incX)))
 #define BLOCK_SIZE 256
 #define TILE_DIM 16 
