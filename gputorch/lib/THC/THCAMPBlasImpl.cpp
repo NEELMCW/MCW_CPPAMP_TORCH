@@ -3,7 +3,7 @@
 #define BLOCK_SIZE 256
 #define TILE_DIM 16 
 #define THREADS 16
-
+#define GEMM_BLOCK 64
 
 void gemm_NoTransAB(Concurrency::array_view<float, 1> &A, Concurrency::array_view<float, 1> &B, Concurrency::array_view<float, 1> &C, int M, int N, int K, int lda, int ldb, int ldc, float alpha, float beta, long aOffset, long bOffset, long cOffset)
 {
@@ -51,66 +51,37 @@ void gemm_NoTransB(Concurrency::array_view<float, 1> &A, Concurrency::array_view
 {
   if (K > N && K > M)
   {
-    Concurrency::extent<1> grdExt((K + (BLOCK_SIZE - 1)) & ~(BLOCK_SIZE - 1));
-    Concurrency::tiled_extent<BLOCK_SIZE> t_ext(grdExt);
-    Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<BLOCK_SIZE> tidx) restrict(amp){
+    Concurrency::extent<1> grdExt(M*64);
+    Concurrency::tiled_extent<GEMM_BLOCK> t_ext(grdExt);
+    Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<GEMM_BLOCK> tidx) restrict(amp){
 
-    int num_blocks = ((K + (BLOCK_SIZE - 1)) & ~(BLOCK_SIZE - 1))/BLOCK_SIZE;
     int threadIdx = tidx.local[0];
     int blockIdx = tidx.tile[0];
-  
+
     for (int i = 0; i < N; i++)
     {
-      for (int j = 0; j < M; j++)
+      int j = blockIdx;
+      tile_static float sh[GEMM_BLOCK];
+
+      sh[threadIdx] = 0;
+
+      for(int tileId = 0; tileId < ((K + GEMM_BLOCK - 1) & ~(GEMM_BLOCK - 1))/GEMM_BLOCK; tileId++)
       {
-        tile_static float sh[BLOCK_SIZE];
-
-        sh[threadIdx] = 0;
-        temp_buf[i * M * num_blocks + j * num_blocks + blockIdx] = 0;
-
-        if (blockIdx * BLOCK_SIZE + threadIdx < K)
-          sh[threadIdx] += A[aOffset + j * K + blockIdx * BLOCK_SIZE + threadIdx] * B[bOffset + i * K + blockIdx * BLOCK_SIZE + threadIdx];
-        tidx.barrier.wait();
-
-        for (int stride = BLOCK_SIZE/2; stride >= 1; stride /= 2)
-        {
-          if (threadIdx < stride)
-            sh[threadIdx] += sh[threadIdx + stride];
-        }
-
-        tidx.barrier.wait();   
- 
-        temp_buf[i * M * num_blocks + j * num_blocks + blockIdx] = sh[0];
+        if (tileId * GEMM_BLOCK + threadIdx < K)
+          sh[threadIdx] += A[aOffset + j * K + tileId * GEMM_BLOCK + threadIdx] * B[bOffset + i * K + tileId * GEMM_BLOCK + threadIdx];
         tidx.barrier.wait();
       }
-    }
 
-    if (blockIdx == 0)
-    { 
-      for (int i = 0; i < N; i++)
+      for (int stride = GEMM_BLOCK/2; stride >= 1; stride /= 2)
       {
-        for (int j = 0; j < M; j++)
-        {
-          tile_static float sh[BLOCK_SIZE];
-          sh[threadIdx] = 0;
-
-          for (int t = threadIdx; t < num_blocks; t += tidx.tile_dim0)
-          {
-            sh[threadIdx] += temp_buf[i * M * num_blocks + j * num_blocks + t];
-          }
-          tidx.barrier.wait();
-
-          for (int stride = BLOCK_SIZE/2; stride >= 1; stride /= 2)
-          {
-            if (threadIdx < stride)
-              sh[threadIdx] += sh[threadIdx + stride];
-          }
-          tidx.barrier.wait();
-
-          C[cOffset + i * M + j] *= beta;
-          C[cOffset + i * M + j] += sh[0] * alpha;
-        }
+        if (threadIdx < stride)
+          sh[threadIdx] += sh[threadIdx + stride];
       }
+
+      tidx.barrier.wait();
+
+      C[cOffset + i * M + j] *= beta;
+      C[cOffset + i * M + j] += sh[0] * alpha;
     }
     });
   }
