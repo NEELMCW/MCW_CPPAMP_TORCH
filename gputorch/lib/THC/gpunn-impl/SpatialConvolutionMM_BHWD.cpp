@@ -127,6 +127,8 @@ static int gpunn_SpatialConvolutionMM_BHWD_updateOutput(lua_State *L) {
   PREPARE_AV(bias, avData_bias);
   PREPARE_AV(output, avData_output);
   PREPARE_AV(weight, avData_weight);
+  Concurrency::array_view<float> *temp_buf = NULL;
+
   // For each elt in batch, do:
   for (int elt = 0; elt < batchSize; elt ++) {
     // Matrix mulitply per output:
@@ -149,7 +151,7 @@ static int gpunn_SpatialConvolutionMM_BHWD_updateOutput(lua_State *L) {
         *avData_bias, k_, 0,
         *avData_output, n_,
         NULL, NULL, NULL,
-        0, 0, output->stride[0] * elt
+        0, 0, output->stride[0] * elt, *temp_buf
     );
     // Extract columns:
     avData_im->discard_data();
@@ -174,7 +176,7 @@ static int gpunn_SpatialConvolutionMM_BHWD_updateOutput(lua_State *L) {
         *avData_weight, k, 1,
         *avData_output, n,
         NULL, NULL, NULL,
-        0, 0, output->stride[0] * elt
+        0, 0, output->stride[0] * elt, *temp_buf
     );
   }
 

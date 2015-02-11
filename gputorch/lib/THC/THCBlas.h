@@ -2,6 +2,7 @@
 #define THC_BLAS_INC
 
 #include "THCGeneral.h"
+#include "THCAMPBlasImpl.h"
 
 #undef TH_API
 #define TH_API THC_API
