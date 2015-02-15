@@ -24,6 +24,14 @@ void THGPUShutdown()
   THGPUBlas_shutdown();
 }
 
+void __THGPUCheck(int err, const char *file, const int line)
+{
+  if(err != 0)
+  {
+    THError("%s(%i) : cuda runtime error : %s",
+            file, line, "");
+  }
+}
 void THGPUGetGridSize(int *nBlockPerColumn_, int *nBlockPerRow_, int *nThreadPerBlock_, long size)
 {
   const int nThreadPerBlock = 256;
