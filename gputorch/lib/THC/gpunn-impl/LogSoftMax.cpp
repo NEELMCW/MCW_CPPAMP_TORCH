@@ -123,8 +123,8 @@ static int gpunn_LogSoftMax_updateOutput(lua_State *L)
   THGPUTensor *output = (THGPUTensor*)luaT_getfieldcheckudata(L, 1, "output", "torch.GPUTensor");
 
   input = THGPUTensor_newContiguous(input);
-
   THGPUTensor_resizeAs(output, input);
+
   PREPARE_AV(output, pavOutput);
   PREPARE_AV(input, pavInput);
   if (input->nDimension == 1)

@@ -1,12 +1,14 @@
 #include "THCStorageCopy.h"
 #include "THCGeneral.h"
+
+#include "copyHelpers.h"
 #include "common.h"
 
 void THGPUStorage_copyFloat(THGPUStorage *self, struct THFloatStorage *src)
 {
   THArgCheck(self->size == src->size, 2, "size does not match");
-  // FIXME: host2device copy
-  THGPUStorage_rawCopy(self, src->data);
+  float* device_ptr = static_cast<float*>(Concurrency::getAllocator().device_data(self->data));
+  THGPUCheck(gpuMemcpy(device_ptr, 0, src->data, 0, self->size * sizeof(float), gpuMemcpyHostToDevice));
 }
 
 #define TH_GPU_STORAGE_IMPLEMENT_COPY(TYPEC)                                      \
@@ -30,10 +32,8 @@ TH_GPU_STORAGE_IMPLEMENT_COPY(Double)
 void THFloatStorage_copyGPU(THFloatStorage *self, struct THGPUStorage *src)
 {
   THArgCheck(self->size == src->size, 2, "size does not match");
-  // TODO: device2host copy
-  Concurrency::array_view<float, 1> arrSrc(Concurrency::extent<1>(self->size), src->data);
-  Concurrency::array_view<float, 1> avSelfCopy(Concurrency::extent<1>(self->size), self->data);
-  copy(arrSrc, avSelfCopy);
+  float* device_ptr = static_cast<float*>(Concurrency::getAllocator().device_data(src->data));
+  THGPUCheck(gpuMemcpy(self->data, 0, device_ptr, 0, self->size * sizeof(float), gpuMemcpyDeviceToHost));
 }
 
 #define TH_GPU_STORAGE_IMPLEMENT_COPYTO(TYPEC)                                      \
@@ -54,28 +54,22 @@ TH_GPU_STORAGE_IMPLEMENT_COPYTO(Int)
 TH_GPU_STORAGE_IMPLEMENT_COPYTO(Long)
 TH_GPU_STORAGE_IMPLEMENT_COPYTO(Double)
 
+// FIXME: device2device. 'src' is on device
 void THGPUStorage_rawCopy(THGPUStorage *self, float *src)
 {
-  // TODO: device2device async copy
-  Concurrency::array_view<float> avSelfCopy(Concurrency::extent<1>(self->size), self->data);
-  avSelfCopy.discard_data();
-  MemcpyHostToAV(src, self->size, avSelfCopy);
+  float* device_ptr = static_cast<float*>(Concurrency::getAllocator().device_data(self->data));
+  THGPUCheck(gpuMemcpyAsync(device_ptr, 0, src, 0, self->size * sizeof(float), gpuMemcpyDeviceToDevice));
 }
 
 void THGPUStorage_copy(THGPUStorage *self, THGPUStorage *src)
 {
   THArgCheck(self->size == src->size, 2, "size does not match");
-  // TODO: device2device async copy
-  PREPARE_AV_WITH_STORAGE(src, arrSrc);
-  PREPARE_AV_WITH_STORAGE(self, avSelfCopy);
-  MemcpyAVToAV(arrSrc, src->size, avSelfCopy);
+  float* self_ptr = static_cast<float*>(Concurrency::getAllocator().device_data(self->data));
+  float* src_ptr = static_cast<float*>(Concurrency::getAllocator().device_data(src->data));
+  THGPUCheck(gpuMemcpyAsync(self_ptr, 0, src_ptr, 0, self->size * sizeof(float), gpuMemcpyDeviceToDevice));
 }
 
 void THGPUStorage_copyGPU(THGPUStorage *self, THGPUStorage *src)
 {
-  THArgCheck(self->size == src->size, 2, "size does not match");
-  // TODO: device2device async copy
-  PREPARE_AV_WITH_STORAGE(src, arrSrc);
-  PREPARE_AV_WITH_STORAGE(self, avSelfCopy);
-  MemcpyAVToAV(arrSrc, src->size, avSelfCopy);
+  THGPUStorage_copy(self, src);
 }

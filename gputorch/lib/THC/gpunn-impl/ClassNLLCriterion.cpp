@@ -3,9 +3,9 @@
  */
 
 #include<assert.h>
-extern void MemcpyTHGPUTensorToHost(void* src, int size, float *dest);
-extern void MemcpyHostToTHGPUTensor(float* first, int size, void* dest, int offset=0);
+
 static const int NTHREADS = 32;
+#include "copyHelpers.h"
 
 void gpunn_ClassNLLCriterion_updateOutput_kernel1(Concurrency::array_view<float,1> &avOutput,
                                                  Concurrency::array_view<float,1> &avInput,
@@ -148,11 +148,12 @@ static int gpunn_ClassNLLCriterion_updateGradInput(lua_State *L)
     if (ntarget > 1)
       THArgCheck(0, 2, "multi-target not implemented");
     float tid;
-    // Perform device2host: tid = target_data[0];
-    MemcpyTHGPUTensorToHost(pavTarget, 1, &tid);
+    float* target_ptr = static_cast<float*>(Concurrency::getAllocator().device_data(target->storage->data));
+    gpuMemcpy(&tid, 0, target_ptr, target->storageOffset, sizeof(float), gpuMemcpyDeviceToHost);
 
-    // Perform host2device: gradInput_data[(int)tid - 1] = grad;
-    MemcpyHostToTHGPUTensor(&grad, 1, pavGradInput, (int)tid-1);
+    float* gradInput_ptr = static_cast<float*>(Concurrency::getAllocator().device_data(gradInput->storage->data));
+    gpuMemcpy(gradInput_ptr, gradInput->storageOffset + (int)tid - 1,
+               &grad, 0, sizeof(float), gpuMemcpyHostToDevice);
   }
   else if (input->nDimension == 2)
   {
@@ -185,4 +186,3 @@ void gpunn_ClassNLLCriterion_init(lua_State *L)
   luaT_registeratname(L, gpunn_ClassNLLCriterion__, "nn");
   lua_pop(L, 1);
 }
-

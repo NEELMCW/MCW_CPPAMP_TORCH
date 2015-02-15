@@ -7,7 +7,7 @@ INCLUDE_DIRECTORIES($ENV{MCWCPPAMPROOT}/cppamp-driver-ng/include)
 SET(src
    THCGeneral.cpp gemm.cpp
    THCStorageCopy.cpp THCBlas.cpp THCStorage.cpp THCTensor.cpp THCTensorCopy.cpp
-   THCTensorConv.cpp THCTensorMath.cpp THCTensorRandom.cpp)
+   THCTensorConv.cpp THCTensorMath.cpp THCTensorRandom.cpp copyHelpers.cpp)
 
 SET(gpunnsrc gpunn-impl/SpatialConvolutionGPU/updateOutput.cpp gpunn-impl/SpatialConvolutionGPU/updateGradInput.cpp
     gpunn-impl/SpatialConvolutionGPU/accGradParameters.cpp  gpunn-impl/init.cpp)

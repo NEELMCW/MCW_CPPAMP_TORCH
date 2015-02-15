@@ -9,48 +9,27 @@
 #include "bolt/amp/inner_product.h"
 #include "bolt/amp/copy.h"
 
-void MemcpyHostToTHGPUTensor(float* first, int size, void* dest, int offset = 0);
-void MemcpyHostToAV(float* first, int size, Concurrency::array_view<float,1> &dest);
-void MemcpyAVToAV(void* src, int size, void* dest);
-
-
 #ifdef DECLARE_BOLT_DEVICE_VECTOR
 #undef DECLARE_BOLT_DEVICE_VECTOR
 #endif
-#define DECLARE_BOLT_DEVICE_VECTOR(host_a, dv_a) \
-  Concurrency::array_view<float, 1> *pav_##host_a = static_cast<Concurrency::array_view<float, 1> *>(host_a->storage->allocatorContext);\
-  bolt::amp::device_vector<float> dv_a(*pav_##host_a,THGPUTensor_nElement(host_a),true);
-
-#ifdef DECLARE_BOLT_DEVICE_VECTOR_2
-#undef DECLARE_BOLT_DEVICE_VECTOR_2
-#endif
-#define DECLARE_BOLT_DEVICE_VECTOR_2(host_1, dv_1, host_2, dv_2) \
-  DECLARE_BOLT_DEVICE_VECTOR(host_1, dv_1); \
-  DECLARE_BOLT_DEVICE_VECTOR(host_2, dv_2);
-
-#ifdef DECLARE_BOLT_DEVICE_VECTOR_3
-#undef DECLARE_BOLT_DEVICE_VECTOR_3
-#endif
-#define DECLARE_BOLT_DEVICE_VECTOR_3(host_1, dv_1, host_2, dv_2, host_3, dv_3) \
-  DECLARE_BOLT_DEVICE_VECTOR(host_1, dv_1); \
-  DECLARE_BOLT_DEVICE_VECTOR(host_2, dv_2); \
-  DECLARE_BOLT_DEVICE_VECTOR(host_3, dv_3);
+#define DECLARE_BOLT_DEVICE_VECTOR(THGPUTensor_ptr, dv_a) \
+  Concurrency::array_view<float, 1> *pav_##THGPUTensor_ptr = \
+    static_cast<Concurrency::array_view<float, 1> *>(THGPUTensor_ptr->storage->allocatorContext);\
+  bolt::amp::device_vector<float> dv_a(*pav_##THGPUTensor_ptr, THGPUTensor_nElement(THGPUTensor_ptr), true);
 
 #ifdef THGPUTensorMemcpyDeviceToHost
 #undef THGPUTensorMemcpyDeviceToHost
 #endif
-
-// Memory copy from device to host
 #define THGPUTensorMemcpyDeviceToHost(THGPUTensor_Ptr)\
   Concurrency::array_view<float, 1> *av_##THGPUTensor_Ptr= static_cast<Concurrency::array_view<float, 1> *>(THGPUTensor_Ptr->storage->allocatorContext);\
   Concurrency::copy(*av_##THGPUTensor_Ptr, av_##THGPUTensor_Ptr->data());
 
 #define PREPARE_AV_WITH_STORAGE(Storage, av_ptr) \
-  Concurrency::array_view<float, 1> *av_ptr= \
+  Concurrency::array_view<float, 1> *av_ptr = \
     static_cast<Concurrency::array_view<float, 1> *>(Storage->allocatorContext);\
   av_ptr->discard_data();
 
-#define PREPARE_AV(Tensor_data, av_ptr) \
-  Concurrency::array_view<float, 1> *av_ptr= \
-    static_cast<Concurrency::array_view<float, 1> *>(Tensor_data->storage->allocatorContext);\
+#define PREPARE_AV(THGPUTensor_ptr, av_ptr) \
+  Concurrency::array_view<float, 1> *av_ptr = \
+    static_cast<Concurrency::array_view<float, 1> *>(THGPUTensor_ptr->storage->allocatorContext);\
   av_ptr->discard_data();

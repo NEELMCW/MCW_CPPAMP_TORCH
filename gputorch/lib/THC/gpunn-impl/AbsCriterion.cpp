@@ -27,8 +27,14 @@ static int gpunn_AbsCriterion_updateOutput(lua_State *L)
 
   input = THGPUTensor_newContiguous(input);
   target = THGPUTensor_newContiguous(target);
-  DECLARE_BOLT_DEVICE_VECTOR_2(input, input_data, target, target_data);
-  sum = bolt::amp::inner_product(input_data.begin(), input_data.end(), target_data.begin(), (float) 0, bolt::amp::plus<float>(), abs_functor());
+
+  DECLARE_BOLT_DEVICE_VECTOR(target, target_data);
+  DECLARE_BOLT_DEVICE_VECTOR(input, input_data);
+
+  sum = bolt::amp::inner_product(input_data.begin() + input->storageOffset,
+                                 input_data.begin() + input->storageOffset + size,
+                                 target_data.begin() + target->storageOffset,
+                                 (float) 0, bolt::amp::plus<float>(), abs_functor());
 
   if(sizeAverage)
     sum /= size;
@@ -62,14 +68,24 @@ static int gpunn_AbsCriterion_updateGradInput(lua_State *L)
   THGPUTensor *target = (THGPUTensor*)luaT_checkudata(L, 3, "torch.GPUTensor");
   int sizeAverage = luaT_getfieldcheckboolean(L, 1, "sizeAverage");
   THGPUTensor *gradInput = (THGPUTensor*)luaT_getfieldcheckudata(L, 1, "gradInput", "torch.GPUTensor");
+
   long size = THGPUTensor_nElement(input);
   float norm = (sizeAverage ? 1./size : 1.);
+
   input = THGPUTensor_newContiguous(input);
   target = THGPUTensor_newContiguous(target);
+
   THGPUTensor_resizeAs(gradInput, input);
 
-  DECLARE_BOLT_DEVICE_VECTOR_3(input, input_data, target, target_data, gradInput, gradInput_data);
-  bolt::amp::transform(input_data.begin(), input_data.end(), target_data.begin(), gradInput_data.begin(), abs_updateGradInput_functor(norm));
+  DECLARE_BOLT_DEVICE_VECTOR(input, input_data);
+  DECLARE_BOLT_DEVICE_VECTOR(target, target_data);
+  DECLARE_BOLT_DEVICE_VECTOR(gradInput, gradInput_data);
+
+  bolt::amp::transform(input_data.begin() + input->storageOffset,
+                       input_data.begin() + input->storageOffset + size,
+                       target_data.begin() + target->storageOffset,
+                       gradInput_data.begin() + gradInput->storageOffset,
+                       abs_updateGradInput_functor(norm));
 
   THGPUTensor_free(input);
   THGPUTensor_free(target);

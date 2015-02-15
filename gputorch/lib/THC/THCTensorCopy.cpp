@@ -1,84 +1,17 @@
+#include "THCTensorCopy.h"
 #include "THCGeneral.h"
 #include "THGeneral.h"
 #include "THCTensor.h"
+
 #include <iostream>
 #include "common.h"
 #include "amp_math.h"
-
-// FIXME: suggest to call the same bolt::amp APIs in this file to avoid multiple definition error
-// introduced by the Compiler. Will fix.
-// See bolt::amp::copy in MemcpyHostToTHGPUTensor and THFloatTensor_copyGPU
+#include "copyHelpers.h"
 
 using namespace std;
 
-// Perform memory copying from host to device side of THGPUTensor
-// first: source data pointer on host
-// size: length of elements in source to copy
-// dest: pointer to the THGPUTensor
-void MemcpyHostToTHGPUTensor(float* first, int size, void *dest, int offset)
-{
-  THGPUTensor *p = static_cast<THGPUTensor *>(dest);
-  // FIXME: host blokcing introduced between consecutive batches, use kernel copy instead
-  #if 0
-  PREPARE_AV(p, pavDest);
-  Concurrency::copy(first, *pavDest);
-  #else
-  DECLARE_BOLT_DEVICE_VECTOR(p,avDest);
-  bolt::amp::copy(first, first+size, avDest.begin()+offset);
-  #endif
-}
-
-// Perform memory copying from host to device side of array_views
-// first: source data pointer on host
-// size: length of elements in source to copy
-// dest: reference of destination array_view<float,1>
-// TODO: need to add template
-void MemcpyHostToAV(float* first, int size, Concurrency::array_view<float,1> &dest)
-{
-  #if 0
-  Concurrency::copy(first, dest);
-  #else
-  bolt::amp::device_vector<float> avDest(dest, size, true);
-  bolt::amp::copy(first, first+size, avDest.begin());
-  #endif
-}
-
-// Perform memory copying from device side to device side of THGPUTensor
-// src: source array_view<float, 1>
-// size: length of elements in source to copy
-// dest: dest array_view<float, 1>
-void MemcpyAVToAV(void* src, int size, void *dest)
-{
-  Concurrency::array_view<float, 1> *pavSrc = static_cast<Concurrency::array_view<float, 1> *>(src);
-  bolt::amp::device_vector<float> srcVec(*pavSrc, size, true);
-  Concurrency::array_view<float, 1> *pavDest = static_cast<Concurrency::array_view<float, 1> *>(dest);
-  bolt::amp::device_vector<float> destVec(*pavDest, size, true);
-  // Data transfer:
-  //   1 for reading data from host to device side of src
-  // Memory objects created and released
-  //   1 created and released for constructing/destructing device _vector of src (src->storage->size bytes)
-  //   1 created and released for empty array_view initialisation in device_vector (4 bytes)
-  bolt::amp::copy(srcVec.begin(),srcVec.begin()+size,destVec.begin());
-}
-
-// Perform memory copying from device side of THGPUTensor to host
-// src: source THGPUTensor
-// size: length of elements THGPUTensor to copy
-// dest: dest raw pointer
-void MemcpyTHGPUTensorToHost(void* src, int size, float *dest)
-{
-  THGPUTensor *p = static_cast<THGPUTensor *>(src);
-  #if 0
-  PREPARE_AV(p, avSrc);
-  avSrc->synchronize();
-  Concurrency::copy(*avSrc, dest);
-  #else
-  DECLARE_BOLT_DEVICE_VECTOR(p, avSrc);
-  bolt::amp::device_vector<float> destVec(dest, dest+size, true);
-  bolt::amp::copy(avSrc.begin(), avSrc.begin()+size, destVec.begin());
-  destVec.data();
-  #endif
-}
+// Maximum number of dimensions allowed for gputorch
+#define MAX_DIMS 25
 
 /* specific methods */
 
@@ -89,19 +22,12 @@ void THGPUTensor_copyFloat(THGPUTensor *self, struct THFloatTensor *src)
   {
     THGPUTensor *selfc = THGPUTensor_newContiguous(self);
     src = THFloatTensor_newContiguous(src);
-    // Hui: Re-implement without any array ctor and by reusing preallocated array_view
-    // Note that, providing the following code snippets in lua
-    //    local x_cpu    = x:float()
-    //    local x_gpu   = x_cpu:gpu()
-    //
-    //  The call graph of it is draftly listed as belows
-    //  (1) THGPUStorage_new        (0 GPU memory allocation, since default size is set to 0 now)
-    //  (2) THGPUStorage_resize     (1 GPU memory allocation)
-    //  (3) THGPUTensor_copyFloat (now, 0 GPU memory operation)
-    //  (4) THGPUTensor_free         (1 GPU memory de-allocation)
+    float* selfc_ptr = static_cast<float*>(Concurrency::getAllocator().device_data(selfc->storage->data));
 
-
-    MemcpyHostToTHGPUTensor(src->storage->data, src->storage->size, selfc);
+    THGPUCheck(gpuMemcpy(selfc_ptr, selfc->storageOffset,
+                         src->storage->data + src->storageOffset, 0,
+                         THGPUTensor_nElement(self) * sizeof(float),
+                         gpuMemcpyHostToDevice));
 
     THFloatTensor_free(src);
     THGPUTensor_freeCopyTo(selfc, self);
@@ -109,7 +35,7 @@ void THGPUTensor_copyFloat(THGPUTensor *self, struct THFloatTensor *src)
 }
 
 /* everything comes down to copy to a tensor of floats */
-#define IMPLEMENT_TH_CUDA_TENSOR_COPY(TYPEC)                                                          \
+#define IMPLEMENT_TH_GPU_TENSOR_COPY(TYPEC)                                                           \
 void THGPUTensor_copy##TYPEC(THGPUTensor *self, struct TH##TYPEC##Tensor *src)                        \
 {                                                                                                     \
   THArgCheck(THGPUTensor_nElement(self) == TH##TYPEC##Tensor_nElement(src), 2, "sizes do not match"); \
@@ -126,12 +52,12 @@ void THGPUTensor_copy##TYPEC(THGPUTensor *self, struct TH##TYPEC##Tensor *src)  
   }                                                                                                   \
 }
 
-IMPLEMENT_TH_CUDA_TENSOR_COPY(Byte)
-IMPLEMENT_TH_CUDA_TENSOR_COPY(Char)
-IMPLEMENT_TH_CUDA_TENSOR_COPY(Short)
-IMPLEMENT_TH_CUDA_TENSOR_COPY(Int)
-IMPLEMENT_TH_CUDA_TENSOR_COPY(Long)
-IMPLEMENT_TH_CUDA_TENSOR_COPY(Double)
+IMPLEMENT_TH_GPU_TENSOR_COPY(Byte)
+IMPLEMENT_TH_GPU_TENSOR_COPY(Char)
+IMPLEMENT_TH_GPU_TENSOR_COPY(Short)
+IMPLEMENT_TH_GPU_TENSOR_COPY(Int)
+IMPLEMENT_TH_GPU_TENSOR_COPY(Long)
+IMPLEMENT_TH_GPU_TENSOR_COPY(Double)
 
 /* copyGPU */
 
@@ -142,13 +68,18 @@ void THFloatTensor_copyGPU(THFloatTensor *self, struct THGPUTensor *src)
   {
     THFloatTensor *selfc = THFloatTensor_newContiguous(self);
     src = THGPUTensor_newContiguous(src);
-    MemcpyTHGPUTensorToHost(src, THGPUTensor_nElement(src), selfc->storage->data);
+    float* src_ptr = static_cast<float*>(Concurrency::getAllocator().device_data(src->storage->data));
+    THGPUCheck(gpuMemcpy(selfc->storage->data + selfc->storageOffset, 0,
+                       src_ptr, src->storageOffset,
+                       THGPUTensor_nElement(src) * sizeof(float),
+                       gpuMemcpyDeviceToHost));
+
     THGPUTensor_free(src);
     THFloatTensor_freeCopyTo(selfc, self);
   }
 }
 
-#define IMPLEMENT_TH_CUDA_TENSOR_COPY_TO(TYPEC)                                                       \
+#define IMPLEMENT_TH_GPU_TENSOR_COPY_TO(TYPEC)                                                        \
 void TH##TYPEC##Tensor_copyGPU(TH##TYPEC##Tensor *self, struct THGPUTensor *src)                      \
 {                                                                                                     \
   THArgCheck(TH##TYPEC##Tensor_nElement(self) == THGPUTensor_nElement(src), 2, "sizes do not match"); \
@@ -165,12 +96,12 @@ void TH##TYPEC##Tensor_copyGPU(TH##TYPEC##Tensor *self, struct THGPUTensor *src)
   }                                                                                                   \
 }
 
-IMPLEMENT_TH_CUDA_TENSOR_COPY_TO(Byte)
-IMPLEMENT_TH_CUDA_TENSOR_COPY_TO(Char)
-IMPLEMENT_TH_CUDA_TENSOR_COPY_TO(Short)
-IMPLEMENT_TH_CUDA_TENSOR_COPY_TO(Int)
-IMPLEMENT_TH_CUDA_TENSOR_COPY_TO(Long)
-IMPLEMENT_TH_CUDA_TENSOR_COPY_TO(Double)
+IMPLEMENT_TH_GPU_TENSOR_COPY_TO(Byte)
+IMPLEMENT_TH_GPU_TENSOR_COPY_TO(Char)
+IMPLEMENT_TH_GPU_TENSOR_COPY_TO(Short)
+IMPLEMENT_TH_GPU_TENSOR_COPY_TO(Int)
+IMPLEMENT_TH_GPU_TENSOR_COPY_TO(Long)
+IMPLEMENT_TH_GPU_TENSOR_COPY_TO(Double)
 
 void THGPUTensor_copyGPU(THGPUTensor *self, THGPUTensor *src)
 {
@@ -295,17 +226,29 @@ THC_API void THGPUTensor_copy(THGPUTensor *self, THGPUTensor *src)
   if (self == src)
     return;
 
-  THArgCheck(THGPUTensor_nElement(self) == THGPUTensor_nElement(src), 2, "sizes do not match");
+  long totalElements = THGPUTensor_nElement(self);
 
-  if (THGPUTensor_nDimension(self) == 0) return;
+  THArgCheck(totalElements == THGPUTensor_nElement(src), 2,
+             "sizes do not match");
 
-  if(THGPUTensor_isContiguous(self) && THGPUTensor_isContiguous(src))
+  THArgCheck(THGPUTensor_nDimension(self) <= MAX_DIMS, 2,
+             "Copy only supported for <= 25 dimensions");
+  THArgCheck(THGPUTensor_nDimension(src) <= MAX_DIMS, 3,
+             "Copy only supported for <= 25 dimensions");
+
+  if (THGPUTensor_nDimension(self) == 0) {
+    // Zero-dim tensor; copy nothing
+    return;
+  }
+  if((THGPUTensor_isContiguous(self) && THGPUTensor_isContiguous(src)) ||
+    (totalElements == 1))
   {
-    // discard host both for src and self
-    DECLARE_BOLT_DEVICE_VECTOR_2(src, srcVec , self, desVec);
-    // Data transfer: 0
-    // Memory objects created and released: 0
-    bolt::amp::copy(srcVec.begin(),srcVec.end(),desVec.begin());
+    float* self_ptr = static_cast<float*>(Concurrency::getAllocator().device_data(self->storage->data));
+    float* src_ptr = static_cast<float*>(Concurrency::getAllocator().device_data(src->storage->data));
+    THGPUCheck(gpuMemcpy(self_ptr, self->storageOffset,
+               src_ptr, src->storageOffset,
+               THGPUTensor_nElement(self) * sizeof(float),
+               gpuMemcpyDeviceToDevice));
   }
   else
   {

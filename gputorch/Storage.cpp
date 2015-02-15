@@ -1,6 +1,8 @@
+#include "torch/utils.h"
 #include "THC.h"
 #include "THFile.h"
 #include "luaT.h"
+#include "copyHelpers.h"
 
 /* everything is as the generic Storage.c, except few things (see below) */
 
@@ -9,25 +11,21 @@
 #define TH_GENERIC_FILE "generic/Storage.c"
 
 #define torch_Storage_(NAME) TH_CONCAT_4(torch_,Real,Storage_,NAME)
-
-// FIXME: copy_to might not perform host2device copying
+// FIXME: Note that 'data' is on host
 #define THFile_readRealRaw(file, data, size)                            \
   {                                                                     \
     float *fdata = (float*)THAlloc(sizeof(float)*size);                 \
     THFile_readFloatRaw(file, fdata, size);                             \
-    Concurrency::array_view<float> avData(Concurrency::extent<1>(size),data); \
-    Concurrency::array_view<float> avFData(Concurrency::extent<1>(size),fdata); \
-    avFData.copy_to(avData);                                            \
+    float* device_ptr = static_cast<float*>(Concurrency::getAllocator().device_data(data));\
+    THGPUCheck(gpuMemcpy(device_ptr, 0, fdata, 0, size * sizeof(float), gpuMemcpyHostToDevice));\
     THFree(fdata);                                                      \
   }
 
-// FIXME: copy_to might not perform device2host copying
 #define THFile_writeRealRaw(file, data, size)                           \
   {                                                                     \
     float *fdata = (float*)THAlloc(sizeof(float)*size);                 \
-    Concurrency::array_view<float> avData(Concurrency::extent<1>(size),data); \
-    Concurrency::array_view<float> avFData(Concurrency::extent<1>(size),fdata); \
-    avData.copy_to(avFData);                                            \
+    float* device_ptr = static_cast<float*>(Concurrency::getAllocator().device_data(data));\
+    THGPUCheck(gpuMemcpy(fdata, 0, device_ptr, 0, size * sizeof(float), gpuMemcpyDeviceToHost));\
     THFile_writeFloatRaw(file, fdata, size);                            \
     THFree(fdata);                                                      \
   }
@@ -39,6 +37,37 @@
 #undef real
 #undef Real
 #undef TH_GENERIC_FILE
+
+/* now we overwrite some methods specific to CudaStorage */
+
+static int gputorch_GPUStorage_copy(lua_State *L)
+{
+  THGPUStorage *storage = (THGPUStorage*)luaT_checkudata(L, 1, "torch.CudaStorage");
+  void *src;
+  if( (src = (THGPUStorage*)luaT_toudata(L, 2, "torch.GPUStorage")) )
+    THGPUStorage_copy(storage, (THGPUStorage*)src);
+  else if( (src = luaT_toudata(L, 2, "torch.ByteStorage")) )
+    THGPUStorage_copyByte(storage, (THByteStorage*)src);
+  else if( (src = luaT_toudata(L, 2, "torch.CharStorage")) )
+    THGPUStorage_copyChar(storage, (THCharStorage*)src);
+  else if( (src = luaT_toudata(L, 2, "torch.ShortStorage")) )
+    THGPUStorage_copyShort(storage, (THShortStorage*)src);
+  else if( (src = luaT_toudata(L, 2, "torch.IntStorage")) )
+    THGPUStorage_copyInt(storage, (THIntStorage*)src);
+  else if( (src = luaT_toudata(L, 2, "torch.LongStorage")) )
+    THGPUStorage_copyLong(storage, (THLongStorage*)src);
+  else if( (src = luaT_toudata(L, 2, "torch.FloatStorage")) )
+    THGPUStorage_copyFloat(storage, (THFloatStorage*)src);
+  else if( (src = luaT_toudata(L, 2, "torch.DoubleStorage")) )
+    THGPUStorage_copyDouble(storage, (THDoubleStorage*)src);
+  else if( (src = luaT_toudata(L, 2, "torch.GPUStorage")) )
+    THGPUStorage_copyGPU(storage, (THGPUStorage*)src);
+  else
+    luaL_typerror(L, 2, "torch.*Storage");
+
+  lua_settop(L, 1);
+  return 1;
+}
 
 #define GPU_IMPLEMENT_STORAGE_COPY(TYPEC)                               \
   static int gputorch_##TYPEC##Storage_copy(lua_State *L)               \
@@ -77,7 +106,6 @@ GPU_IMPLEMENT_STORAGE_COPY(Int)
 GPU_IMPLEMENT_STORAGE_COPY(Long)
 GPU_IMPLEMENT_STORAGE_COPY(Float)
 GPU_IMPLEMENT_STORAGE_COPY(Double)
-GPU_IMPLEMENT_STORAGE_COPY(GPU)
 
 void gputorch_GPUStorage_init(lua_State* L)
 {
