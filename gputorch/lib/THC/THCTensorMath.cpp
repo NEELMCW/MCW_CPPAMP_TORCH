@@ -3,7 +3,6 @@
 #include "THCTensorCopy.h"
 #include "THCTensorRandom.h"
 #include "amp_math.h"
-#include "THBlas.h"
 #include "THCBlas.h"
 #include<algorithm>
 #include<utility>
@@ -168,7 +167,9 @@ void THGPUTensor_cadd(THGPUTensor *self_, THGPUTensor* src1, float value, THGPUT
     PREPARE_AV(src2, avData_src2);
     PREPARE_AV(self, avData_self);
 
-    THGPUBlas_axpy_opt(THGPUTensor_nElement(self), value, *avData_src2, 1, *avData_self, 1);
+    THGPUBlas_axpy_opt(THGPUTensor_nElement(self), value, 
+                       *avData_src2, src2->storageOffset, 1,
+                       *avData_self, self->storageOffset, 1);
 
     THGPUTensor_free(src2);
     THGPUTensor_freeCopyTo(self, self_);
@@ -225,7 +226,9 @@ void THGPUTensor_cdiv(THGPUTensor *self_, THGPUTensor *src1, THGPUTensor *src2)
   }
 }
 
-void THGPUTensor_kernel_addcmul( Concurrency::array_view<float,1> &Data, float value, Concurrency::array_view<float,1>&src1Data, Concurrency::array_view<float,1>&src2Data, long size)
+void THGPUTensor_kernel_addcmul(Concurrency::array_view<float,1> &Data, long dataOffset,
+                                float value, Concurrency::array_view<float,1>&src1Data, long src1Offset,
+                                Concurrency::array_view<float,1>&src2Data, long src2Offset, long size)
 {
   const int nthreads = 256;
   int sz = size / 8;
@@ -238,7 +241,7 @@ void THGPUTensor_kernel_addcmul( Concurrency::array_view<float,1> &Data, float v
     long k = tidx.tile[0] * t_ext[1] + tidx.global[1];
     if(k < size)
     {
-      Data[k] += value * src1Data[k] * src2Data[k];
+      Data[dataOffset + k] += value * src1Data[src1Offset + k] * src2Data[src2Offset + k];
     }
 
   });
@@ -263,7 +266,9 @@ void THGPUTensor_addcmul(THGPUTensor *self_, THGPUTensor* t, float value, THGPUT
   PREPARE_AV(src1, pavSrc1);
   PREPARE_AV(src2, pavSrc2);
 
-  THGPUTensor_kernel_addcmul(*pavData, value, *pavSrc1, *pavSrc2, size);
+  THGPUTensor_kernel_addcmul(*pavData, self->storageOffset, value, 
+                             *pavSrc1, src1->storageOffset, 
+                             *pavSrc2, src2->storageOffset, size);
 
   THGPUTensor_copy(self_, self);
   THGPUTensor_free(src1);
@@ -271,7 +276,9 @@ void THGPUTensor_addcmul(THGPUTensor *self_, THGPUTensor* t, float value, THGPUT
   THGPUTensor_free(self);
 }
 
-void THGPUTensor_kernel_addcdiv(Concurrency::array_view<float, 1> &Data, float value, Concurrency::array_view<float, 1> &src1Data, Concurrency::array_view<float, 1> &src2Data, long size)
+void THGPUTensor_kernel_addcdiv(Concurrency::array_view<float, 1> &Data, long dataOffset,
+                                float value, Concurrency::array_view<float, 1> &src1Data, long src1Offset,
+                                Concurrency::array_view<float, 1> &src2Data, long src2Offset, long size)
 {
   const int nthreads = 256;
   int sz = size / 8;
@@ -284,7 +291,7 @@ void THGPUTensor_kernel_addcdiv(Concurrency::array_view<float, 1> &Data, float v
     long k = tidx.tile[0] * t_ext[1] + tidx.global[1];
     if(k < size)
     {
-      Data[k] += (float) value * (src1Data[k] / src2Data[k]); 
+      Data[dataOffset + k] += (float) value * (src1Data[src1Offset + k] / src2Data[src2Offset + k]);
     }
 
   });
@@ -308,7 +315,9 @@ void THGPUTensor_addcdiv(THGPUTensor *self_, THGPUTensor *t, float value, THGPUT
   PREPARE_AV(self, pavData);
   PREPARE_AV(src1, pavSrc1);
   PREPARE_AV(src2, pavSrc2);
-  THGPUTensor_kernel_addcdiv(*pavData, value, *pavSrc1, *pavSrc2, size);
+  THGPUTensor_kernel_addcdiv(*pavData, self->storageOffset, value,
+                             *pavSrc1, src1->storageOffset,
+                             *pavSrc2, src2->storageOffset, size);
 
   THGPUTensor_copy(self_, self);
   THGPUTensor_free(src1);
@@ -432,7 +441,8 @@ struct dim4 {
  */
 
 template<class BinaryFunction, class UnaryFunction>
-void THGPUTensor_kernel_transformReduceOuterDim(Concurrency::array_view<float, 1> &avTgt, Concurrency::array_view<float, 1> &avSrc,
+void THGPUTensor_kernel_transformReduceOuterDim(Concurrency::array_view<float, 1> &avTgt, long tgtOffset,
+                                                Concurrency::array_view<float, 1> &avSrc, long srcOffset,
                                                 unsigned int tgtSz, unsigned int srcSz,
                                                 Concurrency::array_view<unsigned int, 1> &avSrc_stride, Concurrency::array_view<unsigned int, 1> &avTgt_stride,
                                                 Concurrency::array_view<unsigned int, 1> &avSize, UnaryFunction unary_op,
@@ -458,31 +468,31 @@ void THGPUTensor_kernel_transformReduceOuterDim(Concurrency::array_view<float, 1
           {
             for (i = 0; i < avSize[reduce]/8; i+=8)
             {
-              acc = binary_op(acc, (avSrc[idx]));  //removed unary_op as it returns the passesd parameter itself
+              acc = binary_op(acc, (avSrc[srcOffset + idx]));  //removed unary_op as it returns the passesd parameter itself
               idx += avSrc_stride[reduce];         //replaced multiplication with addition
-              acc = binary_op(acc, (avSrc[idx]));
+              acc = binary_op(acc, (avSrc[srcOffset + idx]));
               idx += avSrc_stride[reduce];
-              acc = binary_op(acc, (avSrc[idx]));
+              acc = binary_op(acc, (avSrc[srcOffset + idx]));
               idx += avSrc_stride[reduce];
-              acc = binary_op(acc, (avSrc[idx]));
+              acc = binary_op(acc, (avSrc[srcOffset + idx]));
               idx += avSrc_stride[reduce];
-              acc = binary_op(acc, (avSrc[idx]));
+              acc = binary_op(acc, (avSrc[srcOffset + idx]));
               idx += avSrc_stride[reduce];
-              acc = binary_op(acc, (avSrc[idx]));
+              acc = binary_op(acc, (avSrc[srcOffset + idx]));
               idx += avSrc_stride[reduce];
-              acc = binary_op(acc, (avSrc[idx]));
+              acc = binary_op(acc, (avSrc[srcOffset + idx]));
               idx += avSrc_stride[reduce];
-              acc = binary_op(acc, (avSrc[idx]));
+              acc = binary_op(acc, (avSrc[srcOffset + idx]));
               idx += avSrc_stride[reduce];
             }
           }
           //remaining iterations
           for (; i < avSize[reduce]; i++)
           {
-            acc = binary_op(acc, (avSrc[idx]));  //adding all elemets of reduced outer dimension
+            acc = binary_op(acc, (avSrc[srcOffset + idx]));  //adding all elemets of reduced outer dimension
             idx += avSrc_stride[reduce];
           }
-          avTgt[z * avTgt_stride[2] + y * avTgt_stride[1] + col] = float(acc);  //store shrunk value in reduced dimension
+          avTgt[tgtOffset + z * avTgt_stride[2] + y * avTgt_stride[1] + col] = float(acc);  //store shrunk value in reduced dimension
         }
       }
     }
@@ -521,8 +531,9 @@ void THGPUTensor_transformReduceOuterDim(THGPUTensor *tgt, THGPUTensor *src, lon
   Concurrency::array_view<unsigned int, 1> avSize(4, size);
 
 
-  THGPUTensor_kernel_transformReduceOuterDim(*pavTgt,
-                                             *pavSrc, THGPUTensor_nElement(src), THGPUTensor_nElement(tgt),
+  THGPUTensor_kernel_transformReduceOuterDim(*pavTgt, tgt->storageOffset,
+                                             *pavSrc, src->storageOffset,
+                                             THGPUTensor_nElement(src), THGPUTensor_nElement(tgt),
                                              avSrc_stride, avTgt_stride, avSize, unary_op, init, binary_op,gridConfig);
 }
 
@@ -541,8 +552,11 @@ void THGPUTensor_transformReduceOuterDim(THGPUTensor *tgt, THGPUTensor *src, lon
  */
 
 template<class UnaryFunction, class BinaryFunction>
-void THGPUTensor_kernel_transformReduceInnermostDim(Concurrency::array_view<float, 1> &avTgt, Concurrency::array_view<float, 1> &avSrc, unsigned int tgtSz,
-                                                    unsigned int srcSz, Concurrency::array_view<unsigned int, 1> &avSrc_stride, Concurrency::array_view<unsigned int, 1> &avTgt_stride,
+void THGPUTensor_kernel_transformReduceInnermostDim(Concurrency::array_view<float, 1> &avTgt, long tgtOffset,
+                                                    Concurrency::array_view<float, 1> &avSrc, long srcOffset,
+                                                    unsigned int tgtSz, unsigned int srcSz, 
+                                                    Concurrency::array_view<unsigned int, 1> &avSrc_stride,
+                                                    Concurrency::array_view<unsigned int, 1> &avTgt_stride,
                                                     Concurrency::array_view<unsigned int, 1> &avSize,
                                                     UnaryFunction unary_op, float init,
                                                     BinaryFunction binary_op, unsigned int gridConf[])
@@ -569,7 +583,7 @@ void THGPUTensor_kernel_transformReduceInnermostDim(Concurrency::array_view<floa
             unsigned col = bCol + tidx.local[2];
             if (row < avSize[1] && col < avSize[0]) 
             {
-              sbuf[tidx.local[1]][tidx.local[2]] = unary_op(avSrc[z * avSrc_stride[3] + x * avSrc_stride[2] + row * avSrc_stride[1] + col]);
+              sbuf[tidx.local[1]][tidx.local[2]] = unary_op(avSrc[srcOffset + z * avSrc_stride[3] + x * avSrc_stride[2] + row * avSrc_stride[1] + col]);
             }
             tidx.barrier.wait();
             float* line = &sbuf[tidx.local[1]][0];
@@ -592,7 +606,7 @@ void THGPUTensor_kernel_transformReduceInnermostDim(Concurrency::array_view<floa
           {
             unsigned row = bRow + tidx.local[2];
             unsigned tgt_offset = z * avTgt_stride[3] + x * avTgt_stride[2];
-            avTgt[tgt_offset + row] = acc;
+            avTgt[tgtOffset + tgt_offset + row] = acc;
           }
         }
       }
@@ -629,7 +643,8 @@ void THGPUTensor_transformReduceInnermostDim(THGPUTensor *tgt, THGPUTensor *src,
   Concurrency::array_view<unsigned int, 1> avTgt_stride(4, tgt_stride);
   Concurrency::array_view<unsigned int, 1> avSize(4, size);
 
-  THGPUTensor_kernel_transformReduceInnermostDim(*pavTgt, *pavSrc,
+  THGPUTensor_kernel_transformReduceInnermostDim(*pavTgt, tgt->storageOffset,
+                                                 *pavSrc, src->storageOffset,
                                                  THGPUTensor_nElement(tgt), THGPUTensor_nElement(src),
                                                  avSrc_stride, avTgt_stride, avSize, unary_op, init,
                                                  binary_op, gridConfig);
@@ -743,27 +758,27 @@ void THGPUTensor_addmv(THGPUTensor *r_, float beta, THGPUTensor *t, float alpha,
   if (mat->stride[0] == 1)
   {
     PREPARE_AV(mat, pavMat);
-    THGPUBlas_gemv_opt('n', mat->size[0], mat->size[1],
-                     alpha, *pavMat, 0,
-                     *pavVec, vec->stride[0],
-                     beta, *pavR_, r_->stride[0], temp_buf);
+    THGPUBlas_gemv_opt('n', mat->size[0], mat->size[1], alpha,
+                       *pavMat, mat->storageOffset + 0,
+                       *pavVec, vec->storageOffset, vec->stride[0], beta,
+                       *pavR_, r_->storageOffset, r_->stride[0], temp_buf);
   }
   else if(mat->stride[1] == 1)
   {
     PREPARE_AV(mat, pavMat);
-    THGPUBlas_gemv_opt('t',  mat->size[1], mat->size[0],
-                     alpha, *pavMat, 0,
-                     *pavVec, vec->stride[0],
-                     beta, *pavR_, r_->stride[0], temp_buf);
+    THGPUBlas_gemv_opt('t', mat->size[1], mat->size[0], alpha,
+                       *pavMat, mat->storageOffset + 0,
+                       *pavVec, vec->storageOffset, vec->stride[0], beta,
+                       *pavR_, r_->storageOffset, r_->stride[0], temp_buf);
   }
   else
   {
     THGPUTensor *cmat = THGPUTensor_newContiguous(mat);
     PREPARE_AV(cmat, pavCMat);
-    THGPUBlas_gemv_opt('t',  mat->size[1], mat->size[0],
-                     alpha, *pavCMat, 0,
-                     *pavVec, vec->stride[0],
-                     beta, *pavR_, r_->stride[0], temp_buf);
+    THGPUBlas_gemv_opt('t', mat->size[1], mat->size[0], alpha,
+                       *pavCMat, cmat->storageOffset + 0,
+                       *pavVec, vec->storageOffset, vec->stride[0], beta,
+                       *pavR_, r_->storageOffset, r_->stride[0], temp_buf);
 
     THGPUTensor_free(cmat);
   }
@@ -850,20 +865,30 @@ void THGPUTensor_addmm(THGPUTensor *r_, float beta, THGPUTensor *t, float alpha,
   PREPARE_AV(m2_, m2_Mat);
   PREPARE_AV(r_, r_Mat);
   /* do the operation */
+  int n = r__->size[(transpose_r == 'n' ? 0 : 1)];
+  int m = r__->size[(transpose_r == 'n' ? 1 : 0)];
+  int k = m1_->size[(transpose_r == 'n' ? 1 : 0)];
+
+  int numBlocks = ((k + 255) & ~255)/256;
+ 
+  float* tempBuf = (float*)malloc(n*m*numBlocks*sizeof(float));
+  Concurrency::extent<1> ext(n*m*numBlocks);
+  Concurrency::array_view<float,1> temp_buf(ext, tempBuf);
+
   THGPUBlas_gemm_opt(transpose_m1,
                    transpose_m2,
                    r__->size[(transpose_r == 'n' ? 0 : 1)],
                    r__->size[(transpose_r == 'n' ? 1 : 0)],
                    m1_->size[(transpose_r == 'n' ? 1 : 0)],
                    alpha,
-                   *m1_Mat,
+                   *m1_Mat, m1_->storageOffset,
                    (transpose_m1 == 'n' ? m1_->stride[(transpose_r == 'n' ? 1 : 0)] : m1_->stride[(transpose_r == 'n' ? 0 : 1)]),
-                   *m2_Mat,
+                   *m2_Mat, m2_->storageOffset,
                    (transpose_m2 == 'n' ? m2_->stride[(transpose_r == 'n' ? 1 : 0)] : m2_->stride[(transpose_r == 'n' ? 0 : 1)]),
                    beta,
-                   *r_Mat,
+                   *r_Mat, r_->storageOffset,
                    r__->stride[(transpose_r == 'n' ? 1 : 0)],
-                   NULL, NULL, NULL, 0, 0, 0);
+                   temp_buf);
 
   /* free intermediate variables */
   if(m1_ != m1)
@@ -898,30 +923,30 @@ void THGPUTensor_addr(THGPUTensor *r_, float beta, THGPUTensor *t, float alpha, 
 
   PREPARE_AV(vec1, avData_vec1);
   PREPARE_AV(vec2, avData_vec2);
-  PREPARE_AV(r_, avData_r);
+  PREPARE_AV(r_, avData_r_);
 
   if(r_->stride[0] == 1)
   {
-    THGPUBlas_ger_opt(vec1->size[0], vec2->size[0],
-                    alpha, *avData_vec1, vec1->stride[0],
-                    *avData_vec2, vec2->stride[0],
-                    *avData_r, r_->stride[1]);
+    THGPUBlas_ger_opt(vec1->size[0], vec2->size[0], alpha, 
+                      *avData_vec1, vec1->storageOffset, vec1->stride[0],
+                      *avData_vec2, vec2->storageOffset, vec2->stride[0],
+                      *avData_r_, r_->storageOffset, r_->stride[1]);
   }
   else if(r_->stride[1] == 1)
   {
-    THGPUBlas_ger_opt(vec2->size[0], vec1->size[0],
-                    alpha, *avData_vec2, vec2->stride[0],
-                    *avData_vec1, vec1->stride[0],
-                    *avData_r, r_->stride[0]);
+    THGPUBlas_ger_opt(vec2->size[0], vec1->size[0], alpha,
+                      *avData_vec2, vec2->storageOffset, vec2->stride[0],
+                      *avData_vec1, vec1->storageOffset, vec1->stride[0],
+                      *avData_r_, r_->storageOffset, r_->stride[0]);
   }
   else
   {
     THGPUTensor *cr = THGPUTensor_newClone(r_);
     PREPARE_AV(cr, avData_cr);
-    THGPUBlas_ger_opt(vec2->size[0], vec1->size[0],
-                    alpha, *avData_vec2, vec2->stride[0],
-                    *avData_vec1, vec1->stride[0],
-                    *avData_cr, cr->stride[0]);
+    THGPUBlas_ger_opt(vec2->size[0], vec1->size[0], alpha,
+                      *avData_vec2, vec2->storageOffset, vec2->stride[0],
+                      *avData_vec1, vec1->storageOffset, vec1->stride[0],
+                      *avData_cr, cr->storageOffset, cr->stride[0]);
     THGPUTensor_copy(cr, r_);
     THGPUTensor_free(cr);
   }
@@ -1365,7 +1390,8 @@ void THGPUTensor_norm(THGPUTensor* self, THGPUTensor* src, float value, long dim
   }
 }
 
-void THGPUTensor_kernel_renorm(Concurrency::array_view<float, 1> &avData, const float value, const long size, const float maxnorm, long gridSz)
+void THGPUTensor_kernel_renorm(Concurrency::array_view<float, 1> &avData, long dataOffset,
+                               const float value, const long size, const float maxnorm, long gridSz)
 {
   Concurrency::extent<1> grdExt(gridSz);
   Concurrency::tiled_extent<32> t_ext(grdExt);
@@ -1376,7 +1402,7 @@ void THGPUTensor_kernel_renorm(Concurrency::array_view<float, 1> &avData, const 
     unsigned long tx = tidx.local[0];
     long bx = tidx.tile[0];
     long step = t_ext.tile_dim0;
-    float* dat = avData.data();
+    float* dat = avData.data() + dataOffset;
     float *row = dat + size*bx;
 
     buffer[tx] = 0;
@@ -1423,7 +1449,7 @@ void THGPUTensor_renorm(THGPUTensor* self, THGPUTensor* src, float value, long d
 
   PREPARE_AV(data, pavData);
 
-  THGPUTensor_kernel_renorm(*pavData, value, size, maxnorm, gridSize);
+  THGPUTensor_kernel_renorm(*pavData, data->storageOffset, value, size, maxnorm, gridSize);
 
   THGPUTensor_free(src_);
   self_ = THGPUTensor_newTranspose(data, dimension, 0);
@@ -1477,8 +1503,10 @@ void THGPUTensor_randn(THGPURNGState* rng_state, THGPUTensor *r_, THLongStorage 
   THGPUTensor_normal(rng_state, r_, 0, 1);
 }
 
-void THGPUTensor_kernel_indexFill(Concurrency::array_view<float, 1> &srcTensor, Concurrency::array_view<long> &srcStride, Concurrency::array_view<long, 1> &indx, long src_nDim, 
-                                  int dim, long idx_size, long tensor_size, long size_dim, float val, long nblockx
+void THGPUTensor_kernel_indexFill(Concurrency::array_view<float, 1> &srcTensor, long srcOffset,
+                                  Concurrency::array_view<long> &srcStride, Concurrency::array_view<long, 1> &indx,
+                                  long src_nDim, int dim, long idx_size, 
+                                  long tensor_size, long size_dim, float val, long nblockx
 )
 {
   Concurrency::extent<2> gridExt(16,nblockx*16);
@@ -1514,13 +1542,18 @@ void THGPUTensor_kernel_indexFill(Concurrency::array_view<float, 1> &srcTensor, 
         }
       for (int i = 0; i<idx_size; i++)
       {
-        srcTensor[(srcIdx + (int)((indx[i])-1)*srcStride[dim])] = val;        
+        srcTensor[srcOffset + (srcIdx + (int)((indx[i])-1)*srcStride[dim])] = val;        
       }
     }
   });
 }
 
-void THGPUTensor_kernel_indexCopy(Concurrency::array_view<float, 1> &resTensor, Concurrency::array_view<float, 1> &srcTensor, Concurrency::array_view<long,1> &resStride, Concurrency::array_view<long, 1> &indx, long res_size, long res_nDim, int dim, long idx_size, long src_size, long size_dim, long nblockx)
+void THGPUTensor_kernel_indexCopy(Concurrency::array_view<float, 1> &resTensor, long resOffset,
+                                  Concurrency::array_view<float, 1> &srcTensor, long srcOffset,
+                                  Concurrency::array_view<long,1> &resStride,
+                                  Concurrency::array_view<long, 1> &indx,
+                                  long res_size, long res_nDim, int dim,
+                                  long idx_size, long src_size, long size_dim, long nblockx)
 {
   Concurrency::extent<2> gridExt(16,nblockx*16);
   Concurrency::tiled_extent<16,16> t_ext(gridExt);
@@ -1560,7 +1593,7 @@ void THGPUTensor_kernel_indexCopy(Concurrency::array_view<float, 1> &resTensor, 
         }
       for (int i = 0; i<idx_size; i++)
       {
-        resTensor[Concurrency::index<1>(resIdx + ((int)(indx[Concurrency::index<1>(i)])-1)*(resStride[Concurrency::index<1>(dim)]))] = srcTensor[Concurrency::index<1>(targetIdx +(int) i*(resStride[Concurrency::index<1>(dim)]))];
+        resTensor[Concurrency::index<1>(resOffset + resIdx + ((int)(indx[Concurrency::index<1>(i)])-1)*(resStride[Concurrency::index<1>(dim)]))] = srcTensor[Concurrency::index<1>(srcOffset + targetIdx +(int) i*(resStride[Concurrency::index<1>(dim)]))];
       }
     }
   });
@@ -1589,7 +1622,8 @@ void THGPUTensor_indexCopy(THGPUTensor *res_, int dim, THLongTensor *indices, TH
   PREPARE_AV(src, pavSrc);
   Concurrency::array_view<long, 1> pavInd(indices->storage->size, indices->storage->data);
   
-  THGPUTensor_kernel_indexCopy(*pavRes, *pavSrc, 
+  THGPUTensor_kernel_indexCopy(*pavRes, res_->storageOffset, 
+                               *pavSrc, src->storageOffset,
                                *stride_, pavInd, nRes,
                                res_->nDimension, dim, nIndex, 
                                THGPUTensor_nElement(src), res_->size[dim],nblockx);
@@ -1617,13 +1651,18 @@ void THGPUTensor_indexFill(THGPUTensor *res_, int dim, THLongTensor *indices, fl
   PREPARE_AV(res_, pavRes);
   Concurrency::array_view<long, 1> pavInd(indices->storage->size, indices->storage->data);
   
-  THGPUTensor_kernel_indexFill(*pavRes, *stride_, pavInd, res_->nDimension, 
+  THGPUTensor_kernel_indexFill(*pavRes, res_->storageOffset, *stride_, pavInd, res_->nDimension, 
                                dim, nIndex, nRes, res_->size[dim], val, nblockx);
   
   delete stride_;
 }
 
-void THGPUTensor_kernel_indexSelect(Concurrency::array_view<float, 1> &resTensor, Concurrency::array_view<float, 1> &srcTensor, Concurrency::array_view<long, 1> &srcStride, THLongTensor *indices, long src_nDim, int dim, long idx_size, long tensor_size, long src_size, long size_dim, long nblockx)
+void THGPUTensor_kernel_indexSelect(Concurrency::array_view<float, 1> &resTensor, long resOffset,
+                                                 Concurrency::array_view<float, 1> &srcTensor, long srcOffset,
+                                                 Concurrency::array_view<long, 1> &srcStride, THLongTensor *indices, 
+                                                 long src_nDim, int dim, long idx_size, 
+                                                 long tensor_size, long src_size, 
+                                                 long size_dim, long nblockx)
 {
   Concurrency::array_view<long,1> indx(indices->storage->size, indices->storage->data);
   Concurrency::extent<2> gridExt(16, nblockx * 16);
@@ -1664,7 +1703,7 @@ void THGPUTensor_kernel_indexSelect(Concurrency::array_view<float, 1> &resTensor
         }
       for (int i = 0; i<idx_size; i++)
       {
-        resTensor[targetIdx + i*srcStride[dim]] = srcTensor[srcIdx + ((int)(indx[i])-1)*srcStride[dim]];
+        resTensor[resOffset + targetIdx + i*srcStride[dim]] = srcTensor[srcOffset + srcIdx + ((int)(indx[i])-1)*srcStride[dim]];
       }
     }
   });
@@ -1694,8 +1733,11 @@ void THGPUTensor_indexSelect(THGPUTensor *res_, THGPUTensor *src, int dim, THLon
 
   PREPARE_AV(res_, pavRes);
   PREPARE_AV(src, pavSrc);
-  THGPUTensor_kernel_indexSelect(*pavRes, *pavSrc, *stride_, indices, src->nDimension, dim, 
-                                 indices->size[0], nRes,THGPUTensor_nElement(src), src->size[dim],nblockx);
+  THGPUTensor_kernel_indexSelect(*pavRes, res_->storageOffset,
+                                 *pavSrc, src->storageOffset,
+                                 *stride_, indices, src->nDimension, dim, 
+                                 indices->size[0], nRes,
+                                 THGPUTensor_nElement(src), src->size[dim], nblockx);
 
   delete stride_;
 }

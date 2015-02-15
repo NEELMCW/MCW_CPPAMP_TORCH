@@ -4,7 +4,10 @@
  *    this function finds the min along the innermost dimension
  *    Nd input, (N-1)d output, (N-1)d argmin
  */
-void min_output(Concurrency::array_view<float, 1> &avInp, Concurrency::array_view<float,1> &avOut, Concurrency::array_view<float,1> &avInD, unsigned int inpSz, unsigned int outSz,
+void min_output(Concurrency::array_view<float, 1> &avInp, long inpOffset,
+               Concurrency::array_view<float,1> &avOut, long outOffset,
+               Concurrency::array_view<float,1> &avInD, long indOffset,
+               unsigned int inpSz, unsigned int outSz,
                unsigned int indSz, long nrows, long ncols, unsigned int numBlocks)
 {
   Concurrency::extent<1> grdExt(numBlocks * 256);
@@ -16,12 +19,12 @@ void min_output(Concurrency::array_view<float, 1> &avInp, Concurrency::array_vie
     if (o >= nrows) return;
     long i = o * ncols;
     // compute min:
-    float min = avInp[i];
+    float min = avInp[inpOffset + i];
     long argmin = 0;
     long ii;
     for (ii = 1; ii < ncols; ii++) 
     {
-      float val = avInp[ii + i];
+      float val = avInp[inpOffset + ii + i];
       if (val < min) 
       {
         min = val;
@@ -29,12 +32,15 @@ void min_output(Concurrency::array_view<float, 1> &avInp, Concurrency::array_vie
       }
     }
     // store
-    avOut[o] = min;
-    avInD[o] =(float) argmin + 1;
+    avOut[outOffset + o] = min;
+    avInD[indOffset + o] =(float) argmin + 1;
   });
 }
 
-void min_gradInput(Concurrency::array_view<float, 1> &avInp, Concurrency::array_view<float,1> &avOut, Concurrency::array_view<float,1> &avInD, unsigned int inputSz, unsigned int outSz,
+void min_gradInput(Concurrency::array_view<float, 1> &avInp, long inpOffset,
+                  Concurrency::array_view<float,1> &avOut, long outOffset,
+                  Concurrency::array_view<float,1> &avInD, long indOffset,
+                  unsigned int inputSz, unsigned int outSz,
                   unsigned int indSz, long nrows, long ncols, unsigned int numBlocks)
 {
   Concurrency::extent<1> grdExt(numBlocks * 256);
@@ -49,8 +55,8 @@ void min_gradInput(Concurrency::array_view<float, 1> &avInp, Concurrency::array_
     long i = o * ncols;
 
     // bprop min gradient:
-    long idx = (long)avInD[o] - 1;
-    avInp[i + idx] = avOut[o];
+    long idx = (long)avInD[indOffset + o] - 1;
+    avInp[inpOffset + i + idx] = avOut[outOffset + o];
   });
 }
 
@@ -78,7 +84,7 @@ static int gpunn_Min_updateOutput(lua_State *L)
   long nrows = THGPUTensor_nElement(output);
   long ncols = input->size[dimension];
 
-  // gpu blocks & threads:
+  // blocks & threads:
   long nthreads = 256;
   long nblocks = ceil((float)nrows / nthreads);
 
@@ -86,8 +92,11 @@ static int gpunn_Min_updateOutput(lua_State *L)
   PREPARE_AV(output, pavOutput);
   PREPARE_AV(indices, pavIndices);
   // kernel:
-  min_output(*pavInput, *pavOutput, *pavIndices, THGPUTensor_nElement(input),
-             THGPUTensor_nElement(output), THGPUTensor_nElement(indices), nrows, ncols, nblocks);
+  min_output(*pavInput, input->storageOffset,
+             *pavOutput, output->storageOffset,
+             *pavIndices, indices->storageOffset,
+             THGPUTensor_nElement(input), THGPUTensor_nElement(output),
+             THGPUTensor_nElement(indices), nrows, ncols, nblocks);
 
   // final cut:
   THGPUTensor_free(input); 
@@ -110,7 +119,7 @@ static int gpunn_Min_updateGradInput(lua_State *L)
   long nrows = THGPUTensor_nElement(gradOutput);
   long ncols = gradInput->size[dimension];
 
-  // gpu blocks & threads:
+  // blocks & threads:
   long nthreads = 256;
   long nblocks = ceil((float)nrows / nthreads);
 
@@ -118,8 +127,12 @@ static int gpunn_Min_updateGradInput(lua_State *L)
   PREPARE_AV(gradOutput, pavGradOutput);
   PREPARE_AV(indices, pavIndices);
   // kernel:
-  min_gradInput(*pavGradInput, *pavGradOutput, *pavIndices, THGPUTensor_nElement(gradInput),
-                THGPUTensor_nElement(gradOutput), THGPUTensor_nElement(indices), nrows, ncols, nblocks);
+  min_gradInput(*pavGradInput, gradInput->storageOffset,
+                *pavGradOutput, gradOutput->storageOffset,
+                *pavIndices, indices->storageOffset,
+                THGPUTensor_nElement(gradInput),
+                THGPUTensor_nElement(gradOutput), THGPUTensor_nElement(indices),
+                nrows, ncols, nblocks);
 
   return 1;
 }

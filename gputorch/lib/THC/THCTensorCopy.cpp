@@ -153,24 +153,21 @@ static void THGPUTensor_computesz(THGPUTensor *self, Concurrency::array_view<lon
       last_sz = self->size[i];
     }
   }
-  // FIXME: use kernel to do copy
-#if 0
-  Concurrency::copy(szh, **sz_);
-  Concurrency::copy(sth, **st_);
-#else
-  bolt::amp::device_vector<long> dvSz_(**sz_, dim, true);
-  bolt::amp::device_vector<long> dvSt_(**st_, dim, true);
-  bolt::amp::copy(szh, szh+dim, dvSz_.begin());
-  bolt::amp::copy(sth, sth+dim, dvSt_.begin());
-#endif
+
+  long* sz_ptr = static_cast<long*>(Concurrency::getAllocator().device_data((*sz_)->data()));
+  THGPUCheck(gpuMemcpy(sz_ptr, 0, szh, 0, dim * sizeof(long), gpuMemcpyHostToDevice));
+  long* st_ptr = static_cast<long*>(Concurrency::getAllocator().device_data((*st_)->data()));
+  THGPUCheck(gpuMemcpy(st_ptr, 0, sth, 0, dim * sizeof(long), gpuMemcpyHostToDevice));
+
   THFree(szh);
   THFree(sth);
 
   *dim_ = dim;
 }
 
-void THGPUTensor_kernel_copy(Concurrency::array_view<float>& av_dst,
-                             Concurrency::array_view<float>& av_src, Concurrency::array_view<long, 1> &av_dst_sz,
+void THGPUTensor_kernel_copy(Concurrency::array_view<float>& av_dst, long dstOffset,
+                             Concurrency::array_view<float>& av_src, long srcOffset, 
+                             Concurrency::array_view<long, 1> &av_dst_sz,
                              Concurrency::array_view<long, 1> &av_dst_st, int dst_dim, 
                              Concurrency::array_view<long, 1> &av_src_sz, Concurrency::array_view<long, 1> &av_src_st,
                              int src_dim, long n_elem, long innerdim, int nblockx, int nblocky,
@@ -214,7 +211,7 @@ void THGPUTensor_kernel_copy(Concurrency::array_view<float>& av_dst,
       }
       for (int i = i_start, o = o_start; o < o_end; i += i_step, o += o_step)
       {
-        av_dst[Concurrency::index<1>(dst_idx + o)] = av_src[Concurrency::index<1>(src_idx + i)];
+        av_dst[Concurrency::index<1>(dstOffset + dst_idx + o)] = av_src[Concurrency::index<1>(srcOffset + src_idx + i)];
       }
     }
   });
@@ -280,10 +277,10 @@ THC_API void THGPUTensor_copy(THGPUTensor *self, THGPUTensor *src)
     d_self_st->discard_data();
     d_src_sz->discard_data();
     d_src_st->discard_data();
-    THGPUTensor_kernel_copy(*avSelf, *avSrc,
+    THGPUTensor_kernel_copy(*avSelf, self->storageOffset, *avSrc, src->storageOffset,
                            *d_self_sz, *d_self_st, self_dim,
                            *d_src_sz, *d_src_st, src_dim,
-                          size, innermostdim, nblocks_x, nblocks_y, nblocks_z);
+                           size, innermostdim, nblocks_x, nblocks_y, nblocks_z);
 
     delete d_self_st; 
     delete d_self_sz;

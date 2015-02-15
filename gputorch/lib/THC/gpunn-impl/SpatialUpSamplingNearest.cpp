@@ -22,7 +22,6 @@ int translate_idx(int ii, int d1, int d2, int d3, int scale_factor) restrict(amp
   d3 /= scale_factor;
   return (((x * d1 + y) * d2) + z) * d3 + w;
 }
-
 int translate_idx_inv(int ii, int d1, int d2, int d3, int scale_factor, int off_x, int off_y) restrict(amp)
 {
   int x, y, z, w;
@@ -40,8 +39,10 @@ int translate_idx_inv(int ii, int d1, int d2, int d3, int scale_factor, int off_
   return (((x * d1 + y) * d2) + z) * d3 + w;
 }
 
-void upscale(Concurrency::array_view<float,1> &avInp, Concurrency::array_view<float,1> &avOut, unsigned int inpSz, unsigned int outSz, long no_elements,
-                        int scale_factor, int d1, int d2, int d3, unsigned int grdConf[])
+void upscale(Concurrency::array_view<float,1> &avInp, long inpOffset,
+             Concurrency::array_view<float,1> &avOut, long outOffset,
+             unsigned int inpSz, unsigned int outSz, long no_elements,
+             int scale_factor, int d1, int d2, int d3, unsigned int grdConf[])
 {
   Concurrency::extent<2> grdExt(grdConf[1],grdConf[0]*256);
   Concurrency::tiled_extent<1,256> t_ext(grdExt);
@@ -52,9 +53,10 @@ void upscale(Concurrency::array_view<float,1> &avInp, Concurrency::array_view<fl
     ii += tidx.local[0] + t_ext.tile_dim0 * (t_ext.tile_dim1 * t_ext[1]) * tidx.tile[0];
     if (ii >= no_elements) return;
     int ipidx = translate_idx(ii, d1, d2, d3, scale_factor);
-    avOut[ii]=avInp[ipidx];
+    avOut[outOffset + ii] = avInp[inpOffset + ipidx];
   });
 }
+
 
 static int gpunn_SpatialUpSamplingNearest_updateOutput(lua_State *L)
 {
@@ -89,7 +91,7 @@ static int gpunn_SpatialUpSamplingNearest_updateOutput(lua_State *L)
     d3 = output->size[3];
   }
 
-  // gpu blocks & threads:
+  // blocks & threads:
   long nthreads = 256;
   // Max number of blocks: http://en.wikipedia.org/wiki/GPU
   // 65535 for SM 2.x, 2^32 -1 for >= 3.0
@@ -112,7 +114,9 @@ static int gpunn_SpatialUpSamplingNearest_updateOutput(lua_State *L)
   PREPARE_AV(input, pavInput);
   PREPARE_AV(output, pavOutput);
   // kernel:
-  upscale(*pavInput, *pavOutput, inpSz, outSz, no_elements, scale_factor, d1, d2, d3, grdConf);
+  upscale(*pavInput, input->storageOffset,
+          *pavOutput, output->storageOffset,
+          inpSz, outSz, no_elements, scale_factor, d1, d2, d3, grdConf);
  
   // final cut:
   THGPUTensor_free(input); 
@@ -120,12 +124,13 @@ static int gpunn_SpatialUpSamplingNearest_updateOutput(lua_State *L)
   return 1;
 }
 
-
 /*
  * Description:
  */
-void downscale(Concurrency::array_view<float,1> &avInp, Concurrency::array_view<float,1> &avOut, unsigned int gradInpSz, unsigned int gradOutSz, long no_elements,
-                              int scale_factor, int d1, int d2, int d3, unsigned int gridConf[])
+void downscale(Concurrency::array_view<float,1> &avInp, long inpOffset,
+               Concurrency::array_view<float,1> &avOut, long outOffset,
+               unsigned int gradInpSz, unsigned int gradOutSz, long no_elements,
+               int scale_factor, int d1, int d2, int d3, unsigned int gridConf[])
 {
   Concurrency::extent<2> grdExt(gridConf[1],gridConf[0]*256);
   Concurrency::tiled_extent<1,256> t_ext(grdExt);
@@ -140,11 +145,12 @@ void downscale(Concurrency::array_view<float,1> &avInp, Concurrency::array_view<
       for (int j=0; j < scale_factor; j++)
       {
         int ipidx = translate_idx_inv(ii, d1, d2, d3, scale_factor, i, j);
-        avInp[ii] += avOut[ipidx];
+        avInp[inpOffset + ii] += avOut[outOffset + ipidx];
       }
     }
   });
 }
+
 
 static int gpunn_SpatialUpSamplingNearest_updateGradInput(lua_State *L)
 {
@@ -177,7 +183,7 @@ static int gpunn_SpatialUpSamplingNearest_updateGradInput(lua_State *L)
     d3 = gradInput->size[3];
   }
 
-  // GPU blocks & threads:
+  // blocks & threads:
   long nthreads = 256;
   // Max number of blocks: http://en.wikipedia.org/wiki/GPU
   // 65535 for SM 2.x, 2^32 -1 for >= 3.0
@@ -199,13 +205,13 @@ static int gpunn_SpatialUpSamplingNearest_updateGradInput(lua_State *L)
   PREPARE_AV(gradInput, pavGradInput);
   PREPARE_AV(gradOutput, pavGradOutput);
   // kernel:
-  downscale(*pavGradInput, *pavGradOutput, THGPUTensor_nElement(gradInput), THGPUTensor_nElement(gradOutput),
+  downscale(*pavGradInput, gradInput->storageOffset,
+            *pavGradOutput, gradOutput->storageOffset,
+            THGPUTensor_nElement(gradInput), THGPUTensor_nElement(gradOutput),
             no_elements, scale_factor, d1, d2, d3, gradConf);
 
   return 1;
 }
-
-
 
 static const struct luaL_Reg gpunn_SpatialUpSamplingNearest__ [] = {
   {"SpatialUpSamplingNearest_updateOutput", gpunn_SpatialUpSamplingNearest_updateOutput},

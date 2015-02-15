@@ -14,9 +14,11 @@ inline int GET_BLOCKS(const int N) {
   return (N + GPU_NUM_THREADS - 1) / GPU_NUM_THREADS;
 }
 
-void imt2col_kernel(int n, Concurrency::array_view<float> & avData_im, int inOffset, int height, int width, int ksize_h,
+void imt2col_kernel(int n, Concurrency::array_view<float> & avData_im, long imOffset, int inOffset, 
+                    int height, int width, int ksize_h,
                     int ksize_w, int pad_h, int pad_w, int stride_h, int stride_w,
-                    int height_col, int width_col, Concurrency::array_view<float,1> &avData_col)
+                    int height_col, int width_col, 
+                    Concurrency::array_view<float,1> &avData_col, long colOffset)
 {
   avData_im.discard_data();
   unsigned grdSz = (n + 255) & ~255;
@@ -44,7 +46,7 @@ void imt2col_kernel(int n, Concurrency::array_view<float> & avData_im, int inOff
         {
           int h = h_in + p;
           int w = w_in + j;
-          avData_col[dataCol] = (h >= 0 && w >= 0 && h < height && w < width) ? avData_im[ dataIm + p * width + j] : 0;
+          avData_col[colOffset + dataCol] = (h >= 0 && w >= 0 && h < height && w < width) ? avData_im[imOffset + dataIm + p * width + j] : 0;
           dataCol += height_col * width_col;
         }
       }
@@ -52,18 +54,24 @@ void imt2col_kernel(int n, Concurrency::array_view<float> & avData_im, int inOff
   });
 }
 
-void imt2col(Concurrency::array_view<float> &data_im, int inOffset, int channels, int height, int width,
+void imt2col(Concurrency::array_view<float> &data_im, long imOffset, 
+             int inOffset, int channels, int height, int width,
              int ksize_h, int ksize_w, int pad_h, int pad_w,
-             int stride_h, int stride_w, Concurrency::array_view<float,1>&data_col)
+             int stride_h, int stride_w,
+             Concurrency::array_view<float,1> &data_col, long colOffset)
 {
   // We are going to launch channels * height_col * width_col kernels, each
   // kernel responsible for copying a single-channel grid.
   int height_col = (height + 2 * pad_h - ksize_h) / stride_h + 1;
   int width_col = (width + 2 * pad_w - ksize_w) / stride_w + 1;
   int num_kernels = channels * height_col * width_col;
-  //std::cout<<"Im2Col num_kernels:"<<num_kernels<<std::endl;
+
   // Launch
-  imt2col_kernel(num_kernels,data_im,inOffset, height, width, ksize_h, ksize_w, pad_h, pad_w, stride_h, stride_w, height_col, width_col, data_col);
+  imt2col_kernel(num_kernels, data_im, imOffset,
+                 inOffset, height, width, 
+                 ksize_h, ksize_w, pad_h, pad_w, 
+                 stride_h, stride_w, height_col, width_col,
+                 data_col, colOffset);
 }
 
 static int gpunn_SpatialConvolutionMM_BHWD_updateOutput(lua_State *L) {
@@ -127,6 +135,8 @@ static int gpunn_SpatialConvolutionMM_BHWD_updateOutput(lua_State *L) {
   PREPARE_AV(bias, avData_bias);
   PREPARE_AV(output, avData_output);
   PREPARE_AV(weight, avData_weight);
+  Concurrency::array_view<float> *temp_buf = NULL;
+
   // For each elt in batch, do:
   for (int elt = 0; elt < batchSize; elt ++) {
     // Matrix mulitply per output:
@@ -145,19 +155,18 @@ static int gpunn_SpatialConvolutionMM_BHWD_updateOutput(lua_State *L) {
         't', 'n',
         n_, m_, k_,
         1,
-        *avData_ones, k_,
-        *avData_bias, k_, 0,
-        *avData_output, n_,
-        NULL, NULL, NULL,
-        0, 0, output->stride[0] * elt
+        *avData_ones, ones->storageOffset, k_,
+        *avData_bias, bias->storageOffset, k_, 0,
+        *avData_output, output->storageOffset + output->stride[0] * elt, n_,
+        *temp_buf
     );
     // Extract columns:
     avData_im->discard_data();
     avData_col->discard_data();
     imt2col(
-        *avData_im, input->stride[0] * elt,
+        *avData_im, input->storageOffset, input->stride[0] * elt,
         nInputPlane, inputHeight, inputWidth, kH, kW, padding, padding, dH, dW,
-        *avData_col
+        *avData_col, columns->storageOffset
     );
     // M,N,K are dims of matrix A and B
     // (see http://docs.nvidia.com/gpu/cublas/#cublas-lt-t-gt-gemm)
@@ -170,11 +179,10 @@ static int gpunn_SpatialConvolutionMM_BHWD_updateOutput(lua_State *L) {
         'n', 'n',
         n, m, k,
         1,
-        *avData_col, n,
-        *avData_weight, k, 1,
-        *avData_output, n,
-        NULL, NULL, NULL,
-        0, 0, output->stride[0] * elt
+        *avData_col, columns->storageOffset, n,
+        *avData_weight, weight->storageOffset, k, 1,
+        *avData_output, output->storageOffset + output->stride[0] * elt, n,
+        *temp_buf
     );
   }
 

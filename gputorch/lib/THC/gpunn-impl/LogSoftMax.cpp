@@ -3,8 +3,9 @@
 #define LOGSOFTMAX_THREADS 256
 #include "amp_math.h"
 
-
-void gpunn_LogSoftMax_updateOutput_kernel(Concurrency::array_view<float,1> &avOutput, Concurrency::array_view<float,1> &avInp, int nframe, int dim)
+void gpunn_LogSoftMax_updateOutput_kernel(Concurrency::array_view<float,1> &avOutput, long outOffset,
+                                          Concurrency::array_view<float,1> &avInp, long inOffset,
+                                          int nframe, int dim)
 {
   // nframe = (nframe + (LOGSOFTMAX_THREADS -1)) &~(LOGSOFTMAX_THREADS-1);
   Concurrency::extent<1> grdExt(nframe * LOGSOFTMAX_THREADS);
@@ -25,7 +26,7 @@ void gpunn_LogSoftMax_updateOutput_kernel(Concurrency::array_view<float,1> &avOu
     buffer[i_start] = -FLT_MAX;
     for (int i=i_start; i<i_end; i+=i_step)
     {
-      float z = avInp[k * dim +i];
+      float z = avInp[inOffset + k * dim +i];
       if(buffer[i_start] < z)
         buffer[i_start] = z;
     }
@@ -51,7 +52,7 @@ void gpunn_LogSoftMax_updateOutput_kernel(Concurrency::array_view<float,1> &avOu
     float max_k = buffer[LOGSOFTMAX_THREADS];
     buffer[i_start] = 0;
     for (int i=i_start; i<i_end; i+=i_step)
-      buffer[i_start] += Concurrency::fast_math::expf(avInp[k*dim+i]-max_k);
+      buffer[i_start] += Concurrency::fast_math::expf(avInp[inOffset + k*dim+i]-max_k);
 
     // reduce
     for (unsigned int stride = i_step >> 1; stride > 0; stride >>= 1)
@@ -67,26 +68,27 @@ void gpunn_LogSoftMax_updateOutput_kernel(Concurrency::array_view<float,1> &avOu
     // logsoftmax
     float logsum_k = buffer[LOGSOFTMAX_THREADS];
     for (int i=i_start; i<i_end; i+=i_step)
-      avOutput[k *dim + i] = avInp[k * dim +i] - logsum_k;
+      avOutput[outOffset + k *dim + i] = avInp[inOffset + k * dim +i] - logsum_k;
   });
 }
 
-void gpunn_LogSoftMax_updateGradInput_kernel(Concurrency::array_view<float,1> &avGradInput, 
-  Concurrency::array_view<float,1> &avOutput, Concurrency::array_view<float,1> &avGradOutput, int nframe, int dim)
+void gpunn_LogSoftMax_updateGradInput_kernel(Concurrency::array_view<float,1> &avGradInput, long gradInOffset,
+                                             Concurrency::array_view<float,1> &avOutput, long outOffset, 
+                                             Concurrency::array_view<float,1> &avGradOutput, long gradOutOffset,
+                                             int nframe, int dim)
 {
   Concurrency::extent<1> grdExt(nframe * LOGSOFTMAX_THREADS);
   Concurrency::tiled_extent<LOGSOFTMAX_THREADS> t_ext(grdExt);
-  //std::cout<<"UpdateGradInputkernel invoked"<<std::endl;
   Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<LOGSOFTMAX_THREADS> tidx) restrict(amp) 
   {
     tile_static float buffer[LOGSOFTMAX_THREADS];
     //int k = blockIdx.x;
     int k = tidx.tile[0];
-    float *gradInput_k = avGradInput.data();
+    float *gradInput_k = avGradInput.data() + gradInOffset;
     gradInput_k += k*dim;
-    float *output_k = avOutput.data();
+    float *output_k = avOutput.data() + outOffset;
     output_k += k*dim;
-    float *gradOutput_k = avGradOutput.data();
+    float *gradOutput_k = avGradOutput.data() + gradOutOffset;
     gradOutput_k += k*dim;
 
     //int tx = threadIdx.x;
@@ -99,7 +101,7 @@ void gpunn_LogSoftMax_updateGradInput_kernel(Concurrency::array_view<float,1> &a
     // sum?
     buffer[tx] = 0;
     for (int i=tx; i<i_end; i+=i_step)
-      buffer[tx] += gradOutput_k[i];
+      buffer[tx] += gradOutput_k[gradOutOffset + i];
 
     // reduce
     for (unsigned int stride = t_ext.tile_dim0 >> 1; stride > 0; stride >>= 1)
@@ -113,7 +115,7 @@ void gpunn_LogSoftMax_updateGradInput_kernel(Concurrency::array_view<float,1> &a
 
     float sum_k = buffer[0];
     for (int i=tx; i<i_end; i+=i_step)
-      gradInput_k[i] = gradOutput_k[i] - Concurrency::fast_math::expf(output_k[i])*sum_k;
+      gradInput_k[gradInOffset + i] = gradOutput_k[gradOutOffset + i] - Concurrency::fast_math::expf(output_k[outOffset + i])*sum_k;
   });
 }
 
@@ -129,17 +131,20 @@ static int gpunn_LogSoftMax_updateOutput(lua_State *L)
   PREPARE_AV(input, pavInput);
   if (input->nDimension == 1)
   {
-    gpunn_LogSoftMax_updateOutput_kernel(*pavOutput, *pavInput, 1, input->size[0]);
+    gpunn_LogSoftMax_updateOutput_kernel(*pavOutput, output->storageOffset,
+                                         *pavInput, input->storageOffset, 
+                                         1, input->size[0]);
   }
   else if (input->nDimension == 2)
   {
-    gpunn_LogSoftMax_updateOutput_kernel(*pavOutput, *pavInput, input->size[0], input->size[1]);
+    gpunn_LogSoftMax_updateOutput_kernel(*pavOutput, output->storageOffset,
+                                         *pavInput, input->storageOffset,
+                                         input->size[0], input->size[1]);
   }
   else
-  THError("vector or matrix expected");
+    THError("vector or matrix expected");
 
   THGPUTensor_free(input);
-
   return 1;
 }
 
@@ -158,17 +163,23 @@ static int gpunn_LogSoftMax_updateGradInput(lua_State *L)
   PREPARE_AV(output, pavOutput);
   if (gradInput->nDimension == 1)
   {
-    gpunn_LogSoftMax_updateGradInput_kernel(*pavGradInput, *pavOutput, *pavGradOutput, 1, gradInput->size[0]);
+    gpunn_LogSoftMax_updateGradInput_kernel(*pavGradInput, gradInput->storageOffset, 
+                                            *pavOutput, output->storageOffset,
+                                            *pavGradOutput, gradOutput->storageOffset,
+                                            1, gradInput->size[0]);
   }
   else if (gradInput->nDimension == 2)
   {
-    gpunn_LogSoftMax_updateGradInput_kernel (*pavGradInput, *pavOutput, *pavGradOutput, gradInput->size[0], gradInput->size[1]);
+    gpunn_LogSoftMax_updateGradInput_kernel (*pavGradInput, gradInput->storageOffset,
+                                             *pavOutput, output->storageOffset,
+                                             *pavGradOutput, gradOutput->storageOffset,
+                                             gradInput->size[0], gradInput->size[1]);
   }
   else
     THError("vector or matrix expected");
 
-    THGPUTensor_free(output);
-    THGPUTensor_free(gradOutput);
+  THGPUTensor_free(output);
+  THGPUTensor_free(gradOutput);
 
   return 1;
 }

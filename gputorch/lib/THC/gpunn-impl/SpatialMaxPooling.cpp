@@ -7,12 +7,13 @@
  *    4D input, 4D output, 4D argmax x and y 
  */
 
-void maxpool(Concurrency::array_view<float,1>&input_data,
-                        Concurrency::array_view<float,1>&output_data, Concurrency::array_view<float,1>&indices_data,
-                        int nOutputCols, int nOutputRows,
-                        int input_n, int input_h, int input_w,
-                        int kH, int kW, int dH, int dW,
-                        int xblocks, int yblocks)
+void maxpool(Concurrency::array_view<float,1> &input_data, long inOffset,
+             Concurrency::array_view<float,1> &output_data, long outOffset,
+             Concurrency::array_view<float,1> &indices_data, long indOffset,
+             int nOutputCols, int nOutputRows,
+             int input_n, int input_h, int input_w,
+             int kH, int kW, int dH, int dW,
+             int xblocks, int yblocks)
 {
   Concurrency::extent<2> copyExt(yblocks*8,xblocks*32);
   Concurrency::tiled_extent<8,32> t_ext(copyExt);
@@ -58,7 +59,7 @@ void maxpool(Concurrency::array_view<float,1>&input_data,
         int kx, ky;
         for (ky = 0; ky < kH; ky++) {
           for (kx = 0; kx < kW; kx++) {
-            float val = input_data[ptr_input + kx];
+            float val = input_data[inOffset + ptr_input + kx];
             if (val > max) {
               max = val;
               argmax_x = kx;
@@ -68,22 +69,24 @@ void maxpool(Concurrency::array_view<float,1>&input_data,
           ptr_input += input_w; // next input line
         }
         // Update output and argmax
-        output_data[ptr_output] = max;
-        indices_data[ptr_ind_x] = argmax_x + 1;
-        indices_data[ptr_ind_y] = argmax_y + 1;
+        output_data[outOffset + ptr_output] = max;
+        indices_data[indOffset + ptr_ind_x] = argmax_x + 1;
+        indices_data[indOffset + ptr_ind_y] = argmax_y + 1;
       }
     }
-    });
+  });
 }
 
 /*
  * Description:
  *    this function computes the gradInput from weight and gradOutput
  */
-void maxgradinput(Concurrency::array_view<float,1>&input_data,
-                  Concurrency::array_view<float,1>&output_data, Concurrency::array_view<float,1>&indices_data,
+void maxgradinput(Concurrency::array_view<float,1> &input_data, long inOffset,
+                  Concurrency::array_view<float,1> &output_data, long outOffset,
+                  Concurrency::array_view<float,1> &indices_data, long indOffset,
                   int nOutputCols, int nOutputRows,
-                  int input_n, int input_h, int input_w, int kH, int kW, int dH, int dW, int xblocks, int yblocks)
+                  int input_n, int input_h, int input_w, 
+                  int kH, int kW, int dH, int dW, int xblocks, int yblocks)
 {
   Concurrency::extent<2> copyExt(yblocks*8,xblocks*32);
   Concurrency::tiled_extent<8,32> t_ext(copyExt);
@@ -120,11 +123,11 @@ void maxgradinput(Concurrency::array_view<float,1>&input_data,
         int ptr_ind_x = indices_x + yy*output_w + xx;
         int ptr_ind_y = indices_y + yy*output_w + xx;
 
-        float z = output_data[ptr_gradOutput];
-        int argmax_x = (int)indices_data[ptr_ind_x]-1;
-        int argmax_y = (int)indices_data[ptr_ind_y]-1;
+        float z = output_data[outOffset + ptr_gradOutput];
+        int argmax_x = (int)indices_data[indOffset + ptr_ind_x]-1;
+        int argmax_y = (int)indices_data[indOffset + ptr_ind_y]-1;
 
-        input_data[ptr_gradInput + argmax_x + argmax_y*input_w] += z;
+        input_data[indOffset + ptr_gradInput + argmax_x + argmax_y*input_w] += z;
       }
     }
   });
@@ -135,10 +138,12 @@ void maxgradinput(Concurrency::array_view<float,1>&input_data,
  *    this function computes the gradInput from weight and gradOutput
  *    when kH != dH or kW != dW (uses atomic add)
  */
-void atomicmaxgradinput(Concurrency::array_view<float,1>&input_data, 
-                        Concurrency::array_view<float,1>&output_data, Concurrency::array_view<float,1>&indices_data,
+void atomicmaxgradinput(Concurrency::array_view<float,1> &input_data, long inOffset,
+                        Concurrency::array_view<float,1> &output_data, long outOffset,
+                        Concurrency::array_view<float,1> &indices_data, long indOffset,
                         int nOutputCols, int nOutputRows,
-                        int input_n, int input_h, int input_w, int kH, int kW, int dH, int dW, int xblocks, int yblocks
+                        int input_n, int input_h, int input_w,
+                        int kH, int kW, int dH, int dW, int xblocks, int yblocks
 )
 {
   Concurrency::extent<2> copyExt(yblocks,xblocks);
@@ -177,15 +182,15 @@ void atomicmaxgradinput(Concurrency::array_view<float,1>&input_data,
         int ptr_gradOutput = gradOutput + yy*output_w + xx;
         int ptr_ind_x = indices_x + yy*output_w + xx;
         int ptr_ind_y = indices_y + yy*output_w + xx;
-        float z = output_data[ptr_gradOutput];
+        float z = output_data[outOffset + ptr_gradOutput];
 
-        int argmax_x = (int)indices_data[ptr_ind_x]-1;
-        int argmax_y = (int)indices_data[ptr_ind_y]-1;
+        int argmax_x = (int)indices_data[indOffset + ptr_ind_x]-1;
+        int argmax_y = (int)indices_data[indOffset + ptr_ind_y]-1;
 
         // atomic add since different threads could update same variable
         //Concurrency::atomic_fetch_add((int*)(&(ptr_gradInput[argmax_x + argmax_y*input_w])), (int)z);
         // TODO: need atomicAdd for float
-        input_data[ptr_gradInput + argmax_x + argmax_y*input_w] += z;
+        input_data[inOffset + ptr_gradInput + argmax_x + argmax_y*input_w] += z;
       }
     }
   });
@@ -217,7 +222,7 @@ static int gpunn_SpatialMaxPooling_updateOutput(lua_State *L)
     THGPUTensor_resize3d(output, nInputPlane, nOutputRows, nOutputCols);
     THGPUTensor_resize4d(indices, 2, nInputPlane, nOutputRows, nOutputCols);
 
-    // gpu blocks & threads:
+    // blocks & threads:
     int yblocks = (int)(16L / nInputPlane);
     yblocks = yblocks < 1 ? 1 : yblocks;
     int xblocks = nInputPlane;
@@ -228,10 +233,11 @@ static int gpunn_SpatialMaxPooling_updateOutput(lua_State *L)
     PREPARE_AV(indices, pavIndices);
 
     // run maxpool kernel
-    maxpool(*pavInput, *pavOutput, 
-           *pavIndices, nOutputCols, nOutputRows,
-           nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW, xblocks, yblocks);
-
+    maxpool(*pavInput, input->storageOffset,
+            *pavOutput, output->storageOffset,
+            *pavIndices, indices->storageOffset,
+            nOutputCols, nOutputRows, nInputPlane, nInputRows, nInputCols, 
+            kH, kW, dH, dW, xblocks, yblocks);
   } else {
     long nInputCols = input->size[3];
     long nInputRows = input->size[2];
@@ -246,7 +252,7 @@ static int gpunn_SpatialMaxPooling_updateOutput(lua_State *L)
     THGPUTensor_resize4d(output, nbatch, nInputPlane, nOutputRows, nOutputCols);
     THGPUTensor_resize5d(indices, 2, nbatch, nInputPlane, nOutputRows, nOutputCols);
 
-    // gpu blocks & threads:
+    // blocks & threads:
     int yblocks = (int)(16L / nInputPlane);
     yblocks = yblocks < 1 ? 1 : yblocks;
     int xblocks = nInputPlane * nbatch;
@@ -257,10 +263,11 @@ static int gpunn_SpatialMaxPooling_updateOutput(lua_State *L)
     PREPARE_AV(indices, pavIndices);    
     
     // run maxpool kernel
-    maxpool(*pavInput, *pavOutput, 
-           *pavIndices, nOutputCols, nOutputRows,
-           nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW, xblocks, yblocks);
-
+    maxpool(*pavInput, input->storageOffset,
+            *pavOutput, output->storageOffset,
+            *pavIndices, indices->storageOffset,
+            nOutputCols, nOutputRows, nInputPlane, nInputRows, nInputCols,
+            kH, kW, dH, dW, xblocks, yblocks);
   }
 
   // clean
@@ -296,7 +303,7 @@ static int gpunn_SpatialMaxPooling_updateGradInput(lua_State *L)
     THGPUTensor_resizeAs(gradInput, input);
     THGPUTensor_zero(gradInput);
 
-    // gpu blocks & threads:
+    // blocks & threads:
     int yblocks = (int)(16L / nInputPlane);
     yblocks = yblocks < 1 ? 1 : yblocks;
     int xblocks = nInputPlane;
@@ -306,16 +313,20 @@ static int gpunn_SpatialMaxPooling_updateGradInput(lua_State *L)
     PREPARE_AV(indices, pavIndices);
     if(atomic)
     {
-      atomicmaxgradinput(*pavGradInput, *pavGradOutput, 
-                        *pavIndices, nOutputCols, nOutputRows,
-                        nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW, xblocks, yblocks);
+      atomicmaxgradinput(*pavGradInput, gradInput->storageOffset,
+                         *pavGradOutput, gradOutput->storageOffset,
+                         *pavIndices, indices->storageOffset,
+                         nOutputCols, nOutputRows, nInputPlane, nInputRows, nInputCols, 
+                         kH, kW, dH, dW, xblocks, yblocks);
     }
     else
     {
       // run updateGradInput kernel
-      maxgradinput(*pavGradInput, *pavGradOutput, 
-                   *pavIndices, nOutputCols, nOutputRows,
-                   nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW, xblocks, yblocks);
+      maxgradinput(*pavGradInput, gradInput->storageOffset,
+                   *pavGradOutput, gradOutput->storageOffset,
+                   *pavIndices, indices->storageOffset,
+                   nOutputCols, nOutputRows, nInputPlane, nInputRows, nInputCols,
+                   kH, kW, dH, dW, xblocks, yblocks);
     }
   } else {
     long nInputCols = input->size[3];
@@ -332,7 +343,7 @@ static int gpunn_SpatialMaxPooling_updateGradInput(lua_State *L)
     PREPARE_AV(gradOutput, pavGradOutput);
     PREPARE_AV(indices, pavIndices);
 
-    // gpu blocks & threads:
+    // blocks & threads:
     int yblocks = (int)(16L / nInputPlane);
     yblocks = yblocks < 1 ? 1 : yblocks;
     int xblocks = nInputPlane * nbatch;
@@ -340,16 +351,20 @@ static int gpunn_SpatialMaxPooling_updateGradInput(lua_State *L)
     if(atomic)
     {
       // run updateGradInput kernel, accumulate gradients atomically
-      atomicmaxgradinput(*pavGradInput, *pavGradOutput, 
-                        *pavIndices, nOutputCols, nOutputRows,
-                        nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW, xblocks, yblocks);
+      atomicmaxgradinput(*pavGradInput, gradInput->storageOffset,
+                         *pavGradOutput, gradOutput->storageOffset,
+                         *pavIndices, indices->storageOffset,
+                         nOutputCols, nOutputRows, nInputPlane, nInputRows, nInputCols,
+                         kH, kW, dH, dW, xblocks, yblocks);
     }
     else
     {
       // run updateGradInput kernel, accumulate gradients atomically
-      maxgradinput(*pavGradInput, *pavGradOutput, 
-                        *pavIndices, nOutputCols, nOutputRows,
-                        nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW, xblocks, yblocks);
+      maxgradinput(*pavGradInput, gradInput->storageOffset,
+                   *pavGradOutput, gradOutput->storageOffset,
+                   *pavIndices, indices->storageOffset,
+                   nOutputCols, nOutputRows, nInputPlane, nInputRows, nInputCols,
+                   kH, kW, dH, dW, xblocks, yblocks);
     }
   }
 
