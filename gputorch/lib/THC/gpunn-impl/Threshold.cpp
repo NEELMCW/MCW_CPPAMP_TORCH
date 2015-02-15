@@ -1,4 +1,5 @@
 #include "amp_math.h"
+
 struct thresholdupdateOutput_functor
 {
   const double threshold;

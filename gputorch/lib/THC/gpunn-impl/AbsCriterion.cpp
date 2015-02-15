@@ -15,6 +15,7 @@ struct abs_functor
   }
 };
 
+
 static int gpunn_AbsCriterion_updateOutput(lua_State *L)
 {
   THGPUTensor *input = (THGPUTensor*)luaT_checkudata(L, 2, "torch.GPUTensor");

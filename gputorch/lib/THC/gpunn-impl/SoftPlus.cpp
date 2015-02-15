@@ -26,12 +26,12 @@ static int gpunn_SoftPlus_updateOutput(lua_State *L)
 
   THGPUTensor_resizeAs(output, input);
 
-   DECLARE_BOLT_DEVICE_VECTOR(output, output_data);
-   DECLARE_BOLT_DEVICE_VECTOR(input, input_data);
-   bolt::amp::transform(input_data.begin() + input->storageOffset, 
-                        input_data.begin() + input->storageOffset + size,
-                        output_data.begin() + output->storageOffset,
-                        softPlusupdateOutput_functor(threshold, beta));
+  DECLARE_BOLT_DEVICE_VECTOR(output, output_data);
+  DECLARE_BOLT_DEVICE_VECTOR(input, input_data);
+  bolt::amp::transform(input_data.begin() + input->storageOffset, 
+                       input_data.begin() + input->storageOffset + size,
+                       output_data.begin() + output->storageOffset,
+                       softPlusupdateOutput_functor(threshold, beta));
 
   THGPUTensor_free(input);
   return 1;

@@ -3,11 +3,9 @@
 #include "THLogAdd.h" /* DEBUG: WTF */
 #include "common.h"
 
-// Bolt included
 #include "HardTanh.cpp"
 #include "L1Cost.cpp"
 #include "Tanh.cpp"
-
 #include "Max.cpp"
 #include "Min.cpp"
 #include "LogSoftMax.cpp"
