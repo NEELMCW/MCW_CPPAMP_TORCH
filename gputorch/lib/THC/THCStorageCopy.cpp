@@ -58,7 +58,8 @@ TH_GPU_STORAGE_IMPLEMENT_COPYTO(Double)
 void THGPUStorage_rawCopy(THGPUStorage *self, float *src)
 {
   float* device_ptr = static_cast<float*>(Concurrency::getAllocator().device_data(self->data));
-  THGPUCheck(gpuMemcpyAsync(device_ptr, 0, src, 0, self->size * sizeof(float), gpuMemcpyDeviceToDevice));
+  // TODO: Async copy
+  THGPUCheck(gpuMemcpy(device_ptr, 0, src, 0, self->size * sizeof(float), gpuMemcpyDeviceToDevice));
 }
 
 void THGPUStorage_copy(THGPUStorage *self, THGPUStorage *src)
@@ -66,7 +67,8 @@ void THGPUStorage_copy(THGPUStorage *self, THGPUStorage *src)
   THArgCheck(self->size == src->size, 2, "size does not match");
   float* self_ptr = static_cast<float*>(Concurrency::getAllocator().device_data(self->data));
   float* src_ptr = static_cast<float*>(Concurrency::getAllocator().device_data(src->data));
-  THGPUCheck(gpuMemcpyAsync(self_ptr, 0, src_ptr, 0, self->size * sizeof(float), gpuMemcpyDeviceToDevice));
+  // TODO: Async copy
+  THGPUCheck(gpuMemcpy(self_ptr, 0, src_ptr, 0, self->size * sizeof(float), gpuMemcpyDeviceToDevice));
 }
 
 void THGPUStorage_copyGPU(THGPUStorage *self, THGPUStorage *src)

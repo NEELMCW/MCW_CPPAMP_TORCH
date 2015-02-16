@@ -242,9 +242,10 @@ THC_API void THGPUTensor_copy(THGPUTensor *self, THGPUTensor *src)
   {
     float* self_ptr = static_cast<float*>(Concurrency::getAllocator().device_data(self->storage->data));
     float* src_ptr = static_cast<float*>(Concurrency::getAllocator().device_data(src->storage->data));
+    // TODO: Async copy
     THGPUCheck(gpuMemcpy(self_ptr, self->storageOffset,
                src_ptr, src->storageOffset,
-               THGPUTensor_nElement(self) * sizeof(float),
+               totalElements * sizeof(float),
                gpuMemcpyDeviceToDevice));
   }
   else

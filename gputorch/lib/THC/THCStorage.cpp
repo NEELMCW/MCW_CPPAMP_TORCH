@@ -190,15 +190,16 @@ void THGPUStorage_resize(THGPUStorage *self, long size)
 
     Concurrency::array_view<float, 1>* avSrc = static_cast<Concurrency::array_view<float,1>* >(self->allocatorContext);
     float* src_ptr = static_cast<float*>(Concurrency::getAllocator().device_data(self->data));
+    // TODO: Async copy
     if (src_ptr)
-      THGPUCheck(gpuMemcpyAsync(dest_ptr, 0, src_ptr, 0, THMin(self->size, size) * sizeof(float), gpuMemcpyDeviceToDevice));
+      THGPUCheck(gpuMemcpy(dest_ptr, 0, src_ptr, 0, THMin(self->size, size) * sizeof(float), gpuMemcpyDeviceToDevice));
     
     avSrc->~array_view();
     self->allocatorContext = (void *)avDest;
     self->data = avDest->data();
     self->size = size;
     // Set default refcount for the new resized 
-    self->refcount=1;
+    self->refcount = 1;
   }
 }
 
