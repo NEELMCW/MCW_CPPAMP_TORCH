@@ -1,6 +1,7 @@
 #include "THCStorage.h"
 #include "THCGeneral.h"
 #include "common.h"
+#include "THCBolt.h"
 
 void THGPUStorage_set(THGPUStorage *self, long index, float value)
 {

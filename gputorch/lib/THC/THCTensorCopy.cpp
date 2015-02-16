@@ -4,6 +4,7 @@
 #include <iostream>
 #include "common.h"
 #include "amp_math.h"
+#include "THCBolt.h"
 
 // FIXME: suggest to call the same bolt::amp APIs in this file to avoid multiple definition error
 // introduced by the Compiler. Will fix.

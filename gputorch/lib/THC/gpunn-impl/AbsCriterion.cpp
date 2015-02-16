@@ -3,17 +3,7 @@
 #include <numeric>
 #include "common.h"
 #include "amp_math.h"
-
-struct abs_functor
-{
-  abs_functor() {}
-
-  float operator()(const float& x, const float& y) const restrict(amp,cpu)
-  {
-    float z = x-y;
-    return z >= 0 ? z : -z;
-  }
-};
+#include "THCBolt.h"
 
 static int gpunn_AbsCriterion_updateOutput(lua_State *L)
 {
@@ -27,8 +17,8 @@ static int gpunn_AbsCriterion_updateOutput(lua_State *L)
 
   input = THGPUTensor_newContiguous(input);
   target = THGPUTensor_newContiguous(target);
-  DECLARE_BOLT_DEVICE_VECTOR_2(input, input_data, target, target_data);
-  sum = std::inner_product(input_data.begin(), input_data.end(), target_data.begin(), (float) 0, bolt::amp::plus<float>(), abs_functor());
+
+  sum = boltInnerProduct_plus_abs(input, target);
 
   if(sizeAverage)
     sum /= size;
@@ -43,19 +33,6 @@ static int gpunn_AbsCriterion_updateOutput(lua_State *L)
   return 1;
 }
 
-
-struct abs_updateGradInput_functor
-{
-  const float norm;
-
-  abs_updateGradInput_functor(float norm_) restrict(amp,cpu): norm(norm_) {}
-
-  float operator()(const float& x, const float& y) const restrict(amp,cpu)
-  {
-    return (x - y) >= 0 ? norm : -norm;
-  }
-};
-
 static int gpunn_AbsCriterion_updateGradInput(lua_State *L)
 {
   THGPUTensor *input = (THGPUTensor*)luaT_checkudata(L, 2, "torch.GPUTensor");
@@ -68,8 +45,7 @@ static int gpunn_AbsCriterion_updateGradInput(lua_State *L)
   target = THGPUTensor_newContiguous(target);
   THGPUTensor_resizeAs(gradInput, input);
 
-  DECLARE_BOLT_DEVICE_VECTOR_3(input, input_data, target, target_data, gradInput, gradInput_data);
-  bolt::amp::transform(input_data.begin(), input_data.end(), target_data.begin(), gradInput_data.begin(), abs_updateGradInput_functor(norm));
+  boltTransform_abs(input, target, gradInput, norm);
 
   THGPUTensor_free(input);
   THGPUTensor_free(target);

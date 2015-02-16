@@ -1,16 +1,7 @@
 #include <numeric>
 #include "common.h"
 #include "amp_math.h"
-
-struct kl_functor
-{
-  kl_functor() {}
-
-  float operator()(const float& x, const float& y) const restrict(amp,cpu)
-  {
-    return y > 0 ? y * (Concurrency::fast_math::log(y) - x) : 0;
-  }
-};
+#include "THCBolt.h"
 
 static int gpunn_DistKLDivCriterion_updateOutput(lua_State *L)
 {
@@ -25,8 +16,8 @@ static int gpunn_DistKLDivCriterion_updateOutput(lua_State *L)
   input = THGPUTensor_newContiguous(input);
   target = THGPUTensor_newContiguous(target);
 
-  DECLARE_BOLT_DEVICE_VECTOR_2(input, input_data, target, target_data);
-  sum = std::inner_product(input_data.begin(), input_data.end(), target_data.begin(), (float) 0, bolt::amp::plus<float>(), kl_functor());
+  sum = boltInnerProduct_plus_kl(input, target);
+  
   if (sizeAverage)
     sum /= size;
 
@@ -39,18 +30,6 @@ static int gpunn_DistKLDivCriterion_updateOutput(lua_State *L)
   lua_pushnumber(L, sum);
   return 1;
 }
-
-struct kl_updateGradInput_functor
-{
-  const float norm;
-
-  kl_updateGradInput_functor(float norm_) restrict(amp,cpu) : norm(norm_) {}
-
-  float operator()(const float& x, const float& y) const restrict(amp,cpu)
-  {
-    return y > 0 ? norm * (-y) : 0;
-  }
-};
 
 static int gpunn_DistKLDivCriterion_updateGradInput(lua_State *L)
 {
@@ -69,8 +48,7 @@ static int gpunn_DistKLDivCriterion_updateGradInput(lua_State *L)
 
   THGPUTensor_resizeAs(gradInput, input);
 
-  DECLARE_BOLT_DEVICE_VECTOR_3(input, input_data, target, target_data, gradInput, gradInput_data);
-  bolt::amp::transform(input_data.begin(), input_data.end(), target_data.begin(), gradInput_data.begin(), kl_updateGradInput_functor(norm));
+  boltTransform_kl(input, target, gradInput, norm);
 
   THGPUTensor_free(input);
   THGPUTensor_free(target);

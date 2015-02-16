@@ -1,37 +1,23 @@
 #include<numeric>
 #include "common.h"
 #include "amp_math.h"
-
-struct mse_functor
-{
-  mse_functor() restrict(amp,cpu) {}
-
-  float operator()(const float& x, const float& y) const restrict(amp,cpu)
-  {
-    float z = x-y;
-    return z*z;
-  }
-};
-
+#include "THCBolt.h"
 
 static int gpunn_MSECriterion_updateOutput(lua_State *L)
 {
   THGPUTensor *input = (THGPUTensor*)luaT_checkudata(L, 2, "torch.GPUTensor");
   THGPUTensor *target = (THGPUTensor*)luaT_checkudata(L, 3, "torch.GPUTensor");
   int sizeAverage = luaT_getfieldcheckboolean(L, 1, "sizeAverage");
-  luaL_argcheck(L, THGPUTensor_nElement(input) == THGPUTensor_nElement(target), 2,
-                "input and target need to have the same number of elements");
+  luaL_argcheck(L, THGPUTensor_nElement(input) == THGPUTensor_nElement(target),
+                2, "input and target need to have the same number of elements");
 
   float sum;
 
   long size = THGPUTensor_nElement(input);
-
   input = THGPUTensor_newContiguous(input);
   target = THGPUTensor_newContiguous(target);
-
-  DECLARE_BOLT_DEVICE_VECTOR_2(input, input_data, target, target_data);
-  sum = std::inner_product(input_data.begin(), input_data.end(), target_data.begin(), (float) 0, bolt::amp::plus<float>(), mse_functor());
-
+  
+  sum = boltInnerProduct_plus_mse( input, target);
   if(sizeAverage)
     sum /= size;
 
@@ -44,19 +30,6 @@ static int gpunn_MSECriterion_updateOutput(lua_State *L)
   lua_pushnumber(L, sum);
   return 1;
 }
-
-
-struct mse_updateGradInput_functor
-{
-  const float norm;
-
-  mse_updateGradInput_functor(float norm_) restrict(amp,cpu) : norm(norm_) {}
-
-  float operator()(const float& x, const float& y) const restrict(amp,cpu)
-  {
-    return norm * (x - y);
-  }
-};
 
 static int gpunn_MSECriterion_updateGradInput(lua_State *L)
 {
@@ -75,8 +48,7 @@ static int gpunn_MSECriterion_updateGradInput(lua_State *L)
 
   THGPUTensor_resizeAs(gradInput, input);
 
-  DECLARE_BOLT_DEVICE_VECTOR_3(input, input_data, target, target_data, gradInput, gradInput_data);
-  bolt::amp::transform(input_data.begin(), input_data.end(), target_data.begin(), gradInput_data.begin(), mse_updateGradInput_functor(norm));
+  boltTransform_mse(input, target, gradInput, norm);
 
   THGPUTensor_free(input);
   THGPUTensor_free(target);

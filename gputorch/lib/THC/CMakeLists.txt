@@ -5,7 +5,7 @@ INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/gpunn-impl/SpatialPoolingGPU/)
 INCLUDE_DIRECTORIES($ENV{MCWCPPAMPROOT}/cppamp-driver-ng/include)
 SET(src 
    THCGeneral.cpp THCAMPBlasImpl.cpp
-   THCBlas.cpp THCStorage.cpp THCTensor.cpp THCTensorCopy.cpp THCTensorConv.cpp THCTensorMath.cpp THCTensorRandom.cpp)
+   THCBolt.cpp THCBlas.cpp THCStorage.cpp THCTensor.cpp THCTensorCopy.cpp THCTensorConv.cpp THCTensorMath.cpp THCTensorRandom.cpp)
 SET(gpunnsrc gpunn-impl/SpatialConvolutionGPU/updateOutput.cpp gpunn-impl/SpatialConvolutionGPU/updateGradInput.cpp
     gpunn-impl/SpatialConvolutionGPU/accGradParameters.cpp  gpunn-impl/init.cpp)
 
@@ -49,6 +49,7 @@ INSTALL(TARGETS THC
           ARCHIVE DESTINATION "${Torch_INSTALL_LIB_SUBDIR}")
 
 INSTALL(FILES
+          THCBolt.h
           THC.h
           THCGeneral.h
           THCBlas.h

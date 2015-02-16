@@ -8,10 +8,9 @@
 #include<utility>
 #include<numeric>
 #include "common.h"
-
+#include "THCBolt.h"
 
 #define NB_THREADS_PER_BLOCK 256
-
 
 void THGPUTensor_fill(THGPUTensor *self_, float value)
 {
@@ -62,72 +61,35 @@ long THGPUTensor_numel(THGPUTensor *t)
   return THGPUTensor_nElement(t);
 }
 
-
-struct addvalue_functor
-{
-  const float value;
-
-  addvalue_functor(float value_) restrict(cpu,amp) : value(value_) {}
-
-  float operator()(const float& x) const restrict(cpu,amp) 
-  {
-    return (x+value);
-  }
-};
-
 void THGPUTensor_add(THGPUTensor *self_, THGPUTensor *src_, float value)
 {
   THGPUTensor_resizeAs(self_, src_);
   THGPUTensor *self = THGPUTensor_newContiguous(self_);
   THGPUTensor *src = THGPUTensor_newContiguous(src_);
-  DECLARE_BOLT_DEVICE_VECTOR_2(self, Dself_data, src, Dsrc_data);
-  bolt::amp::transform(Dsrc_data.begin(), Dsrc_data.end(), Dself_data.begin(), addvalue_functor(value));
+  boltTransform_addvalue(src, self, value);
   THGPUTensor_free(src);
   THGPUTensor_freeCopyTo(self, self_);
 }
-
-struct mulvalue_functor
-{
-  const float value;
-  mulvalue_functor(float value_)restrict(cpu,amp) : value(value_) {}
-  float operator()(const float& x) const restrict(cpu,amp)
-  {
-    return (x*value);
-  }
-};
 
 void THGPUTensor_mul(THGPUTensor *self_, THGPUTensor *src_, float value)
 {
   THGPUTensor_resizeAs(self_, src_);
   THGPUTensor *self = THGPUTensor_newContiguous(self_);
   THGPUTensor *src = THGPUTensor_newContiguous(src_);
-  DECLARE_BOLT_DEVICE_VECTOR_2(src, Dsrc_data, self, Dself_data);
-  bolt::amp::transform(Dsrc_data.begin(), Dsrc_data.end(), Dself_data.begin(), mulvalue_functor(value));
+  boltTransform_mulvalue(src, self, value);
   THGPUTensor_free(src);
   THGPUTensor_freeCopyTo(self, self_);
 }
-
-struct divvalue_functor
-{
-  const float value;
-  divvalue_functor(float value_)restrict(amp,cpu) : value(value_) {}
-  float operator()(const float& x) const restrict(amp,cpu)
-  {
-    return (x/value);
-  }
-};
 
 void THGPUTensor_div(THGPUTensor *self_, THGPUTensor *src_, float value)
 {
   THGPUTensor_resizeAs(self_, src_);
   THGPUTensor *self = THGPUTensor_newContiguous(self_);
   THGPUTensor *src = THGPUTensor_newContiguous(src_);
-  DECLARE_BOLT_DEVICE_VECTOR_2(src, Dsrc_data, self, Dself_data);
-  bolt::amp::transform(Dsrc_data.begin(), Dsrc_data.end(), Dself_data.begin(), divvalue_functor(value));
+  boltTransform_divvalue(src, self, value);
   THGPUTensor_free(src);
   THGPUTensor_freeCopyTo(self, self_);
 }
-
 
 void THGPUTensor_cadd(THGPUTensor *self_, THGPUTensor* src1, float value, THGPUTensor *src2)
 {
@@ -163,9 +125,7 @@ void THGPUTensor_cmul(THGPUTensor *self_, THGPUTensor *src1, THGPUTensor *src2)
     THGPUTensor *self = THGPUTensor_newContiguous(self_);
     src1 = THGPUTensor_newContiguous(src1);
     src2 = THGPUTensor_newContiguous(src2);
-    DECLARE_BOLT_DEVICE_VECTOR_3(src1, Dsrc1_data, src2, Dsrc2_data, self, Dself_data);
-    bolt::amp::transform(Dsrc2_data.begin(), Dsrc2_data.end(), Dsrc1_data.begin(), Dself_data.begin(), bolt::amp::multiplies<float>());
-
+    boltTransformBinary_multiply(src1, src2, self);
     THGPUTensor_free(src1);
     THGPUTensor_free(src2);
     THGPUTensor_freeCopyTo(self, self_);
@@ -180,9 +140,7 @@ void THGPUTensor_cdiv(THGPUTensor *self_, THGPUTensor *src1, THGPUTensor *src2)
     THGPUTensor *self = THGPUTensor_newContiguous(self_);
     src1 = THGPUTensor_newContiguous(src1);
     src2 = THGPUTensor_newContiguous(src2);
-    DECLARE_BOLT_DEVICE_VECTOR_3(src1, Dsrc1_data, src2, Dsrc2_data, self, Dself_data);
-    bolt::amp::transform(Dsrc1_data.begin(), Dsrc1_data.end(), Dsrc2_data.begin(), Dself_data.begin(), bolt::amp::divides<float>());
-
+    boltTransformBinary_divide(src1, src2, self);
     THGPUTensor_free(src1);
     THGPUTensor_free(src2);
     THGPUTensor_freeCopyTo(self, self_);
@@ -303,13 +261,12 @@ float THGPUTensor_dot(THGPUTensor *self, THGPUTensor *src)
 float THGPUTensor_minall(THGPUTensor *self)
 {
   self = THGPUTensor_newContiguous(self);
-  DECLARE_BOLT_DEVICE_VECTOR(self, self_data);
   // Data transfer:
   //   1 for reading data from host to result array (not necessary but seems mandotary when construct array)
   //   1 for writing back data from device to host side of result array
   // Memory objects created and released
   //   1 created and released for constructing/destructing result array (tiles number depending on input)
-  float result = bolt::amp::reduce(self_data.begin(), self_data.begin()+THGPUTensor_nElement(self), (float)(THInf), bolt::amp::minimum<float>());
+  float result = boltReduce_minimum(self);
   THGPUTensor_free(self);
   return result;
 }
@@ -317,24 +274,20 @@ float THGPUTensor_minall(THGPUTensor *self)
 float THGPUTensor_maxall(THGPUTensor *self)
 {
   self = THGPUTensor_newContiguous(self);
-  DECLARE_BOLT_DEVICE_VECTOR(self, self_data);
   // Data transfer:
   //   1 for reading data from host to result array (not necessary but seems mandotary when construct array)
   //   1 for writing back data from device to host side of result array
   // Memory objects created and released
   //   1 created and released for constructing/destructing result array (tiles number depending on input)
-  float result = bolt::amp::reduce(self_data.begin(), self_data.begin()+THGPUTensor_nElement(self), (float)(-THInf), bolt::amp::maximum<float>());
+  float result = boltReduce_maximum(self);
   THGPUTensor_free(self);
   return result;
 }
 
-
-
 float THGPUTensor_sumall(THGPUTensor *self)
 {
   self = THGPUTensor_newContiguous(self);
-  DECLARE_BOLT_DEVICE_VECTOR(self, self_data);
-  float result = bolt::amp::reduce(self_data.begin(), self_data.begin()+THGPUTensor_nElement(self), (float)(0), bolt::amp::plus<float>());
+  float result = boltReduce_plus(self);
   THGPUTensor_free(self);
   return result;
 }
@@ -342,12 +295,10 @@ float THGPUTensor_sumall(THGPUTensor *self)
 float THGPUTensor_prodall(THGPUTensor *self)
 {
   self = THGPUTensor_newContiguous(self);
-  DECLARE_BOLT_DEVICE_VECTOR(self, self_data);
-  float result = bolt::amp::reduce(self_data.begin(), self_data.begin()+THGPUTensor_nElement(self), (float)(1), bolt::amp::multiplies<float>());
+  float result = boltReduce_multiply(self);
   THGPUTensor_free(self);
   return result;
 }
-
 
 struct dim4 {
   unsigned arr[4];
@@ -358,8 +309,6 @@ struct dim4 {
 
   unsigned& operator[](const unsigned& idx) { return arr[idx]; }
 };
-
-
 
 /* Reduce one of the outer dimensions of a tensor
  *
@@ -457,7 +406,6 @@ void THGPUTensor_transformReduceOuterDim(THGPUTensor *tgt, THGPUTensor *src, lon
   }
   const unsigned nThreadPerBlock = 256;
   unsigned nBlockPerColumn = (size[0] + nThreadPerBlock - 1) / nThreadPerBlock;
-  //dim3 threads(nThreadPerBlock);
   unsigned maxGridDim = 1024; // anything < 64k is fine. The choice has no impact on performance.
   gridConfig[0] = Concurrency::fast_math::fmin(maxGridDim, nBlockPerColumn);
   gridConfig[1] = Concurrency::fast_math::fmin(maxGridDim, size[1]);
@@ -472,9 +420,6 @@ void THGPUTensor_transformReduceOuterDim(THGPUTensor *tgt, THGPUTensor *src, lon
                                              *pavSrc, THGPUTensor_nElement(src), THGPUTensor_nElement(tgt),
                                              avSrc_stride, avTgt_stride, avSize, unary_op, init, binary_op,gridConfig);
 }
-
-
-
 
 /* Reduce the innermost dimension of a tensor
  *
@@ -508,7 +453,6 @@ void THGPUTensor_kernel_transformReduceInnermostDim(Concurrency::array_view<floa
         {
           float acc = init;
           unsigned row = bRow + tidx.local[1];
-          //float *src = src_ + z * src_stride[3] + x * src_stride[2] + row * src_stride[1];
           bool reducing = tidx.local[2] < t_ext.tile_dim1 && bRow + tidx.local[2] < avSize[1] && tidx.local[1] == 0;
           for (unsigned bCol = 0; bCol < avSize[0]; bCol += t_ext.tile_dim2) 
           {
@@ -565,7 +509,6 @@ void THGPUTensor_transformReduceInnermostDim(THGPUTensor *tgt, THGPUTensor *src,
     tgt_stride[odim] = THGPUTensor_stride(tgt, dim);
     size[odim] = THGPUTensor_size(src, dim);
   }
-  //std::cout<<"InnerDim kernel"<<std::endl;
   unsigned nBlockPerRow = (size[1] + 16 - 1) / 16;
   unsigned maxGridDim = 1024; // anything < 64k is fine. The choice has no impact on performance.
   gridConfig[0]= std::min(maxGridDim, size[2]);
@@ -581,8 +524,6 @@ void THGPUTensor_transformReduceInnermostDim(THGPUTensor *tgt, THGPUTensor *src,
                                                  avSrc_stride, avTgt_stride, avSize, unary_op, init,
                                                  binary_op, gridConfig);
 }
-
-
 
 template<class UnaryFunction, class BinaryFunction>
 void THGPUTensor_transformReduceDim(THGPUTensor *self_, THGPUTensor *src,
@@ -612,8 +553,6 @@ void THGPUTensor_transformReduceDim(THGPUTensor *self_, THGPUTensor *src,
   THGPUTensor_freeCopyTo(self, self_);
 }
 
-
-
 template<class BinaryFunction>
 void THGPUTensor_reduceDim(THGPUTensor *self_, THGPUTensor *src, long dimension, float init, BinaryFunction binary_op)
 {
@@ -636,7 +575,6 @@ void THGPUTensor_max(THGPUTensor *self, THGPUTensor *indices, THGPUTensor *src, 
   const float minfloat32 = -3.402823466e+38f;
   return THGPUTensor_reduceDim(self, src, dimension, minfloat32, bolt::amp::maximum<float>());
 }
-
 
 void THGPUTensor_min(THGPUTensor *self, THGPUTensor* indices, THGPUTensor *src, long dimension)
 {
@@ -736,7 +674,6 @@ void THGPUTensor_addmm(THGPUTensor *r_, float beta, THGPUTensor *t, float alpha,
     THGPUTensor_copy(r_, t);
   }
 
-  /* r_ */
   if (r_->stride[0] == 1)
   {
     transpose_r = 'n';
@@ -759,7 +696,6 @@ void THGPUTensor_addmm(THGPUTensor *r_, float beta, THGPUTensor *t, float alpha,
     THGPUTensor_transpose(r__, NULL, 0, 1);
   }
 
-  /* m1 */
   if (m1->stride[(transpose_r == 'n' ? 0 : 1)] == 1)
   {
     transpose_m1 = 'n';
@@ -776,7 +712,6 @@ void THGPUTensor_addmm(THGPUTensor *r_, float beta, THGPUTensor *t, float alpha,
     m1_ = THGPUTensor_newContiguous(m1);
   }
 
-  /* m2 */
   if (m2->stride[(transpose_r == 'n' ? 0 : 1)] == 1)
   {
     transpose_m2 = 'n';
@@ -822,7 +757,6 @@ void THGPUTensor_addmm(THGPUTensor *r_, float beta, THGPUTensor *t, float alpha,
                    r__->stride[(transpose_r == 'n' ? 1 : 0)],
                    NULL, NULL, NULL, 0, 0, 0, temp_buf);
 
-  /* free intermediate variables */
   if (m1_ != m1)
     THGPUTensor_free(m1_);
 
@@ -880,25 +814,16 @@ void THGPUTensor_addr(THGPUTensor *r_, float beta, THGPUTensor *t, float alpha, 
   }
 }
 
-#define IMPLEMENT_CUDA_TENSOR_BASIC_FUNC(NAME, CFUNC)                                                                   \
-struct NAME##_functor                                                                                                   \
-{                                                                                                                       \
-  float operator()(const float& x) const                                                                                \
-  {                                                                                                                     \
-    return CFUNC(x);                                                                                                    \
-  }                                                                                                                     \
-};                                                                                                                      \
-                                                                                                                        \
-void THGPUTensor_##NAME(THGPUTensor *self_, THGPUTensor *src)                                                           \
-{                                                                                                                       \
-  THGPUTensor_resizeAs(self_, src);                                                                                     \
-  THGPUTensor *self = THGPUTensor_newContiguous(self_);                                                                 \
-  src = THGPUTensor_newContiguous(src);                                                                                 \
-  DECLARE_BOLT_DEVICE_VECTOR_2(src, src_data, self, self_data);                                                         \
-  bolt::amp::transform(src_data.begin(), src_data.end(), self_data.begin(),NAME##_functor());                           \
-                                                                                                                        \
-  THGPUTensor_free(src);                                                                                                \
-  THGPUTensor_freeCopyTo(self, self_);                                                                                  \
+#define IMPLEMENT_CUDA_TENSOR_BASIC_FUNC(NAME, CFUNC)            \
+void THGPUTensor_##NAME(THGPUTensor *self_, THGPUTensor *src)    \
+{                                                                \
+  THGPUTensor_resizeAs(self_, src);                              \
+  THGPUTensor *self = THGPUTensor_newContiguous(self_);          \
+  src = THGPUTensor_newContiguous(src);                          \
+  boltTransform_##NAME(src, self);                               \
+                                                                 \
+  THGPUTensor_free(src);                                         \
+  THGPUTensor_freeCopyTo(self, self_);                           \
 }
 
 IMPLEMENT_CUDA_TENSOR_BASIC_FUNC(log, Concurrency::fast_math::log)
@@ -919,69 +844,27 @@ IMPLEMENT_CUDA_TENSOR_BASIC_FUNC(floor, Concurrency::fast_math::floor)
 IMPLEMENT_CUDA_TENSOR_BASIC_FUNC(abs, Concurrency::fast_math::fabs)
 IMPLEMENT_CUDA_TENSOR_BASIC_FUNC(round, Concurrency::fast_math::roundf)
 
-struct pow_functor
-{
-  const float value;
-
-  pow_functor(float value_) restrict(amp,cpu) : value(value_) {}
-
-  float operator()(const float& x) const restrict(amp,cpu)
-  {
-    return Concurrency::fast_math::pow(x, value);
-    return 0;
-  }
-};
-
 void THGPUTensor_pow(THGPUTensor *self_, THGPUTensor *src, float value)
 {
   THGPUTensor_resizeAs(self_, src);
   THGPUTensor *self = THGPUTensor_newContiguous(self_);
   src = THGPUTensor_newContiguous(src);
-  DECLARE_BOLT_DEVICE_VECTOR_2(src, Dsrc_data, self, Dself_data);
-  bolt::amp::transform(Dsrc_data.begin(), Dsrc_data.end(), Dself_data.begin(), pow_functor(value));
+  boltTransform_pow(src, self, value);
   THGPUTensor_free(src);
   THGPUTensor_freeCopyTo(self, self_);
 }
 
-struct atan2_functor
-{
-  float operator()(const float& x, const float& y) const restrict(amp,cpu)
-  {
-    return Concurrency::fast_math::atan2f(x, y);
-  }
-};
 void THGPUTensor_atan2(THGPUTensor *self_, THGPUTensor *tx, THGPUTensor *ty)
 {
   THGPUTensor_resizeAs(self_, tx);
   THGPUTensor *self = THGPUTensor_newContiguous(self_);
   tx = THGPUTensor_newContiguous(tx);
   ty = THGPUTensor_newContiguous(ty);
-  DECLARE_BOLT_DEVICE_VECTOR_3(tx, tx_data, ty, ty_data, self, self_data);
-  bolt::amp::transform(tx_data.begin(), tx_data.end(), ty_data.begin(), self_data.begin(), atan2_functor());
-
+  boltTransformBinary_atan2(tx, ty, self);
   THGPUTensor_free(tx);
   THGPUTensor_free(ty);
   THGPUTensor_freeCopyTo(self, self_);
 }
-
-struct clamp_functor
-{
-  const float min_value;
-  const float max_value;
-
-  clamp_functor(float min_value_, float max_value_) restrict(amp,cpu): min_value(min_value_), max_value(max_value_) {}
-
-  float operator()(const float& x) const restrict(amp,cpu)
-  {
-    if (x < min_value) {
-      return min_value;
-    }
-    if (x > max_value) {
-      return max_value;
-    }
-    return x;
-  }
-};
 
 void THGPUTensor_clamp(THGPUTensor *self_, THGPUTensor *src, float min_value,
                        float max_value)
@@ -989,28 +872,17 @@ void THGPUTensor_clamp(THGPUTensor *self_, THGPUTensor *src, float min_value,
   THArgCheck(THGPUTensor_nElement(self_) == THGPUTensor_nElement(src), 2, "sizes do not match");
   THGPUTensor *self = THGPUTensor_newContiguous(self_);
   src = THGPUTensor_newContiguous(src);
-  DECLARE_BOLT_DEVICE_VECTOR_2(src, Dsrc_data, self, Dself_data);
-  bolt::amp::transform(Dsrc_data.begin(), Dsrc_data.end(), Dself_data.begin(), clamp_functor(min_value,max_value));
+  boltTransform_clamp(src, self, min_value, max_value);
   THGPUTensor_free(src);
   THGPUTensor_freeCopyTo(self, self_);
 }
-
-
-struct sign_functor
-{
-  float operator()(const float &v) const restrict(amp,cpu) {
-    return (v > 0) - (v < 0);
-  }
-};
-
 
 void THGPUTensor_sign(THGPUTensor *self_, THGPUTensor *src)
 {
   THGPUTensor_resizeAs(self_, src);
   THGPUTensor *self = THGPUTensor_newContiguous(self_);
   src = THGPUTensor_newContiguous(src);
-  DECLARE_BOLT_DEVICE_VECTOR_2(src, Dsrc_data, self, Dself_data);
-  bolt::amp::transform(Dsrc_data.begin(), Dsrc_data.end(), Dself_data.begin(), sign_functor());
+  boltTransform_sign(src, self);
   THGPUTensor_free(src);
   THGPUTensor_freeCopyTo(self, self_);
 }
@@ -1028,29 +900,11 @@ THGPUTensor_mean(THGPUTensor *self, THGPUTensor *src, long dim)
   THGPUTensor_div(self, self, THGPUTensor_size(src, dim));
 }
 
-struct square_functor
-{
-  const float mean;
-
-  square_functor(float mean_) restrict(amp,cpu): mean(mean_) {}
-
-  float operator()(const float& x) const restrict(amp,cpu)
-  {
-    return (x-mean)*(x-mean);
-  }
-};
-
 float THGPUTensor_varall(THGPUTensor *self)
 {
   self = THGPUTensor_newContiguous(self);
-  DECLARE_BOLT_DEVICE_VECTOR(self, self_data);
   float mean = THGPUTensor_meanall(self);
-
-  bolt::amp::device_vector<float> diff(self_data.size());
-  bolt::amp::transform(self_data.begin(), self_data.end(), diff.begin(),std::bind2nd(bolt::amp::minus<float>(), mean));
-   
-  float result = bolt::amp::inner_product(diff.begin(), diff.end(), diff.begin(), 0.0);
-
+  float result = boltTransform_var_all(self, mean);
   result = result/(THGPUTensor_nElement(self)-1);
 
   THGPUTensor_free(self);
@@ -1063,8 +917,6 @@ float THGPUTensor_stdall(THGPUTensor *self)
   return sqrt(THGPUTensor_varall(self));
   return 0;
 }
-
-
 
 template<class Op>
 void THGPUTensor_logicalValue(THGPUTensor *self_, THGPUTensor *src, Op op)
@@ -1079,7 +931,6 @@ void THGPUTensor_logicalValue(THGPUTensor *self_, THGPUTensor *src, Op op)
   THGPUTensor_freeCopyTo(self, self_);
 }
 
-
 struct partial_less_functor
 {
   const float rhs;
@@ -1087,12 +938,10 @@ struct partial_less_functor
   float operator()(const float &lhs) const restrict(amp,cpu) {return lhs < rhs;}
 };
 
-
 void THGPUTensor_ltValue(THGPUTensor *self_, THGPUTensor *src, float value)
 {
   THGPUTensor_logicalValue(self_, src, partial_less_functor(value));
 }
-
 
 struct partial_greater_functor
 {
@@ -1101,12 +950,10 @@ struct partial_greater_functor
   bool operator()(const float &lhs) const restrict(amp,cpu) {return lhs > rhs;}
 };
 
-
 void THGPUTensor_gtValue(THGPUTensor *self_, THGPUTensor *src, float value)
 {
   THGPUTensor_logicalValue(self_, src, partial_greater_functor(value));
 }
-
 
 struct partial_less_equal_functor
 {
@@ -1115,12 +962,10 @@ struct partial_less_equal_functor
   bool operator()(const float &lhs) const restrict(amp,cpu) {return lhs <= rhs;}
 };
 
-
 void THGPUTensor_leValue(THGPUTensor *self_, THGPUTensor *src, float value)
 {
   THGPUTensor_logicalValue(self_, src, partial_less_equal_functor(value));
 }
-
 
 struct partial_greater_equal_functor
 {
@@ -1129,12 +974,10 @@ struct partial_greater_equal_functor
   bool operator()(const float &lhs) const restrict(amp,cpu) {return lhs >= rhs;}
 };
 
-
 void THGPUTensor_geValue(THGPUTensor *self_, THGPUTensor *src, float value)
 {
   THGPUTensor_logicalValue(self_, src, partial_greater_equal_functor(value));
 }
-
 
 struct partial_equal_functor
 {
@@ -1149,20 +992,10 @@ void THGPUTensor_eqValue(THGPUTensor *self_, THGPUTensor *src, float value)
   THGPUTensor_logicalValue(self_, src, partial_equal_functor(value));
 }
 
-
-struct partial_not_equal_functor
-{
-  const float rhs;
-  partial_not_equal_functor(float rhs) restrict(cpu,amp) : rhs(rhs) {}
-  bool operator()(const float &lhs) const restrict(cpu,amp) {return lhs != rhs;}
-};
-
-
 void THGPUTensor_neValue(THGPUTensor *self_, THGPUTensor *src, float value)
 {
   THGPUTensor_logicalValue(self_, src, partial_not_equal_functor(value));
 }
-
 
 template<class Op>
 void THGPUTensor_logicalTensor(THGPUTensor *self_, THGPUTensor *src1, THGPUTensor *src2, Op op)
@@ -1181,55 +1014,35 @@ void THGPUTensor_logicalTensor(THGPUTensor *self_, THGPUTensor *src1, THGPUTenso
   THGPUTensor_freeCopyTo(self, self_);
 }
 
-
 void THGPUTensor_ltTensor(THGPUTensor *self_, THGPUTensor *src1, THGPUTensor *src2)
 {
   THGPUTensor_logicalTensor(self_, src1, src2, bolt::amp::less<float>());
 }
-
 
 void THGPUTensor_gtTensor(THGPUTensor *self_, THGPUTensor *src1, THGPUTensor *src2)
 {
   THGPUTensor_logicalTensor(self_, src1, src2, bolt::amp::greater<float>());
 }
 
-
 void THGPUTensor_leTensor(THGPUTensor *self_, THGPUTensor *src1, THGPUTensor *src2)
 {
   THGPUTensor_logicalTensor(self_, src1, src2, bolt::amp::less_equal<float>());
 }
-
 
 void THGPUTensor_geTensor(THGPUTensor *self_, THGPUTensor *src1, THGPUTensor *src2)
 {
   THGPUTensor_logicalTensor(self_, src1, src2, bolt::amp::greater_equal<float>());
 }
 
-
 void THGPUTensor_eqTensor(THGPUTensor *self_, THGPUTensor *src1, THGPUTensor *src2)
 {
   THGPUTensor_logicalTensor(self_, src1, src2, bolt::amp::equal_to<float>());
 }
 
-
 void THGPUTensor_neTensor(THGPUTensor *self_, THGPUTensor *src1, THGPUTensor *src2)
 {
   THGPUTensor_logicalTensor(self_, src1, src2, bolt::amp::not_equal_to<float>());
 }
-
-
-struct norm_functor
-{
-  const float exponent;
-
-  norm_functor(float exponent_)restrict(cpu,amp) : exponent(exponent_) {}
-
-  float operator()(const float& x) const restrict(cpu,amp)
-  {
-    return Concurrency::fast_math::pow(Concurrency::fast_math::fabs(x), exponent);
-  }
-};
-
 
 float THGPUTensor_normall(THGPUTensor *self, float value)
 {
@@ -1262,7 +1075,6 @@ void THGPUTensor_norm(THGPUTensor* self, THGPUTensor* src, float value, long dim
 
 void THGPUTensor_kernel_renorm(Concurrency::array_view<float, 1> &avData, const float value, const long size, const float maxnorm, long gridSz)
 {
-  //gridSz = (gridSz + 31 ) & ~31;
   Concurrency::extent<1> grdExt(gridSz);
   Concurrency::tiled_extent<32> t_ext(grdExt);
 
@@ -1325,37 +1137,23 @@ void THGPUTensor_renorm(THGPUTensor* self, THGPUTensor* src, float value, long d
   THGPUTensor_free(data);
 }
 
-struct dist_functor
-{
-  const float exponent;
-
-  dist_functor(float exponent_) restrict(amp,cpu) : exponent(exponent_) {}
-
-  float operator()(const float& x, const float& y) const restrict(amp,cpu)
-  {
-    return Concurrency::fast_math::pow(Concurrency::fast_math::fabs(x-y), exponent);
-  }
-};
-
 float THGPUTensor_dist(THGPUTensor *self, THGPUTensor *src, float value)
 {
   self = THGPUTensor_newContiguous(self);
   src = THGPUTensor_newContiguous(src);
-  DECLARE_BOLT_DEVICE_VECTOR_2(self, self_data, src, src_data);
-  float result = bolt::amp::inner_product(self_data.begin(), self_data.end(), src_data.begin(), (float) 0,bolt::amp::plus<float>(), dist_functor(value));
-
+  float result = boltInnerProduct_plus_dist(self, src, value);
   THGPUTensor_free(src);
   THGPUTensor_free(self);
   
   return pow(result, (float)1.0/value);
 }
 
-
 void THGPUTensor_rand(THGPURNGState* rng_state, THGPUTensor *r_, THLongStorage *size)
 {
   THGPUTensor_resize(r_, size, NULL);
   THGPUTensor_uniform(rng_state, r_, 0, 1);
 }
+
 void THGPUTensor_randn(THGPURNGState* rng_state, THGPUTensor *r_, THLongStorage *size)
 {
   THGPUTensor_resize(r_, size, NULL);
@@ -1371,32 +1169,29 @@ void THGPUTensor_kernel_indexFill(Concurrency::array_view<float, 1> &srcTensor, 
 
   Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<16,16>tidx) restrict(amp)
   {
-    //int thread_idx = blockIdx.x * blockDim.x * blockDim.y + threadIdx.y * blockDim.x + threadIdx.x;
     int thread_idx = tidx.tile[1] * t_ext.tile_dim1 * t_ext.tile_dim0 + tidx.local[0] * t_ext.tile_dim1 + tidx.local[1];
     long flat_size = tensor_size / idx_size; 
 
     if (thread_idx < flat_size)
     {
       long coeff = 0;
-      //for (int i=0; i<idx_size; i++)
-      //{
-        int leftover = thread_idx;
-        int srcIdx = 0;
-        for (int d=0; d<src_nDim; d++)
+      int leftover = thread_idx;
+      int srcIdx = 0;
+      for (int d=0; d<src_nDim; d++)
+      {
+        if (d < dim)
         {
-          if (d < dim)
-          {
-            coeff = leftover / (srcStride[Concurrency::index<1>(d)] / size_dim);
-            leftover -= coeff * (srcStride[Concurrency::index<1>(d)] / size_dim);
-            srcIdx += coeff * srcStride[Concurrency::index<1>(d)];
-          }
-          else if (d > dim)
-          {
-            coeff = leftover / srcStride[Concurrency::index<1>(d)];
-            leftover -= coeff * srcStride[Concurrency::index<1>(d)];
-            srcIdx += coeff * srcStride[Concurrency::index<1>(d)];
-          }
+          coeff = leftover / (srcStride[Concurrency::index<1>(d)] / size_dim);
+          leftover -= coeff * (srcStride[Concurrency::index<1>(d)] / size_dim);
+          srcIdx += coeff * srcStride[Concurrency::index<1>(d)];
         }
+        else if (d > dim)
+        {
+          coeff = leftover / srcStride[Concurrency::index<1>(d)];
+          leftover -= coeff * srcStride[Concurrency::index<1>(d)];
+          srcIdx += coeff * srcStride[Concurrency::index<1>(d)];
+        }
+      }
       for (int i = 0; i<idx_size; i++)
       {
         srcTensor[(srcIdx + (int)((indx[i])-1)*srcStride[dim])] = val;        
@@ -1412,37 +1207,33 @@ void THGPUTensor_kernel_indexCopy(Concurrency::array_view<float, 1> &resTensor, 
 
   Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<16,16>tidx) restrict(amp)
   {
-    //int thread_idx = blockIdx.x * blockDim.x * blockDim.y + threadIdx.y * blockDim.x + threadIdx.x;
     int thread_idx = tidx.tile[1] * t_ext.tile_dim1 * t_ext.tile_dim0 + tidx.local[0] * t_ext.tile_dim1 + tidx.local[1];
-
     long flat_size = src_size / idx_size; 
 
     if (thread_idx < flat_size)
     {
       long coeff = 0;
-      //for (int i=0; i<idx_size; i++)
-      //{
-        int leftover = thread_idx;
-        int targetIdx = 0;
-        int resIdx = 0;
-        for (int d=0; d<res_nDim; d++)
+      int leftover = thread_idx;
+      int targetIdx = 0;
+      int resIdx = 0;
+      for (int d=0; d<res_nDim; d++)
+      {
+        if (d < dim)
         {
-          if (d < dim)
-          {
-            long stride_d = (resStride[Concurrency::index<1>(d)]) / size_dim;
-            coeff = leftover / stride_d;
-            leftover -= coeff * stride_d;
-            targetIdx += coeff * stride_d * idx_size;
-            resIdx += coeff * (resStride[Concurrency::index<1>(d)]);
-          }
-          else if (d > dim)
-          {
-            coeff = leftover / (resStride[Concurrency::index<1>(d)]);
-            leftover -= coeff * (resStride[Concurrency::index<1>(d)]);
-            targetIdx += coeff * (resStride[Concurrency::index<1>(d)]);
-            resIdx += coeff * (resStride[Concurrency::index<1>(d)]);
-          }
+          long stride_d = (resStride[Concurrency::index<1>(d)]) / size_dim;
+          coeff = leftover / stride_d;
+          leftover -= coeff * stride_d;
+          targetIdx += coeff * stride_d * idx_size;
+          resIdx += coeff * (resStride[Concurrency::index<1>(d)]);
         }
+        else if (d > dim)
+        {
+          coeff = leftover / (resStride[Concurrency::index<1>(d)]);
+          leftover -= coeff * (resStride[Concurrency::index<1>(d)]);
+          targetIdx += coeff * (resStride[Concurrency::index<1>(d)]);
+          resIdx += coeff * (resStride[Concurrency::index<1>(d)]);
+        }
+      }
       for (int i = 0; i<idx_size; i++)
       {
         resTensor[Concurrency::index<1>(resIdx + ((int)(indx[Concurrency::index<1>(i)])-1)*(resStride[Concurrency::index<1>(dim)]))] = srcTensor[Concurrency::index<1>(targetIdx +(int) i*(resStride[Concurrency::index<1>(dim)]))];
@@ -1462,10 +1253,8 @@ void THGPUTensor_indexCopy(THGPUTensor *res_, int dim, THLongTensor *indices, TH
   THArgCheck(nIndex == src->size[dim], 4, "length of src.size[dim] is not equal to length of indices");
 
   src = THGPUTensor_newContiguous(src);
-
   nRes = THGPUTensor_nElement(res_);
 
-  /*dim3 nthreads(16, 16);*/
   long nblockx = (long)(ceil((float)nRes / nIndex / (16*16)));
   stride_ =  new Concurrency::array_view<long,1>(Concurrency::extent<1>(res_->nDimension),res_->stride);
 
@@ -1481,7 +1270,6 @@ void THGPUTensor_indexCopy(THGPUTensor *res_, int dim, THLongTensor *indices, TH
   delete stride_;
 }
 
-
 void THGPUTensor_indexFill(THGPUTensor *res_, int dim, THLongTensor *indices, float val)
 {
   Concurrency::array_view<long,1> *stride_;
@@ -1491,7 +1279,6 @@ void THGPUTensor_indexFill(THGPUTensor *res_, int dim, THLongTensor *indices, fl
   THArgCheck(indices->nDimension == 1, 3, "Index is supposed to be a vector");
   THArgCheck(dim < res_->nDimension,4,"Indexing dim is out of bounds");
   THArgCheck(res_->nDimension > 0, 2, "Source tensor is empty");
-
 
   nRes = THGPUTensor_nElement(res_) / res_->size[dim] * nIndex;
   long nblockx = (long)(ceil((float)nRes / nIndex / (16 * 16)));
@@ -1515,37 +1302,33 @@ void THGPUTensor_kernel_indexSelect(Concurrency::array_view<float, 1> &resTensor
 
   Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<16,16>tidx) restrict(amp)
   {
-    //int thread_idx = blockIdx.x * blockDim.x * blockDim.y + threadIdx.y * blockDim.x + threadIdx.x;
     int thread_idx = tidx.tile[1] * t_ext.tile_dim1 * t_ext.tile_dim0 + tidx.local[0] * t_ext.tile_dim1 + tidx.local[1];
-
     long flat_size = tensor_size / idx_size; 
 
     if (thread_idx < flat_size)
     {
       long coeff = 0;
-      //for (int i=0; i<idx_size; i++)
-      //{
-        int leftover = thread_idx;
-        int targetIdx = 0;
-        int srcIdx = 0;
-        for (int d=0; d<src_nDim; d++)
+      int leftover = thread_idx;
+      int targetIdx = 0;
+      int srcIdx = 0;
+      for (int d=0; d<src_nDim; d++)
+      {
+        if (d < dim)
         {
-          if (d < dim)
-          {
-            long stride_d = srcStride[Concurrency::index<1>(d)] / size_dim;
-            coeff = leftover / stride_d;
-            leftover -= coeff * stride_d;
-            targetIdx += coeff * stride_d * idx_size;
-            srcIdx += coeff * srcStride[Concurrency::index<1>(d)];
-          }
-          else if (d > dim)
-          {
-            coeff = leftover / srcStride[Concurrency::index<1>(d)];
-            leftover -= coeff * srcStride[Concurrency::index<1>(d)];
-            targetIdx += coeff *srcStride[Concurrency::index<1>(d)];
-            srcIdx += coeff * srcStride[Concurrency::index<1>(d)];
-          }
+          long stride_d = srcStride[Concurrency::index<1>(d)] / size_dim;
+          coeff = leftover / stride_d;
+          leftover -= coeff * stride_d;
+          targetIdx += coeff * stride_d * idx_size;
+          srcIdx += coeff * srcStride[Concurrency::index<1>(d)];
         }
+        else if (d > dim)
+        {
+          coeff = leftover / srcStride[Concurrency::index<1>(d)];
+          leftover -= coeff * srcStride[Concurrency::index<1>(d)];
+          targetIdx += coeff *srcStride[Concurrency::index<1>(d)];
+          srcIdx += coeff * srcStride[Concurrency::index<1>(d)];
+        }
+      }
       for (int i = 0; i<idx_size; i++)
       {
         resTensor[targetIdx + i*srcStride[dim]] = srcTensor[srcIdx + ((int)(indx[i])-1)*srcStride[dim]];
