@@ -3,7 +3,7 @@
 #define BLOCK_SIZE 256
 #define TILE_DIM 16 
 #define THREADS 16
-#define GEMM_BLOCK 64
+#define GEMM_BLOCK 64 
 
 void gemm_NoTransAB(Concurrency::array_view<float, 1> &A, Concurrency::array_view<float, 1> &B, Concurrency::array_view<float, 1> &C, int M, int N, int K, int lda, int ldb, int ldc, float alpha, float beta, long aOffset, long bOffset, long cOffset)
 {
@@ -53,83 +53,79 @@ void gemm_NoTransB(Concurrency::array_view<float, 1> &A, Concurrency::array_view
   {
     Concurrency::extent<1> grdExt(M*64);
     Concurrency::tiled_extent<GEMM_BLOCK> t_ext(grdExt);
-    Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<GEMM_BLOCK> tidx) restrict(amp){
-
-    int threadIdx = tidx.local[0];
-    int blockIdx = tidx.tile[0];
-
-    for (int i = 0; i < N; i++)
+    Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<GEMM_BLOCK> tidx) restrict(amp)
     {
-      int j = blockIdx;
+      int threadIdx = tidx.local[0];
+      int j = tidx.tile[0];
       tile_static float sh[GEMM_BLOCK];
+      float shReg;
 
-      sh[threadIdx] = 0;
-
-      for(int tileId = 0; tileId < ((K + GEMM_BLOCK - 1) & ~(GEMM_BLOCK - 1))/GEMM_BLOCK; tileId++)
+      for (int i = 0; i < N; i++)
       {
-        if (tileId * GEMM_BLOCK + threadIdx < K)
-          sh[threadIdx] += A[aOffset + j * K + tileId * GEMM_BLOCK + threadIdx] * B[bOffset + i * K + tileId * GEMM_BLOCK + threadIdx];
+        shReg = 0;
+        for(int tileId = 0; tileId < ((K + GEMM_BLOCK - 1) & ~(GEMM_BLOCK - 1))/GEMM_BLOCK; tileId++)
+        {
+          if (tileId * GEMM_BLOCK + threadIdx < K)
+            shReg += A[aOffset + j * K + tileId * GEMM_BLOCK + threadIdx] * B[bOffset + i * K + tileId * GEMM_BLOCK + threadIdx];
+        }
+        sh[threadIdx]=shReg;
         tidx.barrier.wait();
+        for (int stride = GEMM_BLOCK/2; stride >= 1; stride /= 2)
+        {
+          if (threadIdx < stride)
+            sh[threadIdx] += sh[threadIdx + stride];
+        }
+        tidx.barrier.wait();
+        C[cOffset + i * M + j] *= beta;
+        C[cOffset + i * M + j] += sh[0] * alpha;
       }
-
-      for (int stride = GEMM_BLOCK/2; stride >= 1; stride /= 2)
-      {
-        if (threadIdx < stride)
-          sh[threadIdx] += sh[threadIdx + stride];
-      }
-
-      tidx.barrier.wait();
-
-      C[cOffset + i * M + j] *= beta;
-      C[cOffset + i * M + j] += sh[0] * alpha;
-    }
     });
   }
   else
   {
     Concurrency::extent<2> grdExt((N+(THREADS-1))&~(THREADS-1), (M+(THREADS-1))&~(THREADS-1));
     Concurrency::tiled_extent<THREADS, THREADS> t_ext(grdExt);
-  Concurrency::array_view<float,2> Cmat = C.view_as<2>(Concurrency::extent<2>(N,M));
-  Cmat.discard_data();
-  Concurrency::array_view<float,2> Amat = A.view_as<2>(Concurrency::extent<2>(M,K));
-  Amat.discard_data();
-  Concurrency::array_view<float,2> Bmat = B.view_as<2>(Concurrency::extent<2>(N,K));
-  Bmat.discard_data();
-  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<THREADS, THREADS> tidx) restrict(amp)
-  {
-    float CValue = 0;
-    int Row = tidx.global[0];
-    int Col = tidx.global[1];
-    tile_static float As[TILE_DIM][TILE_DIM];
-    tile_static float Bs[TILE_DIM][TILE_DIM];
-
-    for (int k = 0; k < ((K+(TILE_DIM-1))&~(TILE_DIM-1)) ; k+=TILE_DIM)
+    Concurrency::array_view<float,2> Cmat = C.view_as<2>(Concurrency::extent<2>(N,M));
+    Cmat.discard_data();
+    Concurrency::array_view<float,2> Amat = A.view_as<2>(Concurrency::extent<2>(M,K));
+    Amat.discard_data();
+    Concurrency::array_view<float,2> Bmat = B.view_as<2>(Concurrency::extent<2>(N,K));
+    Bmat.discard_data();
+    Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<THREADS, THREADS> tidx) restrict(amp)
     {
-      if (k + tidx.local[1] < K && Row < N)
-        Bs[tidx.local[0]][tidx.local[1]] = Bmat[Row][bOffset + k + tidx.local[1]];
-      else
-        Bs[tidx.local[0]][tidx.local[1]] = 0.0;
+      float CValue = 0;
+      int Row = tidx.global[0];
+      int Col = tidx.global[1];
+      tile_static float As[TILE_DIM][TILE_DIM];
+      tile_static float Bs[TILE_DIM][TILE_DIM];
 
-      if (k + tidx.local[1] < K && (tidx.tile[1]*TILE_DIM + tidx.local[0]) < M)
-        As[tidx.local[0]][tidx.local[1]] = Amat[(tidx.tile[1]*TILE_DIM + tidx.local[0])] [aOffset + k + tidx.local[1]];
-      else
-        As[tidx.local[0]][tidx.local[1]] = 0.0;
+      for (int k = 0; k < ((K+(TILE_DIM-1))&~(TILE_DIM-1)) ; k+=TILE_DIM)
+      {
+        if (k + tidx.local[1] < K && Row < N)
+          Bs[tidx.local[0]][tidx.local[1]] = Bmat[Row][bOffset + k + tidx.local[1]];
+        else
+          Bs[tidx.local[0]][tidx.local[1]] = 0.0;
 
-      tidx.barrier.wait();
+        if (k + tidx.local[1] < K && (tidx.tile[1]*TILE_DIM + tidx.local[0]) < M)
+          As[tidx.local[0]][tidx.local[1]] = Amat[(tidx.tile[1]*TILE_DIM + tidx.local[0])] [aOffset + k + tidx.local[1]];
+        else
+          As[tidx.local[0]][tidx.local[1]] = 0.0;
+
+        tidx.barrier.wait();
       
-      // Unrolled Matrix Mul operation 
-      CValue += Bs[tidx.local[0]][0] * As[tidx.local[1]][0] + Bs[tidx.local[0]][1] * As[tidx.local[1]][1] + Bs[tidx.local[0]][2] * As[tidx.local[1]][2] + Bs[tidx.local[0]][3] * As[tidx.local[1]][3]
+        // Unrolled Matrix Mul operation 
+        CValue += Bs[tidx.local[0]][0] * As[tidx.local[1]][0] + Bs[tidx.local[0]][1] * As[tidx.local[1]][1] + Bs[tidx.local[0]][2] * As[tidx.local[1]][2] + Bs[tidx.local[0]][3] * As[tidx.local[1]][3]
            + Bs[tidx.local[0]][4] * As[tidx.local[1]][4] + Bs[tidx.local[0]][5] * As[tidx.local[1]][5] + Bs[tidx.local[0]][6] * As[tidx.local[1]][6] + Bs[tidx.local[0]][7] * As[tidx.local[1]][7]
            + Bs[tidx.local[0]][8] * As[tidx.local[1]][8] + Bs[tidx.local[0]][9] * As[tidx.local[1]][9] + Bs[tidx.local[0]][10] * As[tidx.local[1]][10] + Bs[tidx.local[0]][11] * As[tidx.local[1]][11]
            + Bs[tidx.local[0]][12] * As[tidx.local[1]][12] + Bs[tidx.local[0]][13] * As[tidx.local[1]][13] + Bs[tidx.local[0]][14] * As[tidx.local[1]][14] + Bs[tidx.local[0]][15] * As[tidx.local[1]][15];
     
-      tidx.barrier.wait();
-    }
-    if (Row < N && Col < M)
-    {
-      Cmat[Row][cOffset +Col]*=beta;
-      Cmat[Row][cOffset +Col]+=CValue * alpha;
-    }
+        tidx.barrier.wait();
+      }
+      if (Row < N && Col < M)
+      {
+        Cmat[Row][cOffset +Col]*=beta;
+        Cmat[Row][cOffset +Col]+=CValue * alpha;
+      }
     });
   }
 }
