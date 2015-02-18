@@ -442,9 +442,7 @@ static int gpunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
 
   numBlocks = ((k + 255) & ~255)/256;
  
-  float* tempBuf1 = (float*)malloc(n*m*numBlocks*sizeof(float));
-  Concurrency::extent<1> ext1(n*m*numBlocks);
-  Concurrency::array_view<float,1> temp_buf1(ext1, tempBuf1);
+  Concurrency::array_view<float> *temp_buf1 = NULL;
 
   for (int elt = 0; elt < batchSize; elt ++) {
     // Extract columns:
@@ -472,7 +470,7 @@ static int gpunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
         *avData_gradOutput, k, 1,
         *avData_gradWeight, n,
         NULL, NULL, NULL,
-        colOffset, gradOutOffset + gradOutput->stride[0] * elt, gradweiOffset, temp_buf1
+        colOffset, gradOutOffset + gradOutput->stride[0] * elt, gradweiOffset, *temp_buf1
     );
 
     if(elt==batchSize-1)
@@ -499,6 +497,7 @@ static int gpunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
     THGPUTensor_resize3d(input, nInputPlane, inputHeight, inputWidth);
   }
   // Return nothing
+  free(tempBuf);
   return 0;
 }
 
