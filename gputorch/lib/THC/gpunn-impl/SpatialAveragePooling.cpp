@@ -6,7 +6,8 @@
  *    this function avg-pools an input 3D tensor along dimensions 1 and 2
  *    3D input, 3D output
  */
-void subsample(Concurrency::array_view<float,1> &avInput, Concurrency::array_view<float,1> &avOutput,
+void subsample(Concurrency::array_view<float,1> &avInput, long inOffset,
+               Concurrency::array_view<float,1> &avOutput, long outOffset,
                int input_n, int input_h, int input_w,
                int kH, int kW, int dH, int dW, int xBlocks)
 {
@@ -49,11 +50,11 @@ void subsample(Concurrency::array_view<float,1> &avInput, Concurrency::array_vie
         int kx, ky;
         for(ky = 0; ky < kH; ky++) {
           for(kx = 0; kx < kW; kx++)
-            sum += avInput[ptr_input + kx];
+            sum += avInput[inOffset + ptr_input + kx];
           ptr_input += input_w; // next input line
         }
         // Update output
-        avOutput[ptr_output] = sum;
+        avOutput[outOffset + ptr_output] = sum;
       }
     }
   });
@@ -88,7 +89,9 @@ static int gpunn_SpatialAveragePooling_updateOutput(lua_State *L)
     PREPARE_AV(input, pavInput);
     PREPARE_AV(output, pavOutput);
     // run subsample kernel
-    subsample (*pavInput, *pavOutput, nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW, xBlocks);
+    subsample (*pavInput, input->storageOffset, 
+               *pavOutput, output->storageOffset,
+               nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW, xBlocks);
   } else {
     long nInputCols = input->size[3];
     long nInputRows = input->size[2];
@@ -108,7 +111,9 @@ static int gpunn_SpatialAveragePooling_updateOutput(lua_State *L)
     PREPARE_AV(input, pavInput);
     PREPARE_AV(output, pavOutput);
     // run subsample kernel
-    subsample (*pavInput, *pavOutput, nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW, xBlocks);
+    subsample (*pavInput, input->storageOffset,
+               *pavOutput, output->storageOffset,
+               nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW, xBlocks);
   }
 
   // clean
@@ -121,8 +126,9 @@ static int gpunn_SpatialAveragePooling_updateOutput(lua_State *L)
  * Description:
  *    this function computes the gradInput from gradOutput
  */
-void subgradinput(Concurrency::array_view<float,1> &avGradInput, Concurrency::array_view<float,1> &avGradOutput, int input_n,
-                  int input_h, int input_w, int kH, int kW, int dH, int dW, int xBlocks)
+void subgradinput(Concurrency::array_view<float,1> &avGradInput, long gradInOffset,
+                  Concurrency::array_view<float,1> &avGradOutput, long gradOutOffset,
+                  int input_n, int input_h, int input_w, int kH, int kW, int dH, int dW, int xBlocks)
 {
   int yBlocks = (int)(16L / input_n);
   yBlocks = yBlocks < 1 ? 1 : yBlocks;
@@ -158,11 +164,11 @@ void subgradinput(Concurrency::array_view<float,1> &avGradInput, Concurrency::ar
       for(xx = xx_start; xx < xx_end; xx+=xx_step) {
         int ptr_gradInput = gradInput + yy*dH*input_w + xx*dW;
         int ptr_gradOutput = gradOutput + yy*output_w + xx;
-        float z = avGradOutput[ptr_gradOutput];
+        float z = avGradOutput[gradOutOffset + ptr_gradOutput];
         int kx, ky;
         for(ky = 0; ky < kH; ky++) {
           for(kx = 0; kx < kW; kx++)
-            avGradInput[ptr_gradInput + kx] += z;
+            avGradInput[gradInOffset + ptr_gradInput + kx] += z;
           ptr_gradInput += input_w;
         }
       }
@@ -197,7 +203,9 @@ static int gpunn_SpatialAveragePooling_updateGradInput(lua_State *L)
     PREPARE_AV(gradInput, pavGradInput);
     PREPARE_AV(gradOutput, pavGradOutput);
     // run updateGradInput kernel
-    subgradinput(*pavGradInput, *pavGradOutput, nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW, xBlocks);
+    subgradinput(*pavGradInput, gradInput->storageOffset,
+                 *pavGradOutput, gradOutput->storageOffset,
+                 nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW, xBlocks);
   } else {
     long nInputCols = input->size[3];
     long nInputRows = input->size[2];
@@ -211,7 +219,9 @@ static int gpunn_SpatialAveragePooling_updateGradInput(lua_State *L)
     PREPARE_AV(gradInput, pavGradInput);
     PREPARE_AV(gradOutput, pavGradOutput);
     // run updateGradInput kernel
-    subgradinput(*pavGradInput, *pavGradOutput, nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW, xBlocks);
+    subgradinput(*pavGradInput, gradInput->storageOffset,
+                 *pavGradOutput, gradOutput->storageOffset,
+                 nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW, xBlocks);
   }
   return 1;
 }

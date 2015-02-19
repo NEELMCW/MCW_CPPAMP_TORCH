@@ -1,21 +1,24 @@
 #include "THCStorage.h"
 #include "THCGeneral.h"
+
+#include "copyHelpers.h"
+#include "cl_manage.h"
 #include "common.h"
 #include "THCBolt.h"
 
 void THGPUStorage_set(THGPUStorage *self, long index, float value)
 {
   THArgCheck((index >= 0) && (index < self->size), 2, "index out of bounds");
-  Concurrency::array_view<float> *avData = static_cast<Concurrency::array_view<float> *>(self->allocatorContext);
-  (*avData)[Concurrency::index<1>(index)] = value;
+  float* device_ptr = static_cast<float*>(Concurrency::getAllocator().device_data(self->data));
+  THGPUCheck(gpuMemcpy(device_ptr, index, &value, 0, sizeof(float), gpuMemcpyHostToDevice));
 }
 
 float THGPUStorage_get(const THGPUStorage *self, long index)
 {
   float value;
   THArgCheck((index >= 0) && (index < self->size), 2, "index out of bounds");
-  Concurrency::array_view<float> *avData = static_cast<Concurrency::array_view<float> *>(self->allocatorContext);
-  value = (*avData)[Concurrency::index<1>(index)];
+  float* device_ptr = static_cast<float*>(Concurrency::getAllocator().device_data(self->data));
+  THGPUCheck(gpuMemcpy(&value, 0, device_ptr, index, sizeof(float), gpuMemcpyDeviceToHost));
   return value;
 }
 
@@ -24,8 +27,8 @@ THGPUStorage* THGPUStorage_new(void)
   int default_size = 0;
   THGPUStorage *storage = (THGPUStorage *)THAlloc(sizeof(THGPUStorage));
   storage->allocatorContext = new Concurrency::array_view<float, 1>(Concurrency::extent<1>(default_size));
-  Concurrency::array_view<float>avData(*(Concurrency::array_view<float, 1>*)storage->allocatorContext);
-  storage->data = avData.data();
+  Concurrency::array_view<float>* avData = static_cast<Concurrency::array_view<float, 1>* >(storage->allocatorContext);
+  storage->data = avData->data();
   storage->size = default_size;
   storage->refcount = 1;
   storage->flag = TH_STORAGE_REFCOUNTED | TH_STORAGE_RESIZABLE | TH_STORAGE_FREEMEM;
@@ -36,14 +39,14 @@ THGPUStorage* THGPUStorage_newWithSize(long size)
 {
   THArgCheck(size >= 0, 2, "invalid size");
 
-  if (size > 0)
+  if(size > 0)
   {
     THGPUStorage *storage = (THGPUStorage *)THAlloc(sizeof(THGPUStorage));
     Concurrency::extent<1> eA(size);
     // Allocating device array of given size
-    storage->allocatorContext = new Concurrency::array_view<float>(eA);
-    Concurrency::array_view<float>avData(*(Concurrency::array_view<float>*)storage->allocatorContext);
-    storage->data = avData.data();
+    Concurrency::array_view<float>* avData = new Concurrency::array_view<float>(eA);
+    storage->allocatorContext = (void*)avData;
+    storage->data = avData->data();
     storage->size = size;
     storage->refcount = 1;
     storage->flag = TH_STORAGE_REFCOUNTED | TH_STORAGE_RESIZABLE | TH_STORAGE_FREEMEM;
@@ -95,12 +98,13 @@ THGPUStorage* THGPUStorage_newWithMapping(const char *fileName, long size, int i
   return NULL;
 }
 
+// Note that 'data' is on host
 THGPUStorage* THGPUStorage_newWithData(float *data, long size)
 {
   THGPUStorage *storage = (THGPUStorage *)THAlloc(sizeof(THGPUStorage));
-  storage->allocatorContext = new Concurrency::array_view<float>(Concurrency::extent<1>(size), data);
-  Concurrency::array_view<float> avData(*(Concurrency::array_view<float>*)storage->allocatorContext);
-  storage->data = avData.data();
+  Concurrency::array_view<float>* avData  = new Concurrency::array_view<float>(Concurrency::extent<1>(size), data);
+  storage->allocatorContext = (void*)avData;
+  storage->data = data;
   storage->size = size;
   storage->refcount = 1;
   storage->flag = TH_STORAGE_REFCOUNTED | TH_STORAGE_RESIZABLE | TH_STORAGE_FREEMEM;
@@ -109,18 +113,18 @@ THGPUStorage* THGPUStorage_newWithData(float *data, long size)
 
 void THGPUStorage_retain(THGPUStorage *self)
 {
-  if (self && (self->flag & TH_STORAGE_REFCOUNTED))
+  if(self && (self->flag & TH_STORAGE_REFCOUNTED))
     ++self->refcount;
 }
 
 void THGPUStorage_free(THGPUStorage *self)
 {
-  if (!(self->flag & TH_STORAGE_REFCOUNTED))
+  if(!(self->flag & TH_STORAGE_REFCOUNTED))
     return;
 
   if (--(self->refcount) <= 0)
   {
-    if (self->flag & TH_STORAGE_FREEMEM)
+    if(self->flag & TH_STORAGE_FREEMEM)
     {
       if (self->allocatorContext)
       {
@@ -145,56 +149,6 @@ void THGPUStorage_free(THGPUStorage *self)
   }
 }
 
-void THGPUStorage_copyFloat(THGPUStorage *self, struct THFloatStorage *src)
-{
-  THArgCheck(self->size == src->size, 2, "size does not match");
-  THGPUStorage_rawCopy(self, src->data);
-}
-
-#define TH_CUDA_STORAGE_IMPLEMENT_COPY(TYPEC)                                     \
-void THGPUStorage_copy##TYPEC(THGPUStorage *self, struct TH##TYPEC##Storage *src) \
-{                                                                                 \
-  THFloatStorage *buffer;                                                         \
-  THArgCheck(self->size == src->size, 2, "size does not match");                  \
-  buffer = THFloatStorage_newWithSize(src->size);                                 \
-  THFloatStorage_copy##TYPEC(buffer, src);                                        \
-  THGPUStorage_copyFloat(self, buffer);                                           \
-  THFloatStorage_free(buffer);                                                    \
-}
-
-TH_CUDA_STORAGE_IMPLEMENT_COPY(Byte)
-TH_CUDA_STORAGE_IMPLEMENT_COPY(Char)
-TH_CUDA_STORAGE_IMPLEMENT_COPY(Short)
-TH_CUDA_STORAGE_IMPLEMENT_COPY(Int)
-TH_CUDA_STORAGE_IMPLEMENT_COPY(Long)
-TH_CUDA_STORAGE_IMPLEMENT_COPY(Double)
-
-void THFloatStorage_copyGPU(THFloatStorage *self, struct THGPUStorage *src)
-{
-  THArgCheck(self->size == src->size, 2, "size does not match");
-  Concurrency::array_view<float, 1> arrSrc(Concurrency::extent<1>(self->size), src->data);
-  Concurrency::array_view<float, 1> avSelfCopy(Concurrency::extent<1>(self->size), self->data);
-  copy(arrSrc, avSelfCopy);
-}
-
-#define TH_CUDA_STORAGE_IMPLEMENT_COPYTO(TYPEC)                                     \
-void TH##TYPEC##Storage_copyGPU(TH##TYPEC##Storage *self, struct THGPUStorage *src) \
-{                                                                                   \
-  THFloatStorage *buffer;                                                           \
-  THArgCheck(self->size == src->size, 2, "size does not match");                    \
-  buffer = THFloatStorage_newWithSize(src->size);                                   \
-  THFloatStorage_copyGPU(buffer, src);                                              \
-  TH##TYPEC##Storage_copyFloat(self, buffer);                                       \
-  THFloatStorage_free(buffer);                                                      \
-}
-
-TH_CUDA_STORAGE_IMPLEMENT_COPYTO(Byte)
-TH_CUDA_STORAGE_IMPLEMENT_COPYTO(Char)
-TH_CUDA_STORAGE_IMPLEMENT_COPYTO(Short)
-TH_CUDA_STORAGE_IMPLEMENT_COPYTO(Int)
-TH_CUDA_STORAGE_IMPLEMENT_COPYTO(Long)
-TH_CUDA_STORAGE_IMPLEMENT_COPYTO(Double)
-
 void THGPUStorage_fill(THGPUStorage *self, float value)
 {
   // Make sure every changes need to be made to its array_view
@@ -209,7 +163,6 @@ void THGPUStorage_fill(THGPUStorage *self, float value)
 void THGPUStorage_resize(THGPUStorage *self, long size)
 {
   THArgCheck(size >= 0, 2, "invalid size");
-
   if (!(self->flag & TH_STORAGE_RESIZABLE))
     return;
 
@@ -230,59 +183,24 @@ void THGPUStorage_resize(THGPUStorage *self, long size)
   }
   else if (self->size != size)
   {
-    Concurrency::array_view<float, 1> *data = NULL;
     // Resizing the extent
     Concurrency::extent<1> eA(size);
     // Allocating device array of resized value
-    data =  new Concurrency::array_view<float>(eA);
-    long copySize = size;//THMin(self->size, size);
-    // We need to release the previous container. Generally it is allocated by THGPUStorage_new
-    // with a default size (4 bytes if size=1). Note that, the call graph is described as below,
-    //   (1) default bytes are created in THGPUStorage_new (#1 clCreateBuffer)
-    //   (2) N bytes are reallocated in THGPUStorage_resize in the same storage (#2 clCreateBuffer)
-    //         see av is created with a new extent: data =  new Concurrency::array_view<float>(eA);
-    //   (3) default bytes need explicitly released in here to avoid memory leak (#1 clReleaseMemObject)
-    //   (4) N bytes will be released in THGPUStorage_free called by user (#2 clReleaseMemObject)
-    //
-    // Note that if the default size is zero in THGPUStorage_new, (1)/(3) will not happen since
-    // the underlying driver (CLAMP) just skips memory allocation when a specified size=0
-    // Forcelly to release even its refcount is not zero
-    if (1)
-    {
-      Concurrency::array_view<float, 1> previous(*(static_cast<Concurrency::array_view<float,1>*>(self->allocatorContext)));
-      previous.~array_view();
-    }
+    Concurrency::array_view<float, 1> *avDest = new Concurrency::array_view<float>(eA);
+    float* dest_ptr = static_cast<float*>(Concurrency::getAllocator().device_data(avDest->data()));
 
-    Concurrency::extent<1> copyExt(copySize);
-    Concurrency::array_view<float, 1> desData(data->section(copyExt));
-    self->allocatorContext = (void *)data;
-    self->data = desData.data();
+    Concurrency::array_view<float, 1>* avSrc = static_cast<Concurrency::array_view<float,1>* >(self->allocatorContext);
+    float* src_ptr = static_cast<float*>(Concurrency::getAllocator().device_data(self->data));
+    // TODO: Async copy
+    if (src_ptr)
+      THGPUCheck(gpuMemcpy(dest_ptr, 0, src_ptr, 0, THMin(self->size, size) * sizeof(float), gpuMemcpyDeviceToDevice));
+    
+    avSrc->~array_view();
+    self->allocatorContext = (void *)avDest;
+    self->data = avDest->data();
     self->size = size;
     // Set default refcount for the new resized 
-    self->refcount=1;
+    self->refcount = 1;
   }
 }
 
-void THGPUStorage_rawCopy(THGPUStorage *self, float *src)
-{
-  Concurrency::array_view<float> avSelfCopy(Concurrency::extent<1>(self->size), self->data);
-  avSelfCopy.discard_data();
-  MemcpyHostToAV(src, self->size, avSelfCopy);
-}
-
-// FIXME: same as THGPUStorage_copyGPU 
-void THGPUStorage_copy(THGPUStorage *self, THGPUStorage *src)
-{
-  THArgCheck(self->size == src->size, 2, "size does not match");
-  PREPARE_AV_WITH_STORAGE(src, arrSrc);
-  PREPARE_AV_WITH_STORAGE(self, avSelfCopy);
-  MemcpyAVToAV(arrSrc, src->size, avSelfCopy);
-}
-
-void THGPUStorage_copyGPU(THGPUStorage *self, THGPUStorage *src)
-{
-  THArgCheck(self->size == src->size, 2, "size does not match");
-  PREPARE_AV_WITH_STORAGE(src, arrSrc);
-  PREPARE_AV_WITH_STORAGE(self, avSelfCopy);
-  MemcpyAVToAV(arrSrc, src->size, avSelfCopy);
-}

@@ -7,8 +7,12 @@
  *    3D input, 3D output, 1D weight, 1D bias
  */
 
-void subsample(Concurrency::array_view<float,1> &avInput, Concurrency::array_view<float,1> &avOutput, Concurrency::array_view<float,1> &avWeight,
-               Concurrency::array_view<float,1> &avBias ,int input_n, int input_h, int input_w, int kH, int kW, int dH, int dW, int xBlocks)
+void subsample(Concurrency::array_view<float,1> &avInput, long inOffset,
+               Concurrency::array_view<float,1> &avOutput, long outOffset,
+               Concurrency::array_view<float,1> &avWeight, long weightOffset,
+               Concurrency::array_view<float,1> &avBias, long biasOffset,
+               int input_n, int input_h, int input_w, 
+               int kH, int kW, int dH, int dW, int xBlocks)
 {
   // output size
   int yBlocks = (int)(16L / input_n);
@@ -43,10 +47,10 @@ void subsample(Concurrency::array_view<float,1> &avInput, Concurrency::array_vie
     input = input + i*input_w*input_h;
 
     // Get the good mask for (k,i) (k out, i in)
-    float the_weight = avWeight[weight+ k];
+    float the_weight = avWeight[weightOffset + weight+ k];
 
     // Initialize to the bias
-    float the_bias = avBias[bias+k];
+    float the_bias = avBias[biasOffset + bias+k];
 
     // For all output pixels...
     for (yy = yy_start; yy < yy_end; yy+=yy_step)
@@ -61,11 +65,11 @@ void subsample(Concurrency::array_view<float,1> &avInput, Concurrency::array_vie
         for (ky = 0; ky < kH; ky++) 
         {
           for (kx = 0; kx < kW; kx++)
-            sum += avInput[ptr_input + kx];
+            sum += avInput[inOffset + ptr_input + kx];
           ptr_input += input_w; // next input line
         }
         // Update output
-        avOutput[ptr_output] = the_weight*sum + the_bias;
+        avOutput[outOffset + ptr_output] = the_weight*sum + the_bias;
       }
     }
   });
@@ -75,8 +79,10 @@ void subsample(Concurrency::array_view<float,1> &avInput, Concurrency::array_vie
  * Description:
  *    this function computes the gradWeight from input and gradOutput
  */
-void subgradweight(Concurrency::array_view<float,1> &avInput, Concurrency::array_view<float,1> &avGradOutput,
-                   Concurrency::array_view<float,1> &avGradWeight, Concurrency::array_view<float,1> &avGradBias,
+void subgradweight(Concurrency::array_view<float,1> &avInput, long inOffset,
+                   Concurrency::array_view<float,1> &avGradOutput, long gradOutOffset,
+                   Concurrency::array_view<float,1> &avGradWeight, long gradWeightOffset,
+                   Concurrency::array_view<float,1> &avGradBias, long gradBiasOffset,
                    long* Stride_Input, long* Stride_Output,
                    int input_n, int input_h, int input_w, int kH, int kW,
                    int dH, int dW, float scale, long sl)
@@ -131,13 +137,13 @@ void subgradweight(Concurrency::array_view<float,1> &avInput, Concurrency::array
       {
         float ptr_input = input + yy*dH*input_w + xx*dW;
         float ptr_gradOutput = gradOutput + yy*output_w + xx;
-        float z = avGradOutput[ptr_gradOutput];
+        float z = avGradOutput[gradOutOffset + ptr_gradOutput];
         long kx, ky;
         for (ky = 0; ky < kH; ky++)
         {
           for (kx = 0; kx < kW; kx++)
           {
-            sums[tid] += z * avInput[ptr_input + kx];
+            sums[tid] += z * avInput[inOffset + ptr_input + kx];
           }
           ptr_input += input_w;
         }
@@ -149,7 +155,7 @@ void subgradweight(Concurrency::array_view<float,1> &avInput, Concurrency::array
     if ((tidx.local[1] == 0) && (tidx.local[0] == 0))
     {
       for (int i = 0; i < tidx.tile_dim1 * tidx.tile_dim0; i++)
-        avGradWeight[gradWeight+ k] += scale*sums[i];
+        avGradWeight[gradWeightOffset + gradWeight+ k] += scale*sums[i];
     }
     tidx.barrier.wait();
 
@@ -157,7 +163,7 @@ void subgradweight(Concurrency::array_view<float,1> &avInput, Concurrency::array
     sums[tid] = 0;
     for (int i=tid; i<output_w*output_h; i+=(tidx.tile_dim1 * tidx.tile_dim0))
     {
-      sums[tid] += avGradOutput[gradOutput + i];
+      sums[tid] += avGradOutput[gradOutOffset + gradOutput + i];
     }
     tidx.barrier.wait();
 
@@ -165,7 +171,7 @@ void subgradweight(Concurrency::array_view<float,1> &avInput, Concurrency::array
     if ((tidx.local[1] == 0) && (tidx.local[0] == 0))
     {
       for (int i=0; i<(tidx.tile_dim1 * tidx.tile_dim0); i++)
-        avGradBias[gradBias+k] += scale*sums[i];
+        avGradBias[gradBiasOffset + gradBias + k] += scale*sums[i];
     }
   });
 }
@@ -174,9 +180,11 @@ void subgradweight(Concurrency::array_view<float,1> &avInput, Concurrency::array
  * Description:
  *    this function computes the gradInput from weight and gradOutput
  */
-void subgradinput(Concurrency::array_view<float,1> &avGradInput,
-                  Concurrency::array_view<float,1> &avGradOutput, Concurrency::array_view<float,1> &avWeight,
-                  int input_n, int input_h, int input_w, int kH, int kW, int dH, int dW, int xBlocks)
+void subgradinput(Concurrency::array_view<float,1> &avGradInput, long gradInOffset,
+                  Concurrency::array_view<float,1> &avGradOutput, long gradOutOffset,
+                  Concurrency::array_view<float,1> &avWeight, long weightOffset,
+                  int input_n, int input_h, int input_w,
+                  int kH, int kW, int dH, int dW, int xBlocks)
 {
   // output size
   int output_w = (input_w - kW) / dW + 1;
@@ -212,7 +220,7 @@ void subgradinput(Concurrency::array_view<float,1> &avGradInput,
     gradInput = gradInput + i*input_w*input_h;
 
     // get weight
-    float the_weight = avWeight[weight+k];
+    float the_weight = avWeight[weightOffset + weight + k];
 
     // compute gradInput
     for (yy = yy_start; yy < yy_end; yy+=yy_step)
@@ -221,12 +229,12 @@ void subgradinput(Concurrency::array_view<float,1> &avGradInput,
       {
         float ptr_gradInput = gradInput + yy*dH*input_w + xx*dW;
         float ptr_gradOutput = gradOutput + yy*output_w + xx;
-        float z = avGradOutput[ptr_gradOutput] * the_weight;
+        float z = avGradOutput[gradOutOffset + ptr_gradOutput] * the_weight;
         int kx, ky;
         for (ky = 0; ky < kH; ky++)
         {
           for (kx = 0; kx < kW; kx++)
-            avGradInput[ptr_gradInput+kx] += z;
+            avGradInput[gradInOffset + ptr_gradInput+kx] += z;
           ptr_gradInput += input_w;
         }
       }
@@ -268,7 +276,11 @@ static int gpunn_SpatialSubSampling_updateOutput(lua_State *L)
 
     PREPARE_AV(input, pavInput);
     PREPARE_AV(output, pavOutput);
-    subsample (*pavInput, *pavOutput, *pavWeight, *pavBias, nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW, xBlocks);
+    subsample (*pavInput, input->storageOffset,
+               *pavOutput, output->storageOffset,
+               *pavWeight, weight->storageOffset,
+               *pavBias, bias->storageOffset,
+               nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW, xBlocks);
   }
   else
   {
@@ -287,7 +299,11 @@ static int gpunn_SpatialSubSampling_updateOutput(lua_State *L)
     int xBlocks = nInputPlane * nbatch;
     PREPARE_AV(input, pavInput);
     PREPARE_AV(output, pavOutput);
-    subsample(*pavInput, *pavOutput, *pavWeight, *pavBias, nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW, xBlocks);
+    subsample(*pavInput, input->storageOffset,
+              *pavOutput, output->storageOffset,
+              *pavWeight, weight->storageOffset,
+              *pavBias, bias->storageOffset,
+              nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW, xBlocks);
   }
 
   // clean
@@ -326,7 +342,10 @@ static int gpunn_SpatialSubSampling_updateGradInput(lua_State *L)
     int xBlocks = nInputPlane;
     
     PREPARE_AV(gradInput, pavGradInput);
-    subgradinput (*pavGradInput, *pavGradOutput, *pavWeight, nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW, xBlocks);
+    subgradinput (*pavGradInput, gradInput->storageOffset,
+                  *pavGradOutput, gradOutput->storageOffset,
+                  *pavWeight, weight->storageOffset,
+                  nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW, xBlocks);
 
   }
   else
@@ -340,7 +359,10 @@ static int gpunn_SpatialSubSampling_updateGradInput(lua_State *L)
 
     int xBlocks = nInputPlane * nbatch;
     PREPARE_AV(gradInput, pavGradInput);
-    subgradinput (*pavGradInput, *pavGradOutput, *pavWeight, nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW, xBlocks);
+    subgradinput (*pavGradInput, gradInput->storageOffset,
+                  *pavGradOutput, gradOutput->storageOffset,
+                  *pavWeight, weight->storageOffset,
+                  nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW, xBlocks);
   }
   return 1;
 }
@@ -373,10 +395,12 @@ static int gpunn_SpatialSubSampling_accGradParameters(lua_State *L)
 
     input = THGPUTensor_newContiguous(input);
     PREPARE_AV(input, pavInput);
-    subgradweight (*pavInput, *pavGradOutput, *pavGradWeight, *pavGradBias, 
-      input->stride, gradOutput->stride,
-      nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW, scale, sl);
-
+    subgradweight (*pavInput, input->storageOffset,
+                   *pavGradOutput, gradOutput->storageOffset,
+                   *pavGradWeight, gradWeight->storageOffset,
+                   *pavGradBias, gradBias->storageOffset,
+                   input->stride, gradOutput->stride, 
+                   nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW, scale, sl);
   }
   else
   {
@@ -387,15 +411,18 @@ static int gpunn_SpatialSubSampling_accGradParameters(lua_State *L)
     input = THGPUTensor_newContiguous(input);
     PREPARE_AV(input, pavInput);
 
-    // gpu blocks & threads:
+    // blocks & threads:
 
     // run gradweight kernel
     long sl;
     for (sl = 0; sl < nbatch; sl++)
     {
-          subgradweight (*pavInput, *pavGradOutput, *pavGradWeight, *pavGradBias,
-            input->stride, gradOutput->stride,
-            nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW, scale, sl);
+      subgradweight (*pavInput, input->storageOffset,
+                     *pavGradOutput, gradOutput->storageOffset,
+                     *pavGradWeight, gradWeight->storageOffset,
+                     *pavGradBias, gradBias->storageOffset,
+                     input->stride, gradOutput->stride,
+                     nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW, scale, sl);
     }
   }
 

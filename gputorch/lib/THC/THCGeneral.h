@@ -31,7 +31,9 @@ THC_API void THGPUBlas_shutdown();
 THC_API void THGPUInit(void);
 THC_API void THGPUShutdown(void);
 
+#define THGPUCheck(err)  __THGPUCheck(err, __FILE__, __LINE__)
 
+THC_API void __THGPUCheck(int err, const char *file, const int line);
 
 THC_API void THGPUGetGridSize(int *nBlockPerColumn_, int *nBlockPerRow_, int *nThreadPerBlock_, long size);
 

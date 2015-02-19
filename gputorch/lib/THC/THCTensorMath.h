@@ -16,6 +16,7 @@ THC_API void THGPUTensor_add(THGPUTensor *self, THGPUTensor *src, float value);
 THC_API void THGPUTensor_mul(THGPUTensor *self, THGPUTensor *src, float value);
 THC_API void THGPUTensor_div(THGPUTensor *self, THGPUTensor *src, float value);
 
+
 THC_API void THGPUTensor_cadd(THGPUTensor *self, THGPUTensor *src1, float value, THGPUTensor *src2);
 THC_API void THGPUTensor_cadd_tst(THGPUTensor *self, THGPUTensor *src1, float value, THGPUTensor *src2);
 THC_API void THGPUTensor_cmul(THGPUTensor *self, THGPUTensor *src1, THGPUTensor *src2);
@@ -25,7 +26,7 @@ THC_API void THGPUTensor_addcmul(THGPUTensor *self, THGPUTensor *t, float value,
 THC_API void THGPUTensor_addcdiv(THGPUTensor *self, THGPUTensor *t, float value, THGPUTensor *src1, THGPUTensor *src2);
 
 THC_API float THGPUTensor_dot(THGPUTensor *self, THGPUTensor *src);
-  
+
 THC_API float THGPUTensor_minall(THGPUTensor *self);
 THC_API float THGPUTensor_maxall(THGPUTensor *self);
 THC_API float THGPUTensor_sumall(THGPUTensor *self);
@@ -78,7 +79,9 @@ THC_API void THGPUTensor_neTensor(THGPUTensor *self_, THGPUTensor *src1, THGPUTe
 THC_API float THGPUTensor_meanall(THGPUTensor *self);
 THC_API void  THGPUTensor_mean(THGPUTensor *self, THGPUTensor *src, long dim);
 THC_API float THGPUTensor_varall(THGPUTensor *self);
+//THC_API void  THGPUTensor_var(THGPUTensor *self, THGPUTensor *src, long dim, int flag);
 THC_API float THGPUTensor_stdall(THGPUTensor *self);
+//THC_API void  THGPUTensor_std(THGPUTensor *self, THGPUTensor *src, long dim, int flag);
 THC_API float THGPUTensor_normall(THGPUTensor *self, float value);
 THC_API void  THGPUTensor_norm(THGPUTensor* self, THGPUTensor* src, float value, long dimension);
 THC_API void  THGPUTensor_renorm(THGPUTensor* self, THGPUTensor* src, float value, long dimension, float max_norm);

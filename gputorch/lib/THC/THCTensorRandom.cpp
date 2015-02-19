@@ -1,12 +1,8 @@
 #include "THCTensorRandom.h"
 #include "THCGeneral.h"
-#include "common.h"
-/*#include <thrust/functional.h>
-#include <curand.h>
-#include <curand_kernel.h>
-#include <curand_mtgp32_host.h>
-#include <curand_mtgp32dc_p_11213.h>*/
 
+#include "copyHelpers.h"
+#include "common.h"
 #define MAX_NUM_BLOCKS 64
 #define BLOCK_SIZE 256
 
@@ -187,7 +183,8 @@ void NAME(int size, THGPUTensor *result, ARG1)                                  
     x = TRANSFORM;                                                                                       \
     vec[i] = x;                                                                                          \
   }                                                                                                      \
-  MemcpyHostToTHGPUTensor(vec,size,result);                                                              \
+  float* device_ptr = static_cast<float*>(Concurrency::getAllocator().device_data(result->storage->data));\
+  THGPUCheck(gpuMemcpy(device_ptr, result->storageOffset, vec, 0, size * sizeof(float), gpuMemcpyHostToDevice));\
 }
 
 // TODO: currently can't use pfe since no kernel versions of all CURAND_FUNC from underlying AMP
@@ -203,7 +200,8 @@ void NAME(int size, THGPUTensor *result, ARG1, ARG2)                            
     x = TRANSFORM;                                                                                       \
     vec[i] = x;                                                                                          \
   }                                                                                                      \
-  MemcpyHostToTHGPUTensor(vec,size,result);                                                              \
+  float* device_ptr = static_cast<float*>(Concurrency::getAllocator().device_data(result->storage->data));\
+  THGPUCheck(gpuMemcpy(device_ptr, result->storageOffset, vec, 0, size * sizeof(float), gpuMemcpyHostToDevice));\
 }
 
 GENERATE_KERNEL2(generate_uniform, double a, double b, uniform_real_distribution, x * (b-a) + a)
@@ -227,9 +225,9 @@ void generate_log_normal(int size, THGPUTensor *self_, float mean, float stddev)
     float x = rand(gen);
     vec[i] = x;
   }
-  MemcpyHostToTHGPUTensor(vec, size, self_);
+  float* device_ptr = static_cast<float*>(Concurrency::getAllocator().device_data(self_->storage->data));
+  THGPUCheck(gpuMemcpy(device_ptr, self_->storageOffset, vec, 0, size * sizeof(float), gpuMemcpyHostToDevice));
 }
-
 
 #define NUM_BLOCKS min((int)DIVUP(size, BLOCK_SIZE), MAX_NUM_BLOCKS)
 void THGPUTensor_uniform(THGPURNGState* state, THGPUTensor *self_, double a, double b)
@@ -301,4 +299,3 @@ void THGPUTensor_cauchy(THGPURNGState* state, THGPUTensor *self_, double median,
   THGPUTensor_freeCopyTo(self, self_);
 };
 #undef NUM_BLOCKS
-

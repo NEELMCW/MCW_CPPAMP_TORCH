@@ -101,10 +101,10 @@ static int torch_Tensor_(new)(lua_State *L)
     THLongStorage_fill(counter, 0);
 
     tensor = THTensor_(newWithSize)(size, NULL);
-    
+
     if(size->size == 0)
       is_finished = 1;
-    
+
     while(!is_finished)
     {
       if(!lua_istable(L, -1))
@@ -666,8 +666,8 @@ static int torch_Tensor_(__newindex__)(lua_State *L)
         } else {
           THTensor_(select)(tensor, NULL, cdim, z);
         }
-      } 
-      else if (lua_istable(L, -1)) 
+      }
+      else if (lua_istable(L, -1))
       {
         long start = 0;
         long end = tensor->size[cdim]-1;
@@ -692,7 +692,7 @@ static int torch_Tensor_(__newindex__)(lua_State *L)
 
         THTensor_(narrow)(tensor, NULL, cdim++, start, end-start+1);
       }
-      else 
+      else
       {
         break;
       }
@@ -780,7 +780,7 @@ static int torch_Tensor_(__index__)(lua_State *L)
     int dim;
 
     luaL_argcheck(L, idx->size == tensor->nDimension, 2, "invalid size");
-    
+
     for(dim = 0; dim < idx->size; dim++)
     {
       long z = idx->data[dim]-1;
@@ -806,7 +806,7 @@ static int torch_Tensor_(__index__)(lua_State *L)
     for(dim = 0; dim < ndims; dim++)
     {
       lua_rawgeti(L, 2, dim+1);
-      if(lua_isnumber(L, -1)) 
+      if(lua_isnumber(L, -1))
       {
         long z = lua_tonumber(L, -1)-1;
         lua_pop(L, 1);
@@ -818,7 +818,7 @@ static int torch_Tensor_(__index__)(lua_State *L)
         } else {
           THTensor_(select)(tensor, NULL, cdim, z);
         }
-      } 
+      }
       else if (lua_istable(L, -1))
       {
         long start = 0;
@@ -844,7 +844,7 @@ static int torch_Tensor_(__index__)(lua_State *L)
 
         THTensor_(narrow)(tensor, NULL, cdim++, start, end-start+1);
       }
-      else 
+      else
       {
         break;
       }

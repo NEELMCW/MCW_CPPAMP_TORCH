@@ -39,6 +39,7 @@ static int gpunn_AbsCriterion_updateGradInput(lua_State *L)
   THGPUTensor *target = (THGPUTensor*)luaT_checkudata(L, 3, "torch.GPUTensor");
   int sizeAverage = luaT_getfieldcheckboolean(L, 1, "sizeAverage");
   THGPUTensor *gradInput = (THGPUTensor*)luaT_getfieldcheckudata(L, 1, "gradInput", "torch.GPUTensor");
+
   long size = THGPUTensor_nElement(input);
   float norm = (sizeAverage ? 1./size : 1.);
   input = THGPUTensor_newContiguous(input);

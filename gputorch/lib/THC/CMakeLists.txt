@@ -3,9 +3,12 @@ INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/gpunn-impl/)
 INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/gpunn-impl/SpatialConvolutionGPU/)
 INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/gpunn-impl/SpatialPoolingGPU/)
 INCLUDE_DIRECTORIES($ENV{MCWCPPAMPROOT}/cppamp-driver-ng/include)
-SET(src 
-   THCGeneral.cpp THCAMPBlasImpl.cpp
-   THCBolt.cpp THCBlas.cpp THCStorage.cpp THCTensor.cpp THCTensorCopy.cpp THCTensorConv.cpp THCTensorMath.cpp THCTensorRandom.cpp)
+
+SET(src
+   THCGeneral.cpp THCAMPBlasImpl.cpp THCBolt.cpp
+   THCStorageCopy.cpp THCBlas.cpp THCStorage.cpp THCTensor.cpp THCTensorCopy.cpp
+   THCTensorConv.cpp THCTensorMath.cpp THCTensorRandom.cpp copyHelpers.cpp)
+
 SET(gpunnsrc gpunn-impl/SpatialConvolutionGPU/updateOutput.cpp gpunn-impl/SpatialConvolutionGPU/updateGradInput.cpp
     gpunn-impl/SpatialConvolutionGPU/accGradParameters.cpp  gpunn-impl/init.cpp)
 
@@ -54,7 +57,9 @@ INSTALL(FILES
           THCGeneral.h
           THCBlas.h
           THCStorage.h
+          THCStorageCopy.h
           THCTensor.h
+          THCTensorCopy.h
           THCTensorRandom.h
           THCTensorMath.h
           THCTensorConv.h

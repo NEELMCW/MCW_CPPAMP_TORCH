@@ -65,8 +65,9 @@ class MaxAbsPooler {
  */
 
 template<class Agg, int B_Y, int B_X, int imgsPerThread, int filtersPerThread, bool checkCaseBounds>
-void kLocalPool(Concurrency::array_view<float,1> &avImages,
-                 Concurrency::array_view<float,1> &avTargets, int imgSize, int numFilters,
+void kLocalPool(Concurrency::array_view<float,1> &avImages, long imgOffset,
+                 Concurrency::array_view<float,1> &avTargets, long targetOffset,
+                 int imgSize, int numFilters,
                  int numImages, int subsX, int startX, int strideX,
                  int outputsX, Agg agg, int blockX, int blockY)
 {
@@ -74,8 +75,8 @@ void kLocalPool(Concurrency::array_view<float,1> &avImages,
   Concurrency::tiled_extent<1, 4, 32> t_ext(grdExt);
   Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1, 4, 32> tidx) restrict(amp) 
   {
-    float *imgs = avImages.data();
-    float *target = avTargets.data();
+    float *imgs = avImages.data() + imgOffset;
+    float *target = avTargets.data() + targetOffset;
     const int numImgBlocks = DIVUP(numImages,B_X*imgsPerThread);
     const int numFilterBlocks = DIVUP(numFilters, B_Y*filtersPerThread);
     const int outputIdxX = tidx.tile[2] / numImgBlocks;
@@ -161,8 +162,9 @@ void kLocalPool(Concurrency::array_view<float,1> &avImages,
  * To be used when the stride is 1 and the pooling region is fairly large.
  */
 template<class Agg, int B_X, int imgsPerThread, int filtersPerThread, bool checkCaseBounds>
-void kLocalPool2(Concurrency::array_view<float,1> &avImages,
-                  Concurrency::array_view<float,1> &avTargets, int imgSize, int numFilters,
+void kLocalPool2(Concurrency::array_view<float,1> &avImages, long imgOffset,
+                  Concurrency::array_view<float,1> &avTargets, long targetOffset,
+                  int imgSize, int numFilters,
                   int numImages, int subsX, int startX,
                   int outputsX, Agg agg, int blockX, int blockY)
 {
@@ -171,8 +173,8 @@ void kLocalPool2(Concurrency::array_view<float,1> &avImages,
   Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1, 16, 8> tidx) restrict(amp) 
   {
     tile_static float shImgs[filtersPerThread][B_X*imgsPerThread];
-    float *imgs = avImages.data();
-    float *target = avTargets.data();
+    float *imgs = avImages.data() + imgOffset;
+    float *target = avTargets.data() + targetOffset;
 
     const int numImgBlocks = DIVUP(numImages,B_X*imgsPerThread);
     const int numFilterBlocks = numFilters/(filtersPerThread);
@@ -270,7 +272,8 @@ template<class Pooler>
 void spatialMaxPooling_updateOutput
 (
  // raw pointers:
- Concurrency::array_view<float,1>&images, Concurrency::array_view<float,1>&targets,
+ Concurrency::array_view<float,1>&images, long imgOffset,
+ Concurrency::array_view<float,1>&targets, long targetOffset,
  // numImgColors == numFilters
  int numFilters, int imgSizeY, int imgSizeX, int numImages,
  // numModulesY == numModulesX == outputsX
@@ -312,48 +315,48 @@ void spatialMaxPooling_updateOutput
             if (filtersPerThread == 1) {
                 if (checkCaseBounds) {
                     //gpuFuncSetCacheConfig(kLocalPool2<Pooler, 8, 8, 1, true>, gpuFuncCachePreferShared);
-                    kLocalPool2<Pooler, 8, 8, 1, true>(images, targets,
+                    kLocalPool2<Pooler, 8, 8, 1, true>(images, imgOffset, targets, targetOffset,
                                                 imgSize, numFilters, numImages, subsX, startX, outputsX, pooler,
                                                 blockX, blockY);
                 } else {
                     //gpuFuncSetCacheConfig(kLocalPool2<Pooler, 8, 8, 1, false>, gpuFuncCachePreferShared);
-                    kLocalPool2<Pooler, 8, 8, 1, false>(images, targets,
+                    kLocalPool2<Pooler, 8, 8, 1, false>(images, imgOffset, targets, targetOffset,
                                                 imgSize, numFilters, numImages, subsX, startX, outputsX, pooler,
                                                 blockX, blockY);
                 }
             } else if (filtersPerThread == 2) {
                 if (checkCaseBounds) {
                     //gpuFuncSetCacheConfig(kLocalPool2<Pooler, 8, 8, 2, true>, gpuFuncCachePreferShared);
-                    kLocalPool2<Pooler, 8, 8, 2, true>(images, targets,
+                    kLocalPool2<Pooler, 8, 8, 2, true>(images, imgOffset, targets, targetOffset,
                                                 imgSize, numFilters, numImages, subsX, startX, outputsX, pooler,
                                                 blockX, blockY);
                 } else {
                     //gpuFuncSetCacheConfig(kLocalPool2<Pooler, 8, 8, 2, false>, gpuFuncCachePreferShared);
-                    kLocalPool2<Pooler, 8, 8, 2, false>(images, targets,
+                    kLocalPool2<Pooler, 8, 8, 2, false>(images, imgOffset, targets, targetOffset,
                                                 imgSize, numFilters, numImages, subsX, startX, outputsX, pooler,
                                                 blockX, blockY);
                 }
             } else if (filtersPerThread == 3) {
                 if (checkCaseBounds) {
                     //gpuFuncSetCacheConfig(kLocalPool2<Pooler, 8, 8, 3, true>, gpuFuncCachePreferShared);
-                    kLocalPool2<Pooler, 8, 8, 3, true>(images, targets,
+                    kLocalPool2<Pooler, 8, 8, 3, true>(images, imgOffset, targets, targetOffset,
                                                 imgSize, numFilters, numImages, subsX, startX, outputsX, pooler,
                                                 blockX, blockY);
                 } else {
                     //gpuFuncSetCacheConfig(kLocalPool2<Pooler, 8, 8, 3, false>, gpuFuncCachePreferShared);
-                    kLocalPool2<Pooler, 8, 8, 3, false>(images, targets,
+                    kLocalPool2<Pooler, 8, 8, 3, false>(images, imgOffset, targets, targetOffset,
                                                 imgSize, numFilters, numImages, subsX, startX, outputsX, pooler,
                                                 blockX, blockY);
                 }
             } else if (filtersPerThread == 4) {
                 if (checkCaseBounds) {
                     //gpuFuncSetCacheConfig(kLocalPool2<Pooler, 8, 8, 4, true>, gpuFuncCachePreferShared);
-                    kLocalPool2<Pooler, 8, 8, 4, true>(images, targets,
+                    kLocalPool2<Pooler, 8, 8, 4, true>(images, imgOffset, targets, targetOffset,
                                                 imgSize, numFilters, numImages, subsX, startX, outputsX, pooler,
                                                 blockX, blockY);
                 } else {
                     //gpuFuncSetCacheConfig(kLocalPool2<Pooler, 8, 8, 4, false>, gpuFuncCachePreferShared);
-                    kLocalPool2<Pooler, 8, 8, 4, false>(images, targets,
+                    kLocalPool2<Pooler, 8, 8, 4, false>(images, imgOffset, targets, targetOffset,
                                                 imgSize, numFilters, numImages, subsX, startX, outputsX, pooler,
                                                 blockX, blockY);
                 }
@@ -362,48 +365,48 @@ void spatialMaxPooling_updateOutput
             if (filtersPerThread == 1) {
                 if (checkCaseBounds) {
                     //gpuFuncSetCacheConfig(kLocalPool2<Pooler, 8, 4, 1, true>, gpuFuncCachePreferShared);
-                    kLocalPool2<Pooler, 8, 4, 1, true>(images, targets,
+                    kLocalPool2<Pooler, 8, 4, 1, true>(images, imgOffset, targets, targetOffset,
                                                 imgSize, numFilters, numImages, subsX, startX, outputsX, pooler,
                                                 blockX, blockY);
                 } else {
                     //gpuFuncSetCacheConfig(kLocalPool2<Pooler, 8, 4, 1, false>, gpuFuncCachePreferShared);
-                    kLocalPool2<Pooler, 8, 4, 1, false>(images, targets,
+                    kLocalPool2<Pooler, 8, 4, 1, false>(images, imgOffset, targets, targetOffset,
                                                 imgSize, numFilters, numImages, subsX, startX, outputsX, pooler,
                                                 blockX, blockY);
                 }
             } else if (filtersPerThread == 2) {
                 if (checkCaseBounds) {
                     //gpuFuncSetCacheConfig(kLocalPool2<Pooler, 8, 4, 2, true>, gpuFuncCachePreferShared);
-                    kLocalPool2<Pooler, 8, 4, 2, true>(images, targets,
+                    kLocalPool2<Pooler, 8, 4, 2, true>(images, imgOffset, targets, targetOffset,
                                                 imgSize, numFilters, numImages, subsX, startX, outputsX, pooler,
                                                 blockX, blockY);
                 } else {
                     //gpuFuncSetCacheConfig(kLocalPool2<Pooler, 8, 4, 2, false>, gpuFuncCachePreferShared);
-                    kLocalPool2<Pooler, 8, 4, 2, false>(images, targets,
+                    kLocalPool2<Pooler, 8, 4, 2, false>(images, imgOffset, targets, targetOffset,
                                                 imgSize, numFilters, numImages, subsX, startX, outputsX, pooler,
                                                 blockX, blockY);
                 }
             } else if (filtersPerThread == 3) {
                 if (checkCaseBounds) {
                     //gpuFuncSetCacheConfig(kLocalPool2<Pooler, 8, 4, 3, true>, gpuFuncCachePreferShared);
-                    kLocalPool2<Pooler, 8, 4, 3, true>(images, targets,
+                    kLocalPool2<Pooler, 8, 4, 3, true>(images, imgOffset, targets, targetOffset,
                                                 imgSize, numFilters, numImages, subsX, startX, outputsX, pooler,
                                                 blockX, blockY);
                 } else {
                     //gpuFuncSetCacheConfig(kLocalPool2<Pooler, 8, 4, 3, false>, gpuFuncCachePreferShared);
-                    kLocalPool2<Pooler, 8, 4, 3, false>(images, targets,
+                    kLocalPool2<Pooler, 8, 4, 3, false>(images, imgOffset, targets, targetOffset,
                                                 imgSize, numFilters, numImages, subsX, startX, outputsX, pooler,
                                                 blockX, blockY);
                 }
             } else if (filtersPerThread == 4) {
                 if (checkCaseBounds) {
                     //gpuFuncSetCacheConfig(kLocalPool2<Pooler, 8, 4, 4, true>, gpuFuncCachePreferShared);
-                    kLocalPool2<Pooler, 8, 4, 4, true>(images, targets,
+                    kLocalPool2<Pooler, 8, 4, 4, true>(images, imgOffset, targets, targetOffset,
                                                 imgSize, numFilters, numImages, subsX, startX, outputsX, pooler,
                                                 blockX, blockY);
                 } else {
                     //gpuFuncSetCacheConfig(kLocalPool2<Pooler, 8, 4, 4, false>, gpuFuncCachePreferShared);
-                    kLocalPool2<Pooler, 8, 4, 4, false>(images, targets,
+                    kLocalPool2<Pooler, 8, 4, 4, false>(images, imgOffset, targets, targetOffset,
                                                 imgSize, numFilters, numImages, subsX, startX, outputsX, pooler,
                                                 blockX, blockY);
                 }
@@ -424,24 +427,24 @@ void spatialMaxPooling_updateOutput
             if (filtersPerThread == 1) {
                 if (checkCaseBounds) {
                     //gpuFuncSetCacheConfig(kLocalPool<Pooler, 4, 32, 4, 1, true>, gpuFuncCachePreferL1);
-                    kLocalPool<Pooler, 4, 32, 4, 1, true>(images, targets,
+                    kLocalPool<Pooler, 4, 32, 4, 1, true>(images, imgOffset, targets, targetOffset,
                                                     imgSize, numFilters, numImages, subsX, startX, strideX, outputsX, pooler,
                                                     blockX, blockY);
                 } else {
                     //gpuFuncSetCacheConfig(kLocalPool<Pooler, 4, 32, 4, 1, false>, gpuFuncCachePreferL1);
-                    kLocalPool<Pooler, 4, 32, 4, 1, false>(images, targets,
+                    kLocalPool<Pooler, 4, 32, 4, 1, false>(images, imgOffset, targets, targetOffset,
                                                     imgSize, numFilters, numImages, subsX, startX, strideX, outputsX, pooler,
                                                     blockX, blockY);
                 }
             } else {
                 if (checkCaseBounds) {
                     //gpuFuncSetCacheConfig(kLocalPool<Pooler, 4, 32, 4, 2, true>, gpuFuncCachePreferL1);
-                    kLocalPool<Pooler, 4, 32, 4, 2, true>(images, targets,
+                    kLocalPool<Pooler, 4, 32, 4, 2, true>(images, imgOffset, targets, targetOffset,
                                                     imgSize, numFilters, numImages, subsX, startX, strideX, outputsX, pooler,
                                                     blockX, blockY);
                 } else {
                     //gpuFuncSetCacheConfig(kLocalPool<Pooler, 4, 32, 4, 2, false>, gpuFuncCachePreferL1);
-                    kLocalPool<Pooler, 4, 32, 4, 2, false>(images, targets,
+                    kLocalPool<Pooler, 4, 32, 4, 2, false>(images, imgOffset, targets, targetOffset,
                                                     imgSize, numFilters, numImages, subsX, startX, strideX, outputsX, pooler,
                                                     blockX, blockY);
                 }
@@ -450,24 +453,24 @@ void spatialMaxPooling_updateOutput
             if (filtersPerThread == 1) {
                 if (checkCaseBounds) {
                     //gpuFuncSetCacheConfig(kLocalPool<Pooler, 4, 32, 2, 1, true>, gpuFuncCachePreferL1);
-                    kLocalPool<Pooler, 4, 32, 2, 1, true>(images, targets,
+                    kLocalPool<Pooler, 4, 32, 2, 1, true>(images, imgOffset, targets, targetOffset,
                                                     imgSize, numFilters, numImages, subsX, startX, strideX, outputsX, pooler,
                                                     blockX, blockY);
                 } else {
                     //gpuFuncSetCacheConfig(kLocalPool<Pooler, 4, 32, 2, 1, false>, gpuFuncCachePreferL1);
-                    kLocalPool<Pooler, 4, 32, 2, 1, false>(images, targets,
+                    kLocalPool<Pooler, 4, 32, 2, 1, false>(images, imgOffset, targets, targetOffset,
                                                     imgSize, numFilters, numImages, subsX, startX, strideX, outputsX, pooler,
                                                     blockX, blockY);
                 }
             } else {
                 if (checkCaseBounds) {
                     //gpuFuncSetCacheConfig(kLocalPool<Pooler, 4, 32, 2, 2, true>, gpuFuncCachePreferL1);
-                    kLocalPool<Pooler, 4, 32, 2, 2, true>(images, targets,
+                    kLocalPool<Pooler, 4, 32, 2, 2, true>(images, imgOffset, targets, targetOffset,
                                                     imgSize, numFilters, numImages, subsX, startX, strideX, outputsX, pooler,
                                                     blockX, blockY);
                 } else {
                     //gpuFuncSetCacheConfig(kLocalPool<Pooler, 4, 32, 2, 2, false>, gpuFuncCachePreferL1);
-                    kLocalPool<Pooler, 4, 32, 2, 2, false>(images, targets,
+                    kLocalPool<Pooler, 4, 32, 2, 2, false>(images, imgOffset, targets, targetOffset,
                                                     imgSize, numFilters, numImages, subsX, startX, strideX, outputsX, pooler,
                                                     blockX, blockY);
                 }
@@ -476,24 +479,24 @@ void spatialMaxPooling_updateOutput
             if (filtersPerThread == 1) {
                 if (checkCaseBounds) {
                     //gpuFuncSetCacheConfig(kLocalPool<Pooler, 4, 32, 1, 1, true>, gpuFuncCachePreferL1);
-                    kLocalPool<Pooler, 4, 32, 1, 1, true>(images, targets,
+                    kLocalPool<Pooler, 4, 32, 1, 1, true>(images, imgOffset, targets, targetOffset,
                                                     imgSize, numFilters, numImages, subsX, startX, strideX, outputsX, pooler,
                                                     blockX, blockY);
                 } else {
                     //gpuFuncSetCacheConfig(kLocalPool<Pooler, 4, 32, 1, 1, false>, gpuFuncCachePreferL1);
-                    kLocalPool<Pooler, 4, 32, 1, 1, false>(images, targets,
+                    kLocalPool<Pooler, 4, 32, 1, 1, false>(images, imgOffset, targets, targetOffset,
                                                     imgSize, numFilters, numImages, subsX, startX, strideX, outputsX, pooler,
                                                     blockX, blockY);
                 }
             } else {
                 if (checkCaseBounds) {
                     //gpuFuncSetCacheConfig(kLocalPool<Pooler, 4, 32, 1, 2, true>, gpuFuncCachePreferL1);
-                    kLocalPool<Pooler, 4, 32, 1, 2, true>(images, targets,
+                    kLocalPool<Pooler, 4, 32, 1, 2, true>(images, imgOffset, targets, targetOffset,
                                                     imgSize, numFilters, numImages, subsX, startX, strideX, outputsX, pooler,
                                                     blockX, blockY);
                 } else {
                     //gpuFuncSetCacheConfig(kLocalPool<Pooler, 4, 32, 1, 2, false>, gpuFuncCachePreferL1);
-                    kLocalPool<Pooler, 4, 32, 1, 2, false>(images, targets,
+                    kLocalPool<Pooler, 4, 32, 1, 2, false>(images, imgOffset, targets, targetOffset,
                                                     imgSize, numFilters, numImages, subsX, startX, strideX, outputsX, pooler,
                                                     blockX, blockY);
                 }
@@ -745,7 +748,8 @@ static int gpunn_SpatialMaxPoolingGPU_updateOutput(lua_State *L)
   PREPARE_AV(input, pavInput);
   PREPARE_AV(output, pavOutput);
   spatialMaxPooling_updateOutput<MaxPooler>
-    (*pavInput, *pavOutput, 
+    (*pavInput, input->storageOffset,
+     *pavOutput, output->storageOffset,
      nInputPlane, nInputRows, nInputCols, batchSize,
      nOutputRows, nOutputCols, 
      kH, kW,
@@ -780,8 +784,11 @@ static int gpunn_SpatialMaxPoolingGPU_updateGradInput(lua_State *L)
   PREPARE_AV(output, pavOutput);
   PREPARE_AV(gradInput, pavGradInput);
   PREPARE_AV(gradOutput, pavGradOutput);
- spatialMaxPooling_updateGradInput
-    (*pavInput, *pavGradOutput, *pavOutput, *pavGradInput,
+  spatialMaxPooling_updateGradInput
+    (*pavInput, input->storageOffset,
+     *pavGradOutput, gradOutput->storageOffset,
+     *pavOutput, output->storageOffset,
+     *pavGradInput, gradInput->storageOffset,
      nInputPlane, nInputRows, nInputCols, batchSize,
      nOutputRows, nOutputCols, 
      kH, kW,

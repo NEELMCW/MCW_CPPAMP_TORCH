@@ -1,13 +1,18 @@
 #include "THCAMPBlasImpl.h"
+
 #define OFFSET(N, incX) ((incX) > 0 ? 0 : ((N) - 1) * (-(incX)))
 #define BLOCK_SIZE 256
-#define TILE_DIM 16 
-#define THREADS 16
+#define TILE_DIM   16 
+#define THREADS    16
 #define GEMM_BLOCK 256
 
-void gemm_NoTransAB(Concurrency::array_view<float, 1> &A, Concurrency::array_view<float, 1> &B, Concurrency::array_view<float, 1> &C, int M, int N, int K, int lda, int ldb, int ldc, float alpha, float beta, long aOffset, long bOffset, long cOffset)
+static void gemm_NoTransAB(Concurrency::array_view<float, 1> &A, long aOffset,
+                           Concurrency::array_view<float, 1> &B, long bOffset,
+                           Concurrency::array_view<float, 1> &C, long cOffset,
+                           int M, int N, int K, int lda, int ldb, int ldc,
+                           float alpha, float beta)
 {
-  Concurrency::extent<2> grdExt((N+(THREADS-1))&~(THREADS-1) , (M+(THREADS-1))&~(THREADS-1));
+  Concurrency::extent<2> grdExt((N+(THREADS-1))&~(THREADS-1),(M+(THREADS-1))&~(THREADS-1));
   Concurrency::tiled_extent<THREADS, THREADS> t_ext(grdExt);
   Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<THREADS, THREADS> tidx) restrict(amp)
   {
@@ -28,7 +33,7 @@ void gemm_NoTransAB(Concurrency::array_view<float, 1> &A, Concurrency::array_vie
       // Read Matrix A from global to shared tile
       if (k*TILE_DIM + tidx.local[0] < K && Col < M)        
         As[tidx.local[0]][tidx.local[1]] = A[aOffset + (k*TILE_DIM + tidx.local[0])*M + Col];
-      else                                                                                                        
+      else
         As[tidx.local[0]][tidx.local[1]] = 0.0;
 
       tidx.barrier.wait();
@@ -41,13 +46,18 @@ void gemm_NoTransAB(Concurrency::array_view<float, 1> &A, Concurrency::array_vie
    
     if (Row < N && Col < M) 
     {
-      C[cOffset + (tidx.global[0]*M)+tidx.global[1]]*=beta;
-      C[cOffset + (tidx.global[0]*M)+tidx.global[1]]+=CValue;
+      C[cOffset + (tidx.global[0]*M) + tidx.global[1]] *= beta;
+      C[cOffset + (tidx.global[0]*M) + tidx.global[1]] += CValue;
     }
   });
 }
 
-void gemm_NoTransB(Concurrency::array_view<float, 1> &A, Concurrency::array_view<float, 1> &B, Concurrency::array_view<float, 1> &C, int M, int N, int K, int lda, int ldb, int ldc, float alpha, float beta , long aOffset, long bOffset, long cOffset, Concurrency::array_view<float,1> &temp_buf)
+static void gemm_NoTransB(Concurrency::array_view<float, 1> &A, long aOffset,
+                          Concurrency::array_view<float, 1> &B, long bOffset,
+                          Concurrency::array_view<float, 1> &C, long cOffset,
+                          int M, int N, int K, int lda, int ldb, int ldc,
+                          float alpha, float beta,
+                          Concurrency::array_view<float,1> &temp_buf)
 {
   if (K > N && K > M)
   {
@@ -77,6 +87,7 @@ void gemm_NoTransB(Concurrency::array_view<float, 1> &A, Concurrency::array_view
         if (threadIdx < stride)
           sh[threadIdx] += sh[threadIdx + stride];
       }
+
       tidx.barrier.wait();
 
       if(threadIdx == 0 && Col < M && Row < N)
@@ -119,23 +130,39 @@ void gemm_NoTransB(Concurrency::array_view<float, 1> &A, Concurrency::array_view
         tidx.barrier.wait();
       
         // Unrolled Matrix Mul operation 
-        CValue += Bs[tidx.local[0]][0] * As[tidx.local[1]][0] + Bs[tidx.local[0]][1] * As[tidx.local[1]][1] + Bs[tidx.local[0]][2] * As[tidx.local[1]][2] + Bs[tidx.local[0]][3] * As[tidx.local[1]][3]
-           + Bs[tidx.local[0]][4] * As[tidx.local[1]][4] + Bs[tidx.local[0]][5] * As[tidx.local[1]][5] + Bs[tidx.local[0]][6] * As[tidx.local[1]][6] + Bs[tidx.local[0]][7] * As[tidx.local[1]][7]
-           + Bs[tidx.local[0]][8] * As[tidx.local[1]][8] + Bs[tidx.local[0]][9] * As[tidx.local[1]][9] + Bs[tidx.local[0]][10] * As[tidx.local[1]][10] + Bs[tidx.local[0]][11] * As[tidx.local[1]][11]
-           + Bs[tidx.local[0]][12] * As[tidx.local[1]][12] + Bs[tidx.local[0]][13] * As[tidx.local[1]][13] + Bs[tidx.local[0]][14] * As[tidx.local[1]][14] + Bs[tidx.local[0]][15] * As[tidx.local[1]][15];
+        CValue += Bs[tidx.local[0]][0] * As[tidx.local[1]][0] + 
+                  Bs[tidx.local[0]][1] * As[tidx.local[1]][1] + 
+                  Bs[tidx.local[0]][2] * As[tidx.local[1]][2] + 
+                  Bs[tidx.local[0]][3] * As[tidx.local[1]][3] +
+                  Bs[tidx.local[0]][4] * As[tidx.local[1]][4] + 
+                  Bs[tidx.local[0]][5] * As[tidx.local[1]][5] + 
+                  Bs[tidx.local[0]][6] * As[tidx.local[1]][6] + 
+                  Bs[tidx.local[0]][7] * As[tidx.local[1]][7] +
+                  Bs[tidx.local[0]][8] * As[tidx.local[1]][8] + 
+                  Bs[tidx.local[0]][9] * As[tidx.local[1]][9] + 
+                  Bs[tidx.local[0]][10] * As[tidx.local[1]][10] + 
+                  Bs[tidx.local[0]][11] * As[tidx.local[1]][11] + 
+                  Bs[tidx.local[0]][12] * As[tidx.local[1]][12] + 
+                  Bs[tidx.local[0]][13] * As[tidx.local[1]][13] + 
+                  Bs[tidx.local[0]][14] * As[tidx.local[1]][14] + 
+                  Bs[tidx.local[0]][15] * As[tidx.local[1]][15];
     
         tidx.barrier.wait();
       }
       if (Row < N && Col < M)
       {
-        Cmat[Row][cOffset +Col]*=beta;
-        Cmat[Row][cOffset +Col]+=CValue * alpha;
+        Cmat[Row][cOffset + Col] *= beta;
+        Cmat[Row][cOffset + Col] += CValue * alpha;
       }
     });
   }
 }
 
-void gemm_NoTransA(Concurrency::array_view<float, 1> &A, Concurrency::array_view<float, 1> &B, Concurrency::array_view<float, 1> &C, int M, int N, int K, int lda, int ldb, int ldc, float alpha, float beta , long aOffset, long bOffset, long cOffset)
+static void gemm_NoTransA(Concurrency::array_view<float, 1> &A, long aOffset,
+                          Concurrency::array_view<float, 1> &B, long bOffset,
+                          Concurrency::array_view<float, 1> &C, long cOffset,
+                          int M, int N, int K, int lda, int ldb, int ldc,
+                          float alpha, float beta)
 {
   Concurrency::extent<2> grdExt((N+(THREADS-1))&~(THREADS-1), (M+(THREADS-1))&~(THREADS-1));
   Concurrency::tiled_extent<THREADS, THREADS> t_ext(grdExt);
@@ -168,13 +195,17 @@ void gemm_NoTransA(Concurrency::array_view<float, 1> &A, Concurrency::array_view
   
     if (Row < N && Col < M)
     {
-      C[cOffset + (Row*M)+Col]*=beta;
-      C[cOffset + (Row*M)+Col]+=CValue * alpha;
+      C[cOffset + (Row*M)+Col] *= beta;
+      C[cOffset + (Row*M)+Col] += CValue * alpha;
     }
   });
 }
 
-void gemm_TransAB(Concurrency::array_view<float, 1> &A, Concurrency::array_view<float, 1> &B, Concurrency::array_view<float, 1> &C, int M, int N, int K, int lda, int ldb, int ldc, float alpha, float beta , long aOffset, long bOffset, long cOffset) 
+static void gemm_TransAB(Concurrency::array_view<float, 1> &A, long aOffset,
+                         Concurrency::array_view<float, 1> &B, long bOffset,
+                         Concurrency::array_view<float, 1> &C, long cOffset,
+                         int M, int N, int K, long lda, long ldb, long ldc,
+                         float alpha, float beta)
 {
   Concurrency::extent<2> grdExt((N+(THREADS-1))&~(THREADS-1), (M+(THREADS-1))&~(THREADS-1));
   Concurrency::tiled_extent<THREADS, THREADS> t_ext(grdExt);
@@ -194,7 +225,11 @@ void gemm_TransAB(Concurrency::array_view<float, 1> &A, Concurrency::array_view<
   });
 }
 
-int gemm_AMP(char TransA, char TransB, const int M, const int N, const int K, const float alpha, Concurrency::array_view<float> &A_mat, int lda, Concurrency::array_view<float>& B_mat, int ldb, const float beta, Concurrency::array_view<float>& C_mat,  int ldc, long aOffset, long bOffset, long cOffset, Concurrency::array_view<float> &temp_buf)
+int gemm_AMP(char TransA, char TransB, const int M, const int N, const int K, const float alpha,
+             Concurrency::array_view<float> &A_mat, long aOffset, long lda,
+             Concurrency::array_view<float> &B_mat, long bOffset, long ldb, const float beta,
+             Concurrency::array_view<float> &C_mat, long cOffset, long ldc,
+             Concurrency::array_view<float> &temp_buf)
 {
   // use longest possible type for intermediate value storage:
   // %%= if [:rational,:complex,:value].include?(dtype.type); "#{dtype.long_dtype.sizeof} temp1, temp2;"; end%%
@@ -224,19 +259,23 @@ int gemm_AMP(char TransA, char TransB, const int M, const int N, const int K, co
   if (TransB == 'n') 
   {
     if (TransA == 'n') 
-      gemm_NoTransAB(A_mat, B_mat, C_mat, M, N, K, lda, ldb, ldc, alpha, beta ,aOffset, bOffset, cOffset);
+      gemm_NoTransAB(A_mat, aOffset, B_mat, bOffset, C_mat, cOffset, M, N, K, lda, ldb, ldc, alpha, beta);
     else 
-      gemm_NoTransB(A_mat, B_mat, C_mat, M, N, K, lda, ldb, ldc, alpha, beta, aOffset, bOffset, cOffset, temp_buf);
+      gemm_NoTransB(A_mat, aOffset, B_mat, bOffset, C_mat, cOffset, M, N, K, lda, ldb, ldc, alpha, beta, temp_buf);
   } 
   else if (TransA == 'n') 
-    gemm_NoTransA(A_mat, B_mat, C_mat, M, N, K, lda, ldb, ldc, alpha, beta, aOffset, bOffset, cOffset);
+    gemm_NoTransA(A_mat, aOffset, B_mat, bOffset, C_mat, cOffset, M, N, K, lda, ldb, ldc, alpha, beta);
   else 
-    gemm_TransAB(A_mat, B_mat, C_mat, M, N, K, lda, ldb, ldc, alpha, beta, aOffset, bOffset, cOffset);
+    gemm_TransAB(A_mat, aOffset, B_mat, bOffset, C_mat, cOffset, M, N, K, lda, ldb, ldc, alpha, beta);
 
   return 0;
 }
 
-void gemv_TransA(Concurrency::array_view<float> &A_mat, int aOffset, Concurrency::array_view<float> &X_vec, long xOffset, Concurrency::array_view<float> &Y_vec, long yOffset, float alpha, float beta,int lenX, int lenY, Concurrency::array_view<float> &tempBuf)
+static void gemv_TransA(Concurrency::array_view<float> &A_mat, int aOffset,
+                        Concurrency::array_view<float> &X_vec, long xOffset,
+                        Concurrency::array_view<float> &Y_vec, long yOffset,
+                        float alpha, float beta, int lenX, int lenY,
+                        Concurrency::array_view<float> &tempBuf)
 {
   int len_X = (lenX + (BLOCK_SIZE - 1)) & ~(BLOCK_SIZE - 1);
   int num_blocks = len_X/BLOCK_SIZE;
@@ -288,7 +327,10 @@ void gemv_TransA(Concurrency::array_view<float> &A_mat, int aOffset, Concurrency
   });
 }
 
-void gemv_NoTransA(Concurrency::array_view<float> &A, int aOffset, Concurrency::array_view<float> &X, Concurrency::array_view<float> &Y, float alpha, float beta,int lenX, int lenY)
+static void gemv_NoTransA(Concurrency::array_view<float> &A, long aOffset,
+                          Concurrency::array_view<float> &X, long xOffset,
+                          Concurrency::array_view<float> &Y, long yOffset,
+                          float alpha, float beta, int lenX, int lenY)
 {
   long size = (lenY + 255) & ~255;
   Concurrency::extent<1> compute_domain(size);
@@ -302,7 +344,7 @@ void gemv_NoTransA(Concurrency::array_view<float> &A, int aOffset, Concurrency::
     for(int m = 0; m < (lenX -1)/BLOCK_SIZE+1; ++m)
     {
       if(m * BLOCK_SIZE + tx < lenX)
-        Xds[tx] = X[m*BLOCK_SIZE+tx];
+        Xds[tx] = X[xOffset + m*BLOCK_SIZE + tx];
       else
         Xds[tx]=0;
       tidx.barrier.wait();
@@ -313,14 +355,18 @@ void gemv_NoTransA(Concurrency::array_view<float> &A, int aOffset, Concurrency::
     }
    if(Col < lenY)
    {
-      Y[Col] *= beta; 
-      Y[Col] += alpha * Pvalue;
+      Y[yOffset + Col] *= beta; 
+      Y[yOffset + Col] += alpha * Pvalue;
    }
    tidx.barrier.wait();
   });
 }
 
-void gemv_AMP(char TransA, int M, int N, float alpha, Concurrency::array_view<float> &A, int aOffset, Concurrency::array_view<float> &X, long xOffset,  int incX, float beta, Concurrency::array_view<float> &Y, long yOffset,  int incY, Concurrency::array_view<float> &temp_buf)
+void gemv_AMP(char TransA, int M, int N, float alpha,
+              Concurrency::array_view<float> &A, long aOffset,
+              Concurrency::array_view<float> &X, long xOffset, long incX, float beta,
+              Concurrency::array_view<float> &Y, long yOffset, long incY,
+              Concurrency::array_view<float> &temp_buf)
 {
   if (alpha == 0.0)
     return;
@@ -343,21 +389,26 @@ void gemv_AMP(char TransA, int M, int N, float alpha, Concurrency::array_view<fl
   if(TransA == 't') 
     gemv_TransA(A, aOffset, X, xOffset, Y, yOffset, alpha, beta, lenX, lenY, temp_buf);
   else if (TransA == 'n')
-    gemv_NoTransA(A, aOffset, X, Y, alpha, beta, lenX, lenY);
+    gemv_NoTransA(A, aOffset, X, xOffset, Y, yOffset, alpha, beta, lenX, lenY);
 }
 
-void axpy_AMP(long n, float alpha, Concurrency::array_view<float> &X, long incx, Concurrency::array_view<float> &Y, long incy)
+void axpy_AMP(long n, float alpha,
+              Concurrency::array_view<float> &X, long xOffset, long incx,
+              Concurrency::array_view<float> &Y, long yOffset, long incy)
 {
   long size = (n + BLOCK_SIZE - 1) & ~(BLOCK_SIZE - 1);
   Concurrency::extent<1> compute_domain(size);
   Concurrency::parallel_for_each(compute_domain.tile<BLOCK_SIZE>(),[=] (Concurrency::tiled_index<BLOCK_SIZE> tidx) restrict(amp)
   {
     if(tidx.global[0] < n)
-      Y[tidx.global[0]] += X[tidx.global[0]] * alpha;
+      Y[yOffset + tidx.global[0]] += X[xOffset + tidx.global[0]] * alpha;
   });
 }
 
-void ger_AMP(long m, long n, float alpha, Concurrency::array_view<float> &x, long incx, Concurrency::array_view<float> &y, long incy, Concurrency::array_view<float> &a, long lda)
+void ger_AMP(long m, long n, float alpha,
+             Concurrency::array_view<float> &x, long xOffset, long incx,
+             Concurrency::array_view<float> &y, long yOffset, long incy,
+             Concurrency::array_view<float> &a, long aOffset, long lda)
 {
   long M = (m + 15) & ~15;
   long N = (n + 15) & ~15;
@@ -367,6 +418,6 @@ void ger_AMP(long m, long n, float alpha, Concurrency::array_view<float> &x, lon
     int i = tidx.global[0];
     int j = tidx.global[1];
     if(i < m && j < n)
-      a[j*m + i] += x[i] * y[j] * alpha;
+      a[aOffset + j*m + i] += x[xOffset + i] * y[yOffset + j] * alpha;
   });
 }

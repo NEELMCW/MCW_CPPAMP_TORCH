@@ -11,6 +11,7 @@ function ClassNLLCriterion:__init(weights)
 end
 
 function ClassNLLCriterion:updateOutput(input, target)
+   -- FIXME: GPUTensor is not generic tensor type
    if input:type() == 'torch.GPUTensor' and not self.weights then
        input.nn.ClassNLLCriterion_updateOutput(self, input, target)
        self.output = self.outputTensor[1]
@@ -44,7 +45,7 @@ end
 function ClassNLLCriterion:updateGradInput(input, target)
    self.gradInput:resizeAs(input)
    self.gradInput:zero()
-
+  -- FIXME: GPUTensor is not generic tensor type
   if input:type() == 'torch.GPUTensor' and not self.weights then
       input.nn.ClassNLLCriterion_updateGradInput(self, input, target)
       return self.gradInput

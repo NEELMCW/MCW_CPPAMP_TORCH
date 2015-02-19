@@ -1,5 +1,5 @@
-#ifndef TH_CUDA_TENSOR_CONV_INC
-#define TH_CUDA_TENSOR_CONV_INC
+#ifndef TH_GPU_TENSOR_CONV_INC
+#define TH_GPU_TENSOR_CONV_INC
 
 #include "THCTensor.h"
 
