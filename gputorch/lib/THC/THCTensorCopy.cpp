@@ -19,7 +19,6 @@ using namespace std;
 #define MAX_DIMS 25
 
 /* specific methods */
-
 void THGPUTensor_copyFloat(THGPUTensor *self, struct THFloatTensor *src)
 {
   THArgCheck(THGPUTensor_nElement(self) == THFloatTensor_nElement(src), 2, "sizes do not match");
@@ -29,7 +28,7 @@ void THGPUTensor_copyFloat(THGPUTensor *self, struct THFloatTensor *src)
     src = THFloatTensor_newContiguous(src);
     float* selfc_ptr = static_cast<float*>(Concurrency::getAllocator().device_data(selfc->storage->data));
 
-    THGPUCheck(gpuMemcpy(selfc_ptr, selfc->storageOffset,
+    THGPUCheck(gpuMemcpy(selfc_ptr, selfc->storageOffset * sizeof(float),
                          src->storage->data + src->storageOffset, 0,
                          THGPUTensor_nElement(self) * sizeof(float),
                          gpuMemcpyHostToDevice));
@@ -75,7 +74,7 @@ void THFloatTensor_copyGPU(THFloatTensor *self, struct THGPUTensor *src)
     src = THGPUTensor_newContiguous(src);
     float* src_ptr = static_cast<float*>(Concurrency::getAllocator().device_data(src->storage->data));
     THGPUCheck(gpuMemcpy(selfc->storage->data + selfc->storageOffset, 0,
-                       src_ptr, src->storageOffset,
+                       src_ptr, src->storageOffset * sizeof(float),
                        THGPUTensor_nElement(src) * sizeof(float),
                        gpuMemcpyDeviceToHost));
 
@@ -216,7 +215,7 @@ void THGPUTensor_kernel_copy(Concurrency::array_view<float>& av_dst, long dstOff
       }
       for (int i = i_start, o = o_start; o < o_end; i += i_step, o += o_step)
       {
-        av_dst[Concurrency::index<1>(dst_idx + o)] = av_src[Concurrency::index<1>(src_idx + i)];
+        av_dst[Concurrency::index<1>(dstOffset + dst_idx + o)] = av_src[Concurrency::index<1>(srcOffset + src_idx + i)];
       }
     }
   });
@@ -248,8 +247,8 @@ THC_API void THGPUTensor_copy(THGPUTensor *self, THGPUTensor *src)
     float* self_ptr = static_cast<float*>(Concurrency::getAllocator().device_data(self->storage->data));
     float* src_ptr = static_cast<float*>(Concurrency::getAllocator().device_data(src->storage->data));
     // TODO: Async copy
-    THGPUCheck(gpuMemcpy(self_ptr, self->storageOffset,
-               src_ptr, src->storageOffset,
+    THGPUCheck(gpuMemcpy(self_ptr, self->storageOffset * sizeof(float),
+               src_ptr, src->storageOffset * sizeof(float),
                totalElements * sizeof(float),
                gpuMemcpyDeviceToDevice));
   }
@@ -294,3 +293,4 @@ THC_API void THGPUTensor_copy(THGPUTensor *self, THGPUTensor *src)
     delete d_src_sz;
   }
 }
+

@@ -611,8 +611,10 @@ inline void kLocalMaxUndo(Concurrency::array_view<float,1> &avImages,
 void spatialMaxPooling_updateGradInput
 (
  // raw pointers:
-  Concurrency::array_view<float,1>&images, Concurrency::array_view<float,1>&maxgrads,
-  Concurrency::array_view<float,1>&maxacts, Concurrency::array_view<float,1>&targets,
+ Concurrency::array_view<float,1>&images, long imOffset,
+ Concurrency::array_view<float,1>&maxgrads, long gradOffset,
+ Concurrency::array_view<float,1>&maxacts, long actsOffset,
+ Concurrency::array_view<float,1>&targets, long targetOffset,
  // numImgColors == numFilters
  int numFilters, int imgSizeY, int imgSizeX, int numImages,
  // numModulesY == numModulesX == outputsX

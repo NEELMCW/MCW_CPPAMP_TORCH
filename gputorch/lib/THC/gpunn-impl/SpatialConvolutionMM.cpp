@@ -453,7 +453,7 @@ static int gpunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
         scale,
         *avData_col, columns->storageOffset, k,
         *avData_gradOutput, gradOutput->storageOffset + gradOutput->stride[0] * elt, k, 1,
-        *avData_gradWeight, gradWeight->storageOffset, n, temp_buf1
+        *avData_gradWeight, gradWeight->storageOffset, n, *temp_buf1
     );
 
     if(elt==batchSize-1)

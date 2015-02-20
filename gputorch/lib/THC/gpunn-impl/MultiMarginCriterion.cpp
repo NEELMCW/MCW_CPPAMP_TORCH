@@ -114,9 +114,9 @@ static int gpunn_MultiMarginCriterion_updateOutput(lua_State *L)
 
     PREPARE_AV_WITH_STORAGE(target, pavTarget);
     PREPARE_AV_WITH_STORAGE(output, pavOutput);
-    gpunn_MultiMarginCriterion_updateOutput_kernel(*pavOutput, output->storageOffset,
+    gpunn_MultiMarginCriterion_updateOutput_kernel(*pavOutput, 0,
                                                    *pavInput, input->storageOffset,
-                                                   *pavTarget, target->storageOffset,
+                                                   *pavTarget, 0,
                                                    1, input->size[0],
                                                    sizeaverage);
     lua_pushnumber(L, THGPUStorage_get(output, 0));
@@ -131,9 +131,9 @@ static int gpunn_MultiMarginCriterion_updateOutput(lua_State *L)
 
     PREPARE_AV(target, pavTarget);
     PREPARE_AV(output, pavOutput);
-    gpunn_MultiMarginCriterion_updateOutput_kernel(*pavOutput, output->storageOffset
+    gpunn_MultiMarginCriterion_updateOutput_kernel(*pavOutput, output->storageOffset,
                                                    *pavInput, input->storageOffset,
-                                                   *pavTarget, target->storageOffset
+                                                   *pavTarget, target->storageOffset,
                                                    input->size[0], input->size[1],
                                                    sizeaverage);
     lua_pushnumber(L, THGPUTensor_sumall(output));

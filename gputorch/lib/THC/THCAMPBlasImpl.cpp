@@ -86,9 +86,8 @@ static void gemm_NoTransB(Concurrency::array_view<float, 1> &A, long aOffset,
       {
         if (threadIdx < stride)
           sh[threadIdx] += sh[threadIdx + stride];
+        tidx.barrier.wait();
       }
-
-      tidx.barrier.wait();
 
       if(threadIdx == 0 && Col < M && Row < N)
       {

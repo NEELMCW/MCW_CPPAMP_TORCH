@@ -16,9 +16,10 @@
 #ifdef DECLARE_BOLT_DEVICE_VECTOR
 #undef DECLARE_BOLT_DEVICE_VECTOR
 #endif
-#define DECLARE_BOLT_DEVICE_VECTOR(host_a, dv_a)\
-  Concurrency::array_view<float, 1> *pav_##host_a = static_cast<Concurrency::array_view<float, 1> *>(host_a->storage->allocatorContext);\
-  bolt::amp::device_vector<float> dv_a(*pav_##host_a,THGPUTensor_nElement(host_a),true);
+#define DECLARE_BOLT_DEVICE_VECTOR(THGPUTensor_ptr, dv_a) \
+  Concurrency::array_view<float, 1> *pav_##THGPUTensor_ptr = \
+    static_cast<Concurrency::array_view<float, 1> *>(THGPUTensor_ptr->storage->allocatorContext);\
+  bolt::amp::device_vector<float> dv_a(*pav_##THGPUTensor_ptr, THGPUTensor_nElement(THGPUTensor_ptr), true);
 
 #ifdef DECLARE_BOLT_DEVICE_VECTOR_2
 #undef DECLARE_BOLT_DEVICE_VECTOR_2                                                                   

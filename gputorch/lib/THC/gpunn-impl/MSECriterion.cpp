@@ -143,7 +143,9 @@ static int gpunn_MSECriterion_updateOutput2(lua_State *L)
   PREPARE_AV_WITH_STORAGE(output, pavOutput);
   PREPARE_AV(input, pavInput);
   PREPARE_AV(target, pavTarget);
-  gpunn_MSECriterion_updateOutput_kernel(*pavOutput, output->storageOffset,
+  
+  //Since there is no storageOffset for THGPUStorage the 2nd Argument is set to 0 
+  gpunn_MSECriterion_updateOutput_kernel(*pavOutput, 0,
                                          *pavInput, input->storageOffset,
                                          *pavTarget, target->storageOffset,
                                          1, size, sizeAverage);
