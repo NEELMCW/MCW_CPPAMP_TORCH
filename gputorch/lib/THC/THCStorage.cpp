@@ -10,7 +10,7 @@ void THGPUStorage_set(THGPUStorage *self, long index, float value)
 {
   THArgCheck((index >= 0) && (index < self->size), 2, "index out of bounds");
   float* device_ptr = static_cast<float*>(Concurrency::getAllocator().device_data(self->data));
-  THGPUCheck(gpuMemcpy(device_ptr, index, &value, 0, sizeof(float), gpuMemcpyHostToDevice));
+  THGPUCheck(gpuMemcpy(device_ptr, index * sizeof(float), &value, 0, sizeof(float), gpuMemcpyHostToDevice));
 }
 
 float THGPUStorage_get(const THGPUStorage *self, long index)
@@ -18,7 +18,7 @@ float THGPUStorage_get(const THGPUStorage *self, long index)
   float value;
   THArgCheck((index >= 0) && (index < self->size), 2, "index out of bounds");
   float* device_ptr = static_cast<float*>(Concurrency::getAllocator().device_data(self->data));
-  THGPUCheck(gpuMemcpy(&value, 0, device_ptr, index, sizeof(float), gpuMemcpyDeviceToHost));
+  THGPUCheck(gpuMemcpy(&value, 0, device_ptr, index * sizeof(float), sizeof(float), gpuMemcpyDeviceToHost));
   return value;
 }
 
@@ -194,7 +194,7 @@ void THGPUStorage_resize(THGPUStorage *self, long size)
     // TODO: Async copy
     if (src_ptr)
       THGPUCheck(gpuMemcpy(dest_ptr, 0, src_ptr, 0, THMin(self->size, size) * sizeof(float), gpuMemcpyDeviceToDevice));
-    
+
     avSrc->~array_view();
     self->allocatorContext = (void *)avDest;
     self->data = avDest->data();

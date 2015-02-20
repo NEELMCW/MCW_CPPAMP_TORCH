@@ -184,7 +184,7 @@ void NAME(int size, THGPUTensor *result, ARG1)                                  
     vec[i] = x;                                                                                          \
   }                                                                                                      \
   float* device_ptr = static_cast<float*>(Concurrency::getAllocator().device_data(result->storage->data));\
-  THGPUCheck(gpuMemcpy(device_ptr, result->storageOffset, vec, 0, size * sizeof(float), gpuMemcpyHostToDevice));\
+  THGPUCheck(gpuMemcpy(device_ptr, result->storageOffset * sizeof(float), vec, 0, size * sizeof(float), gpuMemcpyHostToDevice));\
 }
 
 // TODO: currently can't use pfe since no kernel versions of all CURAND_FUNC from underlying AMP
@@ -201,7 +201,7 @@ void NAME(int size, THGPUTensor *result, ARG1, ARG2)                            
     vec[i] = x;                                                                                          \
   }                                                                                                      \
   float* device_ptr = static_cast<float*>(Concurrency::getAllocator().device_data(result->storage->data));\
-  THGPUCheck(gpuMemcpy(device_ptr, result->storageOffset, vec, 0, size * sizeof(float), gpuMemcpyHostToDevice));\
+  THGPUCheck(gpuMemcpy(device_ptr, result->storageOffset * sizeof(float), vec, 0, size * sizeof(float), gpuMemcpyHostToDevice));\
 }
 
 GENERATE_KERNEL2(generate_uniform, double a, double b, uniform_real_distribution, x * (b-a) + a)
@@ -226,7 +226,7 @@ void generate_log_normal(int size, THGPUTensor *self_, float mean, float stddev)
     vec[i] = x;
   }
   float* device_ptr = static_cast<float*>(Concurrency::getAllocator().device_data(self_->storage->data));
-  THGPUCheck(gpuMemcpy(device_ptr, self_->storageOffset, vec, 0, size * sizeof(float), gpuMemcpyHostToDevice));
+  THGPUCheck(gpuMemcpy(device_ptr, self_->storageOffset * sizeof(float), vec, 0, size * sizeof(float), gpuMemcpyHostToDevice));
 }
 
 #define NUM_BLOCKS min((int)DIVUP(size, BLOCK_SIZE), MAX_NUM_BLOCKS)

@@ -152,10 +152,10 @@ static int gpunn_ClassNLLCriterion_updateGradInput(lua_State *L)
       THArgCheck(0, 2, "multi-target not implemented");
     float tid;
     float* target_ptr = static_cast<float*>(Concurrency::getAllocator().device_data(target->storage->data));
-    gpuMemcpy(&tid, 0, target_ptr, target->storageOffset, sizeof(float), gpuMemcpyDeviceToHost);
+    gpuMemcpy(&tid, 0, target_ptr, target->storageOffset * sizeof(float), sizeof(float), gpuMemcpyDeviceToHost);
 
     float* gradInput_ptr = static_cast<float*>(Concurrency::getAllocator().device_data(gradInput->storage->data));
-    gpuMemcpy(gradInput_ptr, gradInput->storageOffset + (int)tid - 1,
+    gpuMemcpy(gradInput_ptr, (gradInput->storageOffset + (int)tid - 1) * sizeof(float),
                &grad, 0, sizeof(float), gpuMemcpyHostToDevice);
   }
   else if (input->nDimension == 2)

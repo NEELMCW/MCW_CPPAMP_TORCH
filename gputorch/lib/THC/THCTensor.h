@@ -122,18 +122,4 @@ THC_API float THGPUTensor_get2d(const THGPUTensor *tensor, long x0, long x1);
 THC_API float THGPUTensor_get3d(const THGPUTensor *tensor, long x0, long x1, long x2);
 THC_API float THGPUTensor_get4d(const THGPUTensor *tensor, long x0, long x1, long x2, long x3);
 
-
-#if 0
-THC_API void THGPUTensor_fill(THGPUTensor *self, float value);
-THC_API void THGPUTensor_copy(THGPUTensor *self, THGPUTensor *src);
-
-THC_API void THByteTensor_copyGPU(THByteTensor *self, THGPUTensor *src);
-THC_API void THCharTensor_copyGPU(THCharTensor *self, THGPUTensor *src);
-THC_API void THShortTensor_copyGPU(THShortTensor *self, THGPUTensor *src);
-THC_API void THIntTensor_copyGPU(THIntTensor *self, THGPUTensor *src);
-THC_API void THLongTensor_copyGPU(THLongTensor *self, THGPUTensor *src);
-THC_API void THFloatTensor_copyGPU(THFloatTensor *self, THGPUTensor *src);
-THC_API void THDoubleTensor_copyGPU(THDoubleTensor *self, THGPUTensor *src);
-THC_API void THGPUTensor_copyGPU(THGPUTensor *self, THGPUTensor *src);
-#endif
 #endif
