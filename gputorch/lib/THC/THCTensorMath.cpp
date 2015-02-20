@@ -1560,7 +1560,6 @@ void THGPUTensor_kernel_indexCopy(Concurrency::array_view<float, 1> &resTensor, 
 
   Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<16,16>tidx) restrict(amp)
   {
-    //int thread_idx = blockIdx.x * blockDim.x * blockDim.y + threadIdx.y * blockDim.x + threadIdx.x;
     int thread_idx = tidx.tile[1] * t_ext.tile_dim1 * t_ext.tile_dim0 + tidx.local[0] * t_ext.tile_dim1 + tidx.local[1];
 
     long flat_size = src_size / idx_size; 
@@ -1568,29 +1567,27 @@ void THGPUTensor_kernel_indexCopy(Concurrency::array_view<float, 1> &resTensor, 
     if (thread_idx < flat_size)
     {
       long coeff = 0;
-      //for (int i=0; i<idx_size; i++)
-      //{
-        int leftover = thread_idx;
-        int targetIdx = 0;
-        int resIdx = 0;
-        for (int d=0; d<res_nDim; d++)
+      int leftover = thread_idx;
+      int targetIdx = 0;
+      int resIdx = 0;
+      for (int d=0; d<res_nDim; d++)
+      {
+        if (d < dim)
         {
-          if (d < dim)
-          {
-            long stride_d = (resStride[Concurrency::index<1>(d)]) / size_dim;
-            coeff = leftover / stride_d;
-            leftover -= coeff * stride_d;
-            targetIdx += coeff * stride_d * idx_size;
-            resIdx += coeff * (resStride[Concurrency::index<1>(d)]);
-          }
-          else if (d > dim)
-          {
-            coeff = leftover / (resStride[Concurrency::index<1>(d)]);
-            leftover -= coeff * (resStride[Concurrency::index<1>(d)]);
-            targetIdx += coeff * (resStride[Concurrency::index<1>(d)]);
-            resIdx += coeff * (resStride[Concurrency::index<1>(d)]);
-          }
+          long stride_d = (resStride[Concurrency::index<1>(d)]) / size_dim;
+          coeff = leftover / stride_d;
+          leftover -= coeff * stride_d;
+          targetIdx += coeff * stride_d * idx_size;
+          resIdx += coeff * (resStride[Concurrency::index<1>(d)]);
         }
+        else if (d > dim)
+        {
+          coeff = leftover / (resStride[Concurrency::index<1>(d)]);
+          leftover -= coeff * (resStride[Concurrency::index<1>(d)]);
+          targetIdx += coeff * (resStride[Concurrency::index<1>(d)]);
+          resIdx += coeff * (resStride[Concurrency::index<1>(d)]);
+        }
+      }
       for (int i = 0; i<idx_size; i++)
       {
         resTensor[Concurrency::index<1>(resOffset + resIdx + ((int)(indx[Concurrency::index<1>(i)])-1)*(resStride[Concurrency::index<1>(dim)]))] = srcTensor[Concurrency::index<1>(srcOffset + targetIdx +(int) i*(resStride[Concurrency::index<1>(dim)]))];

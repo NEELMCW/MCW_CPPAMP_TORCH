@@ -4,7 +4,7 @@
 #define BLOCK_SIZE 256
 #define TILE_DIM   16 
 #define THREADS    16
-#define GEMM_BLOCK 64
+#define GEMM_BLOCK 256
 
 static void gemm_NoTransAB(Concurrency::array_view<float, 1> &A, long aOffset,
                            Concurrency::array_view<float, 1> &B, long bOffset,
@@ -61,38 +61,39 @@ static void gemm_NoTransB(Concurrency::array_view<float, 1> &A, long aOffset,
 {
   if (K > N && K > M)
   {
-    Concurrency::extent<1> grdExt(M*64);
-    Concurrency::tiled_extent<GEMM_BLOCK> t_ext(grdExt);
-    Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<GEMM_BLOCK> tidx) restrict(amp){
-
-    int threadIdx = tidx.local[0];
-    int blockIdx = tidx.tile[0];
-
-    for (int i = 0; i < N; i++)
+    Concurrency::extent<2> grdExt(N, M*GEMM_BLOCK);
+    Concurrency::tiled_extent<1, GEMM_BLOCK> t_ext(grdExt);
+    Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1, GEMM_BLOCK> tidx) restrict(amp)
     {
-      int j = blockIdx;
+      int threadIdx = tidx.local[1];
+      int blockIdx = tidx.tile[1];
+
+      int Row = tidx.tile[0];
+      int Col = blockIdx;
+
       tile_static float sh[GEMM_BLOCK];
 
       sh[threadIdx] = 0;
 
       for(int tileId = 0; tileId < ((K + GEMM_BLOCK - 1) & ~(GEMM_BLOCK - 1))/GEMM_BLOCK; tileId++)
       {
-        if (tileId * GEMM_BLOCK + threadIdx < K)
-          sh[threadIdx] += A[aOffset + j * K + tileId * GEMM_BLOCK + threadIdx] * B[bOffset + i * K + tileId * GEMM_BLOCK + threadIdx];
-        tidx.barrier.wait();
+        if (tileId * GEMM_BLOCK + threadIdx < K && Col < M && Row < N)
+          sh[threadIdx] += A[aOffset + Col * K + tileId * GEMM_BLOCK + threadIdx] * B[bOffset + Row * K + tileId * GEMM_BLOCK + threadIdx];
       }
+      tidx.barrier.wait();
 
       for (int stride = GEMM_BLOCK/2; stride >= 1; stride /= 2)
       {
         if (threadIdx < stride)
           sh[threadIdx] += sh[threadIdx + stride];
       }
-
       tidx.barrier.wait();
 
-      C[cOffset + i * M + j] *= beta;
-      C[cOffset + i * M + j] += sh[0] * alpha;
-    }
+      if(threadIdx == 0 && Col < M && Row < N)
+      {
+        C[cOffset + Row * M + Col] *= beta;
+        C[cOffset + Row * M + Col] += sh[0] * alpha;
+      }
     });
   }
   else
