@@ -24,7 +24,7 @@ void THGPUTensor_copyFloat(THGPUTensor *self, struct THFloatTensor *src)
     src = THFloatTensor_newContiguous(src);
     float* selfc_ptr = static_cast<float*>(Concurrency::getAllocator().device_data(selfc->storage->data));
 
-    THGPUCheck(gpuMemcpy(selfc_ptr, selfc->storageOffset,
+    THGPUCheck(gpuMemcpy(selfc_ptr, selfc->storageOffset * sizeof(float),
                          src->storage->data + src->storageOffset, 0,
                          THGPUTensor_nElement(self) * sizeof(float),
                          gpuMemcpyHostToDevice));
@@ -70,7 +70,7 @@ void THFloatTensor_copyGPU(THFloatTensor *self, struct THGPUTensor *src)
     src = THGPUTensor_newContiguous(src);
     float* src_ptr = static_cast<float*>(Concurrency::getAllocator().device_data(src->storage->data));
     THGPUCheck(gpuMemcpy(selfc->storage->data + selfc->storageOffset, 0,
-                       src_ptr, src->storageOffset,
+                       src_ptr, src->storageOffset * sizeof(float),
                        THGPUTensor_nElement(src) * sizeof(float),
                        gpuMemcpyDeviceToHost));
 
@@ -243,8 +243,8 @@ THC_API void THGPUTensor_copy(THGPUTensor *self, THGPUTensor *src)
     float* self_ptr = static_cast<float*>(Concurrency::getAllocator().device_data(self->storage->data));
     float* src_ptr = static_cast<float*>(Concurrency::getAllocator().device_data(src->storage->data));
     // TODO: Async copy
-    THGPUCheck(gpuMemcpy(self_ptr, self->storageOffset,
-               src_ptr, src->storageOffset,
+    THGPUCheck(gpuMemcpy(self_ptr, self->storageOffset * sizeof(float),
+               src_ptr, src->storageOffset * sizeof(float),
                totalElements * sizeof(float),
                gpuMemcpyDeviceToDevice));
   }
