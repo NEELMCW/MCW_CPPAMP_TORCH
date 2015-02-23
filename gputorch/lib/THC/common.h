@@ -7,7 +7,7 @@
 #include "bolt/amp/transform_reduce.h"
 #include "bolt/amp/reduce.h"
 #include "bolt/amp/inner_product.h"
-#include "bolt/amp/copy.h"    
+#include "bolt/amp/copy.h"
 
 #ifdef DECLARE_BOLT_DEVICE_VECTOR
 #undef DECLARE_BOLT_DEVICE_VECTOR

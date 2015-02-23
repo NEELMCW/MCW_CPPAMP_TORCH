@@ -1,7 +1,7 @@
 #include "THCBlas.h"
 #include "THCGeneral.h"
 #include "THCAMPBlasImpl.h"
-#include<iostream>
+#include <iostream>
 
 void THGPUBlas_init(int devices, int device)
 {
@@ -34,7 +34,7 @@ void THGPUBlas_swap(long n, float *x, long incx, float *y, long incy)
     incy = 1;
   }
 
-  if ( (n <= INT_MAX) && (incx <= INT_MAX) && (incy <= INT_MAX) )
+  if ((n <= INT_MAX) && (incx <= INT_MAX) && (incy <= INT_MAX))
   {
     cl_int err;
     cl_event event = NULL;
@@ -43,12 +43,12 @@ void THGPUBlas_swap(long n, float *x, long incx, float *y, long incy)
     size_t i_n = (size_t)n;
     int i_incx = (int)incx;
     int i_incy = (int)incy;
-    int lenX = 1 + (n-1)*abs(i_incx);
-    int lenY = 1 + (n-1)*abs(i_incy);
+    int lenX = 1 + (n - 1) * abs(i_incx);
+    int lenY = 1 + (n - 1) * abs(i_incy);
 
-    bufX = clCreateBuffer(mcontext, CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR, (lenX*sizeof(cl_float)), x, &err);
-    bufY = clCreateBuffer(mcontext, CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR, (lenY*sizeof(cl_float)), y, &err);
-    err = clblasSswap( i_n, bufX, 0, i_incx, bufY, 0, i_incy, 1, &mqueue, 0, NULL, &event);
+    bufX = clCreateBuffer(mcontext, CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR, (lenX * sizeof(cl_float)), x, &err);
+    bufY = clCreateBuffer(mcontext, CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR, (lenY * sizeof(cl_float)), y, &err);
+    err = clblasSswap(i_n, bufX, 0, i_incx, bufY, 0, i_incy, 1, &mqueue, 0, NULL, &event);
 
     if (err != CL_SUCCESS) 
     {
@@ -57,8 +57,8 @@ void THGPUBlas_swap(long n, float *x, long incx, float *y, long incy)
     else
     {
       /* Fetch results of calculations from GPU memory. */
-      err = clEnqueueReadBuffer(mqueue, bufX, CL_TRUE, 0, (lenX*sizeof(float)), x, 0, NULL, NULL);
-      err = clEnqueueReadBuffer(mqueue, bufY, CL_TRUE, 0, (lenY*sizeof(float)), y, 0, NULL, NULL);
+      err = clEnqueueReadBuffer(mqueue, bufX, CL_TRUE, 0, (lenX * sizeof(float)), x, 0, NULL, NULL);
+      err = clEnqueueReadBuffer(mqueue, bufY, CL_TRUE, 0, (lenY * sizeof(float)), y, 0, NULL, NULL);
     }
     /* Release OpenCL memory objects. */
     clReleaseMemObject(bufY);
@@ -76,7 +76,7 @@ void THGPUBlas_scal(long n, float a, float *x, long incx)
   if (n == 1)
     incx = 1;
 
-  if ( (n <= INT_MAX) && (incx <= INT_MAX) )
+  if ((n <= INT_MAX) && (incx <= INT_MAX))
   {
     cl_int err;
     cl_mem bufX;
@@ -84,11 +84,11 @@ void THGPUBlas_scal(long n, float a, float *x, long incx)
     size_t i_n = (size_t)n;
     int i_incx = (int)incx;
     cl_float alpha = (cl_float)a;
-    int lenX = 1 + (n-1)*abs(i_incx);
+    int lenX = 1 + (n - 1) * abs(i_incx);
 
     bufX = clCreateBuffer(mcontext, CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR, ( lenX * sizeof(float)), x, &err);
 
-    err = clblasSscal( i_n, alpha, bufX, 0, i_incx, 1, &mqueue, 0, NULL,  &event);
+    err = clblasSscal(i_n, alpha, bufX, 0, i_incx, 1, &mqueue, 0, NULL,  &event);
 
     if (err != CL_SUCCESS)
     {
@@ -124,15 +124,15 @@ void THGPUBlas_copy(long n, float *x, long incx, float *y, long incy)
     size_t i_n = (size_t)n;
     int i_incx = (int)incx;
     int i_incy = (int)incy;
-    int lenX = 1 + (n-1)*abs(i_incx);
-    int lenY = 1 + (n-1)*abs(i_incy);
+    int lenX = 1 + (n - 1) * abs(i_incx);
+    int lenY = 1 + (n - 1) * abs(i_incy);
 
-    bufX = clCreateBuffer(mcontext, CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR, (lenX*sizeof(float)), x, &err);
-    bufY = clCreateBuffer(mcontext, CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR, (lenY*sizeof(float)), y, &err);
+    bufX = clCreateBuffer(mcontext, CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR, (lenX * sizeof(float)), x, &err);
+    bufY = clCreateBuffer(mcontext, CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR, (lenY * sizeof(float)), y, &err);
 
 
     /* Call clblas function. */
-    err = clblasScopy( i_n, bufX, 0, i_incx, bufY, 0, i_incy, 1, &mqueue, 0, NULL, &event);
+    err = clblasScopy(i_n, bufX, 0, i_incx, bufY, 0, i_incy, 1, &mqueue, 0, NULL, &event);
     if (err != CL_SUCCESS)
     {
       printf("clblasScopy() failed with %d\n", err);
@@ -140,7 +140,7 @@ void THGPUBlas_copy(long n, float *x, long incx, float *y, long incy)
     else
     {
       /* Fetch results of calculations from GPU memory. */
-      err = clEnqueueReadBuffer(mqueue, bufY, CL_TRUE, 0, (lenY*sizeof(float)), y, 0, NULL, NULL);
+      err = clEnqueueReadBuffer(mqueue, bufY, CL_TRUE, 0, (lenY * sizeof(float)), y, 0, NULL, NULL);
     }
     /* Release OpenCL memory objects. */
     clReleaseMemObject(bufY);
@@ -169,15 +169,15 @@ void THGPUBlas_axpy(long n, float a, float *x, long incx, float *y, long incy)
     size_t i_n = (size_t)n;
     int i_incx = (int)incx;
     int i_incy = (int)incy;
-    int lenX = 1 + (n-1)*abs(i_incx);
-    int lenY = 1 + (n-1)*abs(i_incy);
+    int lenX = 1 + (n - 1) * abs(i_incx);
+    int lenY = 1 + (n - 1) * abs(i_incy);
     cl_float alpha = (cl_float)a;
 
     /* Prepare OpenCL memory objects and place matrices inside them. */
-    bufX = clCreateBuffer(mcontext, CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR, (lenX*sizeof(float)), x, &err);
-    bufY = clCreateBuffer(mcontext, CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR, (lenY*sizeof(float)), y, &err);
+    bufX = clCreateBuffer(mcontext, CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR, (lenX * sizeof(float)), x, &err);
+    bufY = clCreateBuffer(mcontext, CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR, (lenY * sizeof(float)), y, &err);
     /* Call clblas function. */
-    err = clblasSaxpy( i_n, alpha, bufX, 0, i_incx, bufY, 0, i_incy, 1, &mqueue, 0, NULL, NULL);
+    err = clblasSaxpy(i_n, alpha, bufX, 0, i_incx, bufY, 0, i_incy, 1, &mqueue, 0, NULL, NULL);
     if (err != CL_SUCCESS)
     {
       printf("clblasSaxpy() failed with %d\n", err);
@@ -206,7 +206,7 @@ float THGPUBlas_dot(long n, float *x, long incx, float *y, long incy)
     incy = 1;
   }
 
-  if ( (n <= INT_MAX) && (incx <= INT_MAX) && (incy <= INT_MAX) )
+  if ((n <= INT_MAX) && (incx <= INT_MAX) && (incy <= INT_MAX))
   {
     cl_int err;
     cl_mem bufX, bufY, bufDotP, scratchBuff;
@@ -214,13 +214,13 @@ float THGPUBlas_dot(long n, float *x, long incx, float *y, long incy)
     size_t i_n = (size_t)n;
     int i_incx = (int)incx;
     int i_incy = (int)incy;
-    int lenX = 1 + (n-1)*abs(i_incx);
-    int lenY = 1 + (n-1)*abs(i_incy);
+    int lenX = 1 + (n - 1)*abs(i_incx);
+    int lenY = 1 + (n - 1)*abs(i_incy);
 
     float result = 0.0;
 
-    bufX = clCreateBuffer(mcontext, CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR, (lenX*sizeof(float)), x, &err);
-    bufY = clCreateBuffer(mcontext, CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR, (lenY*sizeof(float)), y, &err);
+    bufX = clCreateBuffer(mcontext, CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR, (lenX * sizeof(float)), x, &err);
+    bufY = clCreateBuffer(mcontext, CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR, (lenY * sizeof(float)), y, &err);
     // Allocate 1 element space for dotProduct
     bufDotP = clCreateBuffer(mcontext, CL_MEM_WRITE_ONLY, (sizeof(float)), NULL, &err);
     // Allocate minimum of N elements
@@ -228,7 +228,7 @@ float THGPUBlas_dot(long n, float *x, long incx, float *y, long incy)
 
 
     /* Call clblas function. */
-    err = clblasSdot( i_n, bufDotP, 0, bufX, 0, i_incx, bufY, 0, i_incy, scratchBuff, 1, &mqueue, 0, NULL, &event);
+    err = clblasSdot(i_n, bufDotP, 0, bufX, 0, i_incx, bufY, 0, i_incy, scratchBuff, 1, &mqueue, 0, NULL, &event);
     if (err != CL_SUCCESS)
     {
       printf("clblasSdot() failed with %d\n", err);
@@ -258,44 +258,39 @@ float THGPUBlas_dot(long n, float *x, long incx, float *y, long incy)
 /* Level 2 */
 void THGPUBlas_gemv(char trans, long m, long n, float alpha, float *a, long lda, float *x, long incx, float beta, float *y, long incy)
 {
-
-  //int transa_ = ((trans == 't') || (trans == 'T'));
-
   if (n == 1)
     lda = m;
-
 
   int i_incx = (int)incx;
   int i_incy = (int)incy;
   int lenM, lenN;
-  //cublasOperation_t op;
+
   clblasTranspose op;
   if (trans == 't')
   {
     op = clblasTrans;
-    lenM = 1 + (m-1)*abs(i_incx);
-    lenN = 1 + (n-1)*abs(i_incy);
+    lenM = 1 + (m - 1) * abs(i_incx);
+    lenN = 1 + (n - 1) * abs(i_incy);
   }
   else if (trans == 'n')
   {
     op = clblasNoTrans;
-    lenM = 1 + (n-1)*abs(i_incx);
-    lenN = 1 + (m-1)*abs(i_incy);
+    lenM = 1 + (n - 1) * abs(i_incx);
+    lenN = 1 + (m - 1) * abs(i_incy);
   }
   else if (trans == 'c')
   {
     op = clblasConjTrans;
-    lenM = 1 + (n-1)*abs(i_incx);
-    lenN = 1 + (m-1)*abs(i_incy);
+    lenM = 1 + (n - 1) * abs(i_incx);
+    lenN = 1 + (m - 1) * abs(i_incy);
   }
+
   clblasOrder order = clblasColumnMajor;
 
-
-
-  if( (m <= INT_MAX) && (n <= INT_MAX) &&
+  if ((m <= INT_MAX) && (n <= INT_MAX) &&
       (lda > 0) && (lda <= INT_MAX) &&
       (incx > 0) && (incx <= INT_MAX) &&
-      (incy > 0) && (incy <= INT_MAX) )
+      (incy > 0) && (incy <= INT_MAX))
   {
     cl_int err;
     cl_mem bufX, bufY, bufA;
@@ -341,7 +336,7 @@ void THGPUBlas_ger(long m, long n, float alpha, float *x, long incx, float *y, l
   if (n == 1)
     lda = m;
 
-  if ( (m <= INT_MAX) && (n <= INT_MAX) && (lda <= INT_MAX)  && (incx <= INT_MAX) && (incy <= INT_MAX) )
+  if ((m <= INT_MAX) && (n <= INT_MAX) && (lda <= INT_MAX)  && (incx <= INT_MAX) && (incy <= INT_MAX))
   {
     size_t i_m = (size_t)m;
     size_t i_n = (size_t)n;
@@ -354,8 +349,8 @@ void THGPUBlas_ger(long m, long n, float alpha, float *x, long incx, float *y, l
     cl_event event = NULL;
     clblasOrder order = clblasColumnMajor;
 
-    int lenM = 1 + (m-1)*abs(i_incx);
-    int lenN = 1 + (n-1)*abs(i_incy);
+    int lenM = 1 + (m - 1) * abs(i_incx);
+    int lenN = 1 + (n - 1) * abs(i_incy);
 
     /* Prepare OpenCL memory objects and place matrices inside them. */
     bufA = clCreateBuffer(mcontext, CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR, (m * i_lda * sizeof(float)), a, &err);
@@ -416,17 +411,6 @@ void THGPUBlas_gemm(char transa, char transb, long m, long n, long k, float alph
       ldb = k;
   }
 
-  //cublasOperation_t opa;
-  //if (transa == 't') opa = CUBLAS_OP_T;
-  //else if (transa == 'n') opa = CUBLAS_OP_N;
-  //else if (transa == 'c') opa = CUBLAS_OP_C;
-  //else THError("transa must be one of: t, n, c");
-
-  //cublasOperation_t opb;
-  //if (transb == 't') opb = CUBLAS_OP_T;
-  //else if (transb == 'n') opb = CUBLAS_OP_N;
-  //else if (transb == 'c') opb = CUBLAS_OP_C;
-  //else THError("transb must be one of: t, n, c");
   clblasTranspose opa;
   if (transa == 't') opa = clblasTrans;
   else if (transa == 'n') opa = clblasNoTrans;
@@ -437,7 +421,7 @@ void THGPUBlas_gemm(char transa, char transb, long m, long n, long k, float alph
   else if (transb == 'n') opb = clblasNoTrans;
   else if (transb == 'c') opb = clblasConjTrans;
 
-  if ( (m <= INT_MAX) && (n <= INT_MAX) && (k <= INT_MAX) && (lda <= INT_MAX)  && (ldb <= INT_MAX) && (ldc <= INT_MAX) )
+  if ((m <= INT_MAX) && (n <= INT_MAX) && (k <= INT_MAX) && (lda <= INT_MAX)  && (ldb <= INT_MAX) && (ldc <= INT_MAX))
   {
     int i_lda = (int)lda;
     int i_ldb = (int)ldb;
@@ -474,8 +458,9 @@ void THGPUBlas_gemm(char transa, char transb, long m, long n, long k, float alph
           "with the bound [val] <= %d", INT_MAX);
 }
 
-void* THGPUBlas_clCreateBuffer(long m, long k, float* a) {
-  return (void*)clCreateBuffer(mcontext, CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR, m * k * sizeof(*a),  a, NULL);
+void* THGPUBlas_clCreateBuffer(long m, long k, float* a)
+{
+  return (void*)clCreateBuffer(mcontext, CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR, m * k * sizeof(*a), a, NULL);
 }
 
 /* Level 3 optimized. bufA, bufB are created outside as m,n,k is not changed in loops*/
@@ -485,28 +470,28 @@ void THGPUBlas_gemm_opt(char transa, char transb, long m, long n, long k, float 
                         Concurrency::array_view<float> &c, long cOffset, long ldc,
                         Concurrency::array_view<float> &temp_buf)
 {
-  gemm_AMP(transa, transb, m, n, k, alpha, 
-           a, aOffset, lda, 
-           b, bOffset, ldb, beta, 
+  gemm_AMP(transa, transb, m, n, k, alpha,
+           a, aOffset, lda,
+           b, bOffset, ldb, beta,
            c, cOffset, ldc, temp_buf);
 }
 
-void THGPUBlas_axpy_opt(long n, float a, 
-                        Concurrency::array_view<float> &x, long xOffset, long incx, 
+void THGPUBlas_axpy_opt(long n, float a,
+                        Concurrency::array_view<float> &x, long xOffset, long incx,
                         Concurrency::array_view<float> &y, long yOffset, long incy)
 {
   axpy_AMP(n, a, x, xOffset, incx, y, yOffset, incy);
 }
 
 void THGPUBlas_ger_opt(long m, long n, float alpha,
-                       Concurrency::array_view<float> &x, long xOffset, long incx, 
-                       Concurrency::array_view<float> &y, long yOffset, long incy, 
+                       Concurrency::array_view<float> &x, long xOffset, long incx,
+                       Concurrency::array_view<float> &y, long yOffset, long incy,
                        Concurrency::array_view<float> &a, long aOffset, long lda)
 { 
   ger_AMP(m, n, alpha, x, xOffset, incx, y, yOffset, incy, a, aOffset, lda);
 }
 
-void THGPUBlas_gemv_opt(char trans, long m, long n, float alpha, 
+void THGPUBlas_gemv_opt(char trans, long m, long n, float alpha,
                         Concurrency::array_view<float> &a, long aOffset,
                         Concurrency::array_view<float> &x, long xOffset, long incx, float beta,
                         Concurrency::array_view<float> &y, long yOffset, long incy,
@@ -520,44 +505,38 @@ void THGPUBlas_gemv_opt1(char trans, long m, long n, float alpha,
   float *a, long lda, float *x, long incx, float beta, float *y, long incy,
   void* cl_A, void* cl_X, void* cl_Y, long aOffset, long xOffset, long yOffset, bool ReadNow)
 {
-
- // int transa_ = ((trans == 't') || (trans == 'T'));
-
   if (n == 1)
     lda = m;
-
 
   int i_incx = (int)incx;
   int i_incy = (int)incy;
   int lenM, lenN;
-  //cublasOperation_t op;
+
   clblasTranspose op;
   if (trans == 't')
   {
     op = clblasTrans;
-    lenM = 1 + (m-1)*abs(i_incx);
-    lenN = 1 + (n-1)*abs(i_incy);
+    lenM = 1 + (m - 1) * abs(i_incx);
+    lenN = 1 + (n - 1) * abs(i_incy);
   }
   else if (trans == 'n')
   {
     op = clblasNoTrans;
-    lenM = 1 + (n-1)*abs(i_incx);
-    lenN = 1 + (m-1)*abs(i_incy);
+    lenM = 1 + (n - 1) * abs(i_incx);
+    lenN = 1 + (m - 1) * abs(i_incy);
   }
   else if (trans == 'c')
   {
     op = clblasConjTrans;
-    lenM = 1 + (n-1)*abs(i_incx);
-    lenN = 1 + (m-1)*abs(i_incy);
+    lenM = 1 + (n - 1) * abs(i_incx);
+    lenN = 1 + (m - 1) * abs(i_incy);
   }
   clblasOrder order = clblasColumnMajor;
 
-
-
-  if( (m <= INT_MAX) && (n <= INT_MAX) &&
+  if ((m <= INT_MAX) && (n <= INT_MAX) &&
       (lda > 0) && (lda <= INT_MAX) &&
       (incx > 0) && (incx <= INT_MAX) &&
-      (incy > 0) && (incy <= INT_MAX) )
+      (incy > 0) && (incy <= INT_MAX))
   {
     cl_int err;
     cl_mem bufX, bufY, bufA;
@@ -567,8 +546,7 @@ void THGPUBlas_gemv_opt1(char trans, long m, long n, float alpha,
     size_t i_lda = (size_t)lda;
 
     size_t i_n = (size_t)n;
-    //int lenM = m;
-    //int lenN = n;
+
    if (cl_A == NULL)
       bufA = clCreateBuffer(mcontext, CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR, lenM * lenN * sizeof(*a), a, &err);
    else
@@ -600,7 +578,6 @@ void THGPUBlas_gemv_opt1(char trans, long m, long n, float alpha,
     if (cl_A == NULL)
       clReleaseMemObject(bufA);
 
-    //THCublasCheck(cublasSgemv(*current_handle, op, i_m, i_n, &alpha, a, i_lda, x, i_incx, &beta, y, i_incy));
     return;
   }
   THError("Cublas_gemv only supports m, n, lda, incx, incy"

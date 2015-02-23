@@ -3,7 +3,6 @@
 
 #include "amp.h"
 
-
 int gemm_AMP(char TransA, char TransB, const int M, const int N, const int K, const float alpha,
              Concurrency::array_view<float> &A_mat, long aOffset, long lda,
              Concurrency::array_view<float>& B_mat, long bOffset, long ldb, const float beta,

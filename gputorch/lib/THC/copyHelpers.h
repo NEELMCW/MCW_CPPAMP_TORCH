@@ -14,11 +14,10 @@ enum gpuMemcpyKind {
 };
 
 THC_API int gpuMemcpy(void* dst, size_t dst_offset,
-                            void* src, size_t src_offset,
-                            size_t count, gpuMemcpyKind kind);
+                      void* src, size_t src_offset,
+                      size_t count, gpuMemcpyKind kind);
 THC_API int gpuMemcpyAsync(void* dst, size_t dst_offset,
-                                   void* src, size_t src_offset,
-                                   size_t count, gpuMemcpyKind kind);
-
+                           void* src, size_t src_offset,
+                           size_t count, gpuMemcpyKind kind);
 
 #endif

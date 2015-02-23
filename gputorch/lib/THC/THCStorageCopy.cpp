@@ -1,6 +1,5 @@
 #include "THCStorageCopy.h"
 #include "THCGeneral.h"
-
 #include "copyHelpers.h"
 #include "common.h"
 

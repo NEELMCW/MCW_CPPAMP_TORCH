@@ -2,7 +2,6 @@
 #include "THCGeneral.h"
 #include "THGeneral.h"
 #include "THCTensor.h"
-
 #include <iostream>
 #include "common.h"
 #include "amp_math.h"
@@ -22,7 +21,6 @@ using namespace std;
 void THGPUTensor_copyFloat(THGPUTensor *self, struct THFloatTensor *src)
 {
   THArgCheck(THGPUTensor_nElement(self) == THFloatTensor_nElement(src), 2, "sizes do not match");
-
   {
     THGPUTensor *selfc = THGPUTensor_newContiguous(self);
     src = THFloatTensor_newContiguous(src);
@@ -64,15 +62,14 @@ IMPLEMENT_TH_GPU_TENSOR_COPY(Long)
 IMPLEMENT_TH_GPU_TENSOR_COPY(Double)
 
 /* copyGPU */
-
 void THFloatTensor_copyGPU(THFloatTensor *self, struct THGPUTensor *src)
 {
   THArgCheck(THFloatTensor_nElement(self) == THGPUTensor_nElement(src), 2, "sizes do not match"); 
-
   {
     THFloatTensor *selfc = THFloatTensor_newContiguous(self);
     src = THGPUTensor_newContiguous(src);
     float* src_ptr = static_cast<float*>(Concurrency::getAllocator().device_data(src->storage->data));
+
     THGPUCheck(gpuMemcpy(selfc->storage->data + selfc->storageOffset, 0,
                        src_ptr, src->storageOffset * sizeof(float),
                        THGPUTensor_nElement(src) * sizeof(float),
@@ -132,7 +129,7 @@ static void THGPUTensor_computesz(THGPUTensor *self, Concurrency::array_view<lon
       dim++;
   }
 
-  if (dim == 0) THError("Error: using non-contiguous code-path for tensor with all singleton dimensions");  
+  if (dim == 0) THError("Error: using non-contiguous code-path for tensor with all singleton dimensions");
   Concurrency::extent<1> nDim(dim);
   *sz_ = new Concurrency::array_view<long, 1>(nDim);
   *st_ = new Concurrency::array_view<long, 1>(nDim);
@@ -146,13 +143,15 @@ static void THGPUTensor_computesz(THGPUTensor *self, Concurrency::array_view<lon
     if (self->size[i] != 1)
     {
       sth[j] = self->stride[i];
-      if(j == dim - 1) 
+
+      if(j == dim - 1)
       {
         szh[j] = 1;
         *innermostdim = self->size[i];
       }
       else
         szh[j] = szh[j+1] * last_sz; //this makes no sense to me (should be size[i])
+
       j--;
       last_sz = self->size[i];
     }
@@ -170,12 +169,13 @@ static void THGPUTensor_computesz(THGPUTensor *self, Concurrency::array_view<lon
 }
 
 void THGPUTensor_kernel_copy(Concurrency::array_view<float>& av_dst, long dstOffset,
-                             Concurrency::array_view<float>& av_src, long srcOffset, 
+                             Concurrency::array_view<float>& av_src, long srcOffset,
                              Concurrency::array_view<long, 1> &av_dst_sz,
-                             Concurrency::array_view<long, 1> &av_dst_st, int dst_dim, 
-                             Concurrency::array_view<long, 1> &av_src_sz, Concurrency::array_view<long, 1> &av_src_st,
-                             int src_dim, long n_elem, long innerdim, int nblockx, int nblocky,
-                             int nblockz)
+                             Concurrency::array_view<long, 1> &av_dst_st, int dst_dim,
+                             Concurrency::array_view<long, 1> &av_src_sz,
+                             Concurrency::array_view<long, 1> &av_src_st,
+                             int src_dim, long n_elem, long innerdim, int nblockx,
+                             int nblocky, int nblockz)
 {
   Concurrency::extent<3> copyExt(nblockz, nblocky *16, nblockx * 16);
   Concurrency::tiled_extent<1, 16, 16> t_ext(copyExt);
@@ -197,6 +197,7 @@ void THGPUTensor_kernel_copy(Concurrency::array_view<float>& av_dst, long dstOff
     //long o_step = blockDim.x * dst_st[dst_dim-1];
     long o_step = t_ext.tile_dim2 * av_dst_st[Concurrency::index<1>(src_dim - 1)];
     long o_end = innerdim * av_dst_st[Concurrency::index<1>(src_dim - 1)];
+
     if (((k + 1) * innerdim) <= n_elem) // too safe
     {
       long dst_idx = 0;
@@ -229,20 +230,17 @@ THC_API void THGPUTensor_copy(THGPUTensor *self, THGPUTensor *src)
 
   long totalElements = THGPUTensor_nElement(self);
 
-  THArgCheck(totalElements == THGPUTensor_nElement(src), 2,
-             "sizes do not match");
+  THArgCheck(totalElements == THGPUTensor_nElement(src), 2, "sizes do not match");
+  THArgCheck(THGPUTensor_nDimension(self) <= MAX_DIMS, 2, "Copy only supported for <= 25 dimensions");
+  THArgCheck(THGPUTensor_nDimension(src) <= MAX_DIMS, 3, "Copy only supported for <= 25 dimensions");
 
-  THArgCheck(THGPUTensor_nDimension(self) <= MAX_DIMS, 2,
-             "Copy only supported for <= 25 dimensions");
-  THArgCheck(THGPUTensor_nDimension(src) <= MAX_DIMS, 3,
-             "Copy only supported for <= 25 dimensions");
-
-  if (THGPUTensor_nDimension(self) == 0) {
+  if (THGPUTensor_nDimension(self) == 0)
+  {
     // Zero-dim tensor; copy nothing
     return;
   }
-  if((THGPUTensor_isContiguous(self) && THGPUTensor_isContiguous(src)) ||
-    (totalElements == 1))
+
+  if ((THGPUTensor_isContiguous(self) && THGPUTensor_isContiguous(src)) || (totalElements == 1))
   {
     float* self_ptr = static_cast<float*>(Concurrency::getAllocator().device_data(self->storage->data));
     float* src_ptr = static_cast<float*>(Concurrency::getAllocator().device_data(src->storage->data));
@@ -278,19 +276,20 @@ THC_API void THGPUTensor_copy(THGPUTensor *self, THGPUTensor *src)
 
     PREPARE_AV(self, avSelf);
     PREPARE_AV(src, avSrc);
+
     d_self_sz->discard_data();
     d_self_st->discard_data();
     d_src_sz->discard_data();
     d_src_st->discard_data();
+
     THGPUTensor_kernel_copy(*avSelf, self->storageOffset, *avSrc, src->storageOffset,
                            *d_self_sz, *d_self_st, self_dim,
                            *d_src_sz, *d_src_st, src_dim,
                            size, innermostdim, nblocks_x, nblocks_y, nblocks_z);
 
-    delete d_self_st; 
+    delete d_self_st;
     delete d_self_sz;
     delete d_src_st;
     delete d_src_sz;
   }
 }
-

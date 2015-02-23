@@ -1,6 +1,5 @@
 #include "THCStorage.h"
 #include "THCGeneral.h"
-
 #include "copyHelpers.h"
 #include "cl_manage.h"
 #include "common.h"
@@ -39,7 +38,7 @@ THGPUStorage* THGPUStorage_newWithSize(long size)
 {
   THArgCheck(size >= 0, 2, "invalid size");
 
-  if(size > 0)
+  if (size > 0)
   {
     THGPUStorage *storage = (THGPUStorage *)THAlloc(sizeof(THGPUStorage));
     Concurrency::extent<1> eA(size);
@@ -113,18 +112,18 @@ THGPUStorage* THGPUStorage_newWithData(float *data, long size)
 
 void THGPUStorage_retain(THGPUStorage *self)
 {
-  if(self && (self->flag & TH_STORAGE_REFCOUNTED))
+  if (self && (self->flag & TH_STORAGE_REFCOUNTED))
     ++self->refcount;
 }
 
 void THGPUStorage_free(THGPUStorage *self)
 {
-  if(!(self->flag & TH_STORAGE_REFCOUNTED))
+  if (!(self->flag & TH_STORAGE_REFCOUNTED))
     return;
 
   if (--(self->refcount) <= 0)
   {
-    if(self->flag & TH_STORAGE_FREEMEM)
+    if (self->flag & TH_STORAGE_FREEMEM)
     {
       if (self->allocatorContext)
       {
@@ -170,10 +169,13 @@ void THGPUStorage_resize(THGPUStorage *self, long size)
   {
     if (self->flag & TH_STORAGE_FREEMEM)
     {
-      if (self->allocatorContext) {
+      if (self->allocatorContext)
+      {
         Concurrency::array_view<float, 1> delSelf (*(static_cast<Concurrency::array_view<float,1>*>(self->allocatorContext)));
         delSelf.~array_view();
-      } else {
+      }
+      else
+      {
         Concurrency::array_view<float, 1> delSelf (Concurrency::extent<1>(self->size), self->data);
         delSelf.~array_view();
       }
@@ -188,8 +190,7 @@ void THGPUStorage_resize(THGPUStorage *self, long size)
     // Allocating device array of resized value
     Concurrency::array_view<float, 1> *avDest = new Concurrency::array_view<float>(eA);
     float* dest_ptr = static_cast<float*>(Concurrency::getAllocator().device_data(avDest->data()));
-
-    Concurrency::array_view<float, 1>* avSrc = static_cast<Concurrency::array_view<float,1>* >(self->allocatorContext);
+    Concurrency::array_view<float, 1>* avSrc = static_cast<Concurrency::array_view<float, 1>* >(self->allocatorContext);
     float* src_ptr = static_cast<float*>(Concurrency::getAllocator().device_data(self->data));
     // TODO: Async copy
     if (src_ptr)
@@ -203,4 +204,3 @@ void THGPUStorage_resize(THGPUStorage *self, long size)
     self->refcount = 1;
   }
 }
-

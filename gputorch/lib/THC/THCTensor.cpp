@@ -68,7 +68,6 @@ static void THGPUTensor_rawInit(THGPUTensor *self);
 static void THGPUTensor_rawSet(THGPUTensor *self, THGPUStorage *storage, long storageOffset, int nDimension, long *size, long *stride);
 static void THGPUTensor_rawResize(THGPUTensor *self, int nDimension, long *size, long *stride);
 
-
 /* Empty init */
 THGPUTensor *THGPUTensor_new()
 {
@@ -83,11 +82,11 @@ THGPUTensor *THGPUTensor_newWithTensor(THGPUTensor *tensor)
   THGPUTensor *self = (THGPUTensor*)THAlloc(sizeof(THGPUTensor));
   THGPUTensor_rawInit(self);
   THGPUTensor_rawSet(self,
-                      tensor->storage,
-                      tensor->storageOffset,
-                      tensor->nDimension,
-                      tensor->size,
-                      tensor->stride);
+                     tensor->storage,
+                     tensor->storageOffset,
+                     tensor->nDimension,
+                     tensor->size,
+                     tensor->stride);
   return self;
 }
 
@@ -95,45 +94,45 @@ THGPUTensor *THGPUTensor_newWithTensor(THGPUTensor *tensor)
 THGPUTensor *THGPUTensor_newWithStorage(THGPUStorage *storage, long storageOffset, THLongStorage *size, THLongStorage *stride)
 {
   THGPUTensor *self = (THGPUTensor*)THAlloc(sizeof(THGPUTensor));
-  if(size && stride)
+  if (size && stride)
     THArgCheck(size->size == stride->size, 4, "inconsistent size");
 
   THGPUTensor_rawInit(self);
   THGPUTensor_rawSet(self,
-                      storage,
-                      storageOffset,
-                      (size ? size->size : (stride ? stride->size : 0)),
-                      (size ? size->data : NULL),
-                      (stride ? stride->data : NULL));
+                     storage,
+                     storageOffset,
+                     (size ? size->size : (stride ? stride->size : 0)),
+                     (size ? size->data : NULL),
+                     (stride ? stride->data : NULL));
 
   return self;
 }
 THGPUTensor *THGPUTensor_newWithStorage1d(THGPUStorage *storage, long storageOffset,
-                               long size0, long stride0)
+                                          long size0, long stride0)
 {
   return THGPUTensor_newWithStorage4d(storage, storageOffset, size0, stride0, -1, -1,  -1, -1,  -1, -1);
 }
 
 THGPUTensor *THGPUTensor_newWithStorage2d(THGPUStorage *storage, long storageOffset,
-                               long size0, long stride0,
-                               long size1, long stride1)
+                                          long size0, long stride0,
+                                          long size1, long stride1)
 {
   return THGPUTensor_newWithStorage4d(storage, storageOffset, size0, stride0, size1, stride1,  -1, -1,  -1, -1);
 }
 
 THGPUTensor *THGPUTensor_newWithStorage3d(THGPUStorage *storage, long storageOffset,
-                               long size0, long stride0,
-                               long size1, long stride1,
-                               long size2, long stride2)
+                                          long size0, long stride0,
+                                          long size1, long stride1,
+                                          long size2, long stride2)
 {
   return THGPUTensor_newWithStorage4d(storage, storageOffset, size0, stride0, size1, stride1,  size2, stride2,  -1, -1);
 }
 
 THGPUTensor *THGPUTensor_newWithStorage4d(THGPUStorage *storage, long storageOffset,
-                               long size0, long stride0,
-                               long size1, long stride1,
-                               long size2, long stride2,
-                               long size3, long stride3)
+                                          long size0, long stride0,
+                                          long size1, long stride1,
+                                          long size2, long stride2,
+                                          long size3, long stride3)
 {
   long size[4] = {size0, size1, size2, size3};
   long stride[4] = {stride0, stride1, stride2, stride3};
@@ -186,7 +185,7 @@ THGPUTensor *THGPUTensor_newClone(THGPUTensor *self)
 
 THGPUTensor *THGPUTensor_newContiguous(THGPUTensor *self)
 {
-  if(!THGPUTensor_isContiguous(self))
+  if (!THGPUTensor_isContiguous(self))
     return THGPUTensor_newClone(self);
   else
   {
@@ -227,7 +226,7 @@ THGPUTensor *THGPUTensor_newUnfold(THGPUTensor *tensor, int dimension_, long siz
 void THGPUTensor_resize(THGPUTensor *self, THLongStorage *size, THLongStorage *stride)
 {
   THArgCheck(size != NULL, 2, "invalid size");
-  if(stride)
+  if (stride)
     THArgCheck(stride->size == size->size, 3, "invalid stride");
 
   THGPUTensor_rawResize(self, size->size, size->data, (stride ? stride->data : NULL));
@@ -237,12 +236,12 @@ void THGPUTensor_resizeAs(THGPUTensor *self, THGPUTensor *src)
 {
   int isSame = 0;
   int d;
-  if(self->nDimension == src->nDimension)
+  if (self->nDimension == src->nDimension)
   {
     isSame = 1;
-    for(d = 0; d < self->nDimension; d++)
+    for (d = 0; d < self->nDimension; d++)
     {
-      if(self->size[d] != src->size[d])
+      if (self->size[d] != src->size[d])
       {
         isSame = 0;
         break;
@@ -250,7 +249,7 @@ void THGPUTensor_resizeAs(THGPUTensor *self, THGPUTensor *src)
     }
   }
 
-  if(!isSame)
+  if (!isSame)
     THGPUTensor_rawResize(self, src->nDimension, src->size, NULL);
 }
 
@@ -278,75 +277,69 @@ void THGPUTensor_resize4d(THGPUTensor *self, long size0, long size1, long size2,
 
 void THGPUTensor_resize5d(THGPUTensor *self, long size0, long size1, long size2, long size3, long size4)
 {
-    long size[5] = {size0, size1, size2, size3, size4};
-
+  long size[5] = {size0, size1, size2, size3, size4};
   THGPUTensor_rawResize(self, 5, size, NULL);
 }
 
 void THGPUTensor_set(THGPUTensor *self, THGPUTensor *src)
 {
-  if(self != src)
+  if (self != src)
     THGPUTensor_rawSet(self,
-                        src->storage,
-                        src->storageOffset,
-                        src->nDimension,
-                        src->size,
-                        src->stride);
+                       src->storage,
+                       src->storageOffset,
+                       src->nDimension,
+                       src->size,
+                       src->stride);
 }
 
 void THGPUTensor_setStorage(THGPUTensor *self, THGPUStorage *storage_, long storageOffset_, THLongStorage *size_, THLongStorage *stride_)
 {
-  if(size_ && stride_)
+  if (size_ && stride_)
     THArgCheck(size_->size == stride_->size, 5, "inconsistent size/stride sizes");
 
   THGPUTensor_rawSet(self,
-                      storage_,
-                      storageOffset_,
-                      (size_ ? size_->size : (stride_ ? stride_->size : 0)),
-                      (size_ ? size_->data : NULL),
-                      (stride_ ? stride_->data : NULL));
+                     storage_,
+                     storageOffset_,
+                     (size_ ? size_->size : (stride_ ? stride_->size : 0)),
+                     (size_ ? size_->data : NULL),
+                     (stride_ ? stride_->data : NULL));
 }
 
 void THGPUTensor_setStorage1d(THGPUTensor *self, THGPUStorage *storage_, long storageOffset_,
-                             long size0_, long stride0_)
+                              long size0_, long stride0_)
 {
   THGPUTensor_setStorage4d(self, storage_, storageOffset_,
-                            size0_, stride0_,
-                            -1, -1,
-                            -1, -1,
-                            -1, -1);
+                           size0_, stride0_, -1, -1,
+                           -1, -1, -1, -1);
 }
 
 void THGPUTensor_setStorage2d(THGPUTensor *self, THGPUStorage *storage_, long storageOffset_,
-                             long size0_, long stride0_,
-                             long size1_, long stride1_)
+                              long size0_, long stride0_,
+                              long size1_, long stride1_)
 {
   THGPUTensor_setStorage4d(self, storage_, storageOffset_,
-                            size0_, stride0_,
-                            size1_, stride1_,
-                            -1, -1,
-                            -1, -1);
+                           size0_, stride0_, size1_, stride1_,
+                           -1, -1, -1, -1);
 }
 
 void THGPUTensor_setStorage3d(THGPUTensor *self, THGPUStorage *storage_, long storageOffset_,
-                             long size0_, long stride0_,
-                             long size1_, long stride1_,
-                             long size2_, long stride2_)
+                              long size0_, long stride0_,
+                              long size1_, long stride1_,
+                              long size2_, long stride2_)
 {
   THGPUTensor_setStorage4d(self, storage_, storageOffset_,
-                            size0_, stride0_,
-                            size1_, stride1_,
-                            size2_, stride2_,
-                            -1, -1);
+                           size0_, stride0_,
+                           size1_, stride1_,
+                           size2_, stride2_,
+                           -1, -1);
 }
 
 void THGPUTensor_setStorage4d(THGPUTensor *self, THGPUStorage *storage_, long storageOffset_,
-                             long size0_, long stride0_,
-                             long size1_, long stride1_,
-                             long size2_, long stride2_,
-                             long size3_, long stride3_)
+                              long size0_, long stride0_,
+                              long size1_, long stride1_,
+                              long size2_, long stride2_,
+                              long size3_, long stride3_)
 {
-
   long size[4] = {size0_, size1_, size2_, size3_};
   long stride[4] = {stride0_, stride1_, stride2_, stride3_};
 
@@ -356,17 +349,17 @@ void THGPUTensor_setStorage4d(THGPUTensor *self, THGPUStorage *storage_, long st
 
 void THGPUTensor_narrow(THGPUTensor *self, THGPUTensor *src, int dimension, long firstIndex, long size)
 {
-  if(!src)
+  if (!src)
     src = self;
 
-  THArgCheck( (dimension >= 0) && (dimension < src->nDimension), 3, "out of range");
-  THArgCheck( (firstIndex >= 0) && (firstIndex < src->size[dimension]), 4, "out of range");
-  THArgCheck( (size > 0) && (firstIndex+size <= src->size[dimension]), 5, "out of range");
+  THArgCheck((dimension >= 0) && (dimension < src->nDimension), 3, "out of range");
+  THArgCheck((firstIndex >= 0) && (firstIndex < src->size[dimension]), 4, "out of range");
+  THArgCheck((size > 0) && (firstIndex+size <= src->size[dimension]), 5, "out of range");
 
   THGPUTensor_set(self, src);
 
-  if(firstIndex > 0)
-    self->storageOffset += firstIndex*self->stride[dimension];
+  if (firstIndex > 0)
+    self->storageOffset += firstIndex * self->stride[dimension];
 
   self->size[dimension] = size;
 }
@@ -375,7 +368,7 @@ void THGPUTensor_select(THGPUTensor *self, THGPUTensor *src, int dimension, long
 {
   int d;
 
-  if(!src)
+  if (!src)
     src = self;
 
   THArgCheck(src->nDimension > 1, 1, "cannot select on a vector");
@@ -384,10 +377,10 @@ void THGPUTensor_select(THGPUTensor *self, THGPUTensor *src, int dimension, long
 
   THGPUTensor_set(self, src);
   THGPUTensor_narrow(self, NULL, dimension, sliceIndex, 1);
-  for(d = dimension; d < self->nDimension-1; d++)
+  for (d = dimension; d < self->nDimension-1; d++)
   {
-    self->size[d] = self->size[d+1];
-    self->stride[d] = self->stride[d+1];
+    self->size[d] = self->size[d + 1];
+    self->stride[d] = self->stride[d + 1];
   }
   self->nDimension--;
 }
@@ -396,7 +389,7 @@ void THGPUTensor_transpose(THGPUTensor *self, THGPUTensor *src, int dimension1, 
 {
   long z;
 
-  if(!src)
+  if (!src)
     src = self;
 
   THArgCheck( (dimension1 >= 0) && (dimension1 < src->nDimension), 1, "out of range");
@@ -404,7 +397,7 @@ void THGPUTensor_transpose(THGPUTensor *self, THGPUTensor *src, int dimension1, 
 
   THGPUTensor_set(self, src);
 
-  if(dimension1 == dimension2)
+  if (dimension1 == dimension2)
     return;
 
   z = self->stride[dimension1];
@@ -421,7 +414,7 @@ void THGPUTensor_unfold(THGPUTensor *self, THGPUTensor *src, int dimension, long
   long *newStride;
   int d;
 
-  if(!src)
+  if (!src)
     src = self;
 
   THArgCheck( (src->nDimension > 0), 1, "cannot unfold an empty tensor");
@@ -436,12 +429,12 @@ void THGPUTensor_unfold(THGPUTensor *self, THGPUTensor *src, int dimension, long
 
   newSize[self->nDimension] = size;
   newStride[self->nDimension] = self->stride[dimension];
-  for(d = 0; d < self->nDimension; d++)
+  for (d = 0; d < self->nDimension; d++)
   {
-    if(d == dimension)
+    if (d == dimension)
     {
       newSize[d] = (self->size[d] - size) / step + 1;
-      newStride[d] = step*self->stride[d];
+      newStride[d] = step * self->stride[d];
     }
     else
     {
@@ -464,16 +457,16 @@ void THGPUTensor_squeeze(THGPUTensor *self, THGPUTensor *src)
   int ndim = 0;
   int d;
 
-  if(!src)
+  if (!src)
     src = self;
 
   THGPUTensor_set(self, src);
 
-  for(d = 0; d < src->nDimension; d++)
+  for (d = 0; d < src->nDimension; d++)
   {
-    if(src->size[d] != 1)
+    if (src->size[d] != 1)
     {
-      if(d != ndim)
+      if (d != ndim)
       {
         self->size[ndim] = src->size[d];
         self->stride[ndim] = src->stride[d];
@@ -483,7 +476,7 @@ void THGPUTensor_squeeze(THGPUTensor *self, THGPUTensor *src)
   }
 
   /* right now, we do not handle 0-dimension tensors */
-  if(ndim == 0 && src->nDimension > 0)
+  if (ndim == 0 && src->nDimension > 0)
   {
     self->size[0] = 1;
     self->stride[0] = 1;
@@ -496,16 +489,16 @@ void THGPUTensor_squeeze1d(THGPUTensor *self, THGPUTensor *src, int dimension)
 {
   int d;
 
-  if(!src)
+  if (!src)
     src = self;
 
   THArgCheck(dimension < src->nDimension, 3, "dimension out of range");
 
   THGPUTensor_set(self, src);
 
-  if(src->size[dimension] == 1 && src->nDimension > 1)
+  if (src->size[dimension] == 1 && src->nDimension > 1)
   {
-    for(d = dimension; d < self->nDimension-1; d++)
+    for (d = dimension; d < self->nDimension-1; d++)
     {
       self->size[d] = self->size[d+1];
       self->stride[d] = self->stride[d+1];
@@ -518,11 +511,11 @@ int THGPUTensor_isContiguous(const THGPUTensor *self)
 {
   long z = 1;
   int d;
-  for(d = self->nDimension-1; d >= 0; d--)
+  for (d = self->nDimension - 1; d >= 0; d--)
   {
-    if(self->size[d] != 1)
+    if (self->size[d] != 1)
     {
-      if(self->stride[d] == z)
+      if (self->stride[d] == z)
         z *= self->size[d];
       else
         return 0;
@@ -536,9 +529,9 @@ int THGPUTensor_isSameSizeAs(const THGPUTensor *self, const THGPUTensor* src)
   int d;
   if (self->nDimension != src->nDimension)
     return 0;
-  for(d = 0; d < self->nDimension; ++d)
+  for (d = 0; d < self->nDimension; ++d)
   {
-    if(self->size[d] != src->size[d])
+    if (self->size[d] != src->size[d])
       return 0;
   }
   return 1;
@@ -546,13 +539,13 @@ int THGPUTensor_isSameSizeAs(const THGPUTensor *self, const THGPUTensor* src)
 
 long THGPUTensor_nElement(const THGPUTensor *self)
 {
-  if(self->nDimension == 0)
+  if (self->nDimension == 0)
     return 0;
   else
   {
     long nElement = 1;
     int d;
-    for(d = 0; d < self->nDimension; d++)
+    for (d = 0; d < self->nDimension; d++)
       nElement *= self->size[d];
     return nElement;
   }
@@ -560,22 +553,22 @@ long THGPUTensor_nElement(const THGPUTensor *self)
 
 void THGPUTensor_retain(THGPUTensor *self)
 {
-  if(self->flag & TH_TENSOR_REFCOUNTED)
+  if (self->flag & TH_TENSOR_REFCOUNTED)
     ++self->refcount;
 }
 
 void THGPUTensor_free(THGPUTensor *self)
 {
-  if(!self)
+  if (!self)
     return;
 
-  if(self->flag & TH_TENSOR_REFCOUNTED)
+  if (self->flag & TH_TENSOR_REFCOUNTED)
   {
-    if(--self->refcount == 0)
+    if (--self->refcount == 0)
     {
       THFree(self->size);
       THFree(self->stride);
-      if(self->storage)
+      if (self->storage)
         THGPUStorage_free(self->storage);
       THFree(self);
     }
@@ -584,13 +577,11 @@ void THGPUTensor_free(THGPUTensor *self)
 
 void THGPUTensor_freeCopyTo(THGPUTensor *self, THGPUTensor *dst)
 {
-  if(self != dst)
+  if (self != dst)
     THGPUTensor_copy(dst, self);
 
   THGPUTensor_free(self);
 }
-
-/*******************************************************************************/
 
 static void THGPUTensor_rawInit(THGPUTensor *self)
 {
@@ -606,12 +597,12 @@ static void THGPUTensor_rawInit(THGPUTensor *self)
 static void THGPUTensor_rawSet(THGPUTensor *self, THGPUStorage *storage, long storageOffset, int nDimension, long *size, long *stride)
 {
   /* storage */
-  if(self->storage != storage)
+  if (self->storage != storage)
   {
-    if(self->storage)
+    if (self->storage)
       THGPUStorage_free(self->storage);
 
-    if(storage)
+    if (storage)
     {
       self->storage = storage;
       THGPUStorage_retain(self->storage);
@@ -621,7 +612,7 @@ static void THGPUTensor_rawSet(THGPUTensor *self, THGPUStorage *storage, long st
   }
 
   /* storageOffset */
-  if(storageOffset < 0)
+  if (storageOffset < 0)
     THError("Tensor: invalid storage offset");
   self->storageOffset = storageOffset;
 
@@ -637,15 +628,15 @@ static void THGPUTensor_rawResize(THGPUTensor *self, int nDimension, long *size,
   int hascorrectsize = 1;
 
   nDimension_ = 0;
-  for(d = 0; d < nDimension; d++)
+  for (d = 0; d < nDimension; d++)
   {
-    if(size[d] > 0)
+    if (size[d] > 0)
     {
       nDimension_++;
-      if((self->nDimension > d) && (size[d] != self->size[d]))
+      if ((self->nDimension > d) && (size[d] != self->size[d]))
         hascorrectsize = 0;
 
-      if((self->nDimension > d) && stride && (stride[d] >= 0) && (stride[d] != self->stride[d]))
+      if ((self->nDimension > d) && stride && (stride[d] >= 0) && (stride[d] != self->stride[d]))
         hascorrectsize = 0;
     }
     else
@@ -653,15 +644,15 @@ static void THGPUTensor_rawResize(THGPUTensor *self, int nDimension, long *size,
   }
   nDimension = nDimension_;
 
-  if(nDimension != self->nDimension)
+  if (nDimension != self->nDimension)
     hascorrectsize = 0;
 
-  if(hascorrectsize)
+  if (hascorrectsize)
     return;
 
-  if(nDimension > 0)
+  if (nDimension > 0)
   {
-    if(nDimension != self->nDimension)
+    if (nDimension != self->nDimension)
     {
       self->size = (long*)THRealloc(self->size, sizeof(long)*nDimension);
       self->stride = (long*)THRealloc(self->stride, sizeof(long)*nDimension);
@@ -669,26 +660,26 @@ static void THGPUTensor_rawResize(THGPUTensor *self, int nDimension, long *size,
     }
 
     totalSize = 1;
-    for(d = self->nDimension-1; d >= 0; d--)
+    for (d = self->nDimension - 1; d >= 0; d--)
     {
       self->size[d] = size[d];
-      if(stride && (stride[d] >= 0) )
+      if(stride && (stride[d] >= 0))
         self->stride[d] = stride[d];
       else
       {
-        if(d == self->nDimension-1)
+        if (d == self->nDimension - 1)
           self->stride[d] = 1;
         else
-          self->stride[d] = self->size[d+1]*self->stride[d+1];
+          self->stride[d] = self->size[d + 1]*self->stride[d + 1];
       }
-      totalSize += (self->size[d]-1)*self->stride[d];
+      totalSize += (self->size[d] - 1)*self->stride[d];
     }
 
-    if(totalSize+self->storageOffset > 0)
+    if (totalSize+self->storageOffset > 0)
     {
-      if(!self->storage)
+      if (!self->storage)
         self->storage = THGPUStorage_new();
-      if(totalSize+self->storageOffset > self->storage->size)
+      if (totalSize+self->storageOffset > self->storage->size)
         THGPUStorage_resize(self->storage, totalSize+self->storageOffset);
     }
   }
@@ -699,14 +690,14 @@ static void THGPUTensor_rawResize(THGPUTensor *self, int nDimension, long *size,
 void THGPUTensor_set1d(THGPUTensor *tensor, long x0, float value)
 {
   THArgCheck(tensor->nDimension == 1, 1, "tensor must have one dimension");
-  THArgCheck( (x0 >= 0) && (x0 < tensor->size[0]), 2, "out of range");
-  THGPUStorage_set(tensor->storage, tensor->storageOffset+x0*tensor->stride[0], value);
+  THArgCheck((x0 >= 0) && (x0 < tensor->size[0]), 2, "out of range");
+  THGPUStorage_set(tensor->storage, tensor->storageOffset + x0 * tensor->stride[0], value);
 }
 
 float THGPUTensor_get1d(const THGPUTensor *tensor, long x0)
 {
   THArgCheck(tensor->nDimension == 1, 1, "tensor must have one dimension");
-  THArgCheck( (x0 >= 0) && (x0 < tensor->size[0]), 2, "out of range");
+  THArgCheck((x0 >= 0) && (x0 < tensor->size[0]), 2, "out of range");
   return THGPUStorage_get(tensor->storage, tensor->storageOffset+x0*tensor->stride[0]);
 }
 
@@ -714,41 +705,40 @@ void THGPUTensor_set2d(THGPUTensor *tensor, long x0, long x1, float value)
 {
   THArgCheck(tensor->nDimension == 2, 1, "tensor must have two dimensions");
   THArgCheck((x0 >= 0) && (x0 < tensor->size[0]) && (x1 >= 0) && (x1 < tensor->size[1]), 2, "out of range");
-  THGPUStorage_set(tensor->storage, tensor->storageOffset+x0*tensor->stride[0]+x1*tensor->stride[1], value);
+  THGPUStorage_set(tensor->storage, tensor->storageOffset + x0 * tensor->stride[0] + x1 * tensor->stride[1], value);
 }
 
 float THGPUTensor_get2d(const THGPUTensor *tensor, long x0, long x1)
 {
   THArgCheck(tensor->nDimension == 2, 1, "tensor must have two dimensions");
   THArgCheck((x0 >= 0) && (x0 < tensor->size[0]) && (x1 >= 0) && (x1 < tensor->size[1]), 2, "out of range");
-  return THGPUStorage_get(tensor->storage, tensor->storageOffset+x0*tensor->stride[0]+x1*tensor->stride[1]);
+  return THGPUStorage_get(tensor->storage, tensor->storageOffset + x0 * tensor->stride[0] + x1 * tensor->stride[1]);
 }
 
 void THGPUTensor_set3d(THGPUTensor *tensor, long x0, long x1, long x2, float value)
 {
   THArgCheck(tensor->nDimension == 3, 1, "tensor must have three dimensions");
   THArgCheck( (x0 >= 0) && (x0 < tensor->size[0]) && (x1 >= 0) && (x1 < tensor->size[1]) && (x2 >= 0) && (x2 < tensor->size[2]), 2, "out of range");
-  THGPUStorage_set(tensor->storage, tensor->storageOffset+x0*tensor->stride[0]+x1*tensor->stride[1]+x2*tensor->stride[2], value);
+  THGPUStorage_set(tensor->storage, tensor->storageOffset + x0 * tensor->stride[0] + x1 * tensor->stride[1] + x2 * tensor->stride[2], value);
 }
 
 float THGPUTensor_get3d(const THGPUTensor *tensor, long x0, long x1, long x2)
 {
   THArgCheck(tensor->nDimension == 3, 1, "tensor must have three dimensions");
   THArgCheck( (x0 >= 0) && (x0 < tensor->size[0]) && (x1 >= 0) && (x1 < tensor->size[1]) && (x2 >= 0) && (x2 < tensor->size[2]), 2, "out of range");
-  return THGPUStorage_get(tensor->storage, tensor->storageOffset+x0*tensor->stride[0]+x1*tensor->stride[1]+x2*tensor->stride[2]);
+  return THGPUStorage_get(tensor->storage, tensor->storageOffset + x0 * tensor->stride[0] + x1 * tensor->stride[1] + x2 * tensor->stride[2]);
 }
 
 void THGPUTensor_set4d(THGPUTensor *tensor, long x0, long x1, long x2, long x3, float value)
 {
   THArgCheck(tensor->nDimension == 4, 1, "tensor must have four dimensions");
   THArgCheck((x0 >= 0) && (x0 < tensor->size[0]) && (x1 >= 0) && (x1 < tensor->size[1]) && (x2 >= 0) && (x2 < tensor->size[2]) && (x3 >= 0) && (x3 < tensor->size[3]), 2, "out of range");
-  THGPUStorage_set(tensor->storage, tensor->storageOffset+x0*tensor->stride[0]+x1*tensor->stride[1]+x2*tensor->stride[2]+x3*tensor->stride[3], value);
+  THGPUStorage_set(tensor->storage, tensor->storageOffset + x0 * tensor->stride[0] + x1 * tensor->stride[1] + x2 * tensor->stride[2] + x3 * tensor->stride[3], value);
 }
 
 float THGPUTensor_get4d(const THGPUTensor *tensor, long x0, long x1, long x2, long x3)
 {
   THArgCheck(tensor->nDimension == 4, 1, "tensor must have four dimensions");
   THArgCheck((x0 >= 0) && (x0 < tensor->size[0]) && (x1 >= 0) && (x1 < tensor->size[1]) && (x2 >= 0) && (x2 < tensor->size[2]) && (x3 >= 0) && (x3 < tensor->size[3]), 2, "out of range");
-  return THGPUStorage_get(tensor->storage, tensor->storageOffset+x0*tensor->stride[0]+x1*tensor->stride[1]+x2*tensor->stride[2]+x3*tensor->stride[3]);
+  return THGPUStorage_get(tensor->storage, tensor->storageOffset + x0 * tensor->stride[0] + x1 * tensor->stride[1] + x2 * tensor->stride[2]+x3*tensor->stride[3]);
 }
-

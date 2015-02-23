@@ -10,7 +10,7 @@
 #include "bolt/amp/transform_reduce.h"
 #include "bolt/amp/reduce.h"
 #include "bolt/amp/inner_product.h"
-#include "bolt/amp/copy.h"    
+#include "bolt/amp/copy.h"
 #include "amp_math.h"
 
 #ifdef DECLARE_BOLT_DEVICE_VECTOR
@@ -22,15 +22,15 @@
   bolt::amp::device_vector<float> dv_a(*pav_##THGPUTensor_ptr, THGPUTensor_nElement(THGPUTensor_ptr), true);
 
 #ifdef DECLARE_BOLT_DEVICE_VECTOR_2
-#undef DECLARE_BOLT_DEVICE_VECTOR_2                                                                   
-#endif                                                                                                
+#undef DECLARE_BOLT_DEVICE_VECTOR_2
+#endif
 #define DECLARE_BOLT_DEVICE_VECTOR_2(host_1, dv_1, host_2, dv_2) \
 DECLARE_BOLT_DEVICE_VECTOR(host_1, dv_1); \
-DECLARE_BOLT_DEVICE_VECTOR(host_2, dv_2);                                                           
+DECLARE_BOLT_DEVICE_VECTOR(host_2, dv_2);
   
-#ifdef DECLARE_BOLT_DEVICE_VECTOR_3                                                                   
-#undef DECLARE_BOLT_DEVICE_VECTOR_3                                                                   
-#endif                                                                                                
+#ifdef DECLARE_BOLT_DEVICE_VECTOR_3
+#undef DECLARE_BOLT_DEVICE_VECTOR_3
+#endif
 #define DECLARE_BOLT_DEVICE_VECTOR_3(host_1, dv_1, host_2, dv_2, host_3, dv_3) \
 DECLARE_BOLT_DEVICE_VECTOR(host_1, dv_1); \
 DECLARE_BOLT_DEVICE_VECTOR(host_2, dv_2); \
@@ -39,9 +39,7 @@ DECLARE_BOLT_DEVICE_VECTOR(host_3, dv_3);
 struct addvalue_functor
 {
   const float value;
-
   addvalue_functor(float value_) restrict(cpu,amp) : value(value_) {}
-
   float operator()(const float& x) const restrict(cpu,amp)
   {
     return (x+value);
@@ -51,7 +49,6 @@ struct addvalue_functor
 struct mse_functor
 {
   mse_functor() restrict(amp,cpu) {}
-
   float operator()(const float& x, const float& y) const restrict(amp,cpu) 
   {
     float z = x-y;
@@ -59,14 +56,14 @@ struct mse_functor
   }
 };
 
-struct mulvalue_functor                                                                               
+struct mulvalue_functor
 { 
   const float value;
-  mulvalue_functor(float value_)restrict(cpu,amp) : value(value_) {}                                  
-  float operator()(const float& x) const restrict(cpu,amp)                                            
+  mulvalue_functor(float value_)restrict(cpu,amp) : value(value_) {}
+  float operator()(const float& x) const restrict(cpu,amp)
   { 
-    return (x*value);                                                                                 
-  }                                                                                                   
+    return (x*value);
+  }
 }; 
 
 struct divvalue_functor
@@ -81,19 +78,17 @@ struct divvalue_functor
 
 struct pow_functor
 {
-  const float value;                                               
-  
+  const float value;
   pow_functor(float value_) restrict(amp,cpu) : value(value_) {}
-                                                                  
-  float operator()(const float& x) const restrict(amp,cpu)                  
+  float operator()(const float& x) const restrict(amp,cpu)
   {
-    return Concurrency::fast_math::pow(x, value);                  
+    return Concurrency::fast_math::pow(x, value);
     return 0;
   }
 };
 
 struct atan2_functor
-{   
+{
   float operator()(const float& x, const float& y) const restrict(amp,cpu)
   {
     return Concurrency::fast_math::atan2f(x, y);
@@ -104,15 +99,15 @@ struct clamp_functor
 {
   const float min_value;
   const float max_value;
-
   clamp_functor(float min_value_, float max_value_) restrict(amp,cpu): min_value(min_value_), max_value(max_value_) {}
-
   float operator()(const float& x) const restrict(amp,cpu)
   {
-    if (x < min_value) {
+    if (x < min_value)
+    {
       return min_value;
     }
-    if (x > max_value) {
+    if (x > max_value)
+    {
       return max_value;
     }
     return x;
@@ -121,7 +116,8 @@ struct clamp_functor
 
 struct sign_functor
 {
-  float operator()(const float &v) const restrict(amp,cpu) {
+  float operator()(const float &v) const restrict(amp,cpu)
+  {
     return (v > 0) - (v < 0);
   }
 };
@@ -129,9 +125,7 @@ struct sign_functor
 struct dist_functor
 {
   const float exponent;
-
   dist_functor(float exponent_) restrict(amp,cpu) : exponent(exponent_) {}
-
   float operator()(const float& x, const float& y) const restrict(amp,cpu)
   {
     return Concurrency::fast_math::pow(Concurrency::fast_math::fabs(x-y), exponent);
@@ -141,9 +135,7 @@ struct dist_functor
 struct norm_functor
 {
   const float exponent;
-
   norm_functor(float exponent_)restrict(cpu,amp) : exponent(exponent_) {}
-
   float operator()(const float& x) const restrict(cpu,amp)
   {
     return Concurrency::fast_math::pow(Concurrency::fast_math::fabs(x), exponent);
@@ -160,9 +152,7 @@ struct partial_not_equal_functor
 struct mse_updateGradInput_functor
 {
   const float norm;
-    
   mse_updateGradInput_functor(float norm_) restrict(amp,cpu) : norm(norm_) {}
-    
   float operator()(const float& x, const float& y) const restrict(amp,cpu)
   {
     return norm * (x - y);
@@ -172,7 +162,6 @@ struct mse_updateGradInput_functor
 struct binary_abs_functor
 {
   binary_abs_functor() {}
-
   float operator()(const float& x, const float& y) const restrict(amp,cpu)
   {
     float z = x-y;
@@ -183,9 +172,7 @@ struct binary_abs_functor
 struct abs_updateGradInput_functor
 {
   const float norm;
-
   abs_updateGradInput_functor(float norm_) restrict(amp,cpu): norm(norm_) {}
-
   float operator()(const float& x, const float& y) const restrict(amp,cpu)
   {
     return (x - y) >= 0 ? norm : -norm;
@@ -195,7 +182,6 @@ struct abs_updateGradInput_functor
 struct kl_functor
 {
   kl_functor() {}
-
   float operator()(const float& x, const float& y) const restrict(amp,cpu)
   {
     return y > 0 ? y * (Concurrency::fast_math::log(y) - x) : 0;
@@ -205,21 +191,19 @@ struct kl_functor
 struct kl_updateGradInput_functor
 {
   const float norm;
-
   kl_updateGradInput_functor(float norm_) restrict(amp,cpu) : norm(norm_) {}
-
   float operator()(const float& x, const float& y) const restrict(amp,cpu)
-  { 
+  {
     return y > 0 ? norm * (-y) : 0;
-  } 
-};  
-#define IMPLEMENT_CUDA_TENSOR_BASIC_FUNCTOR(NAME, CFUNC)                                                                   \
-struct NAME##_functor                                                                                                   \
-{                                                                                                                       \
-  float operator()(const float& x) const                                                                                \
-  {                                                                                                                     \
-    return CFUNC(x);                                                                                                    \
-  }                                                                                                                     \
+  }
+};
+#define IMPLEMENT_CUDA_TENSOR_BASIC_FUNCTOR(NAME, CFUNC) \
+struct NAME##_functor                                    \
+{                                                        \
+  float operator()(const float& x) const                 \
+  {                                                      \
+    return CFUNC(x);                                     \
+  }                                                      \
 }; 
 
 IMPLEMENT_CUDA_TENSOR_BASIC_FUNCTOR(log, Concurrency::fast_math::log)
@@ -245,6 +229,7 @@ float boltInnerProduct_plus_mse(THGPUTensor *input, THGPUTensor *target);
 float boltInnerProduct_plus_abs(THGPUTensor *input, THGPUTensor *target);
 float boltInnerProduct_plus_kl(THGPUTensor *input, THGPUTensor *target);
 float boltInnerProduct_plus_dist(THGPUTensor *self, THGPUTensor *src, float value);
+
 float boltTransform_var_all(THGPUTensor *self, float mean);
 void boltTransform_clamp(THGPUTensor *src, THGPUTensor *self, float min_value, float max_value);
 void boltTransform_mse(THGPUTensor *input, THGPUTensor *target, THGPUTensor *gradInput,float norm);
@@ -272,9 +257,11 @@ void boltTransform_floor(THGPUTensor *src, THGPUTensor *self);
 void boltTransform_abs(THGPUTensor *src, THGPUTensor *self);
 void boltTransform_round(THGPUTensor *src, THGPUTensor *self);
 void boltTransform_sign(THGPUTensor *src, THGPUTensor *self);
+
 void boltTransformBinary_multiply(THGPUTensor *src1, THGPUTensor *src2, THGPUTensor *self);
 void boltTransformBinary_divide(THGPUTensor *src1, THGPUTensor *src2, THGPUTensor *self);
 void boltTransformBinary_atan2(THGPUTensor *src1, THGPUTensor *src2, THGPUTensor *self);
+
 float boltReduce_minimum(THGPUTensor *self);
 float boltReduce_maximum(THGPUTensor *self);
 float boltReduce_plus(THGPUTensor *self);

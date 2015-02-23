@@ -13,38 +13,19 @@
 /* Sets up generator. Allocates but does not create the generator states. */
 void initializeGenerator(Generator* gen)
 {
-/*  THGPUCheck(gpuMalloc((void**)&gen->gen_states, MAX_NUM_BLOCKS * sizeof(curandStateMtgp32)));
-  THGPUCheck(gpuMalloc((void**)&gen->kernel_params, sizeof(mtgp32_kernel_params)));
-  if (curandMakeMTGP32Constants(mtgp32dc_params_fast_11213, gen->kernel_params) != CURAND_STATUS_SUCCESS)
-  {
-    THError("Creating MTGP constants failed.");
-  }*/
+  //TODO : To be implemented.
 }
 
 /* Frees memory allocated during setup. */
 void destroyGenerator(Generator* gen)
 {
-/*  if (gen->gen_states)
-  {
-    THGPUCheck(gpuFree(gen->gen_states));
-    gen->gen_states = NULL;
-  }
-  if (gen->kernel_params)
-  {
-    THGPUCheck(gpuFree(gen->kernel_params));
-    gen->kernel_params = NULL;
-  }*/
+  //TODO : To be implemented.
 }
 
 /* Creates a new generator state given the seed. */
 void createGeneratorState(Generator* gen, unsigned long seed)
 {
-/*  if (curandMakeMTGP32KernelState(gen->gen_states, mtgp32dc_params_fast_11213,
-                                  gen->kernel_params, MAX_NUM_BLOCKS, seed) != CURAND_STATUS_SUCCESS)
-  {
-    THError("Creating MTGP kernel state failed.");
-  }
-*/
+  //TODO : To be implemented.
 }
 
 /* Initialize generator array (must be called before any other function) */
@@ -127,15 +108,7 @@ void THCRandom_manualSeed(THGPURNGState* state, unsigned long seed)
 
 void THCRandom_manualSeedAll(THGPURNGState* state, unsigned long seed)
 {
-  //int currentDevice;
- // THGPUCheck(gpuGetDevice(&currentDevice));
-  /*for (int i = 0; i < state->num_devices; ++i) {
-    THGPUCheck(gpuSetDevice(i));
-    THCRandom_setGenerator(state, i);
-    THCRandom_manualSeed(state, seed);
-  }
-  THGPUCheck(gpuSetDevice(currentDevice));
-  THCRandom_setGenerator(state, currentDevice);*/
+  //TODO : To be implemented.
 }
 
 /* Get the initial seed */
@@ -146,69 +119,53 @@ unsigned long THCRandom_initialSeed(THGPURNGState* state)
 
 void THCRandom_getRNGState(THGPURNGState* state, THByteTensor *rng_state)
 {
-  // The RNG state comprises the MTPG32 states and the seed.
- /* static const size_t states_size = MAX_NUM_BLOCKS * sizeof(curandStateMtgp32);
-  static const size_t seed_size = sizeof(unsigned long);
-  static const size_t total_size = states_size + seed_size;
-  THByteTensor_resize1d(rng_state, total_size);
-  THArgCheck(THByteTensor_nElement(rng_state) == total_size, 1, "RNG state is wrong size");
-  THArgCheck(THByteTensor_isContiguous(rng_state), 1, "RNG state must be contiguous");
-  THGPUCheck(gpuMemcpy(THByteTensor_data(rng_state), state->current_gen->gen_states,
-                         states_size, gpuMemcpyDeviceToHost));
-  memcpy(THByteTensor_data(rng_state) + states_size, &state->current_gen->initial_seed, seed_size);*/
+  //TODO : To be implemented.
 }
 
 void THCRandom_setRNGState(THGPURNGState* state, THByteTensor *rng_state)
 {
-  /*static const size_t states_size = MAX_NUM_BLOCKS * sizeof(curandStateMtgp32);
-  static const size_t seed_size = sizeof(unsigned long);
-  static const size_t total_size = states_size + seed_size;
-  THArgCheck(THByteTensor_nElement(rng_state) == total_size, 1, "RNG state is wrong size");
-  THArgCheck(THByteTensor_isContiguous(rng_state), 1, "RNG state must be contiguous");
-   THGPUCheck(gpuMemcpy(state->current_gen->gen_states, THByteTensor_data(rng_state),
-                         states_size, gpuMemcpyHostToDevice));
-  memcpy(&state->current_gen->initial_seed, THByteTensor_data(rng_state) + states_size, seed_size);*/
+  //TODO : To be implemented.
 }
 
 // TODO: currently can't use pfe since no kernel versions of all CURAND_FUNC from underlying AMP
 // Just prepare data on host and then copy to device side of the array
-#define GENERATE_KERNEL1(NAME, ARG1, CURAND_FUNC, TRANSFORM)                                             \
-void NAME(int size, THGPUTensor *result, ARG1)                                                           \
-{                                                                                                        \
-  std::mt19937 gen;                                                                                      \
-  float vec[size];                                                                                       \
-  for (int i = 0; i < size; i++) {                                                                       \
-    std::CURAND_FUNC<float> rand(0.0, 0.9);                                                              \
-    float x = rand(gen);                                                                                 \
-    x = TRANSFORM;                                                                                       \
-    vec[i] = x;                                                                                          \
-  }                                                                                                      \
-  float* device_ptr = static_cast<float*>(Concurrency::getAllocator().device_data(result->storage->data));\
+#define GENERATE_KERNEL1(NAME, ARG1, CURAND_FUNC, TRANSFORM)                                               \
+void NAME(int size, THGPUTensor *result, ARG1)                                                             \
+{                                                                                                          \
+  std::mt19937 gen;                                                                                        \
+  float vec[size];                                                                                         \
+  for (int i = 0; i < size; i++) {                                                                         \
+    std::CURAND_FUNC<float> rand(0.0, 0.9);                                                                \
+    float x = rand(gen);                                                                                   \
+    x = TRANSFORM;                                                                                         \
+    vec[i] = x;                                                                                            \
+  }                                                                                                        \
+  float* device_ptr = static_cast<float*>(Concurrency::getAllocator().device_data(result->storage->data)); \
   THGPUCheck(gpuMemcpy(device_ptr, result->storageOffset * sizeof(float), vec, 0, size * sizeof(float), gpuMemcpyHostToDevice));\
 }
 
 // TODO: currently can't use pfe since no kernel versions of all CURAND_FUNC from underlying AMP
 // Just prepare data on host and then copy to device side of the array
-#define GENERATE_KERNEL2(NAME, ARG1, ARG2, CURAND_FUNC, TRANSFORM)                                       \
-void NAME(int size, THGPUTensor *result, ARG1, ARG2)                                                     \
-{                                                                                                        \
-  std::mt19937 gen;                                                                                      \
-  float vec[size];                                                                                       \
-  for (int i = 0; i < size; i++) {                                                                       \
-    std::CURAND_FUNC<float> rand(0, 0.9);                                                                \
-    float x = rand(gen);                                                                                 \
-    x = TRANSFORM;                                                                                       \
-    vec[i] = x;                                                                                          \
-  }                                                                                                      \
-  float* device_ptr = static_cast<float*>(Concurrency::getAllocator().device_data(result->storage->data));\
+#define GENERATE_KERNEL2(NAME, ARG1, ARG2, CURAND_FUNC, TRANSFORM)                                         \
+void NAME(int size, THGPUTensor *result, ARG1, ARG2)                                                       \
+{                                                                                                          \
+  std::mt19937 gen;                                                                                        \
+  float vec[size];                                                                                         \
+  for (int i = 0; i < size; i++) {                                                                         \
+    std::CURAND_FUNC<float> rand(0, 0.9);                                                                  \
+    float x = rand(gen);                                                                                   \
+    x = TRANSFORM;                                                                                         \
+    vec[i] = x;                                                                                            \
+  }                                                                                                        \
+  float* device_ptr = static_cast<float*>(Concurrency::getAllocator().device_data(result->storage->data)); \
   THGPUCheck(gpuMemcpy(device_ptr, result->storageOffset * sizeof(float), vec, 0, size * sizeof(float), gpuMemcpyHostToDevice));\
 }
 
-GENERATE_KERNEL2(generate_uniform, double a, double b, uniform_real_distribution, x * (b-a) + a)
+GENERATE_KERNEL2(generate_uniform, double a, double b, uniform_real_distribution, x * (b - a) + a)
 GENERATE_KERNEL1(generate_bernoulli, double p, uniform_real_distribution, (float)x <= p)
 GENERATE_KERNEL2(generate_normal, double mean, double stdv, normal_distribution,(float)((x * stdv) + mean))
-GENERATE_KERNEL1(generate_geometric, double p, uniform_real_distribution, (log(1-x) / log(p)) + 1)
-GENERATE_KERNEL1(generate_exponential, double lambda, uniform_real_distribution, (float)(-1. / lambda * log(1-x)))
+GENERATE_KERNEL1(generate_geometric, double p, uniform_real_distribution, (log(1 - x) / log(p)) + 1)
+GENERATE_KERNEL1(generate_exponential, double lambda, uniform_real_distribution, (float)(-1. / lambda * log(1 - x)))
 GENERATE_KERNEL2(generate_cauchy, double median, double sigma, uniform_real_distribution, (float)(median + sigma * tan(M_PI*(x-0.5))))
 
 #undef GENERATE_KERNEL1

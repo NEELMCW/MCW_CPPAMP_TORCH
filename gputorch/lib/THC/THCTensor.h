@@ -9,18 +9,14 @@
 
 typedef struct THGPUTensor
 {
-    long *size;
-    long *stride;
-    int nDimension;
-
-    THGPUStorage *storage;
-    long storageOffset;
-    int refcount;
-
-    char flag;
-
+  long *size;
+  long *stride;
+  int nDimension;
+  THGPUStorage *storage;
+  long storageOffset;
+  int refcount;
+  char flag;
 } THGPUTensor;
-
 
 /**** access methods ****/
 THC_API THGPUStorage* THGPUTensor_storage(const THGPUTensor *self);
@@ -40,7 +36,8 @@ THC_API void THGPUTensor_clearFlag(THGPUTensor *self, const char flag);
 THC_API THGPUTensor *THGPUTensor_new();
 THC_API THGPUTensor *THGPUTensor_newWithTensor(THGPUTensor *tensor);
 /* stride might be NULL */
-THC_API THGPUTensor *THGPUTensor_newWithStorage(THGPUStorage *storage_, long storageOffset_, THLongStorage *size_, THLongStorage *stride_);
+THC_API THGPUTensor *THGPUTensor_newWithStorage(THGPUStorage *storage_, long storageOffset_,
+                                                THLongStorage *size_, THLongStorage *stride_);
 THC_API THGPUTensor *THGPUTensor_newWithStorage1d(THGPUStorage *storage_, long storageOffset_,
                                 long size0_, long stride0_);
 THC_API THGPUTensor *THGPUTensor_newWithStorage2d(THGPUStorage *storage_, long storageOffset_,
@@ -79,7 +76,8 @@ THC_API void THGPUTensor_resize4d(THGPUTensor *tensor, long size0_, long size1_,
 THC_API void THGPUTensor_resize5d(THGPUTensor *tensor, long size0_, long size1_, long size2_, long size3_, long size4_);
 
 THC_API void THGPUTensor_set(THGPUTensor *self, THGPUTensor *src);
-THC_API void THGPUTensor_setStorage(THGPUTensor *self, THGPUStorage *storage_, long storageOffset_, THLongStorage *size_, THLongStorage *stride_);
+THC_API void THGPUTensor_setStorage(THGPUTensor *self, THGPUStorage *storage_, long storageOffset_,
+                                    THLongStorage *size_, THLongStorage *stride_);
 THC_API void THGPUTensor_setStorage1d(THGPUTensor *self, THGPUStorage *storage_, long storageOffset_,
                                     long size0_, long stride0_);
 THC_API void THGPUTensor_setStorage2d(THGPUTensor *self, THGPUStorage *storage_, long storageOffset_,

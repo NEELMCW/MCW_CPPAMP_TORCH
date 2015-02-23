@@ -10,9 +10,7 @@ cl_command_queue mqueue=0;
 void THGPUInit()
 {
   int count = 0;
-
   int device = 0;
-
   mdevice = Concurrency::getAllocator().device;
   mcontext = Concurrency::getAllocator().context;
   mqueue = Concurrency::getAllocator().getQueue();
@@ -26,7 +24,7 @@ void THGPUShutdown()
 
 void __THGPUCheck(int err, const char *file, const int line)
 {
-  if(err != 0)
+  if (err != 0)
   {
     THError("%s(%i) : cuda runtime error : %s",
             file, line, "");
@@ -39,20 +37,20 @@ void THGPUGetGridSize(int *nBlockPerColumn_, int *nBlockPerRow_, int *nThreadPer
   long nBlockPerColumn = 0L;
   long nBlockPerRow = 0L;
 
-  if(size % nThreadPerBlock)
+  if (size % nThreadPerBlock)
     nBlockPerGrid++;
 
-  if(nBlockPerGrid <= 65535)
+  if (nBlockPerGrid <= 65535)
   {
     nBlockPerRow = nBlockPerGrid;
     nBlockPerColumn = 1;
   }
-  else if(nBlockPerGrid <= (65355L * 65355L))
+  else if (nBlockPerGrid <= (65355L * 65355L))
   {
     unsigned int uiSqrt = (unsigned int)(sqrt((float)nBlockPerGrid));
     nBlockPerRow = uiSqrt;
     nBlockPerColumn = uiSqrt;
-    while((nBlockPerRow * nBlockPerColumn) < nBlockPerGrid)
+    while ((nBlockPerRow * nBlockPerColumn) < nBlockPerGrid)
       nBlockPerRow++;
   }
   else
