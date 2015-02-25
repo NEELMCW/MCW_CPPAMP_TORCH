@@ -16,11 +16,11 @@ static int gpunn_Tanh_updateOutput(lua_State *L)
   long size = THGPUTensor_nElement(input);
 
   input = THGPUTensor_newContiguous(input);
-
   THGPUTensor_resizeAs(output, input);
 
   DECLARE_BOLT_DEVICE_VECTOR(output, output_data);
   DECLARE_BOLT_DEVICE_VECTOR(input, input_data);
+
   bolt::amp::transform(input_data.begin() + input->storageOffset,
                        input_data.begin() + input->storageOffset + size,
                        output_data.begin() + output->storageOffset,
@@ -50,6 +50,7 @@ static int gpunn_Tanh_updateGradInput(lua_State *L)
   DECLARE_BOLT_DEVICE_VECTOR(output, output_data);
   DECLARE_BOLT_DEVICE_VECTOR(gradOutput, gradOutput_data);
   DECLARE_BOLT_DEVICE_VECTOR(gradInput, gradInput_data);
+
   bolt::amp::transform(output_data.begin() + output->storageOffset,
                        output_data.begin() + output->storageOffset + size,
                        gradOutput_data.begin() + gradOutput->storageOffset,

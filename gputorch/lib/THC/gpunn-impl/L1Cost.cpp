@@ -18,7 +18,9 @@ static int gpunn_L1Cost_updateOutput(lua_State *L)
   float sum;
   long size = THGPUTensor_nElement(input);
   input = THGPUTensor_newContiguous(input);
+
   DECLARE_BOLT_DEVICE_VECTOR(input, input_data);
+
   sum = bolt::amp::reduce(input_data.begin() + input->storageOffset,
                           input_data.begin() + input->storageOffset + size,
                           (float) 0, l1cost_functor());
@@ -27,7 +29,6 @@ static int gpunn_L1Cost_updateOutput(lua_State *L)
 
   lua_pushnumber(L, sum);
   lua_setfield(L, 1, "output");
-
   lua_pushnumber(L, sum);
   return 1;
 }

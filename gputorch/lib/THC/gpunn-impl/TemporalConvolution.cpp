@@ -24,6 +24,7 @@ static int gpunn_TemporalConvolution_updateOutput(lua_State *L)
     dimS = 1;
     dimF = 2;
   }
+
   luaL_argcheck(L, input->size[dimF] == inputFrameSize, 2, "invalid input frame size");
   luaL_argcheck(L, input->size[dimS] >= kW, 2, "input sequence smaller than kernel size");
 
@@ -115,7 +116,6 @@ static int gpunn_TemporalConvolution_updateOutput(lua_State *L)
   THGPUTensor_free(outputWindow);
   THGPUTensor_free(inputWindow);
   THGPUTensor_free(input);
-
   return 1;
 }
 
@@ -179,6 +179,7 @@ static int gpunn_TemporalConvolution_updateGradInput(lua_State *L)
     THGPUTensor *gradOutputSample = THGPUTensor_new();
     THGPUTensor *gradInputSample = THGPUTensor_new();
     long nBatchFrame = input->size[0];
+
     for (i = 0; i < nBatchFrame; i++)
     {
       THGPUTensor_select(gradOutputSample, gradOutput, 0, i);
@@ -212,7 +213,6 @@ static int gpunn_TemporalConvolution_updateGradInput(lua_State *L)
 
   THGPUTensor_free(gradOutputWindow);
   THGPUTensor_free(gradInputWindow);
-
   return 1;
 }
 
@@ -329,7 +329,6 @@ static int gpunn_TemporalConvolution_accGradParameters(lua_State *L)
   THGPUTensor_free(gradOutputWindow);
   THGPUTensor_free(inputWindow);
   THGPUTensor_free(input);
-
   return 1;
 }
 

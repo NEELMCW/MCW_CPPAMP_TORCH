@@ -1,4 +1,3 @@
-
 /*
  * Description:
  *    this function finds the max along the innermost dimension
@@ -13,20 +12,21 @@ void max_output(Concurrency::array_view<float, 1> &avInp, long inpOffset,
   Concurrency::extent<1> grdExt(numBlocks * 256);
   Concurrency::tiled_extent<256> t_ext(grdExt);
 
-  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<256> tidx) restrict(amp) 
+  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<256> tidx) restrict(amp)
   {
     long o = tidx.global[0];
     if (o >= nrows) return;
+
     long i = o * ncols;
 
     // compute max:
     float max = avInp[inpOffset + i];
     long argmax = 0;
     long ii;
-    for (ii = 1; ii < ncols; ii++) 
+    for (ii = 1; ii < ncols; ii++)
     {
       float val = avInp[inpOffset + i + ii];
-      if (val > max) 
+      if (val > max)
       {
         max = val;
         argmax = ii;
@@ -44,10 +44,10 @@ void max_gradInput(Concurrency::array_view<float, 1> &avInp, long inpOffset,
                   unsigned int inputSz, unsigned int outSz,
                   unsigned int indSz, long nrows, long ncols, unsigned int numBlocks)
 {
-  // output offset:
   Concurrency::extent<1> grdExt(numBlocks * 256);
   Concurrency::tiled_extent<256> t_ext(grdExt);
-  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<256> tidx) restrict(amp) 
+
+  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<256> tidx) restrict(amp)
   {
     long o = tidx.global[0];
     if (o >= nrows) return;
@@ -77,6 +77,7 @@ static int gpunn_Max_updateOutput(lua_State *L)
   long i;
   for (i = 0; i < input->nDimension; i++)
     dim->data[i] = input->size[i];
+
   dim->data[dimension] = 1;
   THGPUTensor_resize(output, dim, NULL);
   THGPUTensor_resize(indices, dim, NULL);
@@ -96,7 +97,7 @@ static int gpunn_Max_updateOutput(lua_State *L)
   max_output(*pavInput, input->storageOffset,
              *pavOutput, output->storageOffset,
              *pavIndices, indices->storageOffset,
-             THGPUTensor_nElement(input), THGPUTensor_nElement(output), 
+             THGPUTensor_nElement(input), THGPUTensor_nElement(output),
              THGPUTensor_nElement(indices), nrows, ncols, nblocks);
 
   // final cut:

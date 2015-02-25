@@ -58,7 +58,8 @@ void conv_weight_acts_c(Concurrency::array_view<float, 1> &avImages,
 {
   Concurrency::extent<3> grdExt(1, nblocks_y * 16, nblocks_x * 8);
   Concurrency::tiled_extent<1, 16, 8> t_ext(grdExt);
-  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1, 16, 8> tidx) restrict(amp) 
+
+  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1, 16, 8> tidx) restrict(amp)
   {
     tile_static float shImages[pixelsPerThread * B_Y * numColors][preloadCases]; // preload preloadCases cases of B_Y * pixelsPerThread pixels
     tile_static float shHidActs[B_X][preloadCases + 1]; // preload preloadCases cases of B_X hidActs
@@ -268,6 +269,7 @@ void conv_weight_acts_mc_mf(Concurrency::array_view<float, 1> &avImages,
   {
   Concurrency::extent<3> grdExt(1, nblocks_y * 4, nblocks_x * 32);
   Concurrency::tiled_extent<1, 4, 32> t_ext(grdExt);
+
   Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1, 4, 32> tidx) restrict(amp)
   {
     tile_static float shImages[colorsPerThread * B_Y][preloadCases]; // preload preloadCases cases of B_Y * pixelsPerThread pixels

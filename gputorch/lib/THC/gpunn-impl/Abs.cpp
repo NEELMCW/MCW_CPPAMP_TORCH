@@ -18,15 +18,16 @@ static int gpunn_Abs_updateOutput(lua_State *L)
   long size = THGPUTensor_nElement(input);
 
   input = THGPUTensor_newContiguous(input);
-
   THGPUTensor_resizeAs(output, input);
 
   DECLARE_BOLT_DEVICE_VECTOR(output, output_data);
   DECLARE_BOLT_DEVICE_VECTOR(input, input_data);
+
   bolt::amp::transform(input_data.begin() + input->storageOffset,
                        input_data.begin() + input->storageOffset + size,
                        output_data.begin() + output->storageOffset,
                        absupdateOutput_functor());
+
   THGPUTensor_free(input);
   return 1;
 }
@@ -51,12 +52,12 @@ static int gpunn_Abs_updateGradInput(lua_State *L)
 
   input = THGPUTensor_newContiguous(input);
   gradOutput = THGPUTensor_newContiguous(gradOutput);
-
   THGPUTensor_resizeAs(gradInput, input);
 
   DECLARE_BOLT_DEVICE_VECTOR(input, input_data);
   DECLARE_BOLT_DEVICE_VECTOR(gradOutput, gradOutput_data);
   DECLARE_BOLT_DEVICE_VECTOR(gradInput, gradInput_data);
+
   bolt::amp::transform(input_data.begin() + input->storageOffset,
                        input_data.begin() + input->storageOffset + size,
                        gradOutput_data.begin() + gradOutput->storageOffset,

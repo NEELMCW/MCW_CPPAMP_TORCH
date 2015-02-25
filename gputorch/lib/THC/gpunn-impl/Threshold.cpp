@@ -17,12 +17,12 @@ static int gpunn_Threshold_updateOutput(lua_State *L)
 {
   THGPUTensor *input = (THGPUTensor*)luaT_checkudata(L, 2, "torch.GPUTensor");
   THGPUTensor *output = (THGPUTensor*)luaT_getfieldcheckudata(L, 1, "output", "torch.GPUTensor");
+
   double val = luaT_getfieldchecknumber(L, 1, "val");
   double threshold = luaT_getfieldchecknumber(L, 1, "threshold");
   long size = THGPUTensor_nElement(input);
 
   input = THGPUTensor_newContiguous(input);
-
   THGPUTensor_resizeAs(output, input);
 
   DECLARE_BOLT_DEVICE_VECTOR(output, output_data);
@@ -56,6 +56,7 @@ static int gpunn_Threshold_updateGradInput(lua_State *L)
   THGPUTensor *input = (THGPUTensor*)luaT_checkudata(L, 2, "torch.GPUTensor");
   THGPUTensor *gradOutput = (THGPUTensor*)luaT_checkudata(L, 3, "torch.GPUTensor");
   THGPUTensor *gradInput = (THGPUTensor*)luaT_getfieldcheckudata(L, 1, "gradInput", "torch.GPUTensor");
+
   double val = luaT_getfieldchecknumber(L, 1, "val");
   double threshold = luaT_getfieldchecknumber(L, 1, "threshold");
   long size = THGPUTensor_nElement(output);
@@ -67,6 +68,7 @@ static int gpunn_Threshold_updateGradInput(lua_State *L)
   DECLARE_BOLT_DEVICE_VECTOR(input, input_data);
   DECLARE_BOLT_DEVICE_VECTOR(gradOutput, gradOutput_data);
   DECLARE_BOLT_DEVICE_VECTOR(gradInput, gradInput_data);
+
   bolt::amp::transform(input_data.begin() + input->storageOffset,
                        input_data.begin() + input->storageOffset + size,
                        gradOutput_data.begin() + gradOutput->storageOffset,

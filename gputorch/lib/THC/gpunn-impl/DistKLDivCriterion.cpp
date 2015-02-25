@@ -12,14 +12,12 @@ static int gpunn_DistKLDivCriterion_updateOutput(lua_State *L)
                 "input and target need to have the same number of elements");
 
   float sum;
-
   long size = THGPUTensor_nElement(input);
-
   input = THGPUTensor_newContiguous(input);
   target = THGPUTensor_newContiguous(target);
 
   sum = boltInnerProduct_plus_kl(input, target);
-  
+
   if (sizeAverage)
     sum /= size;
 
@@ -28,7 +26,6 @@ static int gpunn_DistKLDivCriterion_updateOutput(lua_State *L)
 
   lua_pushnumber(L, sum);
   lua_setfield(L, 1, "output");
-
   lua_pushnumber(L, sum);
   return 1;
 }
@@ -44,10 +41,8 @@ static int gpunn_DistKLDivCriterion_updateGradInput(lua_State *L)
 
   long size = THGPUTensor_nElement(input);
   float norm = (sizeAverage ? 2./size : 2.);
-
   input = THGPUTensor_newContiguous(input);
   target = THGPUTensor_newContiguous(target);
-
   THGPUTensor_resizeAs(gradInput, input);
 
   boltTransform_kl(input, target, gradInput, norm);

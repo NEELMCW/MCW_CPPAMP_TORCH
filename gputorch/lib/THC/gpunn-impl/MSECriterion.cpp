@@ -11,13 +11,12 @@ static int gpunn_MSECriterion_updateOutput(lua_State *L)
   luaL_argcheck(L, THGPUTensor_nElement(input) == THGPUTensor_nElement(target),
                 2, "input and target need to have the same number of elements");
 
-  float sum;
-
   long size = THGPUTensor_nElement(input);
   input = THGPUTensor_newContiguous(input);
   target = THGPUTensor_newContiguous(target);
-  
-  sum = boltInnerProduct_plus_mse( input, target);
+
+  float sum = boltInnerProduct_plus_mse( input, target);
+
   if(sizeAverage)
     sum /= size;
 
@@ -26,8 +25,8 @@ static int gpunn_MSECriterion_updateOutput(lua_State *L)
 
   lua_pushnumber(L, sum);
   lua_setfield(L, 1, "output");
-
   lua_pushnumber(L, sum);
+
   return 1;
 }
 
@@ -64,14 +63,15 @@ void gpunn_MSECriterion_updateOutput_kernel(Concurrency::array_view<float,1> &av
 {
   Concurrency::extent<1> grdExt(MSECRITERION_THREADS);
   Concurrency::tiled_extent<MSECRITERION_THREADS> t_ext(grdExt);
-  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<MSECRITERION_THREADS> tidx) restrict(amp) 
+
+  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<MSECRITERION_THREADS> tidx) restrict(amp)
   {
     tile_static float buffer[MSECRITERION_THREADS];
     float *input_k = avInp.data() + inpOffset;
     float *target_k = avTarget.data() + targetOffset;
     int k = tidx.tile[0];
-    input_k += k*dim;
-    target_k += k*dim;
+    input_k += k * dim;
+    target_k += k * dim;
 
     int i_start = tidx.local[0];
     int i_end = dim;
@@ -79,10 +79,10 @@ void gpunn_MSECriterion_updateOutput_kernel(Concurrency::array_view<float,1> &av
 
     // mse
     buffer[i_start] = 0;
-    for (int i=i_start; i<i_end; i+=i_step)
+    for (int i = i_start; i < i_end; i += i_step)
     {
       float z = input_k[i] - target_k[i];
-      buffer[i_start] += z*z;
+      buffer[i_start] += z * z;
     }
     tidx.barrier.wait();
 
@@ -90,7 +90,7 @@ void gpunn_MSECriterion_updateOutput_kernel(Concurrency::array_view<float,1> &av
     if (i_start == 0)
     {
       avOutput[outOffset] = 0;
-      for (int i=0; i<i_step; i++)
+      for (int i = 0; i < i_step; i++)
       {
         avOutput[outOffset] += buffer[i];
       }
@@ -107,6 +107,7 @@ void gpunn_MSECriterion_updateGradInput_kernel(Concurrency::array_view<float,1> 
 {
   Concurrency::extent<1> grdExt(MSECRITERION_THREADS);
   Concurrency::tiled_extent<MSECRITERION_THREADS> t_ext(grdExt);
+
   Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<MSECRITERION_THREADS> tidx) restrict(amp)
   {
     float *input_k = avInp.data() + inpOffset;
@@ -114,16 +115,16 @@ void gpunn_MSECriterion_updateGradInput_kernel(Concurrency::array_view<float,1> 
     float *gradInput_k = avGradInput.data() + gradInOffset;
 
     int k = tidx.tile[0];
-    gradInput_k += k*dim;
-    input_k += k*dim;
-    target_k += k*dim;
+    gradInput_k += k * dim;
+    input_k += k * dim;
+    target_k += k * dim;
 
     int i_start = tidx.local[0];
     int i_end = dim;
     int i_step = t_ext.tile_dim0;
 
     // gradInput
-    for (int i=i_start; i<i_end; i+=i_step)
+    for (int i = i_start; i < i_end; i += i_step)
       gradInput_k[i] = norm*(input_k[i] - target_k[i]);
   });
 }
@@ -143,7 +144,7 @@ static int gpunn_MSECriterion_updateOutput2(lua_State *L)
   PREPARE_AV_WITH_STORAGE(output, pavOutput);
   PREPARE_AV(input, pavInput);
   PREPARE_AV(target, pavTarget);
-  
+
   //Since there is no storageOffset for THGPUStorage the 2nd Argument is set to 0 
   gpunn_MSECriterion_updateOutput_kernel(*pavOutput, 0,
                                          *pavInput, input->storageOffset,
@@ -151,7 +152,6 @@ static int gpunn_MSECriterion_updateOutput2(lua_State *L)
                                          1, size, sizeAverage);
 
   lua_pushnumber(L, THGPUStorage_get(output, 0));
-
 
   THGPUTensor_free(input);
   THGPUTensor_free(target);
@@ -181,6 +181,7 @@ static int gpunn_MSECriterion_updateGradInput2(lua_State *L)
   PREPARE_AV(gradInput, pavGradInput);
   PREPARE_AV(input, pavInput);
   PREPARE_AV(target, pavTarget);
+
   gpunn_MSECriterion_updateGradInput_kernel(*pavGradInput, gradInput->storageOffset,
                                             *pavInput, input->storageOffset,
                                             *pavTarget, target->storageOffset,

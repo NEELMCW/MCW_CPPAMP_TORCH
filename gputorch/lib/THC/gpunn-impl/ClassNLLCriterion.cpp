@@ -1,7 +1,6 @@
 /**
  * Copyright 2014 Facebook
  */
-
 #include<assert.h>
 
 static const int NTHREADS = 32;
@@ -14,6 +13,7 @@ void gpunn_ClassNLLCriterion_updateOutput_kernel1(Concurrency::array_view<float,
 {
   Concurrency::extent<1> grdExt(1);
   Concurrency::tiled_extent<1> t_ext(grdExt);
+
   Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1> tidx) restrict(amp)
   {
     //assert(threadIdx.x == 0 && threadIdx.y == 0 && threadIdx.z == 0);
@@ -22,7 +22,8 @@ void gpunn_ClassNLLCriterion_updateOutput_kernel1(Concurrency::array_view<float,
     // updateOutput_kernel.
     // Verify whether `register` does anything here.
     register int i, t;
-    for (i = 0; i < ntarget; i++) {
+    for (i = 0; i < ntarget; i++)
+    {
       t = avTarget[targetOffset + i] - 1;
       if (t >= 0)
         avOutput[outOffset + 0] = -avInput[inOffset + t];
@@ -33,11 +34,11 @@ void gpunn_ClassNLLCriterion_updateOutput_kernel1(Concurrency::array_view<float,
 void gpunn_ClassNLLCriterion_updateOutput_kernel(Concurrency::array_view<float,1> &avOutput, long outOffset,
                                                 Concurrency::array_view<float,1> &avInput, long inOffset,
                                                 Concurrency::array_view<float,1> &avTarget, long targetOffset,
-                                                int nframe, int ndim,
-                                                int sizeAverage, int ntarget)
+                                                int nframe, int ndim, int sizeAverage, int ntarget)
 {
   Concurrency::extent<1> grdExt(1 * 32);
   Concurrency::tiled_extent<32> t_ext(grdExt);
+
   Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<32> tidx) restrict(amp)
   {
     tile_static float shInputs[NTHREADS];
@@ -45,8 +46,10 @@ void gpunn_ClassNLLCriterion_updateOutput_kernel(Concurrency::array_view<float,1
     register int i, j, t;
 
     shInputs[tidx.local[0]] = .0;
-    for (i = tidx.local[0]; i < nframe; i += NTHREADS) {
-      for (j = 0; j < ntarget; ++j) {
+    for (i = tidx.local[0]; i < nframe; i += NTHREADS)
+    {
+      for (j = 0; j < ntarget; ++j)
+      {
         t = (int)avTarget[targetOffset + i * ntarget + j] - 1;
         if (t >= 0)
           shInputs[tidx.local[0]] += avInput[inOffset + i * ndim + t];
@@ -56,12 +59,15 @@ void gpunn_ClassNLLCriterion_updateOutput_kernel(Concurrency::array_view<float,1
 
     // TODO: T4951791 Reuse code between updateOutput_kernel1 and
     // updateOutput_kernel
-    if (tidx.local[0] == 0) {
+    if (tidx.local[0] == 0)
+    {
       avOutput[outOffset] = .0;
       for (i = 0; i < NTHREADS; ++i)
         avOutput[outOffset] += shInputs[i];
+
       if (sizeAverage)
         avOutput[outOffset] /= nframe;
+
       avOutput[outOffset] = -(avOutput[outOffset]);
     }
   });
@@ -69,16 +75,18 @@ void gpunn_ClassNLLCriterion_updateOutput_kernel(Concurrency::array_view<float,1
 
 void gpunn_ClassNLLCriterion_updateGradInput_kernel(Concurrency::array_view<float,1> &avGradInput, long gradInOffset,
                                                    Concurrency::array_view<float,1> &avTarget, long targetOffset,
-                                                   int nframe, int ndim,
-                                                   float grad, int ntarget)
+                                                   int nframe, int ndim, float grad, int ntarget)
 {
   Concurrency::extent<1> grdExt(1 * 32);
   Concurrency::tiled_extent<32> t_ext(grdExt);
+
   Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<32> tidx) restrict(amp)
   {
     register int i, j, t;
-    for (i = tidx.local[0]; i < nframe; i += NTHREADS) {
-      for (j = 0; j < ntarget; ++j) {
+    for (i = tidx.local[0]; i < nframe; i += NTHREADS)
+    {
+      for (j = 0; j < ntarget; ++j)
+      {
         t = (int)avTarget[targetOffset + i * ntarget + j] - 1;
         if (t >= 0)
           avGradInput[gradInOffset + i * ndim + t] = grad;
@@ -103,6 +111,7 @@ static int gpunn_ClassNLLCriterion_updateOutput(lua_State *L) {
   PREPARE_AV(output, pavOutput);
   PREPARE_AV(input, pavInput);
   PREPARE_AV(target, pavTarget);
+
   if (input->nDimension == 1)
   {
     gpunn_ClassNLLCriterion_updateOutput_kernel1(*pavOutput, output->storageOffset,
@@ -124,13 +133,11 @@ static int gpunn_ClassNLLCriterion_updateOutput(lua_State *L) {
   THGPUTensor_free(output);
   THGPUTensor_free(target);
   THGPUTensor_free(input);
-
   return 1;
 }
 
 static int gpunn_ClassNLLCriterion_updateGradInput(lua_State *L)
 {
-
   THGPUTensor *input = (THGPUTensor *)luaT_checkudata(L, 2, "torch.GPUTensor");
   input = THGPUTensor_newContiguous(input);
 
@@ -143,8 +150,10 @@ static int gpunn_ClassNLLCriterion_updateGradInput(lua_State *L)
 
   THGPUTensor *gradInput = (THGPUTensor *)luaT_getfieldcheckudata( L, 1, "gradInput", "torch.GPUTensor");
   gradInput = THGPUTensor_newContiguous(gradInput);
+
   PREPARE_AV(gradInput, pavGradInput);
   PREPARE_AV(target, pavTarget);
+
   float grad = -1.0;
   if (input->nDimension == 1)
   {
@@ -156,7 +165,7 @@ static int gpunn_ClassNLLCriterion_updateGradInput(lua_State *L)
 
     float* gradInput_ptr = static_cast<float*>(Concurrency::getAllocator().device_data(gradInput->storage->data));
     gpuMemcpy(gradInput_ptr, (gradInput->storageOffset + (int)tid - 1) * sizeof(float),
-               &grad, 0, sizeof(float), gpuMemcpyHostToDevice);
+              &grad, 0, sizeof(float), gpuMemcpyHostToDevice);
   }
   else if (input->nDimension == 2)
   {
@@ -175,7 +184,6 @@ static int gpunn_ClassNLLCriterion_updateGradInput(lua_State *L)
   THGPUTensor_free(gradInput);
   THGPUTensor_free(target);
   THGPUTensor_free(input);
-
   return 1;
 }
 

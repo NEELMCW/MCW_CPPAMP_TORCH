@@ -15,17 +15,18 @@ void im2col(Concurrency::array_view<float,1> &avData_im, long imOffset, int inOf
   int height_col = (height + 2 * pad_h - ksize_h) / stride_h + 1;
   int width_col = (width + 2 * pad_w - ksize_w) / stride_w + 1;
   int n = channels * height_col * width_col;
-  
-  unsigned grdSz = (n+255) & ~255;
+
+  unsigned grdSz = (n + 255) & ~255;
   Concurrency::extent<2> grdExt(grdSz, ksize_h);
   Concurrency::tiled_extent<256, 1> t_ext(grdExt);
+
   Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<256, 1> tidx) restrict(amp)
   {
     float dataCol = colOffset;
     float dataIm = imOffset + inOffset;
     int i = tidx.global[0];
     int p = tidx.global[1];
-    
+
     if(i < n && p < ksize_h)
     {
       int w_out = i % width_col;
@@ -80,9 +81,10 @@ void col2im_kernel(int n, Concurrency::array_view<float,1> &avData_col, long col
                    Concurrency::array_view<float,1> &avData_im, long imOffset,
                    int inp_stride, int elt)
 {
-  unsigned grdSz = (n + 256) -(n%256);
+  unsigned grdSz = (n + 256) -(n % 256);
   Concurrency::extent<1> grdExt(grdSz);
   Concurrency::tiled_extent<256> t_ext(grdExt);
+
   Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<256> tidx) restrict(amp)
   {
     for (int i = tidx.global[0]; i < (n); i += t_ext[0])
@@ -129,7 +131,8 @@ void col2im(Concurrency::array_view<float,1> &avData_col, long colOffset,
                  pad_h, pad_w, stride_h, stride_w, height_col, width_col, avData_im, imOffset, inp_stride, elt);
 }
 
-static int gpunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
+static int gpunn_SpatialConvolutionMM_updateOutput(lua_State *L)
+{
   // Input
   THGPUTensor *input = (THGPUTensor*)luaT_checkudata(L, 2, "torch.GPUTensor");
 
@@ -151,20 +154,22 @@ static int gpunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
   luaL_argcheck(L, input->nDimension == 3 || input->nDimension == 4, 2, "3D or 4D (batch mode) tensor is expected");
 
   int batch = 1;
-  if (input->nDimension == 3) {
+  if (input->nDimension == 3)
+  {
     luaL_argcheck(L, input->size[0] == nInputPlane, 2, "input channels and nInputPlane dont match");
     // Force batch
     batch = 0;
     THGPUTensor_resize4d(input, 1, input->size[0], input->size[1], input->size[2]);
-  } else {
+  }
+  else
+  {
     luaL_argcheck(L, input->size[1] == nInputPlane, 2, "input channels and nInputPlane dont match");
   }
 
   long inputWidth   = input->size[3];
   long inputHeight  = input->size[2];
-  long outputWidth  = (inputWidth + 2*padding - kW) / dW + 1;
-  long outputHeight = (inputHeight + 2*padding - kH) / dH + 1;
-
+  long outputWidth  = (inputWidth + 2 * padding - kW) / dW + 1;
+  long outputHeight = (inputHeight + 2 * padding - kH) / dH + 1;
 
   // Batch size + input planes
   long batchSize = input->size[0];
@@ -178,7 +183,8 @@ static int gpunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
   // Define a buffer of ones, for bias accumulation
   // Note: this buffer can be shared with other modules, it only ever gets increased,
   // and always contains ones.
-  if (ones->nDimension != 2 || ones->size[0]*ones->size[1] < outputHeight*outputWidth) {
+  if (ones->nDimension != 2 || ones->size[0]*ones->size[1] < outputHeight*outputWidth)
+  {
     // Resize plane and fill with ones...
     THGPUTensor_resize2d(ones, outputHeight, outputWidth);
     THGPUTensor_fill(ones, 1);
@@ -187,6 +193,12 @@ static int gpunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
   // Helpers
   PREPARE_AV(columns, avData_col);
   PREPARE_AV(input, avData_im);
+  PREPARE_AV(ones, avData_ones);
+  PREPARE_AV(bias, avData_bias);
+  PREPARE_AV(output, avData_output);
+  PREPARE_AV(weight, avData_weight);
+  Concurrency::array_view<float> *temp_buf = NULL;
+
   long m_ = nOutputPlane;
   long n_ = outputHeight * outputWidth;
   long k_ = 1;
@@ -194,69 +206,55 @@ static int gpunn_SpatialConvolutionMM_updateOutput(lua_State *L) {
   long n = columns->size[1];
   long k = weight->size[1];
 
-  PREPARE_AV(ones, avData_ones);
-  PREPARE_AV(bias, avData_bias);
-  PREPARE_AV(output, avData_output);
-  PREPARE_AV(weight, avData_weight);
-  Concurrency::array_view<float> *temp_buf = NULL;
-
   // For each elt in batch, do:
-  for (int elt = 0; elt < batchSize; elt ++) {
+  for (int elt = 0; elt < batchSize; elt ++)
+  {
     // Matrix mulitply per output:
-
-    // Do Bias first:
-    // M,N,K are dims of matrix A and B
-    // (see http://docs.nvidia.com/gpu/cublas/#cublas-lt-t-gt-gemm)
-
-    // Do GEMM (note: this is a bit confusing because gemm assumes column-major matrices)
-    // Ugly codes but it is the way to deal with unnecessary copying from host
     avData_ones->discard_data();
     avData_bias->discard_data();
     avData_output->discard_data();
-    THGPUBlas_gemm_opt(
-        't', 'n',
-        n_, m_, k_,
-        1,
-        *avData_ones, ones->storageOffset, k_,
-        *avData_bias, bias->storageOffset, k_, 0,
-        *avData_output, output->storageOffset + output->stride[0] * elt, n_,
-        *temp_buf
-    );
-    // Extract columns:
+
+    // Do Bias first:
+    // M,N,K are dims of matrix A and B
+    // Do GEMM (note: this is a bit confusing because gemm assumes column-major matrices)
+    // Ugly codes but it is the way to deal with unnecessary copying from host
+    THGPUBlas_gemm_opt('t', 'n', n_, m_, k_, 1,
+                       *avData_ones, ones->storageOffset, k_,
+                       *avData_bias, bias->storageOffset, k_, 0,
+                       *avData_output, output->storageOffset + output->stride[0] * elt, n_,
+                       *temp_buf);
+
     avData_im->discard_data();
     avData_col->discard_data();
-    im2col(
-        *avData_im, input->storageOffset, input->stride[0] * elt,
-        nInputPlane, inputHeight, inputWidth, kH, kW, padding, padding, dH, dW,
-        *avData_col, columns->storageOffset
-    );
-    // M,N,K are dims of matrix A and B
-    // (see http://docs.nvidia.com/gpu/cublas/#cublas-lt-t-gt-gemm)
 
-    // Do GEMM (note: this is a bit confusing because gemm assumes column-major matrices)
+    // Extract columns:
+    im2col(*avData_im, input->storageOffset, input->stride[0] * elt,
+           nInputPlane, inputHeight, inputWidth, kH, kW, padding,
+           padding, dH, dW, *avData_col, columns->storageOffset);
+
     avData_col->discard_data();
     avData_weight->discard_data();
     avData_output->discard_data();
-    THGPUBlas_gemm_opt(
-        'n', 'n',
-        n, m, k,
-        1,
-        *avData_col, columns->storageOffset, n,
-        *avData_weight, weight->storageOffset, k, 1,
-        *avData_output, output->storageOffset + output->stride[0] * elt, n,
-        *temp_buf);
-  }
 
+    // M,N,K are dims of matrix A and B
+    // Do GEMM (note: this is a bit confusing because gemm assumes column-major matrices)
+    THGPUBlas_gemm_opt('n', 'n', n, m, k, 1,
+                       *avData_col, columns->storageOffset, n,
+                       *avData_weight, weight->storageOffset, k, 1,
+                       *avData_output, output->storageOffset + output->stride[0] * elt, n,
+                       *temp_buf);
+  }
   // Resize output
-  if (batch == 0) {
+  if (batch == 0)
+  {
     THGPUTensor_resize3d(output, nOutputPlane, outputHeight, outputWidth);
     THGPUTensor_resize3d(input, nInputPlane, inputHeight, inputWidth);
   }
-  // return output
   return 1;
 }
 
-static int gpunn_SpatialConvolutionMM_updateGradInput(lua_State *L) {
+static int gpunn_SpatialConvolutionMM_updateGradInput(lua_State *L)
+{
   // Inputs
   THGPUTensor *input = (THGPUTensor *)luaT_checkudata(L, 2, "torch.GPUTensor");
   THGPUTensor *gradOutput = (THGPUTensor *)luaT_checkudata(L, 3, "torch.GPUTensor");
@@ -277,7 +275,8 @@ static int gpunn_SpatialConvolutionMM_updateGradInput(lua_State *L) {
   luaL_argcheck(L, input->nDimension == 3 || input->nDimension == 4, 2, "3D or 4D (batch mode) tensor is expected");
 
   int batch = 1;
-  if (input->nDimension == 3) {
+  if (input->nDimension == 3)
+  {
     // Force batch
     batch = 0;
     THGPUTensor_resize4d(input, 1, input->size[0], input->size[1], input->size[2]);
@@ -286,8 +285,8 @@ static int gpunn_SpatialConvolutionMM_updateGradInput(lua_State *L) {
 
   long inputWidth   = input->size[3];
   long inputHeight  = input->size[2];
-  long outputWidth  = (inputWidth + 2*padding - kW) / dW + 1;
-  long outputHeight = (inputHeight + 2*padding - kH) / dH + 1;
+  long outputWidth  = (inputWidth + 2 * padding - kW) / dW + 1;
+  long outputHeight = (inputHeight + 2 * padding - kH) / dH + 1;
 
   // Batch size + input planes
   long batchSize = input->size[0];
@@ -303,51 +302,44 @@ static int gpunn_SpatialConvolutionMM_updateGradInput(lua_State *L) {
   PREPARE_AV(gradInput, avData_im);
   PREPARE_AV(gradOutput, avData_gradOutput);
   PREPARE_AV(weight, avData_weight);
+  Concurrency::array_view<float> *temp_buf = NULL;
+
   long m = weight->size[1];
   long n = gradColumns->size[1];
   long k = weight->size[0];
-  Concurrency::array_view<float> *temp_buf = NULL;
 
  // For each elt in batch, do:
-  for (int elt = 0; elt < batchSize; elt ++) {
+  for (int elt = 0; elt < batchSize; elt ++)
+  {
     // Matrix mulitply per sample:
-
-    // M,N,K are dims of matrix A and B
-    // (see http://docs.nvidia.com/gpu/cublas/#cublas-lt-t-gt-gemm)
-
-    // Do GEMM (note: this is a bit confusing because gemm assumes column-major matrices)
-    // Ugly codes but it is the way to deal with unnecessary copying from host
     avData_gradOutput->discard_data();
     avData_weight->discard_data();
     avData_col->discard_data();
-    THGPUBlas_gemm_opt(
-        'n', 't',
-        n, m, k,
-        1,
-        *avData_gradOutput, gradOutput->storageOffset + gradOutput->stride[0] * elt, n,
-        *avData_weight, weight->storageOffset, m, 0,
-        *avData_col, gradColumns->storageOffset, n,
-        *temp_buf
-    );
 
-    // Unpack columns back into input:
+    // M,N,K are dims of matrix A and B
+    // Do GEMM (note: this is a bit confusing because gemm assumes column-major matrices)
+    // Ugly codes but it is the way to deal with unnecessary copying from host
+    THGPUBlas_gemm_opt('n', 't', n, m, k, 1,
+                       *avData_gradOutput, gradOutput->storageOffset + gradOutput->stride[0] * elt, n,
+                       *avData_weight, weight->storageOffset, m, 0,
+                       *avData_col, gradColumns->storageOffset, n, *temp_buf);
+
     avData_col->discard_data();
     avData_im->discard_data();
-    col2im(
-        *avData_col, gradColumns->storageOffset,
-        nInputPlane, inputHeight, inputWidth, kH, kW, padding, padding, dH, dW,
-        *avData_im, gradInput->storageOffset, gradInput->stride[0], elt
-    );
+
+    // Unpack columns back into input:
+    col2im(*avData_col, gradColumns->storageOffset,  nInputPlane,
+           inputHeight, inputWidth, kH, kW, padding, padding, dH, dW,
+           *avData_im, gradInput->storageOffset, gradInput->stride[0], elt);
   }
 
   // Resize output
-  if (batch == 0) {
+  if (batch == 0)
+  {
     THGPUTensor_resize3d(gradOutput, nOutputPlane, outputHeight, outputWidth);
     THGPUTensor_resize3d(input, nInputPlane, inputHeight, inputWidth);
     THGPUTensor_resize3d(gradInput, nInputPlane, inputHeight, inputWidth);
   }
-
-  // Return gradInput
   return 1;
 }
 
@@ -374,7 +366,8 @@ static int gpunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
   luaL_argcheck(L, input->nDimension == 3 || input->nDimension == 4, 2, "3D or 4D (batch mode) tensor is expected");
 
   int batch = 1;
-  if (input->nDimension == 3) {
+  if (input->nDimension == 3)
+  {
     // Force batch
     batch = 0;
     THGPUTensor_resize4d(input, 1, input->size[0], input->size[1], input->size[2]);
@@ -383,14 +376,15 @@ static int gpunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
 
   long inputWidth   = input->size[3];
   long inputHeight  = input->size[2];
-  long outputWidth  = (inputWidth + 2*padding - kW) / dW + 1;
-  long outputHeight = (inputHeight + 2*padding - kH) / dH + 1;
+  long outputWidth  = (inputWidth + 2 * padding - kW) / dW + 1;
+  long outputHeight = (inputHeight + 2 * padding - kH) / dH + 1;
 
   // Batch size + input planes
   long batchSize = input->size[0];
 
   // Define a buffer of ones, for bias accumulation
-  if (ones->nDimension != 2 || ones->size[0]*ones->size[1] < outputHeight*outputWidth) {
+  if (ones->nDimension != 2 || ones->size[0]*ones->size[1] < outputHeight*outputWidth)
+  {
     // Resize plane and fill with ones...
     THGPUTensor_resize2d(ones, outputHeight, outputWidth);
     THGPUTensor_fill(ones, 1);
@@ -413,73 +407,59 @@ static int gpunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
   PREPARE_AV(ones, avData_ones);
   PREPARE_AV(gradBias, avData_gradBias);
 
-  // For each elt in batch, do:
-  bool readNow=false;
-
   int lenX = k_;
   int lenY = m_;
   int len_X = (lenX + 255) & ~255;
   int numBlocks = len_X / 256;
 
-  float* tempBuf = (float*)malloc(numBlocks*lenY*sizeof(float));
-  Concurrency::extent<1> ext(numBlocks*lenY);
+  float* tempBuf = (float*)malloc(numBlocks * lenY * sizeof(float));
+  Concurrency::extent<1> ext(numBlocks * lenY);
   Concurrency::array_view<float,1> temp_buf(ext, tempBuf);
-
-  numBlocks = ((k + 255) & ~255)/256;
- 
   Concurrency::array_view<float> *temp_buf1 = NULL;
 
-  for (int elt = 0; elt < batchSize; elt ++) {
-    // Extract columns:
-    // Ugly codes but it is the way to deal with unnecessary copying from host
+  numBlocks = ((k + 255) & ~255) / 256;
+
+  // For each elt in batch, do:
+  for (int elt = 0; elt < batchSize; elt ++)
+  {
     avData_im->discard_data();
     avData_col->discard_data();
-    im2col(
-        *avData_im, input->storageOffset, input->stride[0] * elt,
-        nInputPlane, inputHeight, inputWidth, kH, kW, padding, padding, dH, dW,
-        *avData_col, columns->storageOffset
-    );
 
-    // M,N,K are dims of matrix A and B
-    // (see http://docs.nvidia.com/gpu/cublas/#cublas-lt-t-gt-gemm)
+    // Extract columns:
+    // Ugly codes but it is the way to deal with unnecessary copying from host
+    im2col(*avData_im, input->storageOffset, input->stride[0] * elt,
+          nInputPlane, inputHeight, inputWidth, kH, kW, padding, padding,
+          dH, dW, *avData_col, columns->storageOffset);
 
-    // Do GEMM (note: this is a bit confusing because gemm assumes column-major matrices)
     avData_col->discard_data();
     avData_gradOutput->discard_data();
     avData_gradWeight->discard_data();
-    THGPUBlas_gemm_opt(
-        't', 'n',
-        n, m, k,
-        scale,
-        *avData_col, columns->storageOffset, k,
-        *avData_gradOutput, gradOutput->storageOffset + gradOutput->stride[0] * elt, k, 1,
-        *avData_gradWeight, gradWeight->storageOffset, n, *temp_buf1
-    );
 
-    if(elt==batchSize-1)
-      readNow = true;
+    // M,N,K are dims of matrix A and B
+    // Do GEMM (note: this is a bit confusing because gemm assumes column-major matrices)
+    THGPUBlas_gemm_opt('t', 'n', n, m, k, scale,
+                       *avData_col, columns->storageOffset, k,
+                       *avData_gradOutput, gradOutput->storageOffset + gradOutput->stride[0] * elt, k, 1,
+                       *avData_gradWeight, gradWeight->storageOffset, n, *temp_buf1);
 
     avData_ones->discard_data();
     avData_gradBias->discard_data();
     temp_buf.discard_data();
 
-    THGPUBlas_gemv_opt(
-        't',
-        k_, m_,
-        scale,
-        *avData_gradOutput, gradOutput->storageOffset + gradOutput->stride[0] * elt,
-        *avData_ones, ones->storageOffset, 1,
-        1,
-        *avData_gradBias, gradBias->storageOffset, 1, temp_buf
-    );
+    THGPUBlas_gemv_opt('t', k_, m_, scale,
+                       *avData_gradOutput,
+                       gradOutput->storageOffset + gradOutput->stride[0] * elt,
+                       *avData_ones, ones->storageOffset, 1, 1,
+                       *avData_gradBias, gradBias->storageOffset, 1, temp_buf);
   }
 
   // Resize
-  if (batch == 0) {
+  if (batch == 0)
+  {
     THGPUTensor_resize3d(gradOutput, nOutputPlane, outputHeight, outputWidth);
     THGPUTensor_resize3d(input, nInputPlane, inputHeight, inputWidth);
   }
-  // Return nothing
+
   free(tempBuf);
   return 0;
 }

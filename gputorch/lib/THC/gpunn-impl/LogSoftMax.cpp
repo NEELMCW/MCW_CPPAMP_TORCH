@@ -1,5 +1,4 @@
 #define MINUS_LOG_THRESHOLD -18.42
-// use WAVEFRONT SIZE
 #define LOGSOFTMAX_THREADS 256
 #include "amp_math.h"
 
@@ -7,26 +6,23 @@ void gpunn_LogSoftMax_updateOutput_kernel(Concurrency::array_view<float,1> &avOu
                                           Concurrency::array_view<float,1> &avInp, long inOffset,
                                           int nframe, int dim)
 {
-  // nframe = (nframe + (LOGSOFTMAX_THREADS -1)) &~(LOGSOFTMAX_THREADS-1);
   Concurrency::extent<1> grdExt(nframe * LOGSOFTMAX_THREADS);
   Concurrency::tiled_extent<LOGSOFTMAX_THREADS> t_ext(grdExt);
-  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<LOGSOFTMAX_THREADS> tidx) restrict(amp) 
+
+  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<LOGSOFTMAX_THREADS> tidx) restrict(amp)
   {
     tile_static float buffer[LOGSOFTMAX_THREADS+1];
-    //int k = blockIdx.x;
     int k = tidx.tile[0];
 
-    //int i_start = threadIdx.x;
     unsigned int i_start = tidx.local[0];
     int i_end = dim;
-    //int i_step = blockDim.x;
     int i_step = t_ext.tile_dim0;
 
     // max?
     buffer[i_start] = -FLT_MAX;
-    for (int i=i_start; i<i_end; i+=i_step)
+    for (int i = i_start; i < i_end; i += i_step)
     {
-      float z = avInp[inOffset + k * dim +i];
+      float z = avInp[inOffset + k * dim + i];
       if(buffer[i_start] < z)
         buffer[i_start] = z;
     }
@@ -38,21 +34,22 @@ void gpunn_LogSoftMax_updateOutput_kernel(Concurrency::array_view<float,1> &avOu
       if ((i_start < stride) && (buffer[i_start] < buffer[i_start + stride]))
         buffer[i_start] = buffer[i_start + stride];
     }
+
     if (i_start == 0)
     {
       float max_k = -FLT_MAX;
       if(max_k < buffer[0])
         max_k = buffer[0];
+
       buffer[LOGSOFTMAX_THREADS] = max_k;
     }
 
     tidx.barrier.wait();
-
     // logadd?
     float max_k = buffer[LOGSOFTMAX_THREADS];
     buffer[i_start] = 0;
-    for (int i=i_start; i<i_end; i+=i_step)
-      buffer[i_start] += Concurrency::fast_math::expf(avInp[inOffset + k*dim+i]-max_k);
+    for (int i = i_start; i < i_end; i += i_step)
+      buffer[i_start] += Concurrency::fast_math::expf(avInp[inOffset + k * dim + i] - max_k);
 
     // reduce
     for (unsigned int stride = i_step >> 1; stride > 0; stride >>= 1)
@@ -61,13 +58,14 @@ void gpunn_LogSoftMax_updateOutput_kernel(Concurrency::array_view<float,1> &avOu
       if (i_start < stride)
         buffer[i_start] += buffer[i_start+stride];
     }
+
     if (i_start == 0)
       buffer[LOGSOFTMAX_THREADS] = max_k + Concurrency::fast_math::logf(buffer[0]);
 
     tidx.barrier.wait();
     // logsoftmax
     float logsum_k = buffer[LOGSOFTMAX_THREADS];
-    for (int i=i_start; i<i_end; i+=i_step)
+    for (int i = i_start; i < i_end; i += i_step)
       avOutput[outOffset + k *dim + i] = avInp[inOffset + k * dim +i] - logsum_k;
   });
 }
@@ -79,28 +77,25 @@ void gpunn_LogSoftMax_updateGradInput_kernel(Concurrency::array_view<float,1> &a
 {
   Concurrency::extent<1> grdExt(nframe * LOGSOFTMAX_THREADS);
   Concurrency::tiled_extent<LOGSOFTMAX_THREADS> t_ext(grdExt);
-  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<LOGSOFTMAX_THREADS> tidx) restrict(amp) 
+  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<LOGSOFTMAX_THREADS> tidx) restrict(amp)
   {
     tile_static float buffer[LOGSOFTMAX_THREADS];
-    //int k = blockIdx.x;
     int k = tidx.tile[0];
     float *gradInput_k = avGradInput.data() + gradInOffset;
-    gradInput_k += k*dim;
+    gradInput_k += k * dim;
     float *output_k = avOutput.data() + outOffset;
-    output_k += k*dim;
+    output_k += k * dim;
     float *gradOutput_k = avGradOutput.data() + gradOutOffset;
-    gradOutput_k += k*dim;
+    gradOutput_k += k * dim;
 
-    //int tx = threadIdx.x;
     unsigned int tx = tidx.local[0];
 
     int i_end = dim;
-    //int i_step = blockDim.x;
     int i_step = t_ext.tile_dim0;
 
     // sum?
     buffer[tx] = 0;
-    for (int i=tx; i<i_end; i+=i_step)
+    for (int i = tx; i < i_end; i += i_step)
       buffer[tx] += gradOutput_k[gradOutOffset + i];
 
     // reduce
@@ -112,10 +107,9 @@ void gpunn_LogSoftMax_updateGradInput_kernel(Concurrency::array_view<float,1> &a
     }
 
     tidx.barrier.wait();
-
     float sum_k = buffer[0];
-    for (int i=tx; i<i_end; i+=i_step)
-      gradInput_k[gradInOffset + i] = gradOutput_k[gradOutOffset + i] - Concurrency::fast_math::expf(output_k[outOffset + i])*sum_k;
+    for (int i = tx; i < i_end; i += i_step)
+      gradInput_k[gradInOffset + i] = gradOutput_k[gradOutOffset + i] - Concurrency::fast_math::expf(output_k[outOffset + i]) * sum_k;
   });
 }
 
@@ -129,10 +123,11 @@ static int gpunn_LogSoftMax_updateOutput(lua_State *L)
 
   PREPARE_AV(output, pavOutput);
   PREPARE_AV(input, pavInput);
+
   if (input->nDimension == 1)
   {
     gpunn_LogSoftMax_updateOutput_kernel(*pavOutput, output->storageOffset,
-                                         *pavInput, input->storageOffset, 
+                                         *pavInput, input->storageOffset,
                                          1, input->size[0]);
   }
   else if (input->nDimension == 2)
@@ -161,9 +156,10 @@ static int gpunn_LogSoftMax_updateGradInput(lua_State *L)
   PREPARE_AV(gradInput, pavGradInput);
   PREPARE_AV(gradOutput, pavGradOutput);
   PREPARE_AV(output, pavOutput);
+
   if (gradInput->nDimension == 1)
   {
-    gpunn_LogSoftMax_updateGradInput_kernel(*pavGradInput, gradInput->storageOffset, 
+    gpunn_LogSoftMax_updateGradInput_kernel(*pavGradInput, gradInput->storageOffset,
                                             *pavOutput, output->storageOffset,
                                             *pavGradOutput, gradOutput->storageOffset,
                                             1, gradInput->size[0]);
@@ -180,7 +176,6 @@ static int gpunn_LogSoftMax_updateGradInput(lua_State *L)
 
   THGPUTensor_free(output);
   THGPUTensor_free(gradOutput);
-
   return 1;
 }
 

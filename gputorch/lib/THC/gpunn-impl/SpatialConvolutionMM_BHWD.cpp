@@ -1,32 +1,29 @@
-// WARNING: this module is incomplete - and just meant for reference for now.
-
-// Kernel for fast unfold+copy
-// (borrowed from Caffe: https://github.com/BVLC/caffe/blob/master/src/caffe/layers/conv_layer.cu)
-
 #include "THCBlas.h"
 
 #define GPU_NUM_THREADS 256
-
-// WARNING: this module is incomplete - and just meant for reference for now.
 
 // GPU: number of blocks for threads.
 inline int GET_BLOCKS(const int N) {
   return (N + GPU_NUM_THREADS - 1) / GPU_NUM_THREADS;
 }
 
-void imt2col_kernel(int n, Concurrency::array_view<float> & avData_im, long imOffset, int inOffset, 
-                    int height, int width, int ksize_h,
-                    int ksize_w, int pad_h, int pad_w, int stride_h, int stride_w,
-                    int height_col, int width_col, 
+// WARNING: this module is incomplete - and just meant for reference for now.
+
+// Kernel for fast unfold+copy
+// (borrowed from Caffe: https://github.com/BVLC/caffe/blob/master/src/caffe/layers/conv_layer.cu)
+
+void imt2col_kernel(int n, Concurrency::array_view<float> & avData_im, long imOffset,
+                    int inOffset, int height, int width, int ksize_h, int ksize_w, int pad_h,
+                    int pad_w, int stride_h, int stride_w, int height_col, int width_col,
                     Concurrency::array_view<float,1> &avData_col, long colOffset)
 {
   avData_im.discard_data();
   unsigned grdSz = (n + 255) & ~255;
   Concurrency::extent<1> grdExt(grdSz);
   Concurrency::tiled_extent<256> t_ext(grdExt);
+
   Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<256> tidx) restrict(amp)
   {
-    //for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < (n); i += blockDim.x * gridDim.x)
     float dataCol = 0;
     float dataIm = inOffset;
     for (int i = tidx.global[0]; i < (n); i += t_ext[0])
@@ -54,10 +51,9 @@ void imt2col_kernel(int n, Concurrency::array_view<float> & avData_im, long imOf
   });
 }
 
-void imt2col(Concurrency::array_view<float> &data_im, long imOffset, 
-             int inOffset, int channels, int height, int width,
-             int ksize_h, int ksize_w, int pad_h, int pad_w,
-             int stride_h, int stride_w,
+void imt2col(Concurrency::array_view<float> &data_im, long imOffset,
+             int inOffset, int channels, int height, int width,int ksize_h,
+             int ksize_w, int pad_h, int pad_w, int stride_h, int stride_w,
              Concurrency::array_view<float,1> &data_col, long colOffset)
 {
   // We are going to launch channels * height_col * width_col kernels, each
@@ -67,14 +63,13 @@ void imt2col(Concurrency::array_view<float> &data_im, long imOffset,
   int num_kernels = channels * height_col * width_col;
 
   // Launch
-  imt2col_kernel(num_kernels, data_im, imOffset,
-                 inOffset, height, width, 
-                 ksize_h, ksize_w, pad_h, pad_w, 
-                 stride_h, stride_w, height_col, width_col,
-                 data_col, colOffset);
+  imt2col_kernel(num_kernels, data_im, imOffset, inOffset, height, width,
+                 ksize_h, ksize_w, pad_h, pad_w, stride_h, stride_w,
+                 height_col, width_col, data_col, colOffset);
 }
 
-static int gpunn_SpatialConvolutionMM_BHWD_updateOutput(lua_State *L) {
+static int gpunn_SpatialConvolutionMM_BHWD_updateOutput(lua_State *L)
+{
   // Input
   THGPUTensor *input = (THGPUTensor*)luaT_checkudata(L, 2, "torch.GPUTensor");
 
@@ -113,16 +108,17 @@ static int gpunn_SpatialConvolutionMM_BHWD_updateOutput(lua_State *L) {
   // Define a buffer of ones, for bias accumulation
   // Note: this buffer can be shared with other modules, it only ever gets increased,
   // and always contains ones.
-  if (ones->nDimension != 2 || ones->size[0]*ones->size[1] < outputHeight*outputWidth) {
+  if (ones->nDimension != 2 || ones->size[0]*ones->size[1] < outputHeight*outputWidth)
+  {
     // Resize plane and fill with ones...
     THGPUTensor_resize2d(ones, outputHeight, outputWidth);
     THGPUTensor_fill(ones, 1);
   }
 
   // Helpers
-
   PREPARE_AV(columns, avData_col);
   PREPARE_AV(input, avData_im);
+
   long m_ = nOutputPlane;
   long n_ = outputHeight * outputWidth;
   long k_ = 1;
@@ -130,7 +126,6 @@ static int gpunn_SpatialConvolutionMM_BHWD_updateOutput(lua_State *L) {
   long n = columns->size[1];
   long k = weight->size[1];
 
-  
   PREPARE_AV(ones, avData_ones);
   PREPARE_AV(bias, avData_bias);
   PREPARE_AV(output, avData_output);
@@ -138,64 +133,53 @@ static int gpunn_SpatialConvolutionMM_BHWD_updateOutput(lua_State *L) {
   Concurrency::array_view<float> *temp_buf = NULL;
 
   // For each elt in batch, do:
-  for (int elt = 0; elt < batchSize; elt ++) {
+  for (int elt = 0; elt < batchSize; elt ++)
+  {
     // Matrix mulitply per output:
-
-    // Do Bias first:
-    // M,N,K are dims of matrix A and B
-    // (see http://docs.nvidia.com/gpu/cublas/#cublas-lt-t-gt-gemm)
-
-    // Do GEMM (note: this is a bit confusing because gemm assumes column-major matrices)
-
-    // Extract columns:
     avData_ones->discard_data();
     avData_bias->discard_data();
     avData_output->discard_data();
-    THGPUBlas_gemm_opt(
-        't', 'n',
-        n_, m_, k_,
-        1,
-        *avData_ones, ones->storageOffset, k_,
-        *avData_bias, bias->storageOffset, k_, 0,
-        *avData_output, output->storageOffset + output->stride[0] * elt, n_,
-        *temp_buf
-    );
-    // Extract columns:
+
+    // Do Bias first:
+    // M,N,K are dims of matrix A and B
+    // Do GEMM (note: this is a bit confusing because gemm assumes column-major matrices)
+    THGPUBlas_gemm_opt('t', 'n', n_, m_, k_, 1,
+                       *avData_ones, ones->storageOffset, k_,
+                       *avData_bias, bias->storageOffset, k_, 0,
+                       *avData_output, output->storageOffset + output->stride[0] * elt, n_,
+                       *temp_buf);
+
     avData_im->discard_data();
     avData_col->discard_data();
-    imt2col(
-        *avData_im, input->storageOffset, input->stride[0] * elt,
-        nInputPlane, inputHeight, inputWidth, kH, kW, padding, padding, dH, dW,
-        *avData_col, columns->storageOffset
-    );
-    // M,N,K are dims of matrix A and B
-    // (see http://docs.nvidia.com/gpu/cublas/#cublas-lt-t-gt-gemm)
 
-    // Do GEMM (note: this is a bit confusing because gemm assumes column-major matrices)
+    // Extract columns:
+    imt2col(*avData_im, input->storageOffset, input->stride[0] * elt,
+            nInputPlane, inputHeight, inputWidth, kH, kW, padding,
+            padding, dH, dW, *avData_col, columns->storageOffset);
+
     avData_col->discard_data();
     avData_weight->discard_data();
     avData_output->discard_data();
-    THGPUBlas_gemm_opt(
-        'n', 'n',
-        n, m, k,
-        1,
-        *avData_col, columns->storageOffset, n,
-        *avData_weight, weight->storageOffset, k, 1,
-        *avData_output, output->storageOffset + output->stride[0] * elt, n,
-        *temp_buf
-    );
-  }
 
-  // return output
+    // M,N,K are dims of matrix A and B
+    // Do GEMM (note: this is a bit confusing because gemm assumes column-major matrices)
+    THGPUBlas_gemm_opt('n', 'n', n, m, k, 1,
+                       *avData_col, columns->storageOffset, n,
+                       *avData_weight, weight->storageOffset, k, 1,
+                       *avData_output, output->storageOffset + output->stride[0] * elt, n,
+                       *temp_buf);
+  }
   return 1;
 }
 
-static int gpunn_SpatialConvolutionMM_BHWD_updateGradInput(lua_State *L) {
+static int gpunn_SpatialConvolutionMM_BHWD_updateGradInput(lua_State *L)
+{
     // implementation in progress
     return 1;
 }
 
-static int gpunn_SpatialConvolutionMM_BHWD_accGradParameters(lua_State *L) {
+static int gpunn_SpatialConvolutionMM_BHWD_accGradParameters(lua_State *L)
+{
     // implementation in progress
     return 0;
 }
@@ -213,4 +197,3 @@ static void gpunn_SpatialConvolutionMM_BHWD_init(lua_State *L)
     luaT_registeratname(L, gpunn_SpatialConvolutionMM_BHWD__, "nn");
     lua_pop(L,1);
 }
-

@@ -1,20 +1,15 @@
 #include "luaT.h"
 #include "THC.h"
 
-
-/*
- * Description:
- */
-
 int translate_idx(int ii, int d1, int d2, int d3, int scale_factor) restrict(amp)
 {
   int x, y, z, w;
   w = ii % d3;
-  ii = ii/d3;
+  ii = ii / d3;
   z = ii % d2;
-  ii = ii/d2;
+  ii = ii / d2;
   y = ii % d1;
-  ii = ii/d1;
+  ii = ii / d1;
   x = ii;
   w = w / scale_factor;
   z = z / scale_factor;
@@ -22,6 +17,7 @@ int translate_idx(int ii, int d1, int d2, int d3, int scale_factor) restrict(amp
   d3 /= scale_factor;
   return (((x * d1 + y) * d2) + z) * d3 + w;
 }
+
 int translate_idx_inv(int ii, int d1, int d2, int d3, int scale_factor, int off_x, int off_y) restrict(amp)
 {
   int x, y, z, w;
@@ -44,19 +40,20 @@ void upscale(Concurrency::array_view<float,1> &avInp, long inpOffset,
              unsigned int inpSz, unsigned int outSz, long no_elements,
              int scale_factor, int d1, int d2, int d3, unsigned int grdConf[])
 {
-  Concurrency::extent<2> grdExt(grdConf[1],grdConf[0]*256);
-  Concurrency::tiled_extent<1,256> t_ext(grdExt);
+  Concurrency::extent<2> grdExt(grdConf[1], grdConf[0] * 256);
+  Concurrency::tiled_extent<1, 256> t_ext(grdExt);
 
-  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1,256> tidx) restrict(amp) 
+  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1, 256> tidx) restrict(amp)
   {
     long ii = tidx.global[1];
     ii += tidx.local[0] + t_ext.tile_dim0 * (t_ext.tile_dim1 * t_ext[1]) * tidx.tile[0];
-    if (ii >= no_elements) return;
+    if (ii >= no_elements)
+      return;
+
     int ipidx = translate_idx(ii, d1, d2, d3, scale_factor);
     avOut[outOffset + ii] = avInp[inpOffset + ipidx];
   });
 }
-
 
 static int gpunn_SpatialUpSamplingNearest_updateOutput(lua_State *L)
 {
@@ -68,6 +65,7 @@ static int gpunn_SpatialUpSamplingNearest_updateOutput(lua_State *L)
   input = THGPUTensor_newContiguous(input);
   // This is for allocating output Tensor
   long no_elements = 1;
+
   for (int i = 0; i < input->nDimension; i++)
   {
     no_elements *= input->size[i];
@@ -104,38 +102,33 @@ static int gpunn_SpatialUpSamplingNearest_updateOutput(lua_State *L)
   }
 
   unsigned int grdConf[2];
-
   grdConf[0] = n_xblocks;
   grdConf[1] = n_yblocks;
 
   unsigned int inpSz = THGPUTensor_nElement(input);
   unsigned int outSz = THGPUTensor_nElement(output);
-  
+
   PREPARE_AV(input, pavInput);
   PREPARE_AV(output, pavOutput);
+
   // kernel:
   upscale(*pavInput, input->storageOffset,
           *pavOutput, output->storageOffset,
           inpSz, outSz, no_elements, scale_factor, d1, d2, d3, grdConf);
- 
-  // final cut:
-  THGPUTensor_free(input); 
 
+  THGPUTensor_free(input); 
   return 1;
 }
 
-/*
- * Description:
- */
 void downscale(Concurrency::array_view<float,1> &avInp, long inpOffset,
                Concurrency::array_view<float,1> &avOut, long outOffset,
                unsigned int gradInpSz, unsigned int gradOutSz, long no_elements,
                int scale_factor, int d1, int d2, int d3, unsigned int gridConf[])
 {
-  Concurrency::extent<2> grdExt(gridConf[1],gridConf[0]*256);
-  Concurrency::tiled_extent<1,256> t_ext(grdExt);
-  // output offset:
-  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1,256> tidx) restrict(amp) 
+  Concurrency::extent<2> grdExt(gridConf[1], gridConf[0] * 256);
+  Concurrency::tiled_extent<1, 256> t_ext(grdExt);
+
+  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1, 256> tidx) restrict(amp)
   {
     long ii = tidx.global[1];
     ii += tidx.local[0] + t_ext.tile_dim0 * (t_ext.tile_dim1 * t_ext[1]) * tidx.tile[0];
@@ -157,10 +150,9 @@ static int gpunn_SpatialUpSamplingNearest_updateGradInput(lua_State *L)
   THGPUTensor *gradOutput = (THGPUTensor *)luaT_checkudata(L, 3, "torch.GPUTensor");
   THGPUTensor *gradInput  = (THGPUTensor *)luaT_getfieldcheckudata(L, 1, "gradInput", "torch.GPUTensor");
   int scale_factor = luaT_getfieldcheckint(L, 1, "scale_factor");
-
   THGPUTensor_zero(gradInput);
-
   long no_elements = 1;
+
   for (int i = 0; i < gradInput->nDimension; i++)
   {
     no_elements *= gradInput->size[i];
@@ -198,9 +190,6 @@ static int gpunn_SpatialUpSamplingNearest_updateGradInput(lua_State *L)
   unsigned int gradConf[2];
   gradConf[0] = n_xblocks;
   gradConf[1] = n_yblocks;
-
-  //dim3 blocks(n_xblocks, n_yblocks);
-  //dim3 threads(nthreads);
 
   PREPARE_AV(gradInput, pavGradInput);
   PREPARE_AV(gradOutput, pavGradOutput);

@@ -1,4 +1,3 @@
-
 /*
  * Description:
  *    this function finds the min along the innermost dimension
@@ -13,19 +12,21 @@ void min_output(Concurrency::array_view<float, 1> &avInp, long inpOffset,
   Concurrency::extent<1> grdExt(numBlocks * 256);
   Concurrency::tiled_extent<256> t_ext(grdExt);
 
-  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<256> tidx) restrict(amp) 
+  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<256> tidx) restrict(amp)
   {
     long o = tidx.global[0];
     if (o >= nrows) return;
+
     long i = o * ncols;
     // compute min:
     float min = avInp[inpOffset + i];
     long argmin = 0;
     long ii;
-    for (ii = 1; ii < ncols; ii++) 
+
+    for (ii = 1; ii < ncols; ii++)
     {
       float val = avInp[inpOffset + ii + i];
-      if (val < min) 
+      if (val < min)
       {
         min = val;
         argmin = ii;
@@ -46,7 +47,7 @@ void min_gradInput(Concurrency::array_view<float, 1> &avInp, long inpOffset,
   Concurrency::extent<1> grdExt(numBlocks * 256);
   Concurrency::tiled_extent<256> t_ext(grdExt);
 
-  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<256> tidx) restrict(amp) 
+  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<256> tidx) restrict(amp)
   {
     long o = tidx.global[0];
     if (o >= nrows) return;
@@ -76,6 +77,7 @@ static int gpunn_Min_updateOutput(lua_State *L)
   long i;
   for (i = 0; i < input->nDimension; i++)
     dim->data[i] = input->size[i];
+
   dim->data[dimension] = 1;
   THGPUTensor_resize(output, dim, NULL);
   THGPUTensor_resize(indices, dim, NULL);

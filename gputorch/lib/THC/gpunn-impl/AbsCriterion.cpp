@@ -12,9 +12,7 @@ static int gpunn_AbsCriterion_updateOutput(lua_State *L)
   int sizeAverage = luaT_getfieldcheckboolean(L, 1, "sizeAverage");
 
   float sum;
-
   long size = THGPUTensor_nElement(input);
-
   input = THGPUTensor_newContiguous(input);
   target = THGPUTensor_newContiguous(target);
 
@@ -28,7 +26,6 @@ static int gpunn_AbsCriterion_updateOutput(lua_State *L)
 
   lua_pushnumber(L, sum);
   lua_setfield(L, 1, "output");
-
   lua_pushnumber(L, sum);
   return 1;
 }

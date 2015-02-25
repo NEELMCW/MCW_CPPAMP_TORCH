@@ -1,5 +1,4 @@
-
-#define GPU_MAX_THREADS 256   // this is safe, in reality 256 is our limit
+#define GPU_MAX_THREADS 256
 
 /*
  * Description:
@@ -19,6 +18,7 @@ void subsample(Concurrency::array_view<float,1> &avInput, long inOffset,
   yBlocks = yBlocks < 1 ? 1 : yBlocks;
   Concurrency::extent<2> grdExt(yBlocks * 8 , xBlocks * 32);
   Concurrency::tiled_extent<8, 32> t_ext(grdExt);
+
   Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<8, 32> tidx) restrict(amp)
   {
     float input = 0;
@@ -38,9 +38,9 @@ void subsample(Concurrency::array_view<float,1> &avInput, long inOffset,
     int xx_end = output_w;
     int xx_step = tidx.tile_dim1;
 
-    int yy_start = tidx.global[0]; //blockDim.y*blockIdx.y + threadIdx.y;
+    int yy_start = tidx.global[0];
     int yy_end = output_h;
-    int yy_step = t_ext[0]; //blockDim.y*gridDim.y;
+    int yy_step = t_ext[0];
 
     // select input/output plane
     output = output + o*output_w*output_h;
@@ -53,16 +53,16 @@ void subsample(Concurrency::array_view<float,1> &avInput, long inOffset,
     float the_bias = avBias[biasOffset + bias+k];
 
     // For all output pixels...
-    for (yy = yy_start; yy < yy_end; yy+=yy_step)
+    for (yy = yy_start; yy < yy_end; yy += yy_step)
     {
-      for (xx = xx_start; xx < xx_end; xx+=xx_step)
+      for (xx = xx_start; xx < xx_end; xx += xx_step)
       {
         // Compute the mean of the input image...
-        float ptr_input = input + yy*dH*input_w + xx*dW;
-        float ptr_output = output + yy*output_w + xx;
+        float ptr_input = input + yy * dH * input_w + xx * dW;
+        float ptr_output = output + yy * output_w + xx;
         float sum = 0;
         int kx, ky;
-        for (ky = 0; ky < kH; ky++) 
+        for (ky = 0; ky < kH; ky++)
         {
           for (kx = 0; kx < kW; kx++)
             sum += avInput[inOffset + ptr_input + kx];
@@ -90,12 +90,13 @@ void subgradweight(Concurrency::array_view<float,1> &avInput, long inOffset,
   // output size
   int output_w = (input_w - kW) / dW + 1;
   int output_h = (input_h - kH) / dH + 1;
-  int inputStride = sl *Stride_Input[0];// inputTensor->stride[0];
+  int inputStride = sl * Stride_Input[0];// inputTensor->stride[0];
   int outputStride = sl * Stride_Output[0];//gradOutputTensor->stride[0];
 
   int xBlocks = input_n;
   Concurrency::extent<2> grdExt(8 , xBlocks * 32);
   Concurrency::tiled_extent<8, 32> t_ext(grdExt);
+
   Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<8, 32> tidx) restrict(amp)
   {
     // iterators
@@ -131,12 +132,12 @@ void subgradweight(Concurrency::array_view<float,1> &avInput, long inOffset,
     sums[tid] = 0;
 
     // compute partial sums
-    for (yy = yy_start; yy < yy_end; yy+=yy_step)
+    for (yy = yy_start; yy < yy_end; yy += yy_step)
     {
-      for (xx = xx_start; xx < xx_end; xx+=xx_step)
+      for (xx = xx_start; xx < xx_end; xx += xx_step)
       {
-        float ptr_input = input + yy*dH*input_w + xx*dW;
-        float ptr_gradOutput = gradOutput + yy*output_w + xx;
+        float ptr_input = input + yy * dH * input_w + xx * dW;
+        float ptr_gradOutput = gradOutput + yy * output_w + xx;
         float z = avGradOutput[gradOutOffset + ptr_gradOutput];
         long kx, ky;
         for (ky = 0; ky < kH; ky++)
@@ -155,7 +156,7 @@ void subgradweight(Concurrency::array_view<float,1> &avInput, long inOffset,
     if ((tidx.local[1] == 0) && (tidx.local[0] == 0))
     {
       for (int i = 0; i < tidx.tile_dim1 * tidx.tile_dim0; i++)
-        avGradWeight[gradWeightOffset + gradWeight+ k] += scale*sums[i];
+        avGradWeight[gradWeightOffset + gradWeight + k] += scale * sums[i];
     }
     tidx.barrier.wait();
 
@@ -171,7 +172,7 @@ void subgradweight(Concurrency::array_view<float,1> &avInput, long inOffset,
     if ((tidx.local[1] == 0) && (tidx.local[0] == 0))
     {
       for (int i=0; i<(tidx.tile_dim1 * tidx.tile_dim0); i++)
-        avGradBias[gradBiasOffset + gradBias + k] += scale*sums[i];
+        avGradBias[gradBiasOffset + gradBias + k] += scale * sums[i];
     }
   });
 }
@@ -216,19 +217,19 @@ void subgradinput(Concurrency::array_view<float,1> &avGradInput, long gradInOffs
     int yy_step = t_ext[0];
 
     // select input/output plane
-    gradOutput = gradOutput + o*output_w*output_h;
-    gradInput = gradInput + i*input_w*input_h;
+    gradOutput = gradOutput + o * output_w * output_h;
+    gradInput = gradInput + i * input_w * input_h;
 
     // get weight
     float the_weight = avWeight[weightOffset + weight + k];
 
     // compute gradInput
-    for (yy = yy_start; yy < yy_end; yy+=yy_step)
+    for (yy = yy_start; yy < yy_end; yy += yy_step)
     {
-      for (xx = xx_start; xx < xx_end; xx+=xx_step)
+      for (xx = xx_start; xx < xx_end; xx += xx_step)
       {
-        float ptr_gradInput = gradInput + yy*dH*input_w + xx*dW;
-        float ptr_gradOutput = gradOutput + yy*output_w + xx;
+        float ptr_gradInput = gradInput + yy * dH * input_w + xx * dW;
+        float ptr_gradOutput = gradOutput + yy * output_w + xx;
         float z = avGradOutput[gradOutOffset + ptr_gradOutput] * the_weight;
         int kx, ky;
         for (ky = 0; ky < kH; ky++)
@@ -259,6 +260,7 @@ static int gpunn_SpatialSubSampling_updateOutput(lua_State *L)
 
   PREPARE_AV(weight, pavWeight);
   PREPARE_AV(bias, pavBias);
+
   if (input->nDimension == 3)
   {
     long nInputCols = input->size[2];
@@ -276,6 +278,7 @@ static int gpunn_SpatialSubSampling_updateOutput(lua_State *L)
 
     PREPARE_AV(input, pavInput);
     PREPARE_AV(output, pavOutput);
+
     subsample (*pavInput, input->storageOffset,
                *pavOutput, output->storageOffset,
                *pavWeight, weight->storageOffset,
@@ -289,6 +292,7 @@ static int gpunn_SpatialSubSampling_updateOutput(lua_State *L)
     long nbatch = input->size[0];
     long nOutputCols = (nInputCols - kW) / dW + 1;
     long nOutputRows = (nInputRows - kH) / dH + 1;
+    int xBlocks = nInputPlane * nbatch;
 
     luaL_argcheck(L, input->size[1] == nInputPlane, 2, "invalid number of input planes");
     luaL_argcheck(L, nInputCols >= kW && nInputRows >= kH, 2, "input image smaller than kernel size");
@@ -296,9 +300,9 @@ static int gpunn_SpatialSubSampling_updateOutput(lua_State *L)
     input = THGPUTensor_newContiguous(input);
     THGPUTensor_resize4d(output, nbatch, nInputPlane, nOutputRows, nOutputCols);
 
-    int xBlocks = nInputPlane * nbatch;
     PREPARE_AV(input, pavInput);
     PREPARE_AV(output, pavOutput);
+
     subsample(*pavInput, input->storageOffset,
               *pavOutput, output->storageOffset,
               *pavWeight, weight->storageOffset,
@@ -308,8 +312,6 @@ static int gpunn_SpatialSubSampling_updateOutput(lua_State *L)
 
   // clean
   THGPUTensor_free(input);
-
-  // check for errors
   return 1;
 }
 
@@ -331,17 +333,18 @@ static int gpunn_SpatialSubSampling_updateGradInput(lua_State *L)
 
   PREPARE_AV(gradOutput, pavGradOutput);
   PREPARE_AV(weight, pavWeight);
+
   if (input->nDimension == 3)
   {
     long nInputCols = input->size[2];
     long nInputRows = input->size[1];
+    int xBlocks = nInputPlane;
 
     THGPUTensor_resizeAs(gradInput, input);
     THGPUTensor_zero(gradInput);
 
-    int xBlocks = nInputPlane;
-    
     PREPARE_AV(gradInput, pavGradInput);
+
     subgradinput (*pavGradInput, gradInput->storageOffset,
                   *pavGradOutput, gradOutput->storageOffset,
                   *pavWeight, weight->storageOffset,
@@ -353,12 +356,13 @@ static int gpunn_SpatialSubSampling_updateGradInput(lua_State *L)
     long nInputCols = input->size[3];
     long nInputRows = input->size[2];
     long nbatch = input->size[0];
+    int xBlocks = nInputPlane * nbatch;
 
     THGPUTensor_resizeAs(gradInput, input);
     THGPUTensor_zero(gradInput);
 
-    int xBlocks = nInputPlane * nbatch;
     PREPARE_AV(gradInput, pavGradInput);
+
     subgradinput (*pavGradInput, gradInput->storageOffset,
                   *pavGradOutput, gradOutput->storageOffset,
                   *pavWeight, weight->storageOffset,
@@ -387,6 +391,7 @@ static int gpunn_SpatialSubSampling_accGradParameters(lua_State *L)
   PREPARE_AV(gradWeight, pavGradWeight);
   PREPARE_AV(gradBias, pavGradBias);
   PREPARE_AV(gradOutput, pavGradOutput);
+
   if (input->nDimension == 3)
   {
     long nInputCols = input->size[2];
@@ -395,6 +400,7 @@ static int gpunn_SpatialSubSampling_accGradParameters(lua_State *L)
 
     input = THGPUTensor_newContiguous(input);
     PREPARE_AV(input, pavInput);
+
     subgradweight (*pavInput, input->storageOffset,
                    *pavGradOutput, gradOutput->storageOffset,
                    *pavGradWeight, gradWeight->storageOffset,
@@ -411,8 +417,6 @@ static int gpunn_SpatialSubSampling_accGradParameters(lua_State *L)
     input = THGPUTensor_newContiguous(input);
     PREPARE_AV(input, pavInput);
 
-    // blocks & threads:
-
     // run gradweight kernel
     long sl;
     for (sl = 0; sl < nbatch; sl++)
@@ -422,13 +426,13 @@ static int gpunn_SpatialSubSampling_accGradParameters(lua_State *L)
                      *pavGradWeight, gradWeight->storageOffset,
                      *pavGradBias, gradBias->storageOffset,
                      input->stride, gradOutput->stride,
-                     nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW, scale, sl);
+                     nInputPlane, nInputRows, nInputCols,
+                     kH, kW, dH, dW, scale, sl);
     }
   }
 
   // clean
   THGPUTensor_free(input);
-
   return 0;
 }
 

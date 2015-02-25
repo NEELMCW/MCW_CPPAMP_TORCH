@@ -42,16 +42,15 @@ void filterActs_YxX_color( Concurrency::array_view<float,1>&avImages,
                            int numModulesY, int numModulesX, int imgStride, float scaleTargets,
                            float scaleOutputs, bool conv , int blockX, int blockY)
 {
-  //blockX = (blockX + 31) &~31;
-  //blockY = (blockY + 3) &~3;
-  Concurrency::extent<3> grdExt(1, blockY*4, blockX*32);
+  Concurrency::extent<3> grdExt(1, blockY * 4, blockX * 32);
   Concurrency::tiled_extent<1, 4, 32> t_ext(grdExt);
-  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1, 4, 32> tidx) restrict(amp) 
+
+  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1, 4, 32> tidx) restrict(amp)
   {
     float images = 0;
     float targets = 0;
     float filters = 0;
-    tile_static float shFilters[B_Y*numColors][B_Y * filtersPerThread]; // pre-load B_Y pixels from B_Y*filtersPerThread filters
+    tile_static float shFilters[B_Y * numColors][B_Y * filtersPerThread]; // pre-load B_Y pixels from B_Y*filtersPerThread filters
     tile_static float shImages[B_Y*numColors][B_X * imgsPerThread]; // pre-load B_Y pixels from B_X*imgsPerThread images
     const int numPixels = imgSizeY * imgSizeX;
     const int filterPixels = filterSize * filterSize;
@@ -81,9 +80,9 @@ void filterActs_YxX_color( Concurrency::array_view<float,1>&avImages,
 
 
     float prod[filtersPerThread][imgsPerThread];
-    for(int f = 0; f < filtersPerThread; f++)
+    for (int f = 0; f < filtersPerThread; f++)
     {
-      for(int g = 0; g < imgsPerThread; g++)
+      for (int g = 0; g < imgsPerThread; g++)
       {
         prod[f][g] = 0;
       }
@@ -96,7 +95,7 @@ void filterActs_YxX_color( Concurrency::array_view<float,1>&avImages,
       */
       if (shFilterLoadY < B_Y)
       {
-        for (int p2 = 0; p2 < B_Y; p2 += B_X/filtersPerThread)
+        for (int p2 = 0; p2 < B_Y; p2 += B_X / filtersPerThread)
         {
           if (p + p2 + shFilterLoadY < filterPixels)
           {
@@ -123,7 +122,7 @@ void filterActs_YxX_color( Concurrency::array_view<float,1>&avImages,
       {
         const int x = paddingStart + imgLoadModPosX + pixIdx % filterSize;
         const int y = paddingStart + imgLoadModPosY + pixIdx / filterSize;
-        if (y >= 0 && y< imgSizeY && x >= 0 && x < imgSizeX)
+        if (y >= 0 && y < imgSizeY && x >= 0 && x < imgSizeX)
         {
           for (int i = 0; i < imgsPerThread; i++)
           {
@@ -155,11 +154,11 @@ void filterActs_YxX_color( Concurrency::array_view<float,1>&avImages,
         }
       }
       tidx.barrier.wait();
-      for (int i = 0; i < B_Y*numColors; i++)
+      for (int i = 0; i < B_Y * numColors; i++)
       {
-        for(int f = 0; f < filtersPerThread; f++)
+        for (int f = 0; f < filtersPerThread; f++)
         {
-          for(int g = 0; g < imgsPerThread; g++)
+          for (int g = 0; g < imgsPerThread; g++)
           {
             prod[f][g] += shImages[i][g * B_X + tidx.local[2]] * shFilters[i][tidx.local[1] + f * B_Y];
           }
@@ -195,7 +194,6 @@ void filterActs_YxX_color( Concurrency::array_view<float,1>&avImages,
     }
   });
 }
-
 
 /*
  * Block size B_YxB_X. Each block applies B_Y * filtersPerThread filters to B_X * imgsPerThread images.
@@ -234,21 +232,20 @@ void filterActs_YxX_sparse(Concurrency::array_view<float,1> &avImages,
                            int numModulesX, int imgStride, int numImgColors, int numGroups,
                            float scaleTargets, float scaleOutputs, bool conv, int blockX, int blockY)
 {
-  //blockX = (blockX + 31) &~31;
-  //blockY = (blockY + 3) &~3;
-  Concurrency::extent<3> grdExt(1, blockY*4, blockX*32);
+  Concurrency::extent<3> grdExt(1, blockY * 4, blockX * 32);
   Concurrency::tiled_extent<1, 4, 32> t_ext(grdExt);
+
   Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1, 4, 32> tidx) restrict(amp) 
   {
     float images = 0;
     float targets = 0;
     float filters = 0;
-    tile_static float shFilters[B_Y*colorCache][B_Y * filtersPerThread]; // pre-load B_Y pixels from B_Y*filtersPerThread filters
-    tile_static float shImages[B_Y*colorCache][B_X * imgsPerThread]; // pre-load B_Y pixels from B_X*imgsPerThread images
+    tile_static float shFilters[B_Y * colorCache][B_Y * filtersPerThread]; // pre-load B_Y pixels from B_Y*filtersPerThread filters
+    tile_static float shImages[B_Y * colorCache][B_X * imgsPerThread]; // pre-load B_Y pixels from B_X*imgsPerThread images
     const int imgPixels = imgSizeY * imgSizeX;
     const int filterPixels = filterSize * filterSize;
     const int numFilterColors = numImgColors / numGroups;
-    const int blocksPerModule = numFilters / (B_Y*filtersPerThread);
+    const int blocksPerModule = numFilters / (B_Y * filtersPerThread);
     const int moduleIdx = tidx.tile[1] / blocksPerModule;
     const int blockFilterIdx = filtersPerThread * B_Y * (tidx.tile[1] % blocksPerModule);
     const int numFiltersPerGroup = numFilters / numGroups;
@@ -279,14 +276,14 @@ void filterActs_YxX_sparse(Concurrency::array_view<float,1> &avImages,
             + myImgIdx;
 
     float prod[filtersPerThread][imgsPerThread];
-    for(int f = 0; f < filtersPerThread; f++)
+    for (int f = 0; f < filtersPerThread; f++)
     {
-      for(int g = 0; g < imgsPerThread; g++)
+      for (int g = 0; g < imgsPerThread; g++)
       {
         prod[f][g] = 0;
       }
     }
-    //    __shared__ int imgPos[]
+
     for (int oc = 0; oc < numFilterColors; oc += colorCache)
     { // oc stands for outer color (loop)
       for (int p = 0; p < filterPixels; p += B_Y)
@@ -296,13 +293,13 @@ void filterActs_YxX_sparse(Concurrency::array_view<float,1> &avImages,
         */
         if (shFilterLoadY < B_Y)
         {
-          for (int p2 = 0; p2 < B_Y; p2 += B_X/filtersPerThread)
+          for (int p2 = 0; p2 < B_Y; p2 += B_X / filtersPerThread)
           {
             if (p + p2 + shFilterLoadY < filterPixels)
             {
               for (int c = 0; c < colorCache; c++)
               {
-                shFilters[shFilterLoadY + p2 + c * B_Y][shFilterLoadX] = avFilters[filters + ((oc+c) * filterPixels + p + p2) * numFilters];
+                shFilters[shFilterLoadY + p2 + c * B_Y][shFilterLoadX] = avFilters[filters + ((oc + c) * filterPixels + p + p2) * numFilters];
               }
             }
             else
@@ -358,9 +355,9 @@ void filterActs_YxX_sparse(Concurrency::array_view<float,1> &avImages,
         tidx.barrier.wait();
         for (int i = 0; i < B_Y*colorCache; i++)
         {
-          for(int f = 0; f < filtersPerThread; f++)
+          for (int f = 0; f < filtersPerThread; f++)
           {
-            for(int g = 0; g < imgsPerThread; g++)
+            for (int g = 0; g < imgsPerThread; g++)
             {
               prod[f][g] += shImages[i][g * B_X + tidx.local[2]] * shFilters[i][tidx.local[1] + f * B_Y];
             }
@@ -450,568 +447,941 @@ void spatialConv_updateOutput(
   int blockY = numFiltersPerGroup % 32 == 0 ? (numModules * numFilters) / (4 * 8) : (numModules * numFilters) / (4 * 4);
   //dim3 threads(32, 4);
   bool checkImgBounds = numImages % (32*imgsPerThread) != 0;
-  
-  if (imgsPerThread == 4) {
-      if (numImgColors <= 3) {
-          assert(numGroups == 1); // It has to be based on above definitions, but just to be sure.
-          if (scaleTargets == 0) { // don't scale
-              if (numImgColors == 1) {
-                  if (checkImgBounds) {
-                      if (numFilters % 32 == 0) {
-                          //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 4, 8, 1, false, true >, gpuFuncCachePreferShared);
-                          filterActs_YxX_color < 4, 32, 4, 8, 1, false, true > (images, filters, targets,
-                                      numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
-                      } else {
-                          //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 4, 4, 1, false, true >, gpuFuncCachePreferShared);
-                          filterActs_YxX_color < 4, 32, 4, 4, 1, false, true > (images, filters, targets,
-                                      numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
-                      }
-                  } else {
-                      if (numFilters % 32 == 0) {
-                          //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 4, 8, 1, false, false >, gpuFuncCachePreferShared);
-                          filterActs_YxX_color < 4, 32, 4, 8, 1, false, false > (images, filters, targets,
-                                      numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
-                      } else {
-                          //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 4, 4, 1, false, false >, gpuFuncCachePreferShared);
-                          filterActs_YxX_color < 4, 32, 4, 4, 1, false, false >(images, filters, targets,
-                                      numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
-                      }
-                  }
-              } else if (numImgColors == 2) {
-                  if (checkImgBounds) {
-                      if (numFilters % 32 == 0) {
-                          //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 4, 8, 2, false, true >, gpuFuncCachePreferShared);
-                          filterActs_YxX_color < 4, 32, 4, 8, 2, false, true > (images, filters, targets,
-                                      numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
-                      } else {
-                          //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 4, 4, 2, false, true >, gpuFuncCachePreferShared);
-                          filterActs_YxX_color < 4, 32, 4, 4, 2, false, true > (images, filters, targets,
-                                      numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
-                      }
-                  } else {
-                      if (numFilters % 32 == 0) {
-                          //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 4, 8, 2, false, false >, gpuFuncCachePreferShared);
-                          filterActs_YxX_color < 4, 32, 4, 8, 2, false, false > (images, filters, targets,
-                                      numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
-                      } else {
-                          //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 4, 4, 2, false, false >, gpuFuncCachePreferShared);
-                          filterActs_YxX_color < 4, 32, 4, 4, 2, false, false > (images, filters, targets,
-                                      numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
-                      }
-                  }
-              }  else if (numImgColors == 3) {
-                  if (checkImgBounds) {
-                        if (numFilters % 32 == 0) {
-                            //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 4, 8, 3, false, true >, gpuFuncCachePreferShared);
-                            filterActs_YxX_color < 4, 32, 4, 8, 3, false, true > (images, filters, targets,
-                                        numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
-                        } else {
-                            //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 4, 4, 3, false, true >, gpuFuncCachePreferShared);
-                            filterActs_YxX_color < 4, 32, 4, 4, 3, false, true > (images, filters, targets,
-                                        numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
-                        }
-                  } else {
-                        if (numFilters % 32 == 0) {
-                            //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 4, 8, 3, false, false >, gpuFuncCachePreferShared);
-                            filterActs_YxX_color < 4, 32, 4, 8, 3, false, false > (images, filters, targets,
-                                        numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
-                        } else {
-                            //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 4, 4, 3, false, false >, gpuFuncCachePreferShared);
-                            filterActs_YxX_color < 4, 32, 4, 4, 3, false, false > (images, filters, targets,
-                                        numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
-                        }
-                  }
-              }
-          } else { // do scale
-              if (numImgColors == 1) {
-                  if (checkImgBounds) {
-                      if (numFilters % 32 == 0) {
-                          //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 4, 8, 1, true, true >, gpuFuncCachePreferShared);
-                          filterActs_YxX_color < 4, 32, 4, 8, 1, true, true > (images, filters, targets,
-                                      numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
-                      } else {
-                          //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 4, 4, 1, true, true >, gpuFuncCachePreferShared);
-                          filterActs_YxX_color < 4, 32, 4, 4, 1, true, true > (images, filters, targets,
-                                      numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
-                      }
-                  } else {
-                      if (numFilters % 32 == 0) {
-                          //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 4, 8, 1, true, false >, gpuFuncCachePreferShared);
-                          filterActs_YxX_color < 4, 32, 4, 8, 1, true, false > (images, filters, targets,
-                                      numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
-                      } else {
-                          //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 4, 4, 1, true, false >, gpuFuncCachePreferShared);
-                          filterActs_YxX_color < 4, 32, 4, 4, 1, true, false > (images, filters, targets,
-                                      numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
-                      }
-                  }
-              } else if (numImgColors == 2) {
-                  if (checkImgBounds) {
-                      if (numFilters % 32 == 0) {
-                          //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 4, 8, 2, true, true >, gpuFuncCachePreferShared);
-                          filterActs_YxX_color < 4, 32, 4, 8, 2, true, true > (images, filters, targets,
-                                      numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
-                      } else {
-                          //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 4, 4, 2, true, true >, gpuFuncCachePreferShared);
-                          filterActs_YxX_color < 4, 32, 4, 4, 2, true, true > (images, filters, targets,
-                                      numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
-                      }
-                  } else {
-                      if (numFilters % 32 == 0) {
-                          //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 4, 8, 2, true, false >, gpuFuncCachePreferShared);
-                          filterActs_YxX_color < 4, 32, 4, 8, 2, true, false > (images, filters, targets,
-                                      numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
-                      } else {
-                          //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 4, 4, 2, true, false >, gpuFuncCachePreferShared);
-                          filterActs_YxX_color < 4, 32, 4, 4, 2, true, false > (images, filters, targets,
-                                      numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
-                      }
-                  }
-              }  else if (numImgColors == 3) {
-                  if (checkImgBounds) {
-                      if (numFilters % 32 == 0) {
-                          //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 4, 8, 3, true, true >, gpuFuncCachePreferShared);
-                          filterActs_YxX_color < 4, 32, 4, 8, 3, true, true > (images, filters, targets,
-                                      numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
-                      } else {
-                          //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 4, 4, 3, true, true >, gpuFuncCachePreferShared);
-                          filterActs_YxX_color < 4, 32, 4, 4, 3, true, true > (images, filters, targets,
-                                      numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
-                      }
-                  } else {
-                      if (numFilters % 32 == 0) {
-                          //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 4, 8, 3, true, false >, gpuFuncCachePreferShared);
-                          filterActs_YxX_color < 4, 32, 4, 8, 3, true, false > (images, filters, targets,
-                                      numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
-                      } else {
-                          //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 4, 4, 3, true, false >, gpuFuncCachePreferShared);
-                          filterActs_YxX_color < 4, 32, 4, 4, 3, true, false > (images, filters, targets,
-                                      numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
-                      }
-                  }
-              }
+
+  if (imgsPerThread == 4)
+  {
+    if (numImgColors <= 3)
+    {
+      assert(numGroups == 1); // It has to be based on above definitions, but just to be sure.
+      if (scaleTargets == 0)
+      { // don't scale
+        if (numImgColors == 1)
+        {
+          if (checkImgBounds)
+          {
+            if (numFilters % 32 == 0)
+            {
+              //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 4, 8, 1, false, true >, gpuFuncCachePreferShared);
+              filterActs_YxX_color < 4, 32, 4, 8, 1, false, true > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                    filterSize, paddingStart, moduleStride, numModulesY, numModulesX,
+                                                                    imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
+            }
+            else
+            {
+              //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 4, 4, 1, false, true >, gpuFuncCachePreferShared);
+              filterActs_YxX_color < 4, 32, 4, 4, 1, false, true > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                    filterSize, paddingStart, moduleStride, numModulesY, numModulesX,
+                                                                    imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
+            }
           }
-      } else {
-          if (scaleTargets == 0) { // don't scale
-              if (checkImgBounds) {
-                  if (numFiltersPerGroup % 32 == 0) {
-                      //gpuFuncSetCacheConfig(filterActs_YxX_sparse< 4, 32, 4, 8, 2, false, true >, gpuFuncCachePreferShared);
-                      filterActs_YxX_sparse < 4, 32, 4, 8, 2, false, true > (images, filters, targets,
-                                  numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, numImgColors, numGroups, scaleTargets, scaleOutput, conv, blockX, blockY);
-                  } else {
-                      //gpuFuncSetCacheConfig(filterActs_YxX_sparse< 4, 32, 4, 4, 2, false, true >, gpuFuncCachePreferShared);
-                      filterActs_YxX_sparse < 4, 32, 4, 4, 2, false, true > (images, filters, targets,
-                                  numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, numImgColors, numGroups, scaleTargets, scaleOutput, conv, blockX, blockY);
-                  }
-              } else {
-                  if (numFiltersPerGroup % 32 == 0) {
-                      //gpuFuncSetCacheConfig(filterActs_YxX_sparse< 4, 32, 4, 8, 2, false, false >, gpuFuncCachePreferShared);
-                      filterActs_YxX_sparse < 4, 32, 4, 8, 2, false, false > (images, filters, targets,
-                                  numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, numImgColors, numGroups, scaleTargets, scaleOutput, conv, blockX, blockY);
-                  } else {
-                      //gpuFuncSetCacheConfig(filterActs_YxX_sparse< 4, 32, 4, 4, 2, false, false >, gpuFuncCachePreferShared);
-                      filterActs_YxX_sparse < 4, 32, 4, 4, 2, false, false > (images, filters, targets,
-                                  numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, numImgColors, numGroups, scaleTargets, scaleOutput, conv, blockX, blockY);
-                  }
-              }
-          } else { // do scale
-              if (checkImgBounds) {
-                  if (numFiltersPerGroup % 32 == 0) {
-                      //gpuFuncSetCacheConfig(filterActs_YxX_sparse< 4, 32, 4, 8, 2, false, true >, gpuFuncCachePreferShared);
-                      filterActs_YxX_sparse < 4, 32, 4, 8, 2, true, true > (images, filters, targets,
-                                  numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, numImgColors, numGroups, scaleTargets, scaleOutput, conv, blockX, blockY);
-                  } else {
-                      //gpuFuncSetCacheConfig(filterActs_YxX_sparse< 4, 32, 4, 4, 2, false, true >, gpuFuncCachePreferShared);
-                      filterActs_YxX_sparse < 4, 32, 4, 4, 2, true, true > (images, filters, targets,
-                                  numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, numImgColors, numGroups, scaleTargets, scaleOutput, conv, blockX, blockY);
-                  }
-              } else {
-                  if (numFiltersPerGroup % 32 == 0) {
-                      //gpuFuncSetCacheConfig(filterActs_YxX_sparse< 4, 32, 4, 8, 2, false, false >, gpuFuncCachePreferShared);
-                      filterActs_YxX_sparse < 4, 32, 4, 8, 2, true, false > (images, filters, targets,
-                                  numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, numImgColors, numGroups, scaleTargets, scaleOutput, conv, blockX, blockY);
-                  } else {
-                      //gpuFuncSetCacheConfig(filterActs_YxX_sparse< 4, 32, 4, 4, 2, false, false >, gpuFuncCachePreferShared);
-                      filterActs_YxX_sparse < 4, 32, 4, 4, 2, true, false > (images, filters, targets,
-                                  numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, numImgColors, numGroups, scaleTargets, scaleOutput, conv, blockX, blockY);
-                  }
-              }
+          else
+          {
+            if (numFilters % 32 == 0)
+            {
+              //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 4, 8, 1, false, false >, gpuFuncCachePreferShared);
+              filterActs_YxX_color < 4, 32, 4, 8, 1, false, false > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                     filterSize, paddingStart, moduleStride, numModulesY, numModulesX,
+                                                                     imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
+            }
+            else
+            {
+              //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 4, 4, 1, false, false >, gpuFuncCachePreferShared);
+              filterActs_YxX_color < 4, 32, 4, 4, 1, false, false >(images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                    filterSize, paddingStart, moduleStride, numModulesY, numModulesX,
+                                                                    imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
+            }
           }
+        }
+        else if (numImgColors == 2)
+        {
+          if (checkImgBounds)
+          {
+            if (numFilters % 32 == 0)
+            {
+              //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 4, 8, 2, false, true >, gpuFuncCachePreferShared);
+              filterActs_YxX_color < 4, 32, 4, 8, 2, false, true > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                    filterSize, paddingStart, moduleStride, numModulesY, numModulesX,
+                                                                    imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
+            }
+            else
+            {
+              //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 4, 4, 2, false, true >, gpuFuncCachePreferShared);
+              filterActs_YxX_color < 4, 32, 4, 4, 2, false, true > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                    filterSize, paddingStart, moduleStride, numModulesY, numModulesX,
+                                                                    imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
+            }
+          }
+          else
+          {
+            if (numFilters % 32 == 0)
+            {
+              //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 4, 8, 2, false, false >, gpuFuncCachePreferShared);
+              filterActs_YxX_color < 4, 32, 4, 8, 2, false, false > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                     filterSize, paddingStart, moduleStride, numModulesY, numModulesX,
+                                                                     imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
+            }
+            else
+            {
+              //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 4, 4, 2, false, false >, gpuFuncCachePreferShared);
+              filterActs_YxX_color < 4, 32, 4, 4, 2, false, false > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                     filterSize, paddingStart, moduleStride, numModulesY, numModulesX,
+                                                                     imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
+            }
+          }
+        }
+        else if (numImgColors == 3)
+        {
+          if (checkImgBounds)
+          {
+            if (numFilters % 32 == 0)
+            {
+              //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 4, 8, 3, false, true >, gpuFuncCachePreferShared);
+              filterActs_YxX_color < 4, 32, 4, 8, 3, false, true > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                    filterSize, paddingStart, moduleStride, numModulesY, numModulesX,
+                                                                    imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
+            }
+            else
+            {
+              //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 4, 4, 3, false, true >, gpuFuncCachePreferShared);
+              filterActs_YxX_color < 4, 32, 4, 4, 3, false, true > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                    filterSize, paddingStart, moduleStride, numModulesY, numModulesX,
+                                                                    imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
+            }
+          }
+          else
+          {
+            if (numFilters % 32 == 0)
+            {
+              //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 4, 8, 3, false, false >, gpuFuncCachePreferShared);
+              filterActs_YxX_color < 4, 32, 4, 8, 3, false, false > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                     filterSize, paddingStart, moduleStride, numModulesY, numModulesX,
+                                                                     imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
+            }
+            else
+            {
+              //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 4, 4, 3, false, false >, gpuFuncCachePreferShared);
+              filterActs_YxX_color < 4, 32, 4, 4, 3, false, false > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                     filterSize, paddingStart, moduleStride, numModulesY, numModulesX,
+                                                                     imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
+            }
+          }
+        }
       }
-  } else if (imgsPerThread == 2) {
-      if (numImgColors <= 3) {
-          assert(numGroups == 1); // It has to be based on above definitions, but just to be sure.
-          if (scaleTargets == 0) { // don't scale
-              if (numImgColors == 1) {
-                  if (checkImgBounds) {
-                      if (numFilters % 32 == 0) {
-                          //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 2, 8, 1, false, true >, gpuFuncCachePreferShared);
-                          filterActs_YxX_color < 4, 32, 2, 8, 1, false, true > (images, filters, targets,
-                                      numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
-                      } else {
-                          //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 2, 4, 1, false, true >, gpuFuncCachePreferShared);
-                          filterActs_YxX_color < 4, 32, 2, 4, 1, false, true > (images, filters, targets,
-                                      numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
-                      }
-                  } else {
-                      if (numFilters % 32 == 0) {
-                          //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 2, 8, 1, false, false >, gpuFuncCachePreferShared);
-                          filterActs_YxX_color < 4, 32, 2, 8, 1, false, false > (images, filters, targets,
-                                      numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
-                      } else {
-                          //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 2, 4, 1, false, false >, gpuFuncCachePreferShared);
-                          filterActs_YxX_color < 4, 32, 2, 4, 1, false, false > (images, filters, targets,
-                                      numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
-                      }
-                  }
-              } else if (numImgColors == 2) {
-                  if (checkImgBounds) {
-                      if (numFilters % 32 == 0) {
-                          //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 2, 8, 2, false, true >, gpuFuncCachePreferShared);
-                          filterActs_YxX_color < 4, 32, 2, 8, 2, false, true > (images, filters, targets,
-                                      numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
-                      } else {
-                          //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 2, 4, 2, false, true >, gpuFuncCachePreferShared);
-                          filterActs_YxX_color < 4, 32, 2, 4, 2, false, true > (images, filters, targets,
-                                      numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
-                      }
-                  } else {
-                      if (numFilters % 32 == 0) {
-                          //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 2, 8, 2, false, false >, gpuFuncCachePreferShared);
-                          filterActs_YxX_color < 4, 32, 2, 8, 2, false, false > (images, filters, targets,
-                                      numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
-                      } else {
-                          //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 2, 4, 2, false, false >, gpuFuncCachePreferShared);
-                          filterActs_YxX_color < 4, 32, 2, 4, 2, false, false > (images, filters, targets,
-                                      numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
-                      }
-                  }
-              }  else if (numImgColors == 3) {
-                  if (checkImgBounds) {
-                        if (numFilters % 32 == 0) {
-                            //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 2, 8, 3, false, true >, gpuFuncCachePreferShared);
-                            filterActs_YxX_color < 4, 32, 2, 8, 3, false, true > (images, filters, targets,
-                                        numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
-                        } else {
-                            //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 2, 4, 3, false, true >, gpuFuncCachePreferShared);
-                            filterActs_YxX_color < 4, 32, 2, 4, 3, false, true > (images, filters, targets,
-                                        numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
-                        }
-                  } else {
-                        if (numFilters % 32 == 0) {
-                            //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 2, 8, 3, false, false >, gpuFuncCachePreferShared);
-                            filterActs_YxX_color < 4, 32, 2, 8, 3, false, false > (images, filters, targets,
-                                        numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
-                        } else {
-                            //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 2, 4, 3, false, false >, gpuFuncCachePreferShared);
-                            filterActs_YxX_color < 4, 32, 2, 4, 3, false, false > (images, filters, targets,
-                                        numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
-                        }
-                  }
-              }
-          } else { // do scale
-              if (numImgColors == 1) {
-                  if (checkImgBounds) {
-                      if (numFilters % 32 == 0) {
-                          //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 2, 8, 1, true, true >, gpuFuncCachePreferShared);
-                          filterActs_YxX_color < 4, 32, 2, 8, 1, true, true > (images, filters, targets,
-                                      numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
-                      } else {
-                          //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 2, 4, 1, true, true >, gpuFuncCachePreferShared);
-                          filterActs_YxX_color < 4, 32, 2, 4, 1, true, true > (images, filters, targets,
-                                      numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
-                      }
-                  } else {
-                      if (numFilters % 32 == 0) {
-                          //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 2, 8, 1, true, false >, gpuFuncCachePreferShared);
-                          filterActs_YxX_color < 4, 32, 2, 8, 1, true, false > (images, filters, targets,
-                                      numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
-                      } else {
-                          //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 2, 4, 1, true, false >, gpuFuncCachePreferShared);
-                          filterActs_YxX_color < 4, 32, 2, 4, 1, true, false > (images, filters, targets,
-                                      numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
-                      }
-                  }
-              } else if (numImgColors == 2) {
-                  if (checkImgBounds) {
-                      if (numFilters % 32 == 0) {
-                          //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 2, 8, 2, true, true >, gpuFuncCachePreferShared);
-                          filterActs_YxX_color < 4, 32, 2, 8, 2, true, true > (images, filters, targets,
-                                      numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
-                      } else {
-                          //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 2, 4, 2, true, true >, gpuFuncCachePreferShared);
-                          filterActs_YxX_color < 4, 32, 2, 4, 2, true, true > (images, filters, targets,
-                                      numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
-                      }
-                  } else {
-                      if (numFilters % 32 == 0) {
-                          //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 2, 8, 2, true, false >, gpuFuncCachePreferShared);
-                          filterActs_YxX_color < 4, 32, 2, 8, 2, true, false > (images, filters, targets,
-                                      numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
-                      } else {
-                          //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 2, 4, 2, true, false >, gpuFuncCachePreferShared);
-                          filterActs_YxX_color < 4, 32, 2, 4, 2, true, false > (images, filters, targets,
-                                      numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
-                      }
-                  }
-              }  else if (numImgColors == 3) {
-                  if (checkImgBounds) {
-                      if (numFilters % 32 == 0) {
-                          //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 2, 8, 3, true, true >, gpuFuncCachePreferShared);
-                          filterActs_YxX_color < 4, 32, 2, 8, 3, true, true > (images, filters, targets,
-                                      numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
-                      } else {
-                          //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 2, 4, 3, true, true >, gpuFuncCachePreferShared);
-                          filterActs_YxX_color < 4, 32, 2, 4, 3, true, true > (images, filters, targets,
-                                      numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
-                      }
-                  } else {
-                      if (numFilters % 32 == 0) {
-                          //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 2, 8, 3, true, false >, gpuFuncCachePreferShared);
-                          filterActs_YxX_color < 4, 32, 2, 8, 3, true, false > (images, filters, targets,
-                                      numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
-                      } else {
-                          //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 2, 4, 3, true, false >, gpuFuncCachePreferShared);
-                          filterActs_YxX_color < 4, 32, 2, 4, 3, true, false > (images, filters, targets,
-                                      numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
-                      }
-                  }
-              }
+      else
+      { // do scale
+        if (numImgColors == 1)
+        {
+          if (checkImgBounds)
+          {
+            if (numFilters % 32 == 0)
+            {
+              //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 4, 8, 1, true, true >, gpuFuncCachePreferShared);
+              filterActs_YxX_color < 4, 32, 4, 8, 1, true, true > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                   filterSize, paddingStart, moduleStride, numModulesY, numModulesX,
+                                                                   imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
+            }
+            else
+            {
+              //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 4, 4, 1, true, true >, gpuFuncCachePreferShared);
+              filterActs_YxX_color < 4, 32, 4, 4, 1, true, true > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                   filterSize, paddingStart, moduleStride, numModulesY, numModulesX,
+                                                                   imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
+            }
           }
-      } else {
-          if (scaleTargets == 0) { // don't scale
-              if (checkImgBounds) {
-                  if (numFiltersPerGroup % 32 == 0) {
-                      //gpuFuncSetCacheConfig(filterActs_YxX_sparse< 4, 32, 2, 8, 2, false, true >, gpuFuncCachePreferShared);
-                      filterActs_YxX_sparse < 4, 32, 2, 8, 2, false, true > (images, filters, targets,
-                                  numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, numImgColors, numGroups, scaleTargets, scaleOutput, conv, blockX, blockY);
-                  } else {
-                      //gpuFuncSetCacheConfig(filterActs_YxX_sparse< 4, 32, 2, 4, 2, false, true >, gpuFuncCachePreferShared);
-                      filterActs_YxX_sparse < 4, 32, 2, 4, 2, false, true > (images, filters, targets,
-                                  numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, numImgColors, numGroups, scaleTargets, scaleOutput, conv, blockX, blockY);
-                  }
-              } else {
-                  if (numFiltersPerGroup % 32 == 0) {
-                      //gpuFuncSetCacheConfig(filterActs_YxX_sparse< 4, 32, 2, 8, 2, false, false >, gpuFuncCachePreferShared);
-                      filterActs_YxX_sparse < 4, 32, 2, 8, 2, false, false > (images, filters, targets,
-                                  numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, numImgColors, numGroups, scaleTargets, scaleOutput, conv, blockX, blockY);
-                  } else {
-                      //gpuFuncSetCacheConfig(filterActs_YxX_sparse< 4, 32, 2, 4, 2, false, false >, gpuFuncCachePreferShared);
-                      filterActs_YxX_sparse < 4, 32, 2, 4, 2, false, false > (images, filters, targets,
-                                  numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, numImgColors, numGroups, scaleTargets, scaleOutput, conv, blockX, blockY);
-                  }
-              }
-          } else { // do scale
-              if (checkImgBounds) {
-                  if (numFiltersPerGroup % 32 == 0) {
-                      //gpuFuncSetCacheConfig(filterActs_YxX_sparse< 4, 32, 2, 8, 2, false, true >, gpuFuncCachePreferShared);
-                      filterActs_YxX_sparse < 4, 32, 2, 8, 2, true, true > (images, filters, targets,
-                                  numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, numImgColors, numGroups, scaleTargets, scaleOutput, conv, blockX, blockY);
-                  } else {
-                      //gpuFuncSetCacheConfig(filterActs_YxX_sparse< 4, 32, 2, 4, 2, false, true >, gpuFuncCachePreferShared);
-                      filterActs_YxX_sparse < 4, 32, 2, 4, 2, true, true > (images, filters, targets,
-                                  numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, numImgColors, numGroups, scaleTargets, scaleOutput, conv, blockX, blockY);
-                  }
-              } else {
-                  if (numFiltersPerGroup % 32 == 0) {
-                      //gpuFuncSetCacheConfig(filterActs_YxX_sparse< 4, 32, 2, 8, 2, false, false >, gpuFuncCachePreferShared);
-                      filterActs_YxX_sparse < 4, 32, 2, 8, 2, true, false > (images, filters, targets,
-                                  numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, numImgColors, numGroups, scaleTargets, scaleOutput, conv, blockX, blockY);
-                  } else {
-                      //gpuFuncSetCacheConfig(filterActs_YxX_sparse< 4, 32, 2, 4, 2, false, false >, gpuFuncCachePreferShared);
-                      filterActs_YxX_sparse < 4, 32, 2, 4, 2, true, false > (images, filters, targets,
-                                  numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, numImgColors, numGroups, scaleTargets, scaleOutput, conv, blockX, blockY);
-                  }
-              }
+          else
+          {
+            if (numFilters % 32 == 0)
+            {
+              //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 4, 8, 1, true, false >, gpuFuncCachePreferShared);
+              filterActs_YxX_color < 4, 32, 4, 8, 1, true, false > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                    filterSize, paddingStart, moduleStride, numModulesY, numModulesX,
+                                                                    imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
+            }
+            else
+            {
+              //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 4, 4, 1, true, false >, gpuFuncCachePreferShared);
+              filterActs_YxX_color < 4, 32, 4, 4, 1, true, false > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                    filterSize, paddingStart, moduleStride, numModulesY, numModulesX,
+                                                                    imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
+            }
           }
-      }    
-  } else {
-      if (numImgColors <= 3) {
-          assert(numGroups == 1); // It has to be based on above definitions, but just to be sure.
-          if (scaleTargets == 0) { // don't scale
-              if (numImgColors == 1) {
-                  if (checkImgBounds) {
-                      if (numFilters % 32 == 0) {
-                          //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 1, 8, 1, false, true >, gpuFuncCachePreferShared);
-                          filterActs_YxX_color < 4, 32, 1, 8, 1, false, true > (images, filters, targets,
-                                      numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
-                      } else {
-                          //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 1, 4, 1, false, true >, gpuFuncCachePreferShared);
-                          filterActs_YxX_color < 4, 32, 1, 4, 1, false, true > (images, filters, targets,
-                                      numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
-                      }
-                  } else {
-                      if (numFilters % 32 == 0) {
-                          //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 1, 8, 1, false, false >, gpuFuncCachePreferShared);
-                          filterActs_YxX_color < 4, 32, 1, 8, 1, false, false > (images, filters, targets,
-                                      numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
-                      } else {
-                          //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 1, 4, 1, false, false >, gpuFuncCachePreferShared);
-                          filterActs_YxX_color < 4, 32, 1, 4, 1, false, false > (images, filters, targets,
-                                      numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
-                      }
-                  }
-              } else if (numImgColors == 2) {
-                  if (checkImgBounds) {
-                      if (numFilters % 32 == 0) {
-                          //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 1, 8, 2, false, true >, gpuFuncCachePreferShared);
-                          filterActs_YxX_color < 4, 32, 1, 8, 2, false, true > (images, filters, targets,
-                                      numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
-                      } else {
-                          //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 1, 4, 2, false, true >, gpuFuncCachePreferShared);
-                          filterActs_YxX_color < 4, 32, 1, 4, 2, false, true > (images, filters, targets,
-                                      numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
-                      }
-                  } else {
-                      if (numFilters % 32 == 0) {
-                          //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 1, 8, 2, false, false >, gpuFuncCachePreferShared);
-                          filterActs_YxX_color < 4, 32, 1, 8, 2, false, false > (images, filters, targets,
-                                      numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
-                      } else {
-                          //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 1, 4, 2, false, false >, gpuFuncCachePreferShared);
-                          filterActs_YxX_color < 4, 32, 1, 4, 2, false, false > (images, filters, targets,
-                                      numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
-                      }
-                  }
-              }  else if (numImgColors == 3) {
-                  if (checkImgBounds) {
-                        if (numFilters % 32 == 0) {
-                            //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 1, 8, 3, false, true >, gpuFuncCachePreferShared);
-                            filterActs_YxX_color < 4, 32, 1, 8, 3, false, true > (images, filters, targets,
-                                        numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
-                        } else {
-                            //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 1, 4, 3, false, true >, gpuFuncCachePreferShared);
-                            filterActs_YxX_color < 4, 32, 1, 4, 3, false, true > (images, filters, targets,
-                                        numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
-                        }
-                  } else {
-                        if (numFilters % 32 == 0) {
-                            //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 1, 8, 3, false, false >, gpuFuncCachePreferShared);
-                            filterActs_YxX_color < 4, 32, 1, 8, 3, false, false > (images, filters, targets,
-                                        numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
-                        } else {
-                            //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 1, 4, 3, false, false >, gpuFuncCachePreferShared);
-                            filterActs_YxX_color < 4, 32, 1, 4, 3, false, false > (images, filters, targets,
-                                        numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
-                        }
-                  }
-              }
-          } else { // do scale
-              if (numImgColors == 1) {
-                  if (checkImgBounds) {
-                      if (numFilters % 32 == 0) {
-                          //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 1, 8, 1, true, true >, gpuFuncCachePreferShared);
-                          filterActs_YxX_color < 4, 32, 1, 8, 1, true, true > (images, filters, targets,
-                                      numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
-                      } else {
-                          //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 1, 4, 1, true, true >, gpuFuncCachePreferShared);
-                          filterActs_YxX_color < 4, 32, 1, 4, 1, true, true > (images, filters, targets,
-                                      numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
-                      }
-                  } else {
-                      if (numFilters % 32 == 0) {
-                          //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 1, 8, 1, true, false >, gpuFuncCachePreferShared);
-                          filterActs_YxX_color < 4, 32, 1, 8, 1, true, false > (images, filters, targets,
-                                      numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
-                      } else {
-                          //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 1, 4, 1, true, false >, gpuFuncCachePreferShared);
-                          filterActs_YxX_color < 4, 32, 1, 4, 1, true, false > (images, filters, targets,
-                                      numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
-                      }
-                  }
-              } else if (numImgColors == 2) {
-                  if (checkImgBounds) {
-                      if (numFilters % 32 == 0) {
-                          //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 1, 8, 2, true, true >, gpuFuncCachePreferShared);
-                          filterActs_YxX_color < 4, 32, 1, 8, 2, true, true > (images, filters, targets,
-                                      numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
-                      } else {
-                          //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 1, 4, 2, true, true >, gpuFuncCachePreferShared);
-                          filterActs_YxX_color < 4, 32, 1, 4, 2, true, true > (images, filters, targets,
-                                      numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
-                      }
-                  } else {
-                      if (numFilters % 32 == 0) {
-                          //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 1, 8, 2, true, false >, gpuFuncCachePreferShared);
-                          filterActs_YxX_color < 4, 32, 1, 8, 2, true, false > (images, filters, targets,
-                                      numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
-                      } else {
-                          //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 1, 4, 2, true, false >, gpuFuncCachePreferShared);
-                          filterActs_YxX_color < 4, 32, 1, 4, 2, true, false > (images, filters, targets,
-                                      numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
-                      }
-                  }
-              }  else if (numImgColors == 3) {
-                  if (checkImgBounds) {
-                      if (numFilters % 32 == 0) {
-                          //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 1, 8, 3, true, true >, gpuFuncCachePreferShared);
-                          filterActs_YxX_color < 4, 32, 1, 8, 3, true, true > (images, filters, targets,
-                                      numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
-                      } else {
-                          //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 1, 4, 3, true, true >, gpuFuncCachePreferShared);
-                          filterActs_YxX_color < 4, 32, 1, 4, 3, true, true > (images, filters, targets,
-                                      numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
-                      }
-                  } else {
-                      if (numFilters % 32 == 0) {
-                          //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 1, 8, 3, true, false >, gpuFuncCachePreferShared);
-                          filterActs_YxX_color < 4, 32, 1, 8, 3, true, false > (images, filters, targets,
-                                      numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
-                      } else {
-                          //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 1, 4, 3, true, false >, gpuFuncCachePreferShared);
-                          filterActs_YxX_color < 4, 32, 1, 4, 3, true, false > (images, filters, targets,
-                                      numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
-                      }
-                  }
-              }
+        }
+        else if (numImgColors == 2)
+        {
+          if (checkImgBounds)
+          {
+            if (numFilters % 32 == 0)
+            {
+              //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 4, 8, 2, true, true >, gpuFuncCachePreferShared);
+              filterActs_YxX_color < 4, 32, 4, 8, 2, true, true > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                   filterSize, paddingStart, moduleStride, numModulesY, numModulesX,
+                                                                   imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
+            }
+            else
+            {
+              //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 4, 4, 2, true, true >, gpuFuncCachePreferShared);
+              filterActs_YxX_color < 4, 32, 4, 4, 2, true, true > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                   filterSize, paddingStart, moduleStride, numModulesY, numModulesX,
+                                                                   imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
+            }
           }
-      } else {
-          if (scaleTargets == 0) { // don't scale
-              if (checkImgBounds) {
-                  if (numFiltersPerGroup % 32 == 0) {
-                      //gpuFuncSetCacheConfig(filterActs_YxX_sparse< 4, 32, 1, 8, 2, false, true >, gpuFuncCachePreferShared);
-                      filterActs_YxX_sparse < 4, 32, 1, 8, 2, false, true > (images, filters, targets,
-                                  numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, numImgColors, numGroups, scaleTargets, scaleOutput, conv, blockX, blockY);
-                  } else {
-                      //gpuFuncSetCacheConfig(filterActs_YxX_sparse< 4, 32, 1, 4, 2, false, true >, gpuFuncCachePreferShared);
-                      filterActs_YxX_sparse < 4, 32, 1, 4, 2, false, true > (images, filters, targets,
-                                  numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, numImgColors, numGroups, scaleTargets, scaleOutput, conv, blockX, blockY);
-                  }
-              } else {
-                  if (numFiltersPerGroup % 32 == 0) {
-                      //gpuFuncSetCacheConfig(filterActs_YxX_sparse< 4, 32, 1, 8, 2, false, false >, gpuFuncCachePreferShared);
-                      filterActs_YxX_sparse < 4, 32, 1, 8, 2, false, false > (images, filters, targets,
-                                  numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, numImgColors, numGroups, scaleTargets, scaleOutput, conv, blockX, blockY);
-                  } else {
-                      //gpuFuncSetCacheConfig(filterActs_YxX_sparse< 4, 32, 1, 4, 2, false, false >, gpuFuncCachePreferShared);
-                      filterActs_YxX_sparse < 4, 32, 1, 4, 2, false, false > (images, filters, targets,
-                                  numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, numImgColors, numGroups, scaleTargets, scaleOutput, conv, blockX, blockY);
-                  }
-              }
-          } else { // do scale
-              if (checkImgBounds) {
-                  if (numFiltersPerGroup % 32 == 0) {
-                      //gpuFuncSetCacheConfig(filterActs_YxX_sparse< 4, 32, 1, 8, 2, false, true >, gpuFuncCachePreferShared);
-                      filterActs_YxX_sparse < 4, 32, 1, 8, 2, true, true > (images, filters, targets,
-                                  numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, numImgColors, numGroups, scaleTargets, scaleOutput, conv, blockX, blockY);
-                  } else {
-                      //gpuFuncSetCacheConfig(filterActs_YxX_sparse< 4, 32, 1, 4, 2, false, true >, gpuFuncCachePreferShared);
-                      filterActs_YxX_sparse < 4, 32, 1, 4, 2, true, true > (images, filters, targets,
-                                  numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, numImgColors, numGroups, scaleTargets, scaleOutput, conv, blockX, blockY);
-                  }
-              } else {
-                  if (numFiltersPerGroup % 32 == 0) {
-                      //gpuFuncSetCacheConfig(filterActs_YxX_sparse< 4, 32, 1, 8, 2, false, false >, gpuFuncCachePreferShared);
-                      filterActs_YxX_sparse < 4, 32, 1, 8, 2, true, false > (images, filters, targets,
-                                  numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, numImgColors, numGroups, scaleTargets, scaleOutput, conv, blockX, blockY);
-                  } else {
-                      //gpuFuncSetCacheConfig(filterActs_YxX_sparse< 4, 32, 1, 4, 2, false, false >, gpuFuncCachePreferShared);
-                      filterActs_YxX_sparse < 4, 32, 1, 4, 2, true, false > (images, filters, targets,
-                                  numImages, numFilters, imgSizeY, imgSizeX, filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride, numImgColors, numGroups, scaleTargets, scaleOutput, conv, blockX, blockY);
-                  }
-              }
+          else
+          {
+            if (numFilters % 32 == 0)
+            {
+              //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 4, 8, 2, true, false >, gpuFuncCachePreferShared);
+              filterActs_YxX_color < 4, 32, 4, 8, 2, true, false > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                    filterSize, paddingStart, moduleStride, numModulesY, numModulesX,
+                                                                    imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
+            }
+            else
+            {
+              //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 4, 4, 2, true, false >, gpuFuncCachePreferShared);
+              filterActs_YxX_color < 4, 32, 4, 4, 2, true, false > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                    filterSize, paddingStart, moduleStride, numModulesY, numModulesX,
+                                                                    imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
+            }
           }
+        }
+        else if (numImgColors == 3)
+        {
+          if (checkImgBounds)
+          {
+            if (numFilters % 32 == 0)
+            {
+              //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 4, 8, 3, true, true >, gpuFuncCachePreferShared);
+              filterActs_YxX_color < 4, 32, 4, 8, 3, true, true > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                   filterSize, paddingStart, moduleStride, numModulesY, numModulesX,
+                                                                   imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
+            }
+            else
+            {
+              //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 4, 4, 3, true, true >, gpuFuncCachePreferShared);
+              filterActs_YxX_color < 4, 32, 4, 4, 3, true, true > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                   filterSize, paddingStart, moduleStride, numModulesY, numModulesX,
+                                                                   imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
+            }
+          }
+          else
+          {
+            if (numFilters % 32 == 0)
+            {
+              //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 4, 8, 3, true, false >, gpuFuncCachePreferShared);
+              filterActs_YxX_color < 4, 32, 4, 8, 3, true, false > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                    filterSize, paddingStart, moduleStride, numModulesY, numModulesX,
+                                                                    imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
+            }
+            else
+            {
+              //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 4, 4, 3, true, false >, gpuFuncCachePreferShared);
+              filterActs_YxX_color < 4, 32, 4, 4, 3, true, false > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                    filterSize, paddingStart, moduleStride, numModulesY, numModulesX,
+                                                                    imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
+            }
+          }
+        }
       }
+    }
+    else
+    {
+      if (scaleTargets == 0)
+      { // don't scale
+        if (checkImgBounds)
+        {
+          if (numFiltersPerGroup % 32 == 0)
+          {
+            //gpuFuncSetCacheConfig(filterActs_YxX_sparse< 4, 32, 4, 8, 2, false, true >, gpuFuncCachePreferShared);
+            filterActs_YxX_sparse < 4, 32, 4, 8, 2, false, true > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                   filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride,
+                                                                   numImgColors, numGroups, scaleTargets, scaleOutput, conv, blockX, blockY);
+          }
+          else
+          {
+            //gpuFuncSetCacheConfig(filterActs_YxX_sparse< 4, 32, 4, 4, 2, false, true >, gpuFuncCachePreferShared);
+            filterActs_YxX_sparse < 4, 32, 4, 4, 2, false, true > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                   filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride,
+                                                                   numImgColors, numGroups, scaleTargets, scaleOutput, conv, blockX, blockY);
+          }
+        }
+        else
+        {
+          if (numFiltersPerGroup % 32 == 0)
+          {
+            //gpuFuncSetCacheConfig(filterActs_YxX_sparse< 4, 32, 4, 8, 2, false, false >, gpuFuncCachePreferShared);
+            filterActs_YxX_sparse < 4, 32, 4, 8, 2, false, false > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                    filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride,
+                                                                    numImgColors, numGroups, scaleTargets, scaleOutput, conv, blockX, blockY);
+          }
+          else
+          {
+            //gpuFuncSetCacheConfig(filterActs_YxX_sparse< 4, 32, 4, 4, 2, false, false >, gpuFuncCachePreferShared);
+            filterActs_YxX_sparse < 4, 32, 4, 4, 2, false, false > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                    filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride,
+                                                                    numImgColors, numGroups, scaleTargets, scaleOutput, conv, blockX, blockY);
+          }
+        }
+      }
+      else
+      { // do scale
+        if (checkImgBounds)
+        {
+          if (numFiltersPerGroup % 32 == 0)
+          {
+            //gpuFuncSetCacheConfig(filterActs_YxX_sparse< 4, 32, 4, 8, 2, false, true >, gpuFuncCachePreferShared);
+            filterActs_YxX_sparse < 4, 32, 4, 8, 2, true, true > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                  filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride,
+                                                                  numImgColors, numGroups, scaleTargets, scaleOutput, conv, blockX, blockY);
+          }
+          else
+          {
+            //gpuFuncSetCacheConfig(filterActs_YxX_sparse< 4, 32, 4, 4, 2, false, true >, gpuFuncCachePreferShared);
+            filterActs_YxX_sparse < 4, 32, 4, 4, 2, true, true > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                  filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride,
+                                                                  numImgColors, numGroups, scaleTargets, scaleOutput, conv, blockX, blockY);
+          }
+        }
+        else
+        {
+          if (numFiltersPerGroup % 32 == 0)
+          {
+            //gpuFuncSetCacheConfig(filterActs_YxX_sparse< 4, 32, 4, 8, 2, false, false >, gpuFuncCachePreferShared);
+            filterActs_YxX_sparse < 4, 32, 4, 8, 2, true, false > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                   filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride,
+                                                                   numImgColors, numGroups, scaleTargets, scaleOutput, conv, blockX, blockY);
+          }
+          else
+          {
+            //gpuFuncSetCacheConfig(filterActs_YxX_sparse< 4, 32, 4, 4, 2, false, false >, gpuFuncCachePreferShared);
+            filterActs_YxX_sparse < 4, 32, 4, 4, 2, true, false > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                   filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride,
+                                                                   numImgColors, numGroups, scaleTargets, scaleOutput, conv, blockX, blockY);
+          }
+        }
+      }
+    }
+  }
+  else if (imgsPerThread == 2)
+  {
+    if (numImgColors <= 3)
+    {
+      assert(numGroups == 1); // It has to be based on above definitions, but just to be sure.
+      if (scaleTargets == 0)
+      { // don't scale
+        if (numImgColors == 1)
+        {
+          if (checkImgBounds)
+          {
+            if (numFilters % 32 == 0)
+            {
+              //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 2, 8, 1, false, true >, gpuFuncCachePreferShared);
+              filterActs_YxX_color < 4, 32, 2, 8, 1, false, true > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                    filterSize, paddingStart, moduleStride, numModulesY, numModulesX,
+                                                                    imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
+            }
+            else
+            {
+              //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 2, 4, 1, false, true >, gpuFuncCachePreferShared);
+              filterActs_YxX_color < 4, 32, 2, 4, 1, false, true > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                    filterSize, paddingStart, moduleStride, numModulesY, numModulesX,
+                                                                    imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
+            }
+          }
+          else
+          {
+            if (numFilters % 32 == 0)
+            {
+              //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 2, 8, 1, false, false >, gpuFuncCachePreferShared);
+              filterActs_YxX_color < 4, 32, 2, 8, 1, false, false > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                     filterSize, paddingStart, moduleStride, numModulesY, numModulesX,
+                                                                     imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
+            }
+            else
+            {
+              //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 2, 4, 1, false, false >, gpuFuncCachePreferShared);
+              filterActs_YxX_color < 4, 32, 2, 4, 1, false, false > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                     filterSize, paddingStart, moduleStride, numModulesY, numModulesX,
+                                                                     imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
+            }
+          }
+        }
+        else if (numImgColors == 2)
+        {
+          if (checkImgBounds)
+          {
+            if (numFilters % 32 == 0)
+            {
+              //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 2, 8, 2, false, true >, gpuFuncCachePreferShared);
+              filterActs_YxX_color < 4, 32, 2, 8, 2, false, true > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                    filterSize, paddingStart, moduleStride, numModulesY, numModulesX,
+                                                                    imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
+            }
+            else
+            {
+              //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 2, 4, 2, false, true >, gpuFuncCachePreferShared);
+              filterActs_YxX_color < 4, 32, 2, 4, 2, false, true > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                    filterSize, paddingStart, moduleStride, numModulesY, numModulesX,
+                                                                    imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
+            }
+          }
+          else
+          {
+            if (numFilters % 32 == 0)
+            {
+              //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 2, 8, 2, false, false >, gpuFuncCachePreferShared);
+              filterActs_YxX_color < 4, 32, 2, 8, 2, false, false > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                     filterSize, paddingStart, moduleStride, numModulesY, numModulesX,
+                                                                     imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
+            }
+            else
+            {
+              //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 2, 4, 2, false, false >, gpuFuncCachePreferShared);
+              filterActs_YxX_color < 4, 32, 2, 4, 2, false, false > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                     filterSize, paddingStart, moduleStride, numModulesY, numModulesX,
+                                                                     imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
+            }
+          }
+        }
+        else if (numImgColors == 3)
+        {
+          if (checkImgBounds)
+          {
+            if (numFilters % 32 == 0)
+            {
+              //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 2, 8, 3, false, true >, gpuFuncCachePreferShared);
+              filterActs_YxX_color < 4, 32, 2, 8, 3, false, true > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                    filterSize, paddingStart, moduleStride, numModulesY, numModulesX,
+                                                                    imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
+            }
+            else
+            {
+              //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 2, 4, 3, false, true >, gpuFuncCachePreferShared);
+              filterActs_YxX_color < 4, 32, 2, 4, 3, false, true > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                    filterSize, paddingStart, moduleStride, numModulesY, numModulesX,
+                                                                    imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
+            }
+          }
+          else
+          {
+            if (numFilters % 32 == 0)
+            {
+              //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 2, 8, 3, false, false >, gpuFuncCachePreferShared);
+              filterActs_YxX_color < 4, 32, 2, 8, 3, false, false > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                     filterSize, paddingStart, moduleStride, numModulesY, numModulesX,
+                                                                     imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
+            }
+            else
+            {
+              //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 2, 4, 3, false, false >, gpuFuncCachePreferShared);
+              filterActs_YxX_color < 4, 32, 2, 4, 3, false, false > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                     filterSize, paddingStart, moduleStride, numModulesY, numModulesX,
+                                                                     imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
+            }
+          }
+        }
+      }
+      else
+      { // do scale
+        if (numImgColors == 1)
+        {
+          if (checkImgBounds)
+          {
+            if (numFilters % 32 == 0)
+            {
+              //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 2, 8, 1, true, true >, gpuFuncCachePreferShared);
+              filterActs_YxX_color < 4, 32, 2, 8, 1, true, true > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                    filterSize, paddingStart, moduleStride, numModulesY, numModulesX,
+                                                                    imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
+            }
+            else
+            {
+              //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 2, 4, 1, true, true >, gpuFuncCachePreferShared);
+              filterActs_YxX_color < 4, 32, 2, 4, 1, true, true > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                    filterSize, paddingStart, moduleStride, numModulesY, numModulesX,
+                                                                    imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
+            }
+          }
+          else
+          {
+            if (numFilters % 32 == 0)
+            {
+              //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 2, 8, 1, true, false >, gpuFuncCachePreferShared);
+              filterActs_YxX_color < 4, 32, 2, 8, 1, true, false > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                    filterSize, paddingStart, moduleStride, numModulesY, numModulesX,
+                                                                    imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
+            }
+            else
+            {
+              //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 2, 4, 1, true, false >, gpuFuncCachePreferShared);
+              filterActs_YxX_color < 4, 32, 2, 4, 1, true, false > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                    filterSize, paddingStart, moduleStride, numModulesY, numModulesX,
+                                                                    imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
+            }
+          }
+        }
+        else if (numImgColors == 2)
+        {
+          if (checkImgBounds)
+          {
+            if (numFilters % 32 == 0)
+            {
+              //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 2, 8, 2, true, true >, gpuFuncCachePreferShared);
+              filterActs_YxX_color < 4, 32, 2, 8, 2, true, true > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                    filterSize, paddingStart, moduleStride, numModulesY, numModulesX,
+                                                                    imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
+            }
+            else
+            {
+              //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 2, 4, 2, true, true >, gpuFuncCachePreferShared);
+              filterActs_YxX_color < 4, 32, 2, 4, 2, true, true > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                    filterSize, paddingStart, moduleStride, numModulesY, numModulesX,
+                                                                    imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
+            }
+          }
+          else
+          {
+            if (numFilters % 32 == 0)
+            {
+              //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 2, 8, 2, true, false >, gpuFuncCachePreferShared);
+              filterActs_YxX_color < 4, 32, 2, 8, 2, true, false > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                    filterSize, paddingStart, moduleStride, numModulesY, numModulesX,
+                                                                    imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
+            }
+            else
+            {
+              //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 2, 4, 2, true, false >, gpuFuncCachePreferShared);
+              filterActs_YxX_color < 4, 32, 2, 4, 2, true, false > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                    filterSize, paddingStart, moduleStride, numModulesY, numModulesX,
+                                                                    imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
+            }
+          }
+        }
+        else if (numImgColors == 3)
+        {
+          if (checkImgBounds)
+          {
+            if (numFilters % 32 == 0)
+            {
+              //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 2, 8, 3, true, true >, gpuFuncCachePreferShared);
+              filterActs_YxX_color < 4, 32, 2, 8, 3, true, true > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                    filterSize, paddingStart, moduleStride, numModulesY, numModulesX,
+                                                                    imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
+            }
+            else
+            {
+              //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 2, 4, 3, true, true >, gpuFuncCachePreferShared);
+              filterActs_YxX_color < 4, 32, 2, 4, 3, true, true > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                    filterSize, paddingStart, moduleStride, numModulesY, numModulesX,
+                                                                    imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
+            }
+          }
+          else
+          {
+            if (numFilters % 32 == 0)
+            {
+              //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 2, 8, 3, true, false >, gpuFuncCachePreferShared);
+              filterActs_YxX_color < 4, 32, 2, 8, 3, true, false > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                    filterSize, paddingStart, moduleStride, numModulesY, numModulesX,
+                                                                    imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
+            }
+            else
+            {
+              //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 2, 4, 3, true, false >, gpuFuncCachePreferShared);
+              filterActs_YxX_color < 4, 32, 2, 4, 3, true, false > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                    filterSize, paddingStart, moduleStride, numModulesY, numModulesX,
+                                                                    imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
+            }
+          }
+        }
+      }
+    }
+    else
+    {
+      if (scaleTargets == 0)
+      { // don't scale
+        if (checkImgBounds)
+        {
+          if (numFiltersPerGroup % 32 == 0)
+          {
+            //gpuFuncSetCacheConfig(filterActs_YxX_sparse< 4, 32, 2, 8, 2, false, true >, gpuFuncCachePreferShared);
+            filterActs_YxX_sparse < 4, 32, 2, 8, 2, false, true > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                    filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride,
+                                                                    numImgColors, numGroups, scaleTargets, scaleOutput, conv, blockX, blockY);
+          }
+          else
+          {
+            //gpuFuncSetCacheConfig(filterActs_YxX_sparse< 4, 32, 2, 4, 2, false, true >, gpuFuncCachePreferShared);
+            filterActs_YxX_sparse < 4, 32, 2, 4, 2, false, true > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                    filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride,
+                                                                    numImgColors, numGroups, scaleTargets, scaleOutput, conv, blockX, blockY);
+          }
+        }
+        else
+        {
+          if (numFiltersPerGroup % 32 == 0)
+          {
+            //gpuFuncSetCacheConfig(filterActs_YxX_sparse< 4, 32, 2, 8, 2, false, false >, gpuFuncCachePreferShared);
+            filterActs_YxX_sparse < 4, 32, 2, 8, 2, false, false > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                    filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride,
+                                                                    numImgColors, numGroups, scaleTargets, scaleOutput, conv, blockX, blockY);
+          }
+          else
+          {
+            //gpuFuncSetCacheConfig(filterActs_YxX_sparse< 4, 32, 2, 4, 2, false, false >, gpuFuncCachePreferShared);
+            filterActs_YxX_sparse < 4, 32, 2, 4, 2, false, false > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                    filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride,
+                                                                    numImgColors, numGroups, scaleTargets, scaleOutput, conv, blockX, blockY);
+          }
+        }
+      }
+      else
+      { // do scale
+        if (checkImgBounds)
+        {
+          if (numFiltersPerGroup % 32 == 0)
+          {
+            //gpuFuncSetCacheConfig(filterActs_YxX_sparse< 4, 32, 2, 8, 2, false, true >, gpuFuncCachePreferShared);
+            filterActs_YxX_sparse < 4, 32, 2, 8, 2, true, true > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                  filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride,
+                                                                  numImgColors, numGroups, scaleTargets, scaleOutput, conv, blockX, blockY);
+          }
+          else
+          {
+            //gpuFuncSetCacheConfig(filterActs_YxX_sparse< 4, 32, 2, 4, 2, false, true >, gpuFuncCachePreferShared);
+            filterActs_YxX_sparse < 4, 32, 2, 4, 2, true, true > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                  filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride,
+                                                                  numImgColors, numGroups, scaleTargets, scaleOutput, conv, blockX, blockY);
+          }
+        }
+        else
+        {
+          if (numFiltersPerGroup % 32 == 0)
+          {
+            //gpuFuncSetCacheConfig(filterActs_YxX_sparse< 4, 32, 2, 8, 2, false, false >, gpuFuncCachePreferShared);
+            filterActs_YxX_sparse < 4, 32, 2, 8, 2, true, false > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                    filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride,
+                                                                    numImgColors, numGroups, scaleTargets, scaleOutput, conv, blockX, blockY);
+          }
+          else
+          {
+            //gpuFuncSetCacheConfig(filterActs_YxX_sparse< 4, 32, 2, 4, 2, false, false >, gpuFuncCachePreferShared);
+            filterActs_YxX_sparse < 4, 32, 2, 4, 2, true, false > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                    filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride,
+                                                                    numImgColors, numGroups, scaleTargets, scaleOutput, conv, blockX, blockY);
+          }
+        }
+      }
+    }
+  }
+  else
+  {
+    if (numImgColors <= 3)
+    {
+      assert(numGroups == 1); // It has to be based on above definitions, but just to be sure.
+      if (scaleTargets == 0)
+      { // don't scale
+        if (numImgColors == 1)
+        {
+          if (checkImgBounds)
+          {
+            if (numFilters % 32 == 0)
+            {
+              //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 1, 8, 1, false, true >, gpuFuncCachePreferShared);
+              filterActs_YxX_color < 4, 32, 1, 8, 1, false, true > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                    filterSize, paddingStart, moduleStride, numModulesY, numModulesX,
+                                                                    imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
+            }
+            else
+            {
+              //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 1, 4, 1, false, true >, gpuFuncCachePreferShared);
+              filterActs_YxX_color < 4, 32, 1, 4, 1, false, true > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                    filterSize, paddingStart, moduleStride, numModulesY, numModulesX,
+                                                                    imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
+            }
+          }
+          else
+          {
+            if (numFilters % 32 == 0)
+            {
+              //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 1, 8, 1, false, false >, gpuFuncCachePreferShared);
+              filterActs_YxX_color < 4, 32, 1, 8, 1, false, false > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                    filterSize, paddingStart, moduleStride, numModulesY, numModulesX,
+                                                                    imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
+            }
+            else
+            {
+              //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 1, 4, 1, false, false >, gpuFuncCachePreferShared);
+              filterActs_YxX_color < 4, 32, 1, 4, 1, false, false > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                      filterSize, paddingStart, moduleStride, numModulesY, numModulesX,
+                                                                      imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
+            }
+          }
+        }
+        else if (numImgColors == 2)
+        {
+          if (checkImgBounds)
+          {
+            if (numFilters % 32 == 0)
+            {
+              //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 1, 8, 2, false, true >, gpuFuncCachePreferShared);
+              filterActs_YxX_color < 4, 32, 1, 8, 2, false, true > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                    filterSize, paddingStart, moduleStride, numModulesY, numModulesX,
+                                                                    imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
+            }
+            else
+            {
+              //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 1, 4, 2, false, true >, gpuFuncCachePreferShared);
+              filterActs_YxX_color < 4, 32, 1, 4, 2, false, true > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                    filterSize, paddingStart, moduleStride, numModulesY, numModulesX,
+                                                                    imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
+            }
+          }
+          else
+          {
+            if (numFilters % 32 == 0)
+            {
+              //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 1, 8, 2, false, false >, gpuFuncCachePreferShared);
+              filterActs_YxX_color < 4, 32, 1, 8, 2, false, false > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                      filterSize, paddingStart, moduleStride, numModulesY, numModulesX,
+                                                                      imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
+            }
+            else
+            {
+              //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 1, 4, 2, false, false >, gpuFuncCachePreferShared);
+              filterActs_YxX_color < 4, 32, 1, 4, 2, false, false > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                      filterSize, paddingStart, moduleStride, numModulesY, numModulesX,
+                                                                      imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
+            }
+          }
+        }
+        else if (numImgColors == 3)
+        {
+          if (checkImgBounds)
+          {
+            if (numFilters % 32 == 0)
+            {
+              //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 1, 8, 3, false, true >, gpuFuncCachePreferShared);
+              filterActs_YxX_color < 4, 32, 1, 8, 3, false, true > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                    filterSize, paddingStart, moduleStride, numModulesY, numModulesX,
+                                                                    imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
+            }
+            else
+            {
+              //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 1, 4, 3, false, true >, gpuFuncCachePreferShared);
+              filterActs_YxX_color < 4, 32, 1, 4, 3, false, true > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                    filterSize, paddingStart, moduleStride, numModulesY, numModulesX,
+                                                                    imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
+            }
+          }
+          else
+          {
+            if (numFilters % 32 == 0)
+            {
+              //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 1, 8, 3, false, false >, gpuFuncCachePreferShared);
+              filterActs_YxX_color < 4, 32, 1, 8, 3, false, false > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                      filterSize, paddingStart, moduleStride, numModulesY, numModulesX,
+                                                                      imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
+            }
+            else
+            {
+              //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 1, 4, 3, false, false >, gpuFuncCachePreferShared);
+              filterActs_YxX_color < 4, 32, 1, 4, 3, false, false > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                      filterSize, paddingStart, moduleStride, numModulesY, numModulesX,
+                                                                      imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
+            }
+          }
+        }
+      }
+      else
+      { // do scale
+        if (numImgColors == 1)
+        {
+          if (checkImgBounds)
+          {
+            if (numFilters % 32 == 0)
+            {
+              //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 1, 8, 1, true, true >, gpuFuncCachePreferShared);
+              filterActs_YxX_color < 4, 32, 1, 8, 1, true, true > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                    filterSize, paddingStart, moduleStride, numModulesY, numModulesX,
+                                                                    imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
+            }
+            else
+            {
+              //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 1, 4, 1, true, true >, gpuFuncCachePreferShared);
+              filterActs_YxX_color < 4, 32, 1, 4, 1, true, true > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                    filterSize, paddingStart, moduleStride, numModulesY, numModulesX,
+                                                                    imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
+            }
+          }
+          else
+          {
+            if (numFilters % 32 == 0)
+            {
+              //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 1, 8, 1, true, false >, gpuFuncCachePreferShared);
+              filterActs_YxX_color < 4, 32, 1, 8, 1, true, false > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                    filterSize, paddingStart, moduleStride, numModulesY, numModulesX,
+                                                                    imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
+            }
+            else
+            {
+              //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 1, 4, 1, true, false >, gpuFuncCachePreferShared);
+              filterActs_YxX_color < 4, 32, 1, 4, 1, true, false > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                    filterSize, paddingStart, moduleStride, numModulesY, numModulesX,
+                                                                    imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
+            }
+          }
+        }
+        else if (numImgColors == 2)
+        {
+          if (checkImgBounds)
+          {
+            if (numFilters % 32 == 0)
+            {
+              //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 1, 8, 2, true, true >, gpuFuncCachePreferShared);
+              filterActs_YxX_color < 4, 32, 1, 8, 2, true, true > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                    filterSize, paddingStart, moduleStride, numModulesY, numModulesX,
+                                                                    imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
+            }
+            else
+            {
+              //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 1, 4, 2, true, true >, gpuFuncCachePreferShared);
+              filterActs_YxX_color < 4, 32, 1, 4, 2, true, true > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                    filterSize, paddingStart, moduleStride, numModulesY, numModulesX,
+                                                                    imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
+            }
+          }
+          else
+          {
+            if (numFilters % 32 == 0)
+            {
+              //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 1, 8, 2, true, false >, gpuFuncCachePreferShared);
+              filterActs_YxX_color < 4, 32, 1, 8, 2, true, false > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                    filterSize, paddingStart, moduleStride, numModulesY, numModulesX,
+                                                                    imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
+            }
+            else
+            {
+              //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 1, 4, 2, true, false >, gpuFuncCachePreferShared);
+              filterActs_YxX_color < 4, 32, 1, 4, 2, true, false > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                    filterSize, paddingStart, moduleStride, numModulesY, numModulesX,
+                                                                    imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
+            }
+          }
+        }
+        else if (numImgColors == 3)
+        {
+          if (checkImgBounds)
+          {
+            if (numFilters % 32 == 0)
+            {
+              //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 1, 8, 3, true, true >, gpuFuncCachePreferShared);
+              filterActs_YxX_color < 4, 32, 1, 8, 3, true, true > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                    filterSize, paddingStart, moduleStride, numModulesY, numModulesX,
+                                                                    imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
+            }
+            else
+            {
+              //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 1, 4, 3, true, true >, gpuFuncCachePreferShared);
+              filterActs_YxX_color < 4, 32, 1, 4, 3, true, true > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                    filterSize, paddingStart, moduleStride, numModulesY, numModulesX,
+                                                                    imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
+            }
+          }
+          else
+          {
+            if (numFilters % 32 == 0)
+            {
+              //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 1, 8, 3, true, false >, gpuFuncCachePreferShared);
+              filterActs_YxX_color < 4, 32, 1, 8, 3, true, false > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                    filterSize, paddingStart, moduleStride, numModulesY, numModulesX,
+                                                                    imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
+            }
+            else
+            {
+              //gpuFuncSetCacheConfig(filterActs_YxX_color< 4, 32, 1, 4, 3, true, false >, gpuFuncCachePreferShared);
+              filterActs_YxX_color < 4, 32, 1, 4, 3, true, false > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                    filterSize, paddingStart, moduleStride, numModulesY, numModulesX,
+                                                                    imgStride, scaleTargets, scaleOutput, conv, blockX, blockY);
+            }
+          }
+        }
+      }
+    }
+    else
+    {
+      if (scaleTargets == 0)
+      { // don't scale
+        if (checkImgBounds)
+        {
+          if (numFiltersPerGroup % 32 == 0)
+          {
+            //gpuFuncSetCacheConfig(filterActs_YxX_sparse< 4, 32, 1, 8, 2, false, true >, gpuFuncCachePreferShared);
+            filterActs_YxX_sparse < 4, 32, 1, 8, 2, false, true > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                    filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride,
+                                                                    numImgColors, numGroups, scaleTargets, scaleOutput, conv, blockX, blockY);
+          }
+          else
+          {
+            //gpuFuncSetCacheConfig(filterActs_YxX_sparse< 4, 32, 1, 4, 2, false, true >, gpuFuncCachePreferShared);
+            filterActs_YxX_sparse < 4, 32, 1, 4, 2, false, true > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                    filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride,
+                                                                    numImgColors, numGroups, scaleTargets, scaleOutput, conv, blockX, blockY);
+          }
+        }
+        else
+        {
+          if (numFiltersPerGroup % 32 == 0)
+          {
+            //gpuFuncSetCacheConfig(filterActs_YxX_sparse< 4, 32, 1, 8, 2, false, false >, gpuFuncCachePreferShared);
+            filterActs_YxX_sparse < 4, 32, 1, 8, 2, false, false > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                    filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride,
+                                                                    numImgColors, numGroups, scaleTargets, scaleOutput, conv, blockX, blockY);
+          }
+          else
+          {
+            //gpuFuncSetCacheConfig(filterActs_YxX_sparse< 4, 32, 1, 4, 2, false, false >, gpuFuncCachePreferShared);
+            filterActs_YxX_sparse < 4, 32, 1, 4, 2, false, false > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                    filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride,
+                                                                    numImgColors, numGroups, scaleTargets, scaleOutput, conv, blockX, blockY);
+          }
+        }
+      }
+      else
+      { // do scale
+        if (checkImgBounds)
+        {
+          if (numFiltersPerGroup % 32 == 0)
+          {
+            //gpuFuncSetCacheConfig(filterActs_YxX_sparse< 4, 32, 1, 8, 2, false, true >, gpuFuncCachePreferShared);
+            filterActs_YxX_sparse < 4, 32, 1, 8, 2, true, true > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                  filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride,
+                                                                  numImgColors, numGroups, scaleTargets, scaleOutput, conv, blockX, blockY);
+          }
+          else
+          {
+            //gpuFuncSetCacheConfig(filterActs_YxX_sparse< 4, 32, 1, 4, 2, false, true >, gpuFuncCachePreferShared);
+            filterActs_YxX_sparse < 4, 32, 1, 4, 2, true, true > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                  filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride,
+                                                                  numImgColors, numGroups, scaleTargets, scaleOutput, conv, blockX, blockY);
+          }
+        }
+        else
+        {
+          if (numFiltersPerGroup % 32 == 0)
+          {
+            //gpuFuncSetCacheConfig(filterActs_YxX_sparse< 4, 32, 1, 8, 2, false, false >, gpuFuncCachePreferShared);
+            filterActs_YxX_sparse < 4, 32, 1, 8, 2, true, false > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                    filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride,
+                                                                    numImgColors, numGroups, scaleTargets, scaleOutput, conv, blockX, blockY);
+          }
+          else
+          {
+            //gpuFuncSetCacheConfig(filterActs_YxX_sparse< 4, 32, 1, 4, 2, false, false >, gpuFuncCachePreferShared);
+            filterActs_YxX_sparse < 4, 32, 1, 4, 2, true, false > (images, filters, targets, numImages, numFilters, imgSizeY, imgSizeX,
+                                                                    filterSize, paddingStart, moduleStride, numModulesY, numModulesX, imgStride,
+                                                                    numImgColors, numGroups, scaleTargets, scaleOutput, conv, blockX, blockY);
+          }
+        }
+      }
+    }
   }
 }
-
