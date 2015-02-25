@@ -22,10 +22,10 @@ void THGPUTensor_maskedSelect(THGPUTensor *tensor, THGPUTensor* src, THByteTenso
 #define real float
 #define Real GPU
 
-#define torch_Storage_(NAME) TH_CONCAT_4(torch_,Real,Storage_,NAME)
-#define torch_Storage TH_CONCAT_STRING_3(torch.,Real,Storage)
-#define torch_Tensor_(NAME) TH_CONCAT_4(torch_,Real,Tensor_,NAME)
-#define torch_Tensor TH_CONCAT_STRING_3(torch.,Real,Tensor)
+#define torch_Storage_(NAME) TH_CONCAT_4(torch_, Real, Storage_, NAME)
+#define torch_Storage TH_CONCAT_STRING_3(torch., Real, Storage)
+#define torch_Tensor_(NAME) TH_CONCAT_4(torch_, Real, Tensor_, NAME)
+#define torch_Tensor TH_CONCAT_STRING_3(torch., Real, Tensor)
 
 #define TH_GENERIC_FILE "generic/Tensor.c"
 #include "generic/Tensor.c"
@@ -37,26 +37,26 @@ void THGPUTensor_maskedSelect(THGPUTensor *tensor, THGPUTensor* src, THByteTenso
 /* now we overwrite some methods specific to GPUTensor */
 static int gputorch_GPUTensor_copy(lua_State *L)
 {
-  THGPUTensor *storage = (THGPUTensor*)luaT_checkudata(L, 1, "torch.GPUTensor");
+  THGPUTensor *storage = (THGPUTensor *)luaT_checkudata(L, 1, "torch.GPUTensor");
   void *src;
-  if( (src = luaT_toudata(L, 2, "torch.GPUTensor")) )
-    THGPUTensor_copy(storage, (THGPUTensor*)src);
-  else if( (src = luaT_toudata(L, 2, "torch.ByteTensor")) )
-    THGPUTensor_copyByte(storage, (THByteTensor*)src);
-  else if( (src = luaT_toudata(L, 2, "torch.CharTensor")) )
-    THGPUTensor_copyChar(storage, (THCharTensor*)src);
-  else if( (src = luaT_toudata(L, 2, "torch.ShortTensor")) )
-    THGPUTensor_copyShort(storage, (THShortTensor*)src);
-  else if( (src = luaT_toudata(L, 2, "torch.IntTensor")) )
-    THGPUTensor_copyInt(storage, (THIntTensor*)src);
-  else if( (src = luaT_toudata(L, 2, "torch.LongTensor")) )
-    THGPUTensor_copyLong(storage, (THLongTensor*)src);
-  else if( (src = luaT_toudata(L, 2, "torch.FloatTensor")) )
-    THGPUTensor_copyFloat(storage, (THFloatTensor*)src);
-  else if( (src = luaT_toudata(L, 2, "torch.DoubleTensor")) )
-    THGPUTensor_copyDouble(storage, (THDoubleTensor*)src);
-  else if( (src = luaT_toudata(L, 2, "torch.GPUTensor")) )
-    THGPUTensor_copyGPU(storage, (THGPUTensor*)src);
+  if ( (src = luaT_toudata(L, 2, "torch.GPUTensor")) )
+    THGPUTensor_copy(storage, (THGPUTensor *)src);
+  else if ( (src = luaT_toudata(L, 2, "torch.ByteTensor")) )
+    THGPUTensor_copyByte(storage, (THByteTensor *)src);
+  else if ( (src = luaT_toudata(L, 2, "torch.CharTensor")) )
+    THGPUTensor_copyChar(storage, (THCharTensor *)src);
+  else if ( (src = luaT_toudata(L, 2, "torch.ShortTensor")) )
+    THGPUTensor_copyShort(storage, (THShortTensor *)src);
+  else if ( (src = luaT_toudata(L, 2, "torch.IntTensor")) )
+    THGPUTensor_copyInt(storage, (THIntTensor *)src);
+  else if ( (src = luaT_toudata(L, 2, "torch.LongTensor")) )
+    THGPUTensor_copyLong(storage, (THLongTensor *)src);
+  else if ( (src = luaT_toudata(L, 2, "torch.FloatTensor")) )
+    THGPUTensor_copyFloat(storage, (THFloatTensor *)src);
+  else if ( (src = luaT_toudata(L, 2, "torch.DoubleTensor")) )
+    THGPUTensor_copyDouble(storage, (THDoubleTensor *)src);
+  else if ( (src = luaT_toudata(L, 2, "torch.GPUTensor")) )
+    THGPUTensor_copyGPU(storage, (THGPUTensor *)src);
   else
     luaL_typerror(L, 2, "torch.*Tensor");
 
@@ -64,34 +64,34 @@ static int gputorch_GPUTensor_copy(lua_State *L)
   return 1;
 }
 
-#define GPU_IMPLEMENT_TENSOR_COPY(TYPEC)                                \
-  static int gputorch_##TYPEC##Tensor_copy(lua_State *L)                \
-  {                                                                     \
+#define GPU_IMPLEMENT_TENSOR_COPY(TYPEC)                                                               \
+  static int gputorch_##TYPEC##Tensor_copy(lua_State *L)                                               \
+  {                                                                                                    \
     TH##TYPEC##Tensor *storage = (TH##TYPEC##Tensor *)luaT_checkudata(L, 1, "torch." #TYPEC "Tensor"); \
-    void *src;                                                          \
-    if( (src = luaT_toudata(L, 2, "torch." #TYPEC "Tensor")) )          \
-      TH##TYPEC##Tensor_copy(storage, (TH##TYPEC##Tensor *)src);        \
-    else if( (src = luaT_toudata(L, 2, "torch.ByteTensor")) )           \
-      TH##TYPEC##Tensor_copyByte(storage, (THByteTensor *)src);         \
-    else if( (src = luaT_toudata(L, 2, "torch.CharTensor")) )           \
-      TH##TYPEC##Tensor_copyChar(storage, (THCharTensor *)src);         \
-    else if( (src = luaT_toudata(L, 2, "torch.ShortTensor")) )          \
-      TH##TYPEC##Tensor_copyShort(storage, (THShortTensor *)src);       \
-    else if( (src = luaT_toudata(L, 2, "torch.IntTensor")) )            \
-      TH##TYPEC##Tensor_copyInt(storage, (THIntTensor *)src);           \
-    else if( (src = luaT_toudata(L, 2, "torch.LongTensor")) )           \
-      TH##TYPEC##Tensor_copyLong(storage, (THLongTensor *)src);         \
-    else if( (src = luaT_toudata(L, 2, "torch.FloatTensor")) )          \
-      TH##TYPEC##Tensor_copyFloat(storage, (THFloatTensor *)src);       \
-    else if( (src = luaT_toudata(L, 2, "torch.DoubleTensor")) )         \
-      TH##TYPEC##Tensor_copyDouble(storage, (THDoubleTensor *)src);     \
-    else if( (src = luaT_toudata(L, 2, "torch.GPUTensor")) )            \
-      TH##TYPEC##Tensor_copyGPU(storage, (THGPUTensor *)src);           \
-    else                                                                \
-      luaL_typerror(L, 2, "torch.*Tensor");                             \
-                                                                        \
-    lua_settop(L, 1);                                                   \
-    return 1;                                                           \
+    void *src;                                                                                         \
+    if ( (src = luaT_toudata(L, 2, "torch." #TYPEC "Tensor")) )                                        \
+      TH##TYPEC##Tensor_copy(storage, (TH##TYPEC##Tensor *)src);                                       \
+    else if ( (src = luaT_toudata(L, 2, "torch.ByteTensor")) )                                         \
+      TH##TYPEC##Tensor_copyByte(storage, (THByteTensor *)src);                                        \
+    else if ( (src = luaT_toudata(L, 2, "torch.CharTensor")) )                                         \
+      TH##TYPEC##Tensor_copyChar(storage, (THCharTensor *)src);                                        \
+    else if ( (src = luaT_toudata(L, 2, "torch.ShortTensor")) )                                        \
+      TH##TYPEC##Tensor_copyShort(storage, (THShortTensor *)src);                                      \
+    else if ( (src = luaT_toudata(L, 2, "torch.IntTensor")) )                                          \
+      TH##TYPEC##Tensor_copyInt(storage, (THIntTensor *)src);                                          \
+    else if ( (src = luaT_toudata(L, 2, "torch.LongTensor")) )                                         \
+      TH##TYPEC##Tensor_copyLong(storage, (THLongTensor *)src);                                        \
+    else if ( (src = luaT_toudata(L, 2, "torch.FloatTensor")) )                                        \
+      TH##TYPEC##Tensor_copyFloat(storage, (THFloatTensor *)src);                                      \
+    else if ( (src = luaT_toudata(L, 2, "torch.DoubleTensor")) )                                       \
+      TH##TYPEC##Tensor_copyDouble(storage, (THDoubleTensor *)src);                                    \
+    else if ( (src = luaT_toudata(L, 2, "torch.GPUTensor")) )                                          \
+      TH##TYPEC##Tensor_copyGPU(storage, (THGPUTensor *)src);                                          \
+    else                                                                                               \
+      luaL_typerror(L, 2, "torch.*Tensor");                                                            \
+                                                                                                       \
+    lua_settop(L, 1);                                                                                  \
+    return 1;                                                                                          \
   }
 
 GPU_IMPLEMENT_TENSOR_COPY(Byte)
@@ -116,7 +116,7 @@ static void THFloatTensor_computesz(THFloatTensor *self, long **sz_, long **st_)
     if (i == self->nDimension - 1)
       szh[i] = 1;
     else
-      szh[i] = szh[i+1] * self->size[i + 1];
+      szh[i] = szh[i + 1] * self->size[i + 1];
   }
 
   memcpy(sz, szh, self->nDimension * sizeof(long));
@@ -210,14 +210,15 @@ void gputorch_GPUTensor_init(lua_State* L)
                              "torch.DoubleTensor",
                              "torch.GPUTensor"};
 
-    static int (*funcs[8])(lua_State*) = {gputorch_ByteTensor_copy,
-                                          gputorch_CharTensor_copy,
-                                          gputorch_ShortTensor_copy,
-                                          gputorch_IntTensor_copy,
-                                          gputorch_LongTensor_copy,
-                                          gputorch_FloatTensor_copy,
-                                          gputorch_DoubleTensor_copy,
-                                          gputorch_GPUTensor_copy};
+    static int (*funcs[8])(lua_State *) = {gputorch_ByteTensor_copy,
+                                           gputorch_CharTensor_copy,
+                                           gputorch_ShortTensor_copy,
+                                           gputorch_IntTensor_copy,
+                                           gputorch_LongTensor_copy,
+                                           gputorch_FloatTensor_copy,
+                                           gputorch_DoubleTensor_copy,
+                                           gputorch_GPUTensor_copy
+                                          };
 
     for (i = 0; i < 8; i++)
     {
