@@ -140,6 +140,8 @@ Testing gpunn:
 
 Running FaceBook Benchmark:
 
+Dowload the benchmark from [here](https://multicorewareinc.egnyte.com/dl/31EBfMX0vr)
+
 * tar -xvf imagenet-barebones.tar.gz
 
 * cd imagenet-barebones
