@@ -51,6 +51,8 @@ Create a build directory and configure using CMake.
 
 Build the whole system. This will build clang and other libraries that require one time build.
 
+  * export CXXAMP_NV =1  to choose DMA implementation of clamp.
+
   * make [-j #] world           (# is the number of parallel builds. Generally it is # of CPU cores)
 
   * make                        (this builds llvm utilities)
@@ -89,6 +91,7 @@ Prior to building these packages the following environment variables need to be 
 * CLBLASROOT=<path to clBLAS binary pack>
 * MCWCPPAMPROOT=<path to mcw_cppamp dir>
 * LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CLBLASROOT/lib64
+* CXXAMP_NV=1 (Need to make sure this is set to use DMA)
 
 After this the following are the steps to build gputorch and gpunn
 
