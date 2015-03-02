@@ -143,7 +143,7 @@ Testing gpunn:
 
 Running FaceBook Benchmark:
 
-Dowload the benchmark from [here](https://multicorewareinc.egnyte.com/dl/31EBfMX0vr)
+Download the benchmark from [here](https://multicorewareinc.egnyte.com/dl/31EBfMX0vr)
 
 * tar -xvf faceboook-imagenet-barebones.tar.gz
 
