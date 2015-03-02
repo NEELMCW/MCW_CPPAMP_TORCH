@@ -130,7 +130,6 @@ static int gpunn_SpatialConvolutionMM_BHWD_updateOutput(lua_State *L)
   PREPARE_AV(bias, avData_bias);
   PREPARE_AV(output, avData_output);
   PREPARE_AV(weight, avData_weight);
-  Concurrency::array_view<float> *temp_buf = NULL;
 
   // For each elt in batch, do:
   for (int elt = 0; elt < batchSize; elt ++)
@@ -146,8 +145,7 @@ static int gpunn_SpatialConvolutionMM_BHWD_updateOutput(lua_State *L)
     THGPUBlas_gemm_opt('t', 'n', n_, m_, k_, 1,
                        *avData_ones, ones->storageOffset, k_,
                        *avData_bias, bias->storageOffset, k_, 0,
-                       *avData_output, output->storageOffset + output->stride[0] * elt, n_,
-                       *temp_buf);
+                       *avData_output, output->storageOffset + output->stride[0] * elt, n_);
 
     avData_im->discard_data();
     avData_col->discard_data();
@@ -166,8 +164,7 @@ static int gpunn_SpatialConvolutionMM_BHWD_updateOutput(lua_State *L)
     THGPUBlas_gemm_opt('n', 'n', n, m, k, 1,
                        *avData_col, columns->storageOffset, n,
                        *avData_weight, weight->storageOffset, k, 1,
-                       *avData_output, output->storageOffset + output->stride[0] * elt, n,
-                       *temp_buf);
+                       *avData_output, output->storageOffset + output->stride[0] * elt, n);
   }
   return 1;
 }

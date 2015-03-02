@@ -37,8 +37,7 @@ void THGPUBlas_gemm_opt(char transa, char transb,
                         long m, long n, long k, float alpha,
                         Concurrency::array_view<float> &a, long aOffset, long lda,
                         Concurrency::array_view<float> &b, long bOffset, long ldb, float beta,
-                        Concurrency::array_view<float> &c, long cOffset, long ldc,
-                        Concurrency::array_view<float> &temp_buff);
+                        Concurrency::array_view<float> &c, long cOffset, long ldc);
 
 void THGPUBlas_axpy_opt(long n, float a,
                         Concurrency::array_view<float> &x, long xOffset, long incx,

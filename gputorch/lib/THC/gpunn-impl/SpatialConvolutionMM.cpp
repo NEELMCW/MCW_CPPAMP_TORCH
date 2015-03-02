@@ -197,7 +197,6 @@ static int gpunn_SpatialConvolutionMM_updateOutput(lua_State *L)
   PREPARE_AV(bias, avData_bias);
   PREPARE_AV(output, avData_output);
   PREPARE_AV(weight, avData_weight);
-  Concurrency::array_view<float> *temp_buf = NULL;
 
   long m_ = nOutputPlane;
   long n_ = outputHeight * outputWidth;
@@ -221,8 +220,7 @@ static int gpunn_SpatialConvolutionMM_updateOutput(lua_State *L)
     THGPUBlas_gemm_opt('t', 'n', n_, m_, k_, 1,
                        *avData_ones, ones->storageOffset, k_,
                        *avData_bias, bias->storageOffset, k_, 0,
-                       *avData_output, output->storageOffset + output->stride[0] * elt, n_,
-                       *temp_buf);
+                       *avData_output, output->storageOffset + output->stride[0] * elt, n_);
 
     avData_im->discard_data();
     avData_col->discard_data();
@@ -241,8 +239,7 @@ static int gpunn_SpatialConvolutionMM_updateOutput(lua_State *L)
     THGPUBlas_gemm_opt('n', 'n', n, m, k, 1,
                        *avData_col, columns->storageOffset, n,
                        *avData_weight, weight->storageOffset, k, 1,
-                       *avData_output, output->storageOffset + output->stride[0] * elt, n,
-                       *temp_buf);
+                       *avData_output, output->storageOffset + output->stride[0] * elt, n);
   }
   // Resize output
   if (batch == 0)
@@ -302,7 +299,6 @@ static int gpunn_SpatialConvolutionMM_updateGradInput(lua_State *L)
   PREPARE_AV(gradInput, avData_im);
   PREPARE_AV(gradOutput, avData_gradOutput);
   PREPARE_AV(weight, avData_weight);
-  Concurrency::array_view<float> *temp_buf = NULL;
 
   long m = weight->size[1];
   long n = gradColumns->size[1];
@@ -322,7 +318,7 @@ static int gpunn_SpatialConvolutionMM_updateGradInput(lua_State *L)
     THGPUBlas_gemm_opt('n', 't', n, m, k, 1,
                        *avData_gradOutput, gradOutput->storageOffset + gradOutput->stride[0] * elt, n,
                        *avData_weight, weight->storageOffset, m, 0,
-                       *avData_col, gradColumns->storageOffset, n, *temp_buf);
+                       *avData_col, gradColumns->storageOffset, n);
 
     avData_col->discard_data();
     avData_im->discard_data();
@@ -415,7 +411,6 @@ static int gpunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
   float* tempBuf = (float*)malloc(numBlocks * lenY * sizeof(float));
   Concurrency::extent<1> ext(numBlocks * lenY);
   Concurrency::array_view<float,1> temp_buf(ext, tempBuf);
-  Concurrency::array_view<float> *temp_buf1 = NULL;
 
   numBlocks = ((k + 255) & ~255) / 256;
 
@@ -440,7 +435,7 @@ static int gpunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
     THGPUBlas_gemm_opt('t', 'n', n, m, k, scale,
                        *avData_col, columns->storageOffset, k,
                        *avData_gradOutput, gradOutput->storageOffset + gradOutput->stride[0] * elt, k, 1,
-                       *avData_gradWeight, gradWeight->storageOffset, n, *temp_buf1);
+                       *avData_gradWeight, gradWeight->storageOffset, n);
 
     avData_ones->discard_data();
     avData_gradBias->discard_data();

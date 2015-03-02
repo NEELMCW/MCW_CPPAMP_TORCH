@@ -467,13 +467,12 @@ void* THGPUBlas_clCreateBuffer(long m, long k, float* a)
 void THGPUBlas_gemm_opt(char transa, char transb, long m, long n, long k, float alpha,
                         Concurrency::array_view<float> &a, long aOffset, long lda,
                         Concurrency::array_view<float> &b, long bOffset, long ldb, float beta,
-                        Concurrency::array_view<float> &c, long cOffset, long ldc,
-                        Concurrency::array_view<float> &temp_buf)
+                        Concurrency::array_view<float> &c, long cOffset, long ldc)
 {
   gemm_AMP(transa, transb, m, n, k, alpha,
            a, aOffset, lda,
            b, bOffset, ldb, beta,
-           c, cOffset, ldc, temp_buf);
+           c, cOffset, ldc);
 }
 
 void THGPUBlas_axpy_opt(long n, float a,

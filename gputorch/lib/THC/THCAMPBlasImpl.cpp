@@ -57,8 +57,7 @@ static void gemm_NoTransB(Concurrency::array_view<float, 1> &A, long aOffset,
                           Concurrency::array_view<float, 1> &B, long bOffset,
                           Concurrency::array_view<float, 1> &C, long cOffset,
                           int M, int N, int K, int lda, int ldb, int ldc,
-                          float alpha, float beta,
-                          Concurrency::array_view<float,1> &temp_buf)
+                          float alpha, float beta)
 {
   if (K > N && K > M)
   {
@@ -230,8 +229,7 @@ static void gemm_TransAB(Concurrency::array_view<float, 1> &A, long aOffset,
 int gemm_AMP(char TransA, char TransB, const int M, const int N, const int K, const float alpha,
              Concurrency::array_view<float> &A_mat, long aOffset, long lda,
              Concurrency::array_view<float> &B_mat, long bOffset, long ldb, const float beta,
-             Concurrency::array_view<float> &C_mat, long cOffset, long ldc,
-             Concurrency::array_view<float> &temp_buf)
+             Concurrency::array_view<float> &C_mat, long cOffset, long ldc)
 {
   int i, j;
 
@@ -261,7 +259,7 @@ int gemm_AMP(char TransA, char TransB, const int M, const int N, const int K, co
     if (TransA == 'n')
       gemm_NoTransAB(A_mat, aOffset, B_mat, bOffset, C_mat, cOffset, M, N, K, lda, ldb, ldc, alpha, beta);
     else
-      gemm_NoTransB(A_mat, aOffset, B_mat, bOffset, C_mat, cOffset, M, N, K, lda, ldb, ldc, alpha, beta, temp_buf);
+      gemm_NoTransB(A_mat, aOffset, B_mat, bOffset, C_mat, cOffset, M, N, K, lda, ldb, ldc, alpha, beta);
   }
   else if (TransA == 'n')
     gemm_NoTransA(A_mat, aOffset, B_mat, bOffset, C_mat, cOffset, M, N, K, lda, ldb, ldc, alpha, beta);
