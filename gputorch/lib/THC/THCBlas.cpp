@@ -64,10 +64,9 @@ void THGPUBlas_swap(long n, float *x, long incx, float *y, long incy)
     clReleaseMemObject(bufY);
     clReleaseMemObject(bufX);
 
-    //THCublasCheck(cublasSswap(*current_handle, i_n, x, i_incx, y, i_incy));
     return;
   }
-  THError("Cublas_swap only supports n, incx and"
+  THError("Clblas_swap only supports n, incx and"
           " incy upto signed integer limits: %d", INT_MAX);
 }
 
@@ -101,10 +100,9 @@ void THGPUBlas_scal(long n, float a, float *x, long incx)
     }
     /* Release OpenCL memory objects. */
     clReleaseMemObject(bufX);
-    //THCublasCheck(cublasSscal(*current_handle, i_n, &a, x, i_incx));
     return;
   }
-  THError("Cublas_scal only supports n and incx "
+  THError("Clblas_scal only supports n and incx "
           "upto signed integer limits: %d", INT_MAX);
 }
 
@@ -146,11 +144,10 @@ void THGPUBlas_copy(long n, float *x, long incx, float *y, long incy)
     clReleaseMemObject(bufY);
     clReleaseMemObject(bufX);
 
-    //THCublasCheck(cublasScopy(*current_handle, i_n, x, i_incx, y, i_incy));
     return;
   }
 
-  THError("Cublas_copy only supports n, incx and incy "
+  THError("Clblas_copy only supports n, incx and incy "
           "upto signed integer limits: %d", INT_MAX);
 }
 
@@ -190,11 +187,10 @@ void THGPUBlas_axpy(long n, float a, float *x, long incx, float *y, long incy)
     clReleaseMemObject(bufY);
     clReleaseMemObject(bufX);
 
-    //THCublasCheck(cublasSaxpy(*current_handle, i_n, &a, x, i_incx, y, i_incy));
     return;
   }
 
-  THError("Cublas_axpy only supports n, incx and incy "
+  THError("Clblas_axpy only supports n, incx and incy "
           "upto signed integer limits: %d", INT_MAX);
 }
 
@@ -246,11 +242,9 @@ float THGPUBlas_dot(long n, float *x, long incx, float *y, long incy)
     clReleaseMemObject(bufDotP);
     clReleaseMemObject(scratchBuff);
 
-    //THCublasCheck(cublasSdot(*current_handle, i_n, x, i_incx, y, i_incy, &result));
-    //gpuDeviceSynchronize();
     return result;
   }
-  THError("Cublas_dot only supports n, incx and incy "
+  THError("Clblas_dot only supports n, incx and incy "
           "upto signed integer limits: %d", INT_MAX);
   return -1;
 }
@@ -300,8 +294,6 @@ void THGPUBlas_gemv(char trans, long m, long n, float alpha, float *a, long lda,
     size_t i_lda = (size_t)lda;
 
     size_t i_n = (size_t)n;
-    //int lenM = m;
-    //int lenN = n;
 
     bufA = clCreateBuffer(mcontext, CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR, lenM * lenN * sizeof(*a), a, &err);
     bufX = clCreateBuffer(mcontext, CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR, lenM * sizeof(*x), x, &err);
@@ -324,10 +316,9 @@ void THGPUBlas_gemv(char trans, long m, long n, float alpha, float *a, long lda,
     clReleaseMemObject(bufX);
     clReleaseMemObject(bufA);
 
-    //THCublasCheck(cublasSgemv(*current_handle, op, i_m, i_n, &alpha, a, i_lda, x, i_incx, &beta, y, i_incy));
     return;
   }
-  THError("Cublas_gemv only supports m, n, lda, incx, incy"
+  THError("Clblas_gemv only supports m, n, lda, incx, incy"
           "in the range 0 < [val] <= %d", INT_MAX);
 }
 
@@ -376,7 +367,7 @@ void THGPUBlas_ger(long m, long n, float alpha, float *x, long incx, float *y, l
 
     return;
   }
-  THError("Cublas_ger only supports m, n, lda, incx, incy"
+  THError("Clblas_ger only supports m, n, lda, incx, incy"
           "with the bound [val] <= %d", INT_MAX);
 }
 
@@ -451,10 +442,9 @@ void THGPUBlas_gemm(char transa, char transb, long m, long n, long k, float alph
     clReleaseMemObject(bufB);
     clReleaseMemObject(bufA);
 
-    //THCublasCheck(cublasSgemm(*current_handle, opa, opb, i_m, i_n, i_k, &alpha, a, i_lda, b, i_ldb, &beta, c, i_ldc));
     return;
   }
-  THError("Cublas_gemm only supports m, n, k, lda, ldb, ldc"
+  THError("Clblas_gemm only supports m, n, k, lda, ldb, ldc"
           "with the bound [val] <= %d", INT_MAX);
 }
 
@@ -579,6 +569,6 @@ void THGPUBlas_gemv_opt1(char trans, long m, long n, float alpha,
 
     return;
   }
-  THError("Cublas_gemv only supports m, n, lda, incx, incy"
+  THError("Clblas_gemv only supports m, n, lda, incx, incy"
           "in the range 0 < [val] <= %d", INT_MAX);
 }
