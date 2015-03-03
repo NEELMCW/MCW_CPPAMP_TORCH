@@ -435,7 +435,6 @@ static void gemv_NoTransA(Concurrency::array_view<float> &A, long aOffset,
       Y[yOffset + Col] *= beta;
       Y[yOffset + Col] += alpha * Pvalue;
     }
-    tidx.barrier.wait();
   });
 }
 
