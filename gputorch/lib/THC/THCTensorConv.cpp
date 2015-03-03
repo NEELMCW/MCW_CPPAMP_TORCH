@@ -5,7 +5,7 @@
 #include "common.h"
 #include <stdio.h>
 
-#define CUDA_SHARED_MEM_SIZE (8*1024-32)
+#define GPU_SHARED_MEM_SIZE (8*1024-32)
 
 #define FOR_KERNEL_SPECIALIZED_DIMENSION(ROWS, COLUMNS, KERNEL) \
   if ((ROWS) == (COLUMNS))                                      \
@@ -81,10 +81,10 @@ void THGPUTensor_kernel_conv2generic(Concurrency::array_view<float, 1> &input_da
     int oo, ii, xx, yy, kx, ky, kk;
 
     // do the kernels fit in shared mem ?
-    if (input_n * kernel_w * kernel_h <= CUDA_SHARED_MEM_SIZE)
+    if (input_n * kernel_w * kernel_h <= GPU_SHARED_MEM_SIZE)
     {
       // put the kernel in shared memory
-      tile_static float shared_kernel[CUDA_SHARED_MEM_SIZE];
+      tile_static float shared_kernel[GPU_SHARED_MEM_SIZE];
 
       // first thread of each block does the copy
       for (kk = tid; kk < kernel_w * kernel_h * input_n; kk += nthreads)
@@ -550,7 +550,7 @@ void THGPUTensor_kernel_conv2genericrev(THGPUTensor *input, THGPUTensor *kernel,
     output_data += (kk * input_n + ii) * output_h * output_w;
 
     // put the output in shared memory
-    tile_static float shared_output[CUDA_SHARED_MEM_SIZE];
+    tile_static float shared_output[GPU_SHARED_MEM_SIZE];
 
     // generate tid outputs in shared memory
     float *output_s = shared_output + tid * output_w * output_h;
@@ -802,10 +802,10 @@ void THGPUTensor_kernel_conv2mapgeneric(Concurrency::array_view<float, 1> &input
     int oo, ii, xx, yy, kx, ky, kk;
     // do the kernels fit in shared mem ?
 
-    if (kernel_w*kernel_h*kernel_n <= CUDA_SHARED_MEM_SIZE)
+    if (kernel_w*kernel_h*kernel_n <= GPU_SHARED_MEM_SIZE)
     {
       // put the kernel in shared memory
-      tile_static float shared_kernel[CUDA_SHARED_MEM_SIZE];
+      tile_static float shared_kernel[GPU_SHARED_MEM_SIZE];
 
       // first thread of each block does the copy
       for (kk = tid; kk < kernel_w * kernel_h * kernel_n; kk += nthreads)
@@ -987,7 +987,6 @@ void THGPUTensor_conv2Dmap(THGPUTensor *output, THGPUTensor *input,
   nKernelRows  = kernel->size[1];
   nKernelCols  = kernel->size[2];
   nOutputPlane = kernel->size[0] / fanin;
-  // THArgCheck(kernel->size[1] == nInputPlane, 2, "invalid number of input planes");
 
   THArgCheck( (nInputRows >= nKernelRows && nInputCols >= nKernelCols), 2,
               "conv2Dmap : Input image is smaller than kernel");
@@ -996,7 +995,6 @@ void THGPUTensor_conv2Dmap(THGPUTensor *output, THGPUTensor *input,
   nOutputRows = (nInputRows - nKernelRows) / stride_y + 1;
   nOutputCols = (nInputCols - nKernelCols) / stride_x + 1;
 
-  // long nelem = THCudaTensor_nElement(state, output);
   THGPUTensor_resize3d(output, nOutputPlane, nOutputRows, nOutputCols);
 
   // set the number of blocks and threads
