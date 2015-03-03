@@ -1,3 +1,7 @@
+/*
+ * AMP based Blas implementation for Torch7
+ */
+
 #include "THCAMPBlasImpl.h"
 
 #define OFFSET(N, incX) ((incX) > 0 ? 0 : ((N) - 1) * (-(incX)))
@@ -6,12 +10,14 @@
 #define THREADS    16
 #define GEMM_BLOCK 256
 
+// Matrix Multiplication with  A and B matrices  not transposed
 static void gemm_NoTransAB(Concurrency::array_view<float, 1> &A, long aOffset,
                            Concurrency::array_view<float, 1> &B, long bOffset,
                            Concurrency::array_view<float, 1> &C, long cOffset,
                            int M, int N, int K, int lda, int ldb, int ldc,
                            float alpha, float beta)
 {
+  // Make grid size in each dimension an exact multiple of threadblock size in the corresponding dimension
   Concurrency::extent<2> grdExt((N + (THREADS - 1)) & ~(THREADS - 1),(M + (THREADS-1)) & ~(THREADS - 1));
   Concurrency::tiled_extent<THREADS, THREADS> t_ext(grdExt);
 
@@ -37,6 +43,7 @@ static void gemm_NoTransAB(Concurrency::array_view<float, 1> &A, long aOffset,
       else
         As[tidx.local[0]][tidx.local[1]] = 0.0;
 
+      // Wait until all shared memory gets filled
       tidx.barrier.wait();
 
       for (int n = 0; n < TILE_DIM; ++n)
@@ -44,7 +51,7 @@ static void gemm_NoTransAB(Concurrency::array_view<float, 1> &A, long aOffset,
 
       tidx.barrier.wait();
     }
-   
+
     if (Row < N && Col < M)
     {
       C[cOffset + (tidx.global[0] * M) + tidx.global[1]] *= beta;
@@ -53,14 +60,17 @@ static void gemm_NoTransAB(Concurrency::array_view<float, 1> &A, long aOffset,
   });
 }
 
+// Matrix Multiplication with  matrix A Transposed
 static void gemm_NoTransB(Concurrency::array_view<float, 1> &A, long aOffset,
                           Concurrency::array_view<float, 1> &B, long bOffset,
                           Concurrency::array_view<float, 1> &C, long cOffset,
                           int M, int N, int K, int lda, int ldb, int ldc,
                           float alpha, float beta)
 {
+  // If K is small then make use of threads and blocks across M and N dimension
   if (K > N && K > M)
   {
+    // Make grid size in each dimension an exact multiple of threadblock size in the corresponding dimension
     Concurrency::extent<2> grdExt(N, M * GEMM_BLOCK);
     Concurrency::tiled_extent<1, GEMM_BLOCK> t_ext(grdExt);
 
@@ -97,13 +107,17 @@ static void gemm_NoTransB(Concurrency::array_view<float, 1> &A, long aOffset,
   }
   else
   {
+    // Make grid dimension  an exact multiple of corresponding threadBlock dimension
     Concurrency::extent<2> grdExt((N + (THREADS - 1)) & ~(THREADS - 1), (M + (THREADS - 1)) & ~(THREADS - 1));
     Concurrency::tiled_extent<THREADS, THREADS> t_ext(grdExt);
     Concurrency::array_view<float,2> Cmat = C.view_as<2>(Concurrency::extent<2>(N, M));
+    // Data in device is up-to-date no need to sync with host
     Cmat.discard_data();
     Concurrency::array_view<float,2> Amat = A.view_as<2>(Concurrency::extent<2>(M, K));
+    // Data in device is up-to-date no need to sync with host
     Amat.discard_data();
     Concurrency::array_view<float,2> Bmat = B.view_as<2>(Concurrency::extent<2>(N, K));
+    // Data in device is up-to-date no need to sync with host
     Bmat.discard_data();
 
     Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<THREADS, THREADS> tidx) restrict(amp)
@@ -116,11 +130,13 @@ static void gemm_NoTransB(Concurrency::array_view<float, 1> &A, long aOffset,
 
       for (int k = 0; k < ((K + (TILE_DIM - 1)) & ~(TILE_DIM - 1)) ; k += TILE_DIM)
       {
+        // Read Matrix B from global to shared tile
         if (k + tidx.local[1] < K && Row < N)
           Bs[tidx.local[0]][tidx.local[1]] = Bmat[Row][bOffset + k + tidx.local[1]];
         else
           Bs[tidx.local[0]][tidx.local[1]] = 0.0;
 
+        // Read Matrix A from global to shared tile
         if (k + tidx.local[1] < K && (tidx.tile[1] * TILE_DIM + tidx.local[0]) < M)
           As[tidx.local[0]][tidx.local[1]] = Amat[(tidx.tile[1] * TILE_DIM + tidx.local[0])] [aOffset + k + tidx.local[1]];
         else
@@ -128,7 +144,7 @@ static void gemm_NoTransB(Concurrency::array_view<float, 1> &A, long aOffset,
 
         tidx.barrier.wait();
 
-        // Unrolled Matrix Mul operation
+        // loop Unroll 
         CValue += Bs[tidx.local[0]][0] * As[tidx.local[1]][0] +
                   Bs[tidx.local[0]][1] * As[tidx.local[1]][1] +
                   Bs[tidx.local[0]][2] * As[tidx.local[1]][2] +
@@ -148,6 +164,7 @@ static void gemm_NoTransB(Concurrency::array_view<float, 1> &A, long aOffset,
 
         tidx.barrier.wait();
       }
+
       if (Row < N && Col < M)
       {
         Cmat[Row][cOffset + Col] *= beta;
@@ -157,12 +174,14 @@ static void gemm_NoTransB(Concurrency::array_view<float, 1> &A, long aOffset,
   }
 }
 
+// Matrix Multiplication when Matrix B is transposed
 static void gemm_NoTransA(Concurrency::array_view<float, 1> &A, long aOffset,
                           Concurrency::array_view<float, 1> &B, long bOffset,
                           Concurrency::array_view<float, 1> &C, long cOffset,
                           int M, int N, int K, int lda, int ldb, int ldc,
                           float alpha, float beta)
 {
+  // Make grid size in each dimension an exact multiple of threadblock size in the corresponding dimension
   Concurrency::extent<2> grdExt((N + (THREADS - 1)) & ~(THREADS - 1), (M + (THREADS - 1)) & ~(THREADS - 1));
   Concurrency::tiled_extent<THREADS, THREADS> t_ext(grdExt);
 
@@ -175,11 +194,13 @@ static void gemm_NoTransA(Concurrency::array_view<float, 1> &A, long aOffset,
     tile_static float Bs[TILE_DIM][TILE_DIM];
     for (int k = 0; k < (TILE_DIM + K - 1) / TILE_DIM; k++)
     {
+      // Read Matrix B from global to shared tile
       if (k * TILE_DIM + tidx.local[0] < K && (tidx.tile[0] * TILE_DIM + tidx.local[1]) < N)
         Bs[tidx.local[0]][tidx.local[1]] = B[bOffset + (k * TILE_DIM + tidx.local[0]) * N + (tidx.tile[0] * TILE_DIM + tidx.local[1])];
       else
         Bs[tidx.local[0]][tidx.local[1]] = 0.0;
 
+      // Read Matrix A from global to shared tile
       if (k*TILE_DIM + tidx.local[0] < K && Col < M)
         As[tidx.local[0]][tidx.local[1]] = A[aOffset + (k * TILE_DIM + tidx.local[0]) * M + Col];
       else
@@ -201,12 +222,14 @@ static void gemm_NoTransA(Concurrency::array_view<float, 1> &A, long aOffset,
   });
 }
 
+// Matrix Multiplication when both A and B are transposed
 static void gemm_TransAB(Concurrency::array_view<float, 1> &A, long aOffset,
                          Concurrency::array_view<float, 1> &B, long bOffset,
                          Concurrency::array_view<float, 1> &C, long cOffset,
                          int M, int N, int K, long lda, long ldb, long ldc,
                          float alpha, float beta)
 {
+  // Make grid size in each dimension an exact multiple of threadblock size in the corresponding dimension
   Concurrency::extent<2> grdExt((N + (THREADS - 1)) & ~(THREADS - 1), (M + (THREADS - 1)) & ~(THREADS - 1));
   Concurrency::tiled_extent<THREADS, THREADS> t_ext(grdExt);
 
@@ -226,6 +249,7 @@ static void gemm_TransAB(Concurrency::array_view<float, 1> &A, long aOffset,
   });
 }
 
+// API used in torch to invoke AMP gemm operation
 int gemm_AMP(char TransA, char TransB, const int M, const int N, const int K, const float alpha,
              Concurrency::array_view<float> &A_mat, long aOffset, long lda,
              Concurrency::array_view<float> &B_mat, long bOffset, long ldb, const float beta,
@@ -253,7 +277,7 @@ int gemm_AMP(char TransA, char TransB, const int M, const int N, const int K, co
     }
     return 0;
   }
-  // Start the operations
+
   if (TransB == 'n')
   {
     if (TransA == 'n')
@@ -269,14 +293,19 @@ int gemm_AMP(char TransA, char TransB, const int M, const int N, const int K, co
   return 0;
 }
 
+// Matrix Vector Multiplication where the Matrix A is transposed
 static void gemv_TransA(Concurrency::array_view<float> &A_mat, int aOffset,
                         Concurrency::array_view<float> &X_vec, long xOffset,
                         Concurrency::array_view<float> &Y_vec, long yOffset,
                         float alpha, float beta, int lenX, int lenY,
                         Concurrency::array_view<float> &tempBuf)
 {
+  // Case where Y vector's length (lenY) is very small compared to lenX
+  // TO DO: Need to represent this case in a better way
+  // The parameter tempBuf is used in this case to make a global sychronization across threadblocks
   if((lenX - lenY) > 5000)
   {
+    // Make grid size in each dimension an exact multiple of threadblock size in the corresponding dimension
     int len_X = (lenX + (BLOCK_SIZE - 1)) & ~(BLOCK_SIZE - 1);
     int num_blocks = len_X / BLOCK_SIZE;
     Concurrency::extent<1> grdExt(len_X);
@@ -333,6 +362,7 @@ static void gemv_TransA(Concurrency::array_view<float> &A_mat, int aOffset,
   }
   else
   {
+    // Make grid size in each dimension an exact multiple of threadblock size in the corresponding dimension
     Concurrency::extent<1> grdExt(lenY * BLOCK_SIZE);
     Concurrency::tiled_extent<BLOCK_SIZE> t_ext(grdExt);
 
@@ -373,6 +403,7 @@ static void gemv_NoTransA(Concurrency::array_view<float> &A, long aOffset,
                           Concurrency::array_view<float> &Y, long yOffset,
                           float alpha, float beta, int lenX, int lenY)
 {
+  // Make grid size in each dimension an exact multiple of threadblock size in the corresponding dimension
   long size = (lenY + 255) & ~255;
   Concurrency::extent<1> compute_domain(size);
 
@@ -408,6 +439,7 @@ static void gemv_NoTransA(Concurrency::array_view<float> &A, long aOffset,
   });
 }
 
+// API used in torch to invoke matrix veector multiplication
 void gemv_AMP(char TransA, int M, int N, float alpha,
               Concurrency::array_view<float> &A, long aOffset,
               Concurrency::array_view<float> &X, long xOffset, long incX, float beta,
@@ -441,10 +473,12 @@ void gemv_AMP(char TransA, int M, int N, float alpha,
     gemv_NoTransA(A, aOffset, X, xOffset, Y, yOffset, alpha, beta, lenX, lenY);
 }
 
+// Scale vecotr X and add to vectory Y
 void axpy_AMP(long n, float alpha,
               Concurrency::array_view<float> &X, long xOffset, long incx,
               Concurrency::array_view<float> &Y, long yOffset, long incy)
 {
+  // Make grid size in each dimension an exact multiple of threadblock size in the corresponding dimension
   long size = (n + BLOCK_SIZE - 1) & ~(BLOCK_SIZE - 1);
   Concurrency::extent<1> compute_domain(size);
 
@@ -455,11 +489,13 @@ void axpy_AMP(long n, float alpha,
   });
 }
 
+// Single Precision General matrix rank 1 operation
 void ger_AMP(long m, long n, float alpha,
              Concurrency::array_view<float> &x, long xOffset, long incx,
              Concurrency::array_view<float> &y, long yOffset, long incy,
              Concurrency::array_view<float> &a, long aOffset, long lda)
 {
+  // Make grid size in each dimension an exact multiple of threadblock size in the corresponding dimension
   long M = (m + 15) & ~15;
   long N = (n + 15) & ~15;
   Concurrency::extent<2> compute_domain(M, N);
