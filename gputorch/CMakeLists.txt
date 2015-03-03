@@ -39,8 +39,6 @@ ENDFOREACH()
 
 SET(luasrc init.lua Tensor.lua FFI.lua test/test.lua)
 
-ADD_TORCH_WRAP(clamptensormathwrap TensorMath.lua)
-
 ADD_TORCH_PACKAGE(gputorch "${src}" "${luasrc}")
 
 SET_PROPERTY(TARGET gputorch APPEND_STRING PROPERTY LINK_FLAGS " ${CLAMP_LDFLAGS} ${CLAMP_SHAREDFLAGS}")
