@@ -197,7 +197,7 @@ struct kl_updateGradInput_functor
     return y > 0 ? norm * (-y) : 0;
   }
 };
-#define IMPLEMENT_CUDA_TENSOR_BASIC_FUNCTOR(NAME, CFUNC) \
+#define IMPLEMENT_GPU_TENSOR_BASIC_FUNCTOR(NAME, CFUNC) \
 struct NAME##_functor                                    \
 {                                                        \
   float operator()(const float& x) const                 \
@@ -206,23 +206,23 @@ struct NAME##_functor                                    \
   }                                                      \
 }; 
 
-IMPLEMENT_CUDA_TENSOR_BASIC_FUNCTOR(log, Concurrency::fast_math::log)
-IMPLEMENT_CUDA_TENSOR_BASIC_FUNCTOR(log1p, Concurrency::precise_math::log1p)
-IMPLEMENT_CUDA_TENSOR_BASIC_FUNCTOR(exp, Concurrency::fast_math::exp)
-IMPLEMENT_CUDA_TENSOR_BASIC_FUNCTOR(cos, Concurrency::fast_math::cos)
-IMPLEMENT_CUDA_TENSOR_BASIC_FUNCTOR(acos, Concurrency::fast_math::acos)
-IMPLEMENT_CUDA_TENSOR_BASIC_FUNCTOR(cosh, Concurrency::fast_math::cosh)
-IMPLEMENT_CUDA_TENSOR_BASIC_FUNCTOR(sin, Concurrency::fast_math::sin)
-IMPLEMENT_CUDA_TENSOR_BASIC_FUNCTOR(asin, Concurrency::fast_math::asin)
-IMPLEMENT_CUDA_TENSOR_BASIC_FUNCTOR(sinh, Concurrency::fast_math::sinh)
-IMPLEMENT_CUDA_TENSOR_BASIC_FUNCTOR(tan, Concurrency::fast_math::tan)
-IMPLEMENT_CUDA_TENSOR_BASIC_FUNCTOR(atan, Concurrency::fast_math::atan)
-IMPLEMENT_CUDA_TENSOR_BASIC_FUNCTOR(tanh, Concurrency::fast_math::tanh)
-IMPLEMENT_CUDA_TENSOR_BASIC_FUNCTOR(sqrt, Concurrency::fast_math::sqrt)
-IMPLEMENT_CUDA_TENSOR_BASIC_FUNCTOR(ceil, Concurrency::fast_math::ceil)
-IMPLEMENT_CUDA_TENSOR_BASIC_FUNCTOR(floor, Concurrency::fast_math::floor)
-IMPLEMENT_CUDA_TENSOR_BASIC_FUNCTOR(abs, Concurrency::fast_math::fabs)
-IMPLEMENT_CUDA_TENSOR_BASIC_FUNCTOR(round, Concurrency::fast_math::roundf)
+IMPLEMENT_GPU_TENSOR_BASIC_FUNCTOR(log, Concurrency::fast_math::log)
+IMPLEMENT_GPU_TENSOR_BASIC_FUNCTOR(log1p, Concurrency::precise_math::log1p)
+IMPLEMENT_GPU_TENSOR_BASIC_FUNCTOR(exp, Concurrency::fast_math::exp)
+IMPLEMENT_GPU_TENSOR_BASIC_FUNCTOR(cos, Concurrency::fast_math::cos)
+IMPLEMENT_GPU_TENSOR_BASIC_FUNCTOR(acos, Concurrency::fast_math::acos)
+IMPLEMENT_GPU_TENSOR_BASIC_FUNCTOR(cosh, Concurrency::fast_math::cosh)
+IMPLEMENT_GPU_TENSOR_BASIC_FUNCTOR(sin, Concurrency::fast_math::sin)
+IMPLEMENT_GPU_TENSOR_BASIC_FUNCTOR(asin, Concurrency::fast_math::asin)
+IMPLEMENT_GPU_TENSOR_BASIC_FUNCTOR(sinh, Concurrency::fast_math::sinh)
+IMPLEMENT_GPU_TENSOR_BASIC_FUNCTOR(tan, Concurrency::fast_math::tan)
+IMPLEMENT_GPU_TENSOR_BASIC_FUNCTOR(atan, Concurrency::fast_math::atan)
+IMPLEMENT_GPU_TENSOR_BASIC_FUNCTOR(tanh, Concurrency::fast_math::tanh)
+IMPLEMENT_GPU_TENSOR_BASIC_FUNCTOR(sqrt, Concurrency::fast_math::sqrt)
+IMPLEMENT_GPU_TENSOR_BASIC_FUNCTOR(ceil, Concurrency::fast_math::ceil)
+IMPLEMENT_GPU_TENSOR_BASIC_FUNCTOR(floor, Concurrency::fast_math::floor)
+IMPLEMENT_GPU_TENSOR_BASIC_FUNCTOR(abs, Concurrency::fast_math::fabs)
+IMPLEMENT_GPU_TENSOR_BASIC_FUNCTOR(round, Concurrency::fast_math::roundf)
 
 
 float boltInnerProduct_plus_mse(THGPUTensor *input, THGPUTensor *target);
