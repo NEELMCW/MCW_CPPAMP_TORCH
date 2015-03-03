@@ -515,12 +515,15 @@ void THGPUTensor_kernel_conv2genericrev(THGPUTensor *input, THGPUTensor *kernel,
   Concurrency::extent<3> copyExt(1, nInputPlane * 16, nKernelPlane * 16);
   Concurrency::tiled_extent<1, 16, 16> t_ext(copyExt);
   Concurrency::array_view<float, 1>input_data(Concurrency::extent<1>(input->storage->size), THGPUTensor_data(input));
+  // Device data is up to date and host data can be discarded
   input_data.discard_data();
   long inOffset = input->storageOffset;
   Concurrency::array_view<float, 1>kernel_data(Concurrency::extent<1>(kernel->storage->size), THGPUTensor_data(kernel));
+  // Device data is up to date and host data can be discarded
   kernel_data.discard_data();
   long kernelOffset = kernel->storageOffset;
   Concurrency::array_view<float, 1>output_o(Concurrency::extent<1>(output->storage->size), THGPUTensor_data(output));
+  // Device data is up to date and host data can be discarded
   output_o.discard_data();
   long outOffset = output->storageOffset;
 
