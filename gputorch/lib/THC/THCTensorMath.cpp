@@ -986,10 +986,11 @@ void THGPUTensor_logicalValue(THGPUTensor *self_, THGPUTensor *src, Op op)
   long size = THGPUTensor_nElement(self);
   src = THGPUTensor_newContiguous(src);
 
-  DECLARE_BOLT_DEVICE_VECTOR_2(src, src_data, self, self_data);
-  bolt::amp::transform(src_data.begin() + src->storageOffset,
-                       src_data.begin() + src->storageOffset + size,
-                       self_data.begin() + self->storageOffset, op);
+  auto dv_self_data = self->get_bolt_dev_vec();
+  auto dv_src_data = src->get_bolt_dev_vec();
+  bolt::amp::transform(dv_src_data.begin() + src->storageOffset,
+                       dv_src_data.begin() + src->storageOffset + size,
+                       dv_self_data.begin() + self->storageOffset, op);
 
   THGPUTensor_free(src);
   THGPUTensor_freeCopyTo(self, self_);
@@ -1071,11 +1072,13 @@ void THGPUTensor_logicalTensor(THGPUTensor *self_, THGPUTensor *src1, THGPUTenso
   src1 = THGPUTensor_newContiguous(src1);
   src2 = THGPUTensor_newContiguous(src2);
 
-  DECLARE_BOLT_DEVICE_VECTOR_3(src1, src1_data, src2, src2_data, self, self_data);
-  bolt::amp::transform(src1_data.begin() + src1->storageOffset,
-                       src1_data.begin() + src1->storageOffset + size,
-                       src2_data.begin() + src2->storageOffset,
-                       self_data.begin() + self->storageOffset, op);
+  auto dv_self_data = self->get_bolt_dev_vec();
+  auto dv_src1_data = src1->get_bolt_dev_vec();
+  auto dv_src2_data = src2->get_bolt_dev_vec();
+  bolt::amp::transform(dv_src1_data.begin() + src1->storageOffset,
+                       dv_src1_data.begin() + src1->storageOffset + size,
+                       dv_src2_data.begin() + src2->storageOffset,
+                       dv_self_data.begin() + self->storageOffset, op);
 
   THGPUTensor_free(src1);
   THGPUTensor_free(src2);
@@ -1116,20 +1119,20 @@ float THGPUTensor_normall(THGPUTensor *self, float value)
 {
   self = THGPUTensor_newContiguous(self);
   long size = THGPUTensor_nElement(self);
-  DECLARE_BOLT_DEVICE_VECTOR(self, self_data);
+  auto dv_self_data = self->get_bolt_dev_vec();
 
   float result;
   if(value == 0.0f)
   {
-    result = bolt::amp::transform_reduce(self_data.begin() + self->storageOffset,
-                                         self_data.begin() + self->storageOffset + size,
+    result = bolt::amp::transform_reduce(dv_self_data.begin() + self->storageOffset,
+                                         dv_self_data.begin() + self->storageOffset + size,
                                          partial_not_equal_functor(0.0f), 
                                          (float)0, bolt::amp::plus<float>());
   }
   else
   {
-    result = bolt::amp::transform_reduce(self_data.begin() + self->storageOffset,
-                                         self_data.begin() + self->storageOffset + size,
+    result = bolt::amp::transform_reduce(dv_self_data.begin() + self->storageOffset,
+                                         dv_self_data.begin() + self->storageOffset + size,
                                          norm_functor(value), 
                                          (float)0, bolt::amp::plus<float>());
 

@@ -4,6 +4,14 @@
 #include "THTensor.h"
 #include "THCStorage.h"
 #include "THCGeneral.h"
+#include "bolt/amp/functional.h"
+#include "bolt/amp/fill.h"
+#include "bolt/amp/device_vector.h"
+#include "bolt/amp/transform.h"
+#include "bolt/amp/transform_reduce.h"
+#include "bolt/amp/reduce.h"
+#include "bolt/amp/inner_product.h"
+#include "bolt/amp/copy.h"
 
 #define TH_TENSOR_REFCOUNTED 1
 
@@ -17,12 +25,26 @@ typedef struct THGPUTensor
   int refcount;
   char flag;
   
-  // Function to return array_view 
+  // Function to return array_view associated with Tensor
   Concurrency::array_view<float,1> get_array_view()
   {
-    Concurrency::array_view<float,1>* avPtr = static_cast<Concurrency::array_view<float>*>(this->storage->allocatorContext);
+    Concurrency::array_view<float,1>* avPtr = static_cast<Concurrency::array_view<float>*>
+                                                         (this->storage->allocatorContext);
     avPtr->discard_data(); // Don't need the host reference anymore as Device is up to date
     return *avPtr;
+  }
+ 
+  // Function to return a bolt device vector from the tensor
+  bolt::amp::device_vector<float> get_bolt_dev_vec()
+  {
+    Concurrency::array_view<float,1>* avPtr = static_cast<Concurrency::array_view<float>*>
+                                                         (this->storage->allocatorContext);
+
+    bolt::amp::device_vector<float> dv_a(*avPtr, 
+                                         this->storage->size, true);
+
+    return dv_a;
+    
   }
 
 } THGPUTensor;
