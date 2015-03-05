@@ -19,10 +19,10 @@ static int gpunn_L1Cost_updateOutput(lua_State *L)
   long size = THGPUTensor_nElement(input);
   input = THGPUTensor_newContiguous(input);
 
-  DECLARE_BOLT_DEVICE_VECTOR(input, input_data);
+  auto dv_input_data = input->get_bolt_dev_vec();
 
-  sum = bolt::amp::reduce(input_data.begin() + input->storageOffset,
-                          input_data.begin() + input->storageOffset + size,
+  sum = bolt::amp::reduce(dv_input_data.begin() + input->storageOffset,
+                          dv_input_data.begin() + input->storageOffset + size,
                           (float) 0, l1cost_functor());
 
   THGPUTensor_free(input);
@@ -58,12 +58,12 @@ static int gpunn_L1Cost_updateGradInput(lua_State *L)
   input = THGPUTensor_newContiguous(input);
   THGPUTensor_resizeAs(gradInput, input);
 
-  DECLARE_BOLT_DEVICE_VECTOR(gradInput, gradInput_data);
-  DECLARE_BOLT_DEVICE_VECTOR(input, input_data);
+  auto dv_gradInput_data = gradInput->get_bolt_dev_vec();
+  auto dv_input_data = input->get_bolt_dev_vec();
 
-  bolt::amp::transform(input_data.begin() + input->storageOffset,
-                       input_data.begin() + input->storageOffset + size,
-                       gradInput_data.begin() + gradInput->storageOffset,
+  bolt::amp::transform(dv_input_data.begin() + input->storageOffset,
+                       dv_input_data.begin() + input->storageOffset + size,
+                       dv_gradInput_data.begin() + gradInput->storageOffset,
                        l1cost_updateGradInput_functor());
 
   THGPUTensor_free(input);

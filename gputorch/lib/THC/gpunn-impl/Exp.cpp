@@ -18,12 +18,12 @@ static int gpunn_Exp_updateOutput(lua_State *L)
   input = THGPUTensor_newContiguous(input);
   THGPUTensor_resizeAs(output, input);
 
-  DECLARE_BOLT_DEVICE_VECTOR(output, output_data);
-  DECLARE_BOLT_DEVICE_VECTOR(input, input_data);
+  auto dv_output_data = output->get_bolt_dev_vec();
+  auto dv_input_data = input->get_bolt_dev_vec();
 
-  bolt::amp::transform(input_data.begin() + input->storageOffset,
-                       input_data.begin() + input->storageOffset + size,
-                       output_data.begin() + output->storageOffset,
+  bolt::amp::transform(dv_input_data.begin() + input->storageOffset,
+                       dv_input_data.begin() + input->storageOffset + size,
+                       dv_output_data.begin() + output->storageOffset,
                        expupdateOutput_functor());
 
   THGPUTensor_free(input);
@@ -48,14 +48,14 @@ static int gpunn_Exp_updateGradInput(lua_State *L)
   gradOutput = THGPUTensor_newContiguous(gradOutput);
   THGPUTensor_resizeAs(gradInput, output);
 
-  DECLARE_BOLT_DEVICE_VECTOR(output, output_data);
-  DECLARE_BOLT_DEVICE_VECTOR(gradOutput, gradOutput_data);
-  DECLARE_BOLT_DEVICE_VECTOR(gradInput, gradInput_data);
+  auto dv_output_data = output->get_bolt_dev_vec();
+  auto dv_gradOutput_data = gradOutput->get_bolt_dev_vec();
+  auto dv_gradInput_data = gradInput->get_bolt_dev_vec();
 
-  bolt::amp::transform(output_data.begin() + output->storageOffset,
-                       output_data.begin() + output->storageOffset + size,
-                       gradOutput_data.begin() + gradOutput->storageOffset,
-                       gradInput_data.begin() + gradInput->storageOffset,
+  bolt::amp::transform(dv_output_data.begin() + output->storageOffset,
+                       dv_output_data.begin() + output->storageOffset + size,
+                       dv_gradOutput_data.begin() + gradOutput->storageOffset,
+                       dv_gradInput_data.begin() + gradInput->storageOffset,
                        expupdateGradInput_functor());
 
   THGPUTensor_free(gradOutput);
