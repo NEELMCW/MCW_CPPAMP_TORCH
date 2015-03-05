@@ -236,4 +236,5 @@ float boltReduce_minimum(THGPUTensor *self);
 float boltReduce_maximum(THGPUTensor *self);
 float boltReduce_plus(THGPUTensor *self);
 float boltReduce_multiply(THGPUTensor *self);
+float boltInnerPdt(THGPUTensor *self, THGPUTensor *src);
 #endif

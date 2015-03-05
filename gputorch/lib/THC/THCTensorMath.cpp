@@ -273,14 +273,7 @@ float THGPUTensor_dot(THGPUTensor *self, THGPUTensor *src)
   {
     self = THGPUTensor_newContiguous(self);
     src = THGPUTensor_newContiguous(src);
-    // TODO: no need to sync data from device to host if with amp-based blast
-    THGPUTensorMemcpyDeviceToHost(self);
-    THGPUTensorMemcpyDeviceToHost(src);
-
-    float result = THGPUBlas_dot(THGPUTensor_nElement(self),
-                                  THGPUTensor_data(self), 1,
-                                  THGPUTensor_data(src), 1);
-
+    float result = boltInnerPdt(self, src);
     THGPUTensor_free(src);
     THGPUTensor_free(self);
     return result;
