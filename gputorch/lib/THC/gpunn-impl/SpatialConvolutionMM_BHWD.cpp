@@ -11,18 +11,16 @@ inline int GET_BLOCKS(const int N) {
 
 // Kernel for fast unfold+copy
 // (borrowed from Caffe: https://github.com/BVLC/caffe/blob/master/src/caffe/layers/conv_layer.cu)
-
 void imt2col_kernel(int n, Concurrency::array_view<float> & avData_im, long imOffset,
                     int inOffset, int height, int width, int ksize_h, int ksize_w, int pad_h,
                     int pad_w, int stride_h, int stride_w, int height_col, int width_col,
                     Concurrency::array_view<float,1> &avData_col, long colOffset)
 {
-  avData_im.discard_data();
-  unsigned grdSz = (n + 255) & ~255;
+  unsigned grdSz = (n + (GPU_NUM_THREADS - 1)) & ~(GPU_NUM_THREADS - 1);
   Concurrency::extent<1> grdExt(grdSz);
-  Concurrency::tiled_extent<256> t_ext(grdExt);
+  Concurrency::tiled_extent<GPU_NUM_THREADS> t_ext(grdExt);
 
-  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<256> tidx) restrict(amp)
+  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<GPU_NUM_THREADS> tidx) restrict(amp)
   {
     float dataCol = 0;
     float dataIm = inOffset;
