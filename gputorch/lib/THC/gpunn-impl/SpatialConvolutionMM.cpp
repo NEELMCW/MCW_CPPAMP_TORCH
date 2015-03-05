@@ -3,10 +3,11 @@
 #include "THCBlas.h"
 #include "THCGeneral.h"
 
+#define NUMTHREADS 256 
 // Kernel for fast unfold+copy
 // (borrowed from Caffe: https://github.com/BVLC/caffe/blob/master/src/caffe/layers/conv_layer.cu)
 
-void im2col(Concurrency::array_view<float,1> &avData_im, long imOffset, int inOffset,
+void im2col(Concurrency::array_view<float,1> &avData_im, long imOffset,
             int channels, int height, int width, int ksize_h,
             int ksize_w, int pad_h, int pad_w, int stride_h, int stride_w,
             Concurrency::array_view<float,1> &avData_col, long colOffset)
@@ -15,14 +16,14 @@ void im2col(Concurrency::array_view<float,1> &avData_im, long imOffset, int inOf
   int width_col = (width + 2 * pad_w - ksize_w) / stride_w + 1;
   int n = channels * height_col * width_col;
 
-  unsigned grdSz = (n + 255) & ~255;
+  unsigned grdSz = (n + (NUMTHREADS - 1)) & ~(NUMTHREADS - 1);
   Concurrency::extent<2> grdExt(grdSz, ksize_h);
-  Concurrency::tiled_extent<256, 1> t_ext(grdExt);
+  Concurrency::tiled_extent<NUMTHREADS, 1> t_ext(grdExt);
 
-  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<256, 1> tidx) restrict(amp)
+  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<NUMTHREADS, 1> tidx) restrict(amp)
   {
-    float dataCol = colOffset;
-    float dataIm = imOffset + inOffset;
+    long dataCol = colOffset;
+    long dataIm = imOffset;
     int i = tidx.global[0];
     int p = tidx.global[1];
 
@@ -37,37 +38,14 @@ void im2col(Concurrency::array_view<float,1> &avData_im, long imOffset, int inOf
       int w_in = w_out * stride_w - pad_w;
       dataCol += (channel_out * height_col + h_out) * width_col + w_out;
       dataIm += (channel_in * height + h_in) * width + w_in ;
-      float dataCol_orig = dataCol;
 
-      if(ksize_w == 11)
+      dataCol += height_col * width_col * ksize_w * p;
+      for (int j = 0; j < ksize_w; ++j)
       {
         int h = h_in + p;
-        int w = w_in;
-        int xxx = dataIm + p * width;
-        int STEP = 0;
-        dataCol = dataCol_orig + height_col * width_col * ksize_w * p;
-        avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0; 
-        avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0;
-        avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0;
-        avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0;
-        avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0;
-        avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0;
-        avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0;
-        avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0;
-        avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0;          
-        avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0;
-        avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0; 
-      }
-      else
-      {
-        dataCol = dataCol_orig + height_col * width_col * ksize_w * p;
-        for (int j = 0; j < ksize_w; ++j)
-        {
-          int h = h_in + p;
-          int w = w_in + j;
-          avData_col[dataCol] = (h >= 0 && w >= 0 && h < height && w < width) ? avData_im[ dataIm + p * width + j] : 0;
-          dataCol += height_col * width_col;
-        }
+        int w = w_in + j;
+        avData_col[dataCol] = (h >= 0 && w >= 0 && h < height && w < width) ? avData_im[ dataIm + p * width + j] : 0;
+        dataCol += height_col * width_col;
       }
     }
   });
@@ -80,11 +58,11 @@ void col2im_kernel(int n, Concurrency::array_view<float,1> &avData_col, long col
                    Concurrency::array_view<float,1> &avData_im, long imOffset,
                    int inp_stride, int elt)
 {
-  unsigned grdSz = (n + 256) -(n % 256);
+  unsigned grdSz = (n + NUMTHREADS) -(n % NUMTHREADS);
   Concurrency::extent<1> grdExt(grdSz);
-  Concurrency::tiled_extent<256> t_ext(grdExt);
+  Concurrency::tiled_extent<NUMTHREADS> t_ext(grdExt);
 
-  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<256> tidx) restrict(amp)
+  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<NUMTHREADS> tidx) restrict(amp)
   {
     for (int i = tidx.global[0]; i < (n); i += t_ext[0])
     {
@@ -110,7 +88,6 @@ void col2im_kernel(int n, Concurrency::array_view<float,1> &avData_col, long col
       }
       avData_im[imOffset + i + elt * inp_stride] = val;
     }
-
   });
 }
 
@@ -219,7 +196,7 @@ static int gpunn_SpatialConvolutionMM_updateOutput(lua_State *L)
 
 
     // Extract columns:
-    im2col(avData_im, input->storageOffset, input->stride[0] * elt,
+    im2col(avData_im, input->storageOffset + input->stride[0] * elt,
            nInputPlane, inputHeight, inputWidth, kH, kW, padding,
            padding, dH, dW, avData_col, columns->storageOffset);
 
@@ -388,21 +365,21 @@ static int gpunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
 
   int lenX = k_;
   int lenY = m_;
-  int len_X = (lenX + 255) & ~255;
-  int numBlocks = len_X / 256;
+  int len_X = (lenX + (NUMTHREADS - 1)) & ~(NUMTHREADS - 1);
+  int numBlocks = len_X / NUMTHREADS;
 
   float* tempBuf = (float*)malloc(numBlocks * lenY * sizeof(float));
   Concurrency::extent<1> ext(numBlocks * lenY);
   Concurrency::array_view<float,1> temp_buf(ext, tempBuf);
 
-  numBlocks = ((k + 255) & ~255) / 256;
+  numBlocks = ((k + (NUMTHREADS - 1)) & ~(NUMTHREADS - 1)) / NUMTHREADS;
 
   // For each elt in batch, do:
   for (int elt = 0; elt < batchSize; elt ++)
   {
     // Extract columns:
     // Ugly codes but it is the way to deal with unnecessary copying from host
-    im2col(avData_im, input->storageOffset, input->stride[0] * elt,
+    im2col(avData_im, input->storageOffset + input->stride[0] * elt,
           nInputPlane, inputHeight, inputWidth, kH, kW, padding, padding,
           dH, dW, avData_col, columns->storageOffset);
 
