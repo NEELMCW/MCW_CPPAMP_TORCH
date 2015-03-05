@@ -16,6 +16,15 @@ typedef struct THGPUTensor
   long storageOffset;
   int refcount;
   char flag;
+  
+  // Function to return array_view 
+  Concurrency::array_view<float,1> get_array_view()
+  {
+    Concurrency::array_view<float,1>* avPtr = static_cast<Concurrency::array_view<float>*>(this->storage->allocatorContext);
+    avPtr->discard_data(); // Don't need the host reference anymore as Device is up to date
+    return *avPtr;
+  }
+
 } THGPUTensor;
 
 /**** access methods ****/

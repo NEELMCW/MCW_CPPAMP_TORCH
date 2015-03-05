@@ -274,15 +274,15 @@ THC_API void THGPUTensor_copy(THGPUTensor *self, THGPUTensor *src)
     int number_blocks_dim_y = DIVUP(nblocks, nblocks_x * nblocks_y);
     int nblocks_z = number_blocks_dim_y;
 
-    PREPARE_AV(self, avSelf);
-    PREPARE_AV(src, avSrc);
+    auto avSelf = self->get_array_view();
+    auto avSrc = src->get_array_view();
 
     d_self_sz->discard_data();
     d_self_st->discard_data();
     d_src_sz->discard_data();
     d_src_st->discard_data();
 
-    THGPUTensor_kernel_copy(*avSelf, self->storageOffset, *avSrc, src->storageOffset,
+    THGPUTensor_kernel_copy(avSelf, self->storageOffset, avSrc, src->storageOffset,
                            *d_self_sz, *d_self_st, self_dim,
                            *d_src_sz, *d_src_st, src_dim,
                            size, innermostdim, nblocks_x, nblocks_y, nblocks_z);

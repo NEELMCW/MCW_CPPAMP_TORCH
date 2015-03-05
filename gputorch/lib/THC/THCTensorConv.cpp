@@ -330,18 +330,18 @@ void THGPUTensor_conv2Dmv(THGPUTensor *output, float beta, THGPUTensor *t_,
   int yblocks = (int)(16L / nOutputPlane);
   yblocks = yblocks < 1 ? 1 : yblocks;
 
-  PREPARE_AV(input, pavInput);
-  PREPARE_AV(kernel, pavKernel);
-  PREPARE_AV(output, pavOutput);
+  auto avInput = input->get_array_view();
+  auto avKernel = kernel->get_array_view();
+  auto avOutput = output->get_array_view();
 
   // convolution: xcorr2 or conv2
   if (type[1] == 'X')
   {
 #define X_CONV_KERNEL(dim)                                              \
     THGPUTensor_kernel_conv2generic <false, (dim), (dim)>(              \
-        *pavInput, input->storageOffset,                                \
-        *pavKernel, kernel->storageOffset,                              \
-        *pavOutput, output->storageOffset,                              \
+        avInput, input->storageOffset,                                \
+        avKernel, kernel->storageOffset,                              \
+        avOutput, output->storageOffset,                              \
         nInputPlane, nInputRows, nInputCols,                            \
         nOutputPlane*nInputPlane, nKernelRows, nKernelCols,             \
         srow, scol, nOutputPlane, yblocks);                             \
@@ -353,9 +353,9 @@ void THGPUTensor_conv2Dmv(THGPUTensor *output, float beta, THGPUTensor *t_,
   { // 'c'
 #define C_CONV_KERNEL(dim)                                              \
     THGPUTensor_kernel_conv2generic <true, (dim), (dim)>(               \
-        *pavInput, input->storageOffset,                                \
-        *pavKernel, kernel->storageOffset,                              \
-        *pavOutput, output->storageOffset,                              \
+        avInput, input->storageOffset,                                \
+        avKernel, kernel->storageOffset,                              \
+        avOutput, output->storageOffset,                              \
         nInputPlane, nInputRows, nInputCols,                            \
         nOutputPlane*nInputPlane, nKernelRows, nKernelCols,             \
         srow, scol, nOutputPlane, yblocks);                             \
@@ -461,18 +461,18 @@ void THGPUTensor_conv2Dmm(THGPUTensor *output, float beta, THGPUTensor *t_,
   int yblocks = (int)(16L / nOutputPlane);
   yblocks = yblocks < 1 ? 1 : yblocks;
 
-  PREPARE_AV(input, pavInput);
-  PREPARE_AV(kernel, pavKernel);
-  PREPARE_AV(output, pavOutput);
+  auto avInput = input->get_array_view();
+  auto avKernel = kernel->get_array_view();
+  auto avOutput = output->get_array_view();
 
   // convolution: xcorr2 or conv2
   if (type[1] == 'X')
   {
 #define X_CONV_KERNEL(dim)                                              \
     THGPUTensor_kernel_conv2generic <false, (dim), (dim)>(              \
-        *pavInput, input->storageOffset,                                \
-        *pavKernel, kernel->storageOffset,                              \
-        *pavOutput, output->storageOffset,                              \
+        avInput, input->storageOffset,                                \
+        avKernel, kernel->storageOffset,                              \
+        avOutput, output->storageOffset,                              \
         nInputPlane, nInputRows, nInputCols,                            \
         nOutputPlane*nInputPlane, nKernelRows, nKernelCols,             \
         srow, scol, nOutputPlane, yblocks);
@@ -485,9 +485,9 @@ void THGPUTensor_conv2Dmm(THGPUTensor *output, float beta, THGPUTensor *t_,
   { // 'c'
 #define C_CONV_KERNEL(dim)                                              \
     THGPUTensor_kernel_conv2generic <true, (dim), (dim)>(               \
-        *pavInput, input->storageOffset,                                \
-        *pavKernel, kernel->storageOffset,                              \
-        *pavOutput, output->storageOffset,                              \
+        avInput, input->storageOffset,                                \
+        avKernel, kernel->storageOffset,                              \
+        avOutput, output->storageOffset,                              \
         nInputPlane, nInputRows, nInputCols,                            \
         nOutputPlane*nInputPlane, nKernelRows, nKernelCols,             \
         srow, scol, nOutputPlane, yblocks);                             \
@@ -1009,20 +1009,20 @@ void THGPUTensor_conv2Dmap(THGPUTensor *output, THGPUTensor *input,
   if (block_height < 1)
     block_height = 1;
 
-  PREPARE_AV(input, pavInput);
-  PREPARE_AV(kernel, pavKernel);
-  PREPARE_AV(output, pavOutput);
-  PREPARE_AV(table, pavTable);
+  auto avInput = input->get_array_view();
+  auto avKernel = kernel->get_array_view();
+  auto avOutput = output->get_array_view();
+  auto avTable = table->get_array_view();
 
 #define GENERIC_MAP_KERNEL(dim)                                     \
   THGPUTensor_kernel_conv2mapgeneric <false, (dim), (dim)>(         \
-      *pavInput, input->storageOffset,                              \
-      *pavKernel, kernel->storageOffset,                            \
-      *pavOutput, output->storageOffset,                            \
+      avInput, input->storageOffset,                              \
+      avKernel, kernel->storageOffset,                            \
+      avOutput, output->storageOffset,                            \
       nInputPlane, nInputRows,                                      \
       nInputCols, nOutputPlane*fanin, nKernelRows, nKernelCols,     \
       stride_x, stride_y,                                           \
-      *pavTable, table->storageOffset, fanin, nOutputPlane, block_height);
+      avTable, table->storageOffset, fanin, nOutputPlane, block_height);
 
   FOR_KERNEL_SPECIALIZED_DIMENSION(nKernelCols, nKernelRows, GENERIC_MAP_KERNEL);
 #undef GENERIC_MAP_KERNEL
