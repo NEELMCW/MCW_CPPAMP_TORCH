@@ -1,574 +1,502 @@
 #include "THCBlas.h"
 #include "THCGeneral.h"
-#include "THCAMPBlasImpl.h"
-#include <iostream>
+#define OFFSET(N, incX) ((incX) > 0 ? 0 : ((N) - 1) * (-(incX)))
+#define BLOCK_SIZE 256
+#define TILE_DIM   16
+#define THREADS    16
+#define GEMM_BLOCK 256
 
-void THGPUBlas_init(int devices, int device)
+// Matrix Multiplication with  A and B matrices  not transposed
+static void gemm_NoTransAB(Concurrency::array_view<float, 1> &A, long aOffset,
+                           Concurrency::array_view<float, 1> &B, long bOffset,
+                           Concurrency::array_view<float, 1> &C, long cOffset,
+                           int M, int N, int K, int lda, int ldb, int ldc,
+                           float alpha, float beta)
 {
-  cl_int err;
-  err = clblasSetup();
-  if (err != CL_SUCCESS)
+  // Make grid size in each dimension an exact multiple of threadblock size in the corresponding dimension
+  Concurrency::extent<2> grdExt((N + (THREADS - 1)) & ~(THREADS - 1),(M + (THREADS-1)) & ~(THREADS - 1));
+  Concurrency::tiled_extent<THREADS, THREADS> t_ext(grdExt);
+
+  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<THREADS, THREADS> tidx) restrict(amp)
   {
-    printf("clblasSetup() failed with %d\n", err);
-    return;
-  }
+    float CValue = 0;
+    int Row = tidx.tile[0] * TILE_DIM + tidx.local[0];
+    int Col = tidx.tile[1] * TILE_DIM + tidx.local[1];
+    tile_static float As[TILE_DIM][TILE_DIM];
+    tile_static float Bs[TILE_DIM][TILE_DIM];
+                
+    for (int k = 0; k < (TILE_DIM + K - 1) / TILE_DIM; k++)
+    { 
+      // Read Matrix B from global to shared tile
+      if (k * TILE_DIM + tidx.local[1] < K && Row < N)
+        Bs[tidx.local[0]][tidx.local[1]] = B[bOffset + Row * K + k * TILE_DIM + tidx.local[1]];
+      else
+        Bs[tidx.local[0]][tidx.local[1]] = 0.0;
+
+      // Read Matrix A from global to shared tile
+      if (k*TILE_DIM + tidx.local[0] < K && Col < M)
+        As[tidx.local[0]][tidx.local[1]] = A[aOffset + (k * TILE_DIM + tidx.local[0]) * M + Col];
+      else
+        As[tidx.local[0]][tidx.local[1]] = 0.0;
+
+      // Wait until all shared memory gets filled
+      tidx.barrier.wait();
+
+      for (int n = 0; n < TILE_DIM; ++n)
+        CValue += Bs[tidx.local[0]][n] * As[n][tidx.local[1]] * alpha;
+
+      tidx.barrier.wait();
+    }
+
+    if (Row < N && Col < M)
+    {
+      C[cOffset + (tidx.global[0] * M) + tidx.global[1]] *= beta;
+      C[cOffset + (tidx.global[0] * M) + tidx.global[1]] += CValue;
+    }
+  });
 }
 
-void THGPUBlas_shutdown()
+// Matrix Multiplication with  matrix A Transposed
+static void gemm_NoTransB(Concurrency::array_view<float, 1> &A, long aOffset,
+                          Concurrency::array_view<float, 1> &B, long bOffset,
+                          Concurrency::array_view<float, 1> &C, long cOffset,
+                          int M, int N, int K, int lda, int ldb, int ldc,
+                          float alpha, float beta)
 {
-  /* Finalize work with clblas. */
-  clblasTeardown();
-  /* Release OpenCL working objects. */
-}
-
-void THGPUBlas_setHandle(int device)
-{
-  //current_handle = &handles[device];
-}
-
-void THGPUBlas_swap(long n, float *x, long incx, float *y, long incy)
-{
-  if (n == 1)
+  // If K is small then make use of threads and blocks across M and N dimension
+  if (K > N && K > M)
   {
-    incx = 1;
-    incy = 1;
-  }
+    // Make grid size in each dimension an exact multiple of threadblock size in the corresponding dimension
+    Concurrency::extent<2> grdExt(N, M * GEMM_BLOCK);
+    Concurrency::tiled_extent<1, GEMM_BLOCK> t_ext(grdExt);
 
-  if ((n <= INT_MAX) && (incx <= INT_MAX) && (incy <= INT_MAX))
-  {
-    cl_int err;
-    cl_event event = NULL;
-    cl_mem bufX, bufY;
-
-    size_t i_n = (size_t)n;
-    int i_incx = (int)incx;
-    int i_incy = (int)incy;
-    int lenX = 1 + (n - 1) * abs(i_incx);
-    int lenY = 1 + (n - 1) * abs(i_incy);
-
-    bufX = clCreateBuffer(mcontext, CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR, (lenX * sizeof(cl_float)), x, &err);
-    bufY = clCreateBuffer(mcontext, CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR, (lenY * sizeof(cl_float)), y, &err);
-    err = clblasSswap(i_n, bufX, 0, i_incx, bufY, 0, i_incy, 1, &mqueue, 0, NULL, &event);
-
-    if (err != CL_SUCCESS) 
+    Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1, GEMM_BLOCK> tidx) restrict(amp)
     {
-      printf("clblasSswap() failed with %d\n", err);
-    }
-    else
-    {
-      /* Fetch results of calculations from GPU memory. */
-      err = clEnqueueReadBuffer(mqueue, bufX, CL_TRUE, 0, (lenX * sizeof(float)), x, 0, NULL, NULL);
-      err = clEnqueueReadBuffer(mqueue, bufY, CL_TRUE, 0, (lenY * sizeof(float)), y, 0, NULL, NULL);
-    }
-    /* Release OpenCL memory objects. */
-    clReleaseMemObject(bufY);
-    clReleaseMemObject(bufX);
+      int threadIdx = tidx.local[1];
+      int blockIdx = tidx.tile[1];
+      int Row = tidx.tile[0];
+      int Col = blockIdx;
 
-    return;
-  }
-  THError("Clblas_swap only supports n, incx and"
-          " incy upto signed integer limits: %d", INT_MAX);
-}
+      tile_static float sh[GEMM_BLOCK];
+      sh[threadIdx] = 0;
 
-void THGPUBlas_scal(long n, float a, float *x, long incx)
-{
-  if (n == 1)
-    incx = 1;
+      for (int tileId = 0; tileId < ((K + GEMM_BLOCK - 1) & ~(GEMM_BLOCK - 1)) / GEMM_BLOCK; tileId++)
+      {
+        if (tileId * GEMM_BLOCK + threadIdx < K && Col < M && Row < N)
+          sh[threadIdx] += A[aOffset + Col * K + tileId * GEMM_BLOCK + threadIdx] * B[bOffset + Row * K + tileId * GEMM_BLOCK + threadIdx];
+      }
+      tidx.barrier.wait();
 
-  if ((n <= INT_MAX) && (incx <= INT_MAX))
-  {
-    cl_int err;
-    cl_mem bufX;
-    cl_event event = NULL;
-    size_t i_n = (size_t)n;
-    int i_incx = (int)incx;
-    cl_float alpha = (cl_float)a;
-    int lenX = 1 + (n - 1) * abs(i_incx);
+      for (int stride = GEMM_BLOCK / 2; stride >= 1; stride /= 2)
+      {
+        if (threadIdx < stride)
+          sh[threadIdx] += sh[threadIdx + stride];
+        tidx.barrier.wait();
+      }
 
-    bufX = clCreateBuffer(mcontext, CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR, ( lenX * sizeof(float)), x, &err);
-
-    err = clblasSscal(i_n, alpha, bufX, 0, i_incx, 1, &mqueue, 0, NULL,  &event);
-
-    if (err != CL_SUCCESS)
-    {
-      printf("clblasSscal() failed with %d\n", err);
-    }
-    else
-    {
-      /* Fetch results of calculations from GPU memory. */
-      err = clEnqueueReadBuffer(mqueue, bufX, CL_TRUE, 0, (lenX*sizeof(float)), x, 0, NULL, NULL);
-    }
-    /* Release OpenCL memory objects. */
-    clReleaseMemObject(bufX);
-    return;
-  }
-  THError("Clblas_scal only supports n and incx "
-          "upto signed integer limits: %d", INT_MAX);
-}
-
-void THGPUBlas_copy(long n, float *x, long incx, float *y, long incy)
-{
-  if (n == 1)
-  {
-    incx = 1;
-    incy = 1;
-  }
-
-  if ( (n <= INT_MAX) && (incx <= INT_MAX) && (incy <= INT_MAX) )
-  {
-    cl_int err;
-    cl_mem bufX, bufY;
-    cl_event event = NULL;
-    size_t i_n = (size_t)n;
-    int i_incx = (int)incx;
-    int i_incy = (int)incy;
-    int lenX = 1 + (n - 1) * abs(i_incx);
-    int lenY = 1 + (n - 1) * abs(i_incy);
-
-    bufX = clCreateBuffer(mcontext, CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR, (lenX * sizeof(float)), x, &err);
-    bufY = clCreateBuffer(mcontext, CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR, (lenY * sizeof(float)), y, &err);
-
-
-    /* Call clblas function. */
-    err = clblasScopy(i_n, bufX, 0, i_incx, bufY, 0, i_incy, 1, &mqueue, 0, NULL, &event);
-    if (err != CL_SUCCESS)
-    {
-      printf("clblasScopy() failed with %d\n", err);
-    }
-    else
-    {
-      /* Fetch results of calculations from GPU memory. */
-      err = clEnqueueReadBuffer(mqueue, bufY, CL_TRUE, 0, (lenY * sizeof(float)), y, 0, NULL, NULL);
-    }
-    /* Release OpenCL memory objects. */
-    clReleaseMemObject(bufY);
-    clReleaseMemObject(bufX);
-
-    return;
-  }
-
-  THError("Clblas_copy only supports n, incx and incy "
-          "upto signed integer limits: %d", INT_MAX);
-}
-
-void THGPUBlas_axpy(long n, float a, float *x, long incx, float *y, long incy)
-{
-  if (n == 1)
-  {
-    incx = 1;
-    incy = 1;
-  }
-
-  if ( (n <= INT_MAX) && (incx <= INT_MAX) && (incy <= INT_MAX) )
-  {
-    cl_int err;
-    cl_mem bufX, bufY;
-    size_t i_n = (size_t)n;
-    int i_incx = (int)incx;
-    int i_incy = (int)incy;
-    int lenX = 1 + (n - 1) * abs(i_incx);
-    int lenY = 1 + (n - 1) * abs(i_incy);
-    cl_float alpha = (cl_float)a;
-
-    /* Prepare OpenCL memory objects and place matrices inside them. */
-    bufX = clCreateBuffer(mcontext, CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR, (lenX * sizeof(float)), x, &err);
-    bufY = clCreateBuffer(mcontext, CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR, (lenY * sizeof(float)), y, &err);
-    /* Call clblas function. */
-    err = clblasSaxpy(i_n, alpha, bufX, 0, i_incx, bufY, 0, i_incy, 1, &mqueue, 0, NULL, NULL);
-    if (err != CL_SUCCESS)
-    {
-      printf("clblasSaxpy() failed with %d\n", err);
-    }
-    else
-    {
-        err = clEnqueueReadBuffer(mqueue, bufY, CL_TRUE, 0, (lenY*sizeof(float)), y, 0, NULL, NULL);
-    }
-    /* Release OpenCL memory objects. */
-    clReleaseMemObject(bufY);
-    clReleaseMemObject(bufX);
-
-    return;
-  }
-
-  THError("Clblas_axpy only supports n, incx and incy "
-          "upto signed integer limits: %d", INT_MAX);
-}
-
-float THGPUBlas_dot(long n, float *x, long incx, float *y, long incy)
-{
-  if (n == 1)
-  {
-    incx = 1;
-    incy = 1;
-  }
-
-  if ((n <= INT_MAX) && (incx <= INT_MAX) && (incy <= INT_MAX))
-  {
-    cl_int err;
-    cl_mem bufX, bufY, bufDotP, scratchBuff;
-    cl_event event = NULL;
-    size_t i_n = (size_t)n;
-    int i_incx = (int)incx;
-    int i_incy = (int)incy;
-    int lenX = 1 + (n - 1)*abs(i_incx);
-    int lenY = 1 + (n - 1)*abs(i_incy);
-
-    float result = 0.0;
-
-    bufX = clCreateBuffer(mcontext, CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR, (lenX * sizeof(float)), x, &err);
-    bufY = clCreateBuffer(mcontext, CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR, (lenY * sizeof(float)), y, &err);
-    // Allocate 1 element space for dotProduct
-    bufDotP = clCreateBuffer(mcontext, CL_MEM_WRITE_ONLY, (sizeof(float)), NULL, &err);
-    // Allocate minimum of N elements
-    scratchBuff = clCreateBuffer(mcontext, CL_MEM_READ_WRITE, (n*sizeof(float)), NULL, &err);
-
-
-    /* Call clblas function. */
-    err = clblasSdot(i_n, bufDotP, 0, bufX, 0, i_incx, bufY, 0, i_incy, scratchBuff, 1, &mqueue, 0, NULL, &event);
-    if (err != CL_SUCCESS)
-    {
-      printf("clblasSdot() failed with %d\n", err);
-      exit(1);
-    }
-    else
-    {
-      /* Wait for calculations to be finished. */
-      /* Fetch results of calculations from GPU memory. */
-      err = clEnqueueReadBuffer(mqueue, bufDotP, CL_TRUE, 0, sizeof(float), &result, 0, NULL, NULL);
-    }
-    /* Release OpenCL memory objects. */
-    clReleaseMemObject(bufY);
-    clReleaseMemObject(bufX);
-    clReleaseMemObject(bufDotP);
-    clReleaseMemObject(scratchBuff);
-
-    return result;
-  }
-  THError("Clblas_dot only supports n, incx and incy "
-          "upto signed integer limits: %d", INT_MAX);
-  return -1;
-}
-
-/* Level 2 */
-void THGPUBlas_gemv(char trans, long m, long n, float alpha, float *a, long lda, float *x, long incx, float beta, float *y, long incy)
-{
-  if (n == 1)
-    lda = m;
-
-  int i_incx = (int)incx;
-  int i_incy = (int)incy;
-  int lenM, lenN;
-
-  clblasTranspose op;
-  if (trans == 't')
-  {
-    op = clblasTrans;
-    lenM = 1 + (m - 1) * abs(i_incx);
-    lenN = 1 + (n - 1) * abs(i_incy);
-  }
-  else if (trans == 'n')
-  {
-    op = clblasNoTrans;
-    lenM = 1 + (n - 1) * abs(i_incx);
-    lenN = 1 + (m - 1) * abs(i_incy);
-  }
-  else if (trans == 'c')
-  {
-    op = clblasConjTrans;
-    lenM = 1 + (n - 1) * abs(i_incx);
-    lenN = 1 + (m - 1) * abs(i_incy);
-  }
-
-  clblasOrder order = clblasColumnMajor;
-
-  if ((m <= INT_MAX) && (n <= INT_MAX) &&
-      (lda > 0) && (lda <= INT_MAX) &&
-      (incx > 0) && (incx <= INT_MAX) &&
-      (incy > 0) && (incy <= INT_MAX))
-  {
-    cl_int err;
-    cl_mem bufX, bufY, bufA;
-    cl_event event = NULL;
-
-    size_t i_m = (size_t)m;
-    size_t i_lda = (size_t)lda;
-
-    size_t i_n = (size_t)n;
-
-    bufA = clCreateBuffer(mcontext, CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR, lenM * lenN * sizeof(*a), a, &err);
-    bufX = clCreateBuffer(mcontext, CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR, lenM * sizeof(*x), x, &err);
-    bufY = clCreateBuffer(mcontext, CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR, lenN * sizeof(*y), y, &err);
-
-    /* Call clblas extended function. */
-    err = clblasSgemv(order, op, i_m , i_n , alpha, bufA, 0, i_lda, bufX, 0, i_incx, beta, bufY, 0, i_incy, 1, &mqueue, 0, NULL, &event);
-
-    if (err != CL_SUCCESS)
-    {
-      printf("clblasSgemvEx() failed with %d\n", err);
-    }
-    else
-    {
-      /* Fetch results of calculations from GPU memory. */
-      err = clEnqueueReadBuffer(mqueue, bufY, CL_TRUE, 0, lenN * sizeof(*y), y, 0, NULL, NULL);
-    }
-    /* Release OpenCL memory objects. */
-    clReleaseMemObject(bufY);
-    clReleaseMemObject(bufX);
-    clReleaseMemObject(bufA);
-
-    return;
-  }
-  THError("Clblas_gemv only supports m, n, lda, incx, incy"
-          "in the range 0 < [val] <= %d", INT_MAX);
-}
-
-void THGPUBlas_ger(long m, long n, float alpha, float *x, long incx, float *y, long incy, float *a, long lda)
-{
-  if (n == 1)
-    lda = m;
-
-  if ((m <= INT_MAX) && (n <= INT_MAX) && (lda <= INT_MAX)  && (incx <= INT_MAX) && (incy <= INT_MAX))
-  {
-    size_t i_m = (size_t)m;
-    size_t i_n = (size_t)n;
-    int i_lda = (int)lda;
-    int i_incx = (int)incx;
-    int i_incy = (int)incy;
-
-    cl_int err;
-    cl_mem bufX, bufY, bufA;
-    cl_event event = NULL;
-    clblasOrder order = clblasColumnMajor;
-
-    int lenM = 1 + (m - 1) * abs(i_incx);
-    int lenN = 1 + (n - 1) * abs(i_incy);
-
-    /* Prepare OpenCL memory objects and place matrices inside them. */
-    bufA = clCreateBuffer(mcontext, CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR, (m * i_lda * sizeof(float)), a, &err);
-    bufX = clCreateBuffer(mcontext, CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR, lenM * sizeof(float), x, &err);
-    bufY = clCreateBuffer(mcontext, CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR, lenN * sizeof(float), y, &err);
-
-
-    /* Call clblas function. */
-    err = clblasSger(order, i_m, i_n, alpha, bufX, 0, i_incx, bufY, 0, i_incy, bufA, 0, i_lda, 1, &mqueue, 0, NULL, &event);
-    if (err != CL_SUCCESS)
-    {
-      printf("clblasSger() failed with %d\n", err);
-    }
-    else
-    {
-      /* Fetch results of calculations from GPU memory. */
-      err = clEnqueueReadBuffer(mqueue, bufA, CL_TRUE, 0, (m * i_lda * sizeof(float)), a, 0, NULL, NULL);
-    }
-    /* Release OpenCL memory objects. */
-    clReleaseMemObject(bufY);
-    clReleaseMemObject(bufX);
-    clReleaseMemObject(bufA);
-
-    return;
-  }
-  THError("Clblas_ger only supports m, n, lda, incx, incy"
-          "with the bound [val] <= %d", INT_MAX);
-}
-
-/* Level 3 */
-void THGPUBlas_gemm(char transa, char transb, long m, long n, long k, float alpha, float *a, long lda, float *b, long ldb, float beta, float *c, long ldc)
-{
-  int transa_ = ((transa == 't') || (transa == 'T'));
-  int transb_ = ((transb == 't') || (transb == 'T'));
-
-  if (n == 1)
-    ldc = m;
-
-  if (transa_)
-  {
-    if (m == 1)
-      lda = k;
+      if(threadIdx == 0 && Col < M && Row < N)
+      {
+        C[cOffset + Row * M + Col] *= beta;
+        C[cOffset + Row * M + Col] += sh[0] * alpha;
+      }
+    });
   }
   else
   {
-    if (k == 1)
-      lda = m;
+    // Make grid dimension  an exact multiple of corresponding threadBlock dimension
+    Concurrency::extent<2> grdExt((N + (THREADS - 1)) & ~(THREADS - 1), (M + (THREADS - 1)) & ~(THREADS - 1));
+    Concurrency::tiled_extent<THREADS, THREADS> t_ext(grdExt);
+    Concurrency::array_view<float,2> Cmat = C.view_as<2>(Concurrency::extent<2>(N, M));
+    // Data in device is up-to-date no need to sync with host
+    Cmat.discard_data();
+    Concurrency::array_view<float,2> Amat = A.view_as<2>(Concurrency::extent<2>(M, K));
+    // Data in device is up-to-date no need to sync with host
+    Amat.discard_data();
+    Concurrency::array_view<float,2> Bmat = B.view_as<2>(Concurrency::extent<2>(N, K));
+    // Data in device is up-to-date no need to sync with host
+    Bmat.discard_data();
+
+    Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<THREADS, THREADS> tidx) restrict(amp)
+    {
+      float CValue = 0;
+      int Row = tidx.global[0];
+      int Col = tidx.global[1];
+      tile_static float As[TILE_DIM][TILE_DIM];
+      tile_static float Bs[TILE_DIM][TILE_DIM];
+
+      for (int k = 0; k < ((K + (TILE_DIM - 1)) & ~(TILE_DIM - 1)) ; k += TILE_DIM)
+      {
+        // Read Matrix B from global to shared tile
+        if (k + tidx.local[1] < K && Row < N)
+          Bs[tidx.local[0]][tidx.local[1]] = Bmat[Row][bOffset + k + tidx.local[1]];
+        else
+          Bs[tidx.local[0]][tidx.local[1]] = 0.0;
+
+        // Read Matrix A from global to shared tile
+        if (k + tidx.local[1] < K && (tidx.tile[1] * TILE_DIM + tidx.local[0]) < M)
+          As[tidx.local[0]][tidx.local[1]] = Amat[(tidx.tile[1] * TILE_DIM + tidx.local[0])] [aOffset + k + tidx.local[1]];
+        else
+          As[tidx.local[0]][tidx.local[1]] = 0.0;
+
+        tidx.barrier.wait();
+
+        // loop Unroll 
+        CValue += Bs[tidx.local[0]][0] * As[tidx.local[1]][0] +
+                  Bs[tidx.local[0]][1] * As[tidx.local[1]][1] +
+                  Bs[tidx.local[0]][2] * As[tidx.local[1]][2] +
+                  Bs[tidx.local[0]][3] * As[tidx.local[1]][3] +
+                  Bs[tidx.local[0]][4] * As[tidx.local[1]][4] +
+                  Bs[tidx.local[0]][5] * As[tidx.local[1]][5] +
+                  Bs[tidx.local[0]][6] * As[tidx.local[1]][6] +
+                  Bs[tidx.local[0]][7] * As[tidx.local[1]][7] +
+                  Bs[tidx.local[0]][8] * As[tidx.local[1]][8] +
+                  Bs[tidx.local[0]][9] * As[tidx.local[1]][9] +
+                  Bs[tidx.local[0]][10] * As[tidx.local[1]][10] +
+                  Bs[tidx.local[0]][11] * As[tidx.local[1]][11] +
+                  Bs[tidx.local[0]][12] * As[tidx.local[1]][12] +
+                  Bs[tidx.local[0]][13] * As[tidx.local[1]][13] +
+                  Bs[tidx.local[0]][14] * As[tidx.local[1]][14] +
+                  Bs[tidx.local[0]][15] * As[tidx.local[1]][15];
+
+        tidx.barrier.wait();
+      }
+
+      if (Row < N && Col < M)
+      {
+        Cmat[Row][cOffset + Col] *= beta;
+        Cmat[Row][cOffset + Col] += CValue * alpha;
+      }
+    });
+  }
+}
+
+// Matrix Multiplication when Matrix B is transposed
+static void gemm_NoTransA(Concurrency::array_view<float, 1> &A, long aOffset,
+                          Concurrency::array_view<float, 1> &B, long bOffset,
+                          Concurrency::array_view<float, 1> &C, long cOffset,
+                          int M, int N, int K, int lda, int ldb, int ldc,
+                          float alpha, float beta)
+{
+  // Make grid size in each dimension an exact multiple of threadblock size in the corresponding dimension
+  Concurrency::extent<2> grdExt((N + (THREADS - 1)) & ~(THREADS - 1), (M + (THREADS - 1)) & ~(THREADS - 1));
+  Concurrency::tiled_extent<THREADS, THREADS> t_ext(grdExt);
+
+  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<THREADS, THREADS> tidx) restrict(amp)
+  {
+    float CValue = 0;
+    int Row = tidx.tile[0] * TILE_DIM + tidx.local[0];
+    int Col = tidx.tile[1] * TILE_DIM + tidx.local[1];
+    tile_static float As[TILE_DIM][TILE_DIM];
+    tile_static float Bs[TILE_DIM][TILE_DIM];
+    for (int k = 0; k < (TILE_DIM + K - 1) / TILE_DIM; k++)
+    {
+      // Read Matrix B from global to shared tile
+      if (k * TILE_DIM + tidx.local[0] < K && (tidx.tile[0] * TILE_DIM + tidx.local[1]) < N)
+        Bs[tidx.local[0]][tidx.local[1]] = B[bOffset + (k * TILE_DIM + tidx.local[0]) * N + (tidx.tile[0] * TILE_DIM + tidx.local[1])];
+      else
+        Bs[tidx.local[0]][tidx.local[1]] = 0.0;
+
+      // Read Matrix A from global to shared tile
+      if (k*TILE_DIM + tidx.local[0] < K && Col < M)
+        As[tidx.local[0]][tidx.local[1]] = A[aOffset + (k * TILE_DIM + tidx.local[0]) * M + Col];
+      else
+        As[tidx.local[0]][tidx.local[1]] = 0.0;
+
+      tidx.barrier.wait();
+
+      for (int n = 0; n < TILE_DIM; ++n)
+        CValue += Bs[n][tidx.local[0]] * As[n][tidx.local[1]];
+
+      tidx.barrier.wait();
+    }
+
+    if (Row < N && Col < M)
+    {
+      C[cOffset + (Row * M)+Col] *= beta;
+      C[cOffset + (Row * M)+Col] += CValue * alpha;
+    }
+  });
+}
+
+// Matrix Multiplication when both A and B are transposed
+static void gemm_TransAB(Concurrency::array_view<float, 1> &A, long aOffset,
+                         Concurrency::array_view<float, 1> &B, long bOffset,
+                         Concurrency::array_view<float, 1> &C, long cOffset,
+                         int M, int N, int K, long lda, long ldb, long ldc,
+                         float alpha, float beta)
+{
+  // Make grid size in each dimension an exact multiple of threadblock size in the corresponding dimension
+  Concurrency::extent<2> grdExt((N + (THREADS - 1)) & ~(THREADS - 1), (M + (THREADS - 1)) & ~(THREADS - 1));
+  Concurrency::tiled_extent<THREADS, THREADS> t_ext(grdExt);
+
+  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<THREADS, THREADS> tidx) restrict(amp)
+  {
+    float temp;
+    int j = tidx.global[0];
+    int i = tidx.global[1];
+    if(i < M && j < N)
+    {
+      temp = 0;
+      for (int l = 0; l < K; ++l)
+        temp += A[aOffset + l + i * lda] * B[bOffset + j + l * ldb];
+
+      C[cOffset + i + j * ldc] = alpha * temp + beta * C[cOffset + i + j * ldc];
+    }
+  });
+}
+
+// API used in torch to invoke AMP gemm operation
+void THGPUBlas_gemm(char TransA, char TransB, const long M, const long N, const long K, const float alpha,
+             Concurrency::array_view<float> &A_mat, long aOffset, long lda,
+             Concurrency::array_view<float> &B_mat, long bOffset, long ldb, const float beta,
+             Concurrency::array_view<float> &C_mat, long cOffset, long ldc)
+{
+  int i, j;
+
+  // Quick return if possible
+  if (!M || !N || ((alpha == 0 || !K) && beta == 1)) 
+    return ;
+  // For alpha = 0
+  if (alpha == 0)
+  {
+    if (beta == 0)
+    {
+      for (j = 0; j < N; ++j)
+        for (i = 0; i < M; ++i)
+          C_mat[i + j * ldc] = 0;
+    }
+    else
+    {
+      for (j = 0; j < N; ++j)
+        for (i = 0; i < M; ++i)
+          C_mat[i + j * ldc] *= beta;
+    }
+    return ;
   }
 
-  if (transb_)
+  if (TransB == 'n')
   {
-    if (k == 1)
-      ldb = n;
+    if (TransA == 'n')
+      gemm_NoTransAB(A_mat, aOffset, B_mat, bOffset, C_mat, cOffset, M, N, K, lda, ldb, ldc, alpha, beta);
+    else
+      gemm_NoTransB(A_mat, aOffset, B_mat, bOffset, C_mat, cOffset, M, N, K, lda, ldb, ldc, alpha, beta);
+  }
+  else if (TransA == 'n')
+    gemm_NoTransA(A_mat, aOffset, B_mat, bOffset, C_mat, cOffset, M, N, K, lda, ldb, ldc, alpha, beta);
+  else
+    gemm_TransAB(A_mat, aOffset, B_mat, bOffset, C_mat, cOffset, M, N, K, lda, ldb, ldc, alpha, beta);
+}
+
+// Matrix Vector Multiplication where the Matrix A is transposed
+static void gemv_TransA(Concurrency::array_view<float> &A_mat, int aOffset,
+                        Concurrency::array_view<float> &X_vec, long xOffset,
+                        Concurrency::array_view<float> &Y_vec, long yOffset,
+                        float alpha, float beta, int lenX, int lenY,
+                        Concurrency::array_view<float> &tempBuf)
+{
+  // Case where Y vector's length (lenY) is very small compared to lenX
+  // TO DO: Need to represent this case in a better way
+  // The parameter tempBuf is used in this case to make a global sychronization across threadblocks
+  if((lenX - lenY) > 5000)
+  {
+    // Make grid size in each dimension an exact multiple of threadblock size in the corresponding dimension
+    int len_X = (lenX + (BLOCK_SIZE - 1)) & ~(BLOCK_SIZE - 1);
+    int num_blocks = len_X / BLOCK_SIZE;
+    Concurrency::extent<1> grdExt(len_X);
+    Concurrency::tiled_extent<BLOCK_SIZE> t_ext(grdExt);
+
+    Concurrency::parallel_for_each(t_ext,[=] (Concurrency::tiled_index<BLOCK_SIZE> tidx) restrict(amp)
+    {
+      tile_static float t[BLOCK_SIZE];
+      for (int Col = 0; Col < lenY; Col++)
+      {
+        int blockIdx = tidx.tile[0];
+        int threadIdx = tidx.local[0];
+        tempBuf[Col * num_blocks + blockIdx] = 0;
+        t[threadIdx] = 0;
+
+        if (Col < lenY && blockIdx * BLOCK_SIZE + threadIdx < lenX)
+          t[threadIdx] = X_vec[xOffset + blockIdx * BLOCK_SIZE + threadIdx] * A_mat[aOffset + Col * lenX + blockIdx * BLOCK_SIZE + threadIdx];
+
+        tidx.barrier.wait();
+
+        for (int stride = BLOCK_SIZE / 2; stride >= 1; stride /= 2)
+        {
+          if(threadIdx < stride)
+            t[threadIdx] += t[threadIdx + stride];
+        }
+        tempBuf[Col * num_blocks + blockIdx] = t[0];
+        tidx.barrier.wait();
+      }
+
+      if (tidx.tile[0] == 0)
+      {
+        for(int Col = 0; Col < lenY; Col++)
+        {
+          tile_static float sh[BLOCK_SIZE];
+          int threadId = tidx.local[0];
+          sh[tidx.local[0]] = 0;
+
+          for (int i = threadId; i < num_blocks; i += tidx.tile_dim0)
+            sh[threadId] += tempBuf[Col * num_blocks + i];
+
+          tidx.barrier.wait();
+
+          for (int stride = BLOCK_SIZE / 2; stride >= 1; stride /= 2)
+          {
+            if(threadId < stride)
+              sh[threadId] += sh[threadId + stride];
+          }
+          tidx.barrier.wait();
+          Y_vec[yOffset + Col] *= beta;
+          Y_vec[yOffset + Col] += alpha * sh[0];
+        }
+      }
+    });
   }
   else
   {
-    if (n == 1)
-      ldb = k;
+    // Make grid size in each dimension an exact multiple of threadblock size in the corresponding dimension
+    Concurrency::extent<1> grdExt(lenY * BLOCK_SIZE);
+    Concurrency::tiled_extent<BLOCK_SIZE> t_ext(grdExt);
+
+    Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<BLOCK_SIZE> tidx) restrict(amp)
+    {
+      int threadIdx = tidx.local[0];
+      int blockIdx = tidx.tile[0];
+      int Col = blockIdx;
+
+      tile_static float sh[BLOCK_SIZE];
+      sh[threadIdx] = 0;
+
+      for (int tileId = 0; tileId < ((lenX + BLOCK_SIZE - 1) & ~(BLOCK_SIZE - 1)) / BLOCK_SIZE; tileId++)
+      {
+        if (tileId * BLOCK_SIZE + threadIdx < lenX && Col < lenY)
+          sh[threadIdx] += X_vec[xOffset + tileId * BLOCK_SIZE + threadIdx] * A_mat[aOffset + Col * lenX + tileId * BLOCK_SIZE + threadIdx];
+      }
+      tidx.barrier.wait();
+
+      for (int stride = BLOCK_SIZE / 2; stride >= 1; stride /= 2)
+      {
+        if (threadIdx < stride)
+          sh[threadIdx] += sh[threadIdx + stride];
+        tidx.barrier.wait();
+      }
+
+      if(threadIdx == 0 && Col < lenY)
+      {
+        Y_vec[yOffset + Col] *= beta;
+        Y_vec[yOffset + Col] += alpha * sh[0];
+      }
+    });
   }
+}
 
-  clblasTranspose opa;
-  if (transa == 't') opa = clblasTrans;
-  else if (transa == 'n') opa = clblasNoTrans;
-  else if (transa == 'c') opa = clblasConjTrans;
+static void gemv_NoTransA(Concurrency::array_view<float> &A, long aOffset,
+                          Concurrency::array_view<float> &X, long xOffset,
+                          Concurrency::array_view<float> &Y, long yOffset,
+                          float alpha, float beta, int lenX, int lenY)
+{
+  // Make grid size in each dimension an exact multiple of threadblock size in the corresponding dimension
+  long size = (lenY + 255) & ~255;
+  Concurrency::extent<1> compute_domain(size);
 
-  clblasTranspose opb;
-  if (transb == 't') opb = clblasTrans;
-  else if (transb == 'n') opb = clblasNoTrans;
-  else if (transb == 'c') opb = clblasConjTrans;
-
-  if ((m <= INT_MAX) && (n <= INT_MAX) && (k <= INT_MAX) && (lda <= INT_MAX)  && (ldb <= INT_MAX) && (ldc <= INT_MAX))
+  Concurrency::parallel_for_each(compute_domain.tile<BLOCK_SIZE>(),[=] (Concurrency::tiled_index<BLOCK_SIZE> tidx) restrict(amp)
   {
-    int i_lda = (int)lda;
-    int i_ldb = (int)ldb;
-    int i_ldc = (int)ldc;
+    int bx = tidx.tile[0];
+    int tx = tidx.local[0];
+    tile_static float Xds[BLOCK_SIZE];
+    int Col = bx * BLOCK_SIZE + tx;
+    float Pvalue = 0;
 
-    cl_int err;
-    cl_mem bufC, bufB, bufA;
-    clblasOrder order = clblasColumnMajor;
-
-
-    /* Prepare OpenCL memory objects and place matrices inside them. */
-    bufA = clCreateBuffer(mcontext, CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR, m * k * sizeof(*a),  a, &err);
-    bufB = clCreateBuffer(mcontext, CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR, k * n * sizeof(*b),  b, &err);
-    bufC = clCreateBuffer(mcontext, CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR , m * n * sizeof(*c), c, &err);
-
-    err = clblasSgemm(order, opa, opb, m, n, k, alpha, bufA, 0, i_lda, bufB, 0, i_ldb, beta, bufC, 0, i_ldc, 1, &mqueue, 0, NULL, NULL);
-    if (err != CL_SUCCESS)
+    for (int m = 0; m < (lenX - 1) / BLOCK_SIZE + 1; ++m)
     {
-      printf("clblasSgemmEx() failed with %d\n", err);
-    }
-    else
-    {
-      err = clEnqueueReadBuffer(mqueue, bufC, CL_TRUE, 0, m * n * sizeof(*c), c, 0, NULL, NULL);
-    }
-    /* Release OpenCL memory objects. */
-    clReleaseMemObject(bufC);
-    clReleaseMemObject(bufB);
-    clReleaseMemObject(bufA);
+      if (m * BLOCK_SIZE + tx < lenX)
+        Xds[tx] = X[xOffset + m * BLOCK_SIZE + tx];
+      else
+        Xds[tx]=0;
 
+      tidx.barrier.wait();
+
+      for (int k = 0; k < BLOCK_SIZE; k++)
+        if (Col < lenY && m * BLOCK_SIZE + k < lenX)
+          Pvalue += Xds[k] * A[aOffset + Col + (m * BLOCK_SIZE + k) * lenY];
+
+      tidx.barrier.wait();
+    }
+    if (Col < lenY)
+    {
+      Y[yOffset + Col] *= beta;
+      Y[yOffset + Col] += alpha * Pvalue;
+    }
+  });
+}
+
+// API used in torch to invoke matrix vector multiplication
+void THGPUBlas_gemv(char TransA, long M, long N, float alpha,
+              Concurrency::array_view<float> &A, long aOffset,
+              Concurrency::array_view<float> &X, long xOffset, long incX, float beta,
+              Concurrency::array_view<float> &Y, long yOffset, long incY,
+              Concurrency::array_view<float> &temp_buf)
+{
+  if (alpha == 0.0)
     return;
-  }
-  THError("Clblas_gemm only supports m, n, k, lda, ldb, ldc"
-          "with the bound [val] <= %d", INT_MAX);
-}
 
-void* THGPUBlas_clCreateBuffer(long m, long k, float* a)
-{
-  return (void*)clCreateBuffer(mcontext, CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR, m * k * sizeof(*a), a, NULL);
-}
-
-/* Level 3 optimized. bufA, bufB are created outside as m,n,k is not changed in loops*/
-void THGPUBlas_gemm_opt(char transa, char transb, long m, long n, long k, float alpha,
-                        Concurrency::array_view<float> &a, long aOffset, long lda,
-                        Concurrency::array_view<float> &b, long bOffset, long ldb, float beta,
-                        Concurrency::array_view<float> &c, long cOffset, long ldc)
-{
-  gemm_AMP(transa, transb, m, n, k, alpha,
-           a, aOffset, lda,
-           b, bOffset, ldb, beta,
-           c, cOffset, ldc);
-}
-
-void THGPUBlas_axpy_opt(long n, float a,
-                        Concurrency::array_view<float> &x, long xOffset, long incx,
-                        Concurrency::array_view<float> &y, long yOffset, long incy)
-{
-  axpy_AMP(n, a, x, xOffset, incx, y, yOffset, incy);
-}
-
-void THGPUBlas_ger_opt(long m, long n, float alpha,
-                       Concurrency::array_view<float> &x, long xOffset, long incx,
-                       Concurrency::array_view<float> &y, long yOffset, long incy,
-                       Concurrency::array_view<float> &a, long aOffset, long lda)
-{ 
-  ger_AMP(m, n, alpha, x, xOffset, incx, y, yOffset, incy, a, aOffset, lda);
-}
-
-void THGPUBlas_gemv_opt(char trans, long m, long n, float alpha,
-                        Concurrency::array_view<float> &a, long aOffset,
-                        Concurrency::array_view<float> &x, long xOffset, long incx, float beta,
-                        Concurrency::array_view<float> &y, long yOffset, long incy,
-                        Concurrency::array_view<float> &temp_buf)
-{
-  gemv_AMP(trans, m, n, alpha, a, aOffset, x, xOffset, incx, beta, y, yOffset, incy, temp_buf);
-}
-
-/* Level 2 */
-void THGPUBlas_gemv_opt1(char trans, long m, long n, float alpha, 
-  float *a, long lda, float *x, long incx, float beta, float *y, long incy,
-  void* cl_A, void* cl_X, void* cl_Y, long aOffset, long xOffset, long yOffset, bool ReadNow)
-{
-  if (n == 1)
-    lda = m;
-
-  int i_incx = (int)incx;
-  int i_incy = (int)incy;
-  int lenM, lenN;
-
-  clblasTranspose op;
-  if (trans == 't')
-  {
-    op = clblasTrans;
-    lenM = 1 + (m - 1) * abs(i_incx);
-    lenN = 1 + (n - 1) * abs(i_incy);
-  }
-  else if (trans == 'n')
-  {
-    op = clblasNoTrans;
-    lenM = 1 + (n - 1) * abs(i_incx);
-    lenN = 1 + (m - 1) * abs(i_incy);
-  }
-  else if (trans == 'c')
-  {
-    op = clblasConjTrans;
-    lenM = 1 + (n - 1) * abs(i_incx);
-    lenN = 1 + (m - 1) * abs(i_incy);
-  }
-  clblasOrder order = clblasColumnMajor;
-
-  if ((m <= INT_MAX) && (n <= INT_MAX) &&
-      (lda > 0) && (lda <= INT_MAX) &&
-      (incx > 0) && (incx <= INT_MAX) &&
-      (incy > 0) && (incy <= INT_MAX))
-  {
-    cl_int err;
-    cl_mem bufX, bufY, bufA;
-    cl_event event = NULL;
-
-    size_t i_m = (size_t)m;
-    size_t i_lda = (size_t)lda;
-
-    size_t i_n = (size_t)n;
-
-   if (cl_A == NULL)
-      bufA = clCreateBuffer(mcontext, CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR, lenM * lenN * sizeof(*a), a, &err);
-   else
-     bufA = static_cast<cl_mem>(cl_A);
-   if (cl_X == NULL)
-     bufX = clCreateBuffer(mcontext, CL_MEM_READ_ONLY|CL_MEM_USE_HOST_PTR, lenM * sizeof(*x), x, &err);
-   else
-    bufX = static_cast<cl_mem>(cl_X);
-   if (cl_Y == NULL)
-     bufY = clCreateBuffer(mcontext, CL_MEM_READ_WRITE|CL_MEM_USE_HOST_PTR, lenN * sizeof(*y), y, &err);
-   else
-      bufY = static_cast<cl_mem>(cl_Y);
-
-    err = clblasSgemv(order, op, i_m , i_n , alpha, bufA, aOffset, i_lda, bufX, xOffset, i_incx, beta, bufY, yOffset, i_incy, 1, &mqueue, 0, NULL, &event);
-
-    if (err != CL_SUCCESS)
-    {
-      printf("clblasSgemvEx() failed with %d\n", err);
-    }
-    else
-    {
-     if(ReadNow)
-      err = clEnqueueReadBuffer(mqueue, bufY, CL_TRUE, yOffset * sizeof(*y), lenN * sizeof(*y), y, 0, NULL, NULL);
-    }
-    if (cl_Y == NULL)
-      clReleaseMemObject(bufY);
-    if (cl_X == NULL)
-      clReleaseMemObject(bufX);
-    if (cl_A == NULL)
-      clReleaseMemObject(bufA);
-
+  int lenX, lenY;
+  if (M == 0 || N == 0)
     return;
+
+  if (alpha == 0.0 && beta == 1.0)
+    return;
+
+  if (TransA == 'n')
+  {
+    lenX = N;
+    lenY = M;
   }
-  THError("Clblas_gemv only supports m, n, lda, incx, incy"
-          "in the range 0 < [val] <= %d", INT_MAX);
+  else
+  {
+    lenX = M;
+    lenY = N;
+  }
+
+  if (TransA == 't')
+    gemv_TransA(A, aOffset, X, xOffset, Y, yOffset, alpha, beta, lenX, lenY, temp_buf);
+  else if (TransA == 'n')
+    gemv_NoTransA(A, aOffset, X, xOffset, Y, yOffset, alpha, beta, lenX, lenY);
+}
+
+// Scale vecotr X and add to vectory Y
+void THGPUBlas_axpy(long n, float alpha,
+              Concurrency::array_view<float> &X, long xOffset, long incx,
+              Concurrency::array_view<float> &Y, long yOffset, long incy)
+{
+  // Make grid size in each dimension an exact multiple of threadblock size in the corresponding dimension
+  long size = (n + BLOCK_SIZE - 1) & ~(BLOCK_SIZE - 1);
+  Concurrency::extent<1> compute_domain(size);
+
+  Concurrency::parallel_for_each(compute_domain.tile<BLOCK_SIZE>(),[=] (Concurrency::tiled_index<BLOCK_SIZE> tidx) restrict(amp)
+  {
+    if(tidx.global[0] < n)
+      Y[yOffset + tidx.global[0]] += X[xOffset + tidx.global[0]] * alpha;
+  });
+}
+
+// Single Precision General matrix rank 1 operation
+void THGPUBlas_ger(long m, long n, float alpha,
+             Concurrency::array_view<float> &x, long xOffset, long incx,
+             Concurrency::array_view<float> &y, long yOffset, long incy,
+             Concurrency::array_view<float> &a, long aOffset, long lda)
+{
+  // Make grid size in each dimension an exact multiple of threadblock size in the corresponding dimension
+  long M = (m + 15) & ~15;
+  long N = (n + 15) & ~15;
+  Concurrency::extent<2> compute_domain(M, N);
+  Concurrency::parallel_for_each(compute_domain.tile<16, 16>(),[=] (Concurrency::tiled_index<16, 16> tidx) restrict(amp)
+  {
+    int i = tidx.global[0];
+    int j = tidx.global[1];
+    if(i < m && j < n)
+      a[aOffset + j*m + i] += x[xOffset + i] * y[yOffset + j] * alpha;
+  });
 }

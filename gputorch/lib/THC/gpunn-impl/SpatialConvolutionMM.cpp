@@ -212,7 +212,7 @@ static int gpunn_SpatialConvolutionMM_updateOutput(lua_State *L)
     // M,N,K are dims of matrix A and B
     // Do GEMM (note: this is a bit confusing because gemm assumes column-major matrices)
     // Ugly codes but it is the way to deal with unnecessary copying from host
-    THGPUBlas_gemm_opt('t', 'n', n_, m_, k_, 1,
+    THGPUBlas_gemm('t', 'n', n_, m_, k_, 1,
                        avData_ones, ones->storageOffset, k_,
                        avData_bias, bias->storageOffset, k_, 0,
                        avData_output, output->storageOffset + output->stride[0] * elt, n_);
@@ -226,7 +226,7 @@ static int gpunn_SpatialConvolutionMM_updateOutput(lua_State *L)
 
     // M,N,K are dims of matrix A and B
     // Do GEMM (note: this is a bit confusing because gemm assumes column-major matrices)
-    THGPUBlas_gemm_opt('n', 'n', n, m, k, 1,
+    THGPUBlas_gemm('n', 'n', n, m, k, 1,
                        avData_col, columns->storageOffset, n,
                        avData_weight, weight->storageOffset, k, 1,
                        avData_output, output->storageOffset + output->stride[0] * elt, n);
@@ -300,7 +300,7 @@ static int gpunn_SpatialConvolutionMM_updateGradInput(lua_State *L)
     // M,N,K are dims of matrix A and B
     // Do GEMM (note: this is a bit confusing because gemm assumes column-major matrices)
     // Ugly codes but it is the way to deal with unnecessary copying from host
-    THGPUBlas_gemm_opt('n', 't', n, m, k, 1,
+    THGPUBlas_gemm('n', 't', n, m, k, 1,
                        avData_gradOutput, gradOutput->storageOffset + gradOutput->stride[0] * elt, n,
                        avData_weight, weight->storageOffset, m, 0,
                        avData_col, gradColumns->storageOffset, n);
@@ -408,13 +408,13 @@ static int gpunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
 
     // M,N,K are dims of matrix A and B
     // Do GEMM (note: this is a bit confusing because gemm assumes column-major matrices)
-    THGPUBlas_gemm_opt('t', 'n', n, m, k, scale,
+    THGPUBlas_gemm('t', 'n', n, m, k, scale,
                        avData_col, columns->storageOffset, k,
                        avData_gradOutput, gradOutput->storageOffset + gradOutput->stride[0] * elt, k, 1,
                        avData_gradWeight, gradWeight->storageOffset, n);
 
 
-    THGPUBlas_gemv_opt('t', k_, m_, scale,
+    THGPUBlas_gemv('t', k_, m_, scale,
                        avData_gradOutput,
                        gradOutput->storageOffset + gradOutput->stride[0] * elt,
                        avData_ones, ones->storageOffset, 1, 1,

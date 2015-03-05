@@ -5,7 +5,7 @@ INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/gpunn-impl/SpatialPoolingGPU/)
 INCLUDE_DIRECTORIES($ENV{MCWCPPAMPROOT}/cppamp-driver-ng/include)
 
 SET(src
-   THCGeneral.cpp THCAMPBlasImpl.cpp THCBolt.cpp
+   THCGeneral.cpp THCBolt.cpp
    THCStorageCopy.cpp THCBlas.cpp THCStorage.cpp THCTensor.cpp THCTensorCopy.cpp
    THCTensorConv.cpp THCTensorMath.cpp THCTensorRandom.cpp copyHelpers.cpp)
 

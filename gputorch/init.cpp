@@ -85,8 +85,6 @@ int luaopen_libgputorch(lua_State *L)
   lua_newtable(L);
   luaL_register(L, NULL, gputorch_stuff__);
 
-  THGPUInit();
-
   gputorch_GPUStorage_init(L);
   gputorch_GPUTensor_init(L);
   gputorch_GPUTensorMath_init(L);

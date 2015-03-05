@@ -137,7 +137,7 @@ static int gpunn_SpatialConvolutionMM_BHWD_updateOutput(lua_State *L)
     // Do Bias first:
     // M,N,K are dims of matrix A and B
     // Do GEMM (note: this is a bit confusing because gemm assumes column-major matrices)
-    THGPUBlas_gemm_opt('t', 'n', n_, m_, k_, 1,
+    THGPUBlas_gemm('t', 'n', n_, m_, k_, 1,
                        avData_ones, ones->storageOffset, k_,
                        avData_bias, bias->storageOffset, k_, 0,
                        avData_output, output->storageOffset + output->stride[0] * elt, n_);
@@ -151,7 +151,7 @@ static int gpunn_SpatialConvolutionMM_BHWD_updateOutput(lua_State *L)
 
     // M,N,K are dims of matrix A and B
     // Do GEMM (note: this is a bit confusing because gemm assumes column-major matrices)
-    THGPUBlas_gemm_opt('n', 'n', n, m, k, 1,
+    THGPUBlas_gemm('n', 'n', n, m, k, 1,
                        avData_col, columns->storageOffset, n,
                        avData_weight, weight->storageOffset, k, 1,
                        avData_output, output->storageOffset + output->stride[0] * elt, n);

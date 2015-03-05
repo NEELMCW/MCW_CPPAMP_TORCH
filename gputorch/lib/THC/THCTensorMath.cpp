@@ -119,7 +119,7 @@ void THGPUTensor_cadd(THGPUTensor *self_, THGPUTensor* src1, float value, THGPUT
     auto avData_src2 = src2->get_array_view();
     auto avData_self = self->get_array_view();
 
-    THGPUBlas_axpy_opt(THGPUTensor_nElement(self), value,
+    THGPUBlas_axpy(THGPUTensor_nElement(self), value,
                        avData_src2, src2->storageOffset, 1,
                        avData_self, self->storageOffset, 1);
 
@@ -668,7 +668,7 @@ void THGPUTensor_addmv(THGPUTensor *r_, float beta, THGPUTensor *t, float alpha,
   if (mat->stride[0] == 1)
   {
     auto avMat = mat->get_array_view();
-    THGPUBlas_gemv_opt('n', mat->size[0], mat->size[1], alpha,
+    THGPUBlas_gemv('n', mat->size[0], mat->size[1], alpha,
                        avMat, mat->storageOffset + 0,
                        avVec, vec->storageOffset, vec->stride[0], beta,
                        avR_, r_->storageOffset, r_->stride[0], temp_buf);
@@ -676,7 +676,7 @@ void THGPUTensor_addmv(THGPUTensor *r_, float beta, THGPUTensor *t, float alpha,
   else if(mat->stride[1] == 1)
   {
     auto avMat = mat->get_array_view();
-    THGPUBlas_gemv_opt('t', mat->size[1], mat->size[0], alpha,
+    THGPUBlas_gemv('t', mat->size[1], mat->size[0], alpha,
                        avMat, mat->storageOffset + 0,
                        avVec, vec->storageOffset, vec->stride[0], beta,
                        avR_, r_->storageOffset, r_->stride[0], temp_buf);
@@ -685,7 +685,7 @@ void THGPUTensor_addmv(THGPUTensor *r_, float beta, THGPUTensor *t, float alpha,
   {
     THGPUTensor *cmat = THGPUTensor_newContiguous(mat);
     auto avCMat = cmat->get_array_view(); 
-    THGPUBlas_gemv_opt('t', mat->size[1], mat->size[0], alpha,
+    THGPUBlas_gemv('t', mat->size[1], mat->size[0], alpha,
                        avCMat, cmat->storageOffset + 0,
                        avVec, vec->storageOffset, vec->stride[0], beta,
                        avR_, r_->storageOffset, r_->stride[0], temp_buf);
@@ -781,7 +781,7 @@ void THGPUTensor_addmm(THGPUTensor *r_, float beta, THGPUTensor *t, float alpha,
   int m = r__->size[(transpose_r == 'n' ? 1 : 0)];
   int k = m1_->size[(transpose_r == 'n' ? 1 : 0)];
 
-  THGPUBlas_gemm_opt(transpose_m1,
+  THGPUBlas_gemm(transpose_m1,
                    transpose_m2,
                    n,
                    m,
@@ -832,14 +832,14 @@ void THGPUTensor_addr(THGPUTensor *r_, float beta, THGPUTensor *t, float alpha, 
 
   if(r_->stride[0] == 1)
   {
-    THGPUBlas_ger_opt(vec1->size[0], vec2->size[0], alpha,
+    THGPUBlas_ger(vec1->size[0], vec2->size[0], alpha,
                       avData_vec1, vec1->storageOffset, vec1->stride[0],
                       avData_vec2, vec2->storageOffset, vec2->stride[0],
                       avData_r_, r_->storageOffset, r_->stride[1]);
   }
   else if(r_->stride[1] == 1)
   {
-    THGPUBlas_ger_opt(vec2->size[0], vec1->size[0], alpha,
+    THGPUBlas_ger(vec2->size[0], vec1->size[0], alpha,
                       avData_vec2, vec2->storageOffset, vec2->stride[0],
                       avData_vec1, vec1->storageOffset, vec1->stride[0],
                       avData_r_, r_->storageOffset, r_->stride[0]);
@@ -849,7 +849,7 @@ void THGPUTensor_addr(THGPUTensor *r_, float beta, THGPUTensor *t, float alpha, 
     THGPUTensor *cr = THGPUTensor_newClone(r_);
     auto avData_cr = cr->get_array_view();
 
-    THGPUBlas_ger_opt(vec2->size[0], vec1->size[0], alpha,
+    THGPUBlas_ger(vec2->size[0], vec1->size[0], alpha,
                       avData_vec2, vec2->storageOffset, vec2->stride[0],
                       avData_vec1, vec1->storageOffset, vec1->stride[0],
                       avData_cr, cr->storageOffset, cr->stride[0]);
