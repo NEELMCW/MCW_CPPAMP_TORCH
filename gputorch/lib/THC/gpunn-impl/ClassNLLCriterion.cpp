@@ -108,22 +108,22 @@ static int gpunn_ClassNLLCriterion_updateOutput(lua_State *L) {
   THGPUTensor *output = (THGPUTensor *)luaT_getfieldcheckudata(L, 1, "outputTensor", "torch.GPUTensor");
   output = THGPUTensor_newContiguous(output);
 
-  PREPARE_AV(output, pavOutput);
-  PREPARE_AV(input, pavInput);
-  PREPARE_AV(target, pavTarget);
+  auto avOutput = output->get_array_view();
+  auto avInput = input->get_array_view();
+  auto avTarget = target->get_array_view();
 
   if (input->nDimension == 1)
   {
-    gpunn_ClassNLLCriterion_updateOutput_kernel1(*pavOutput, output->storageOffset,
-                                                 *pavInput, input->storageOffset,
-                                                 *pavTarget, target->storageOffset, ntarget);
+    gpunn_ClassNLLCriterion_updateOutput_kernel1(avOutput, output->storageOffset,
+                                                 avInput, input->storageOffset,
+                                                 avTarget, target->storageOffset, ntarget);
   }
   else if (input->nDimension == 2)
   {
     int sizeAverage = luaT_getfieldcheckboolean(L, 1, "sizeAverage");
-    gpunn_ClassNLLCriterion_updateOutput_kernel (*pavOutput, output->storageOffset,
-                                                 *pavInput, input->storageOffset,
-                                                 *pavTarget, target->storageOffset,
+    gpunn_ClassNLLCriterion_updateOutput_kernel (avOutput, output->storageOffset,
+                                                 avInput, input->storageOffset,
+                                                 avTarget, target->storageOffset,
                                                  input->size[0], input->size[1],
                                                  sizeAverage, ntarget);
   }
@@ -151,8 +151,8 @@ static int gpunn_ClassNLLCriterion_updateGradInput(lua_State *L)
   THGPUTensor *gradInput = (THGPUTensor *)luaT_getfieldcheckudata( L, 1, "gradInput", "torch.GPUTensor");
   gradInput = THGPUTensor_newContiguous(gradInput);
 
-  PREPARE_AV(gradInput, pavGradInput);
-  PREPARE_AV(target, pavTarget);
+  auto avGradInput = gradInput->get_array_view();
+  auto avTarget = target->get_array_view();
 
   float grad = -1.0;
   if (input->nDimension == 1)
@@ -174,8 +174,8 @@ static int gpunn_ClassNLLCriterion_updateGradInput(lua_State *L)
     int sizeAverage = luaT_getfieldcheckboolean(L, 1, "sizeAverage");
     if (sizeAverage)
       grad /= nframe;
-    gpunn_ClassNLLCriterion_updateGradInput_kernel(*pavGradInput, gradInput->storageOffset,
-                                                   *pavTarget, target->storageOffset,
+    gpunn_ClassNLLCriterion_updateGradInput_kernel(avGradInput, gradInput->storageOffset,
+                                                   avTarget, target->storageOffset,
                                                    nframe, ndim, grad, ntarget);
   }
   else

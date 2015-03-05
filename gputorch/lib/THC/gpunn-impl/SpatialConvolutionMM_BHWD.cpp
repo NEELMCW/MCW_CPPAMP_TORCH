@@ -115,9 +115,9 @@ static int gpunn_SpatialConvolutionMM_BHWD_updateOutput(lua_State *L)
     THGPUTensor_fill(ones, 1);
   }
 
-  // Helpers
-  PREPARE_AV(columns, avData_col);
-  PREPARE_AV(input, avData_im);
+  auto avData_col = columns->get_array_view();
+  auto avData_im = input->get_array_view();
+  
 
   long m_ = nOutputPlane;
   long n_ = outputHeight * outputWidth;
@@ -126,45 +126,35 @@ static int gpunn_SpatialConvolutionMM_BHWD_updateOutput(lua_State *L)
   long n = columns->size[1];
   long k = weight->size[1];
 
-  PREPARE_AV(ones, avData_ones);
-  PREPARE_AV(bias, avData_bias);
-  PREPARE_AV(output, avData_output);
-  PREPARE_AV(weight, avData_weight);
+  auto avData_ones = ones->get_array_view();
+  auto avData_bias = bias->get_array_view();
+  auto avData_output = output->get_array_view();
+  auto avData_weight = weight->get_array_view();
 
   // For each elt in batch, do:
   for (int elt = 0; elt < batchSize; elt ++)
   {
-    // Matrix mulitply per output:
-    avData_ones->discard_data();
-    avData_bias->discard_data();
-    avData_output->discard_data();
-
     // Do Bias first:
     // M,N,K are dims of matrix A and B
     // Do GEMM (note: this is a bit confusing because gemm assumes column-major matrices)
     THGPUBlas_gemm_opt('t', 'n', n_, m_, k_, 1,
-                       *avData_ones, ones->storageOffset, k_,
-                       *avData_bias, bias->storageOffset, k_, 0,
-                       *avData_output, output->storageOffset + output->stride[0] * elt, n_);
+                       avData_ones, ones->storageOffset, k_,
+                       avData_bias, bias->storageOffset, k_, 0,
+                       avData_output, output->storageOffset + output->stride[0] * elt, n_);
 
-    avData_im->discard_data();
-    avData_col->discard_data();
 
     // Extract columns:
-    imt2col(*avData_im, input->storageOffset, input->stride[0] * elt,
+    imt2col(avData_im, input->storageOffset, input->stride[0] * elt,
             nInputPlane, inputHeight, inputWidth, kH, kW, padding,
-            padding, dH, dW, *avData_col, columns->storageOffset);
+            padding, dH, dW, avData_col, columns->storageOffset);
 
-    avData_col->discard_data();
-    avData_weight->discard_data();
-    avData_output->discard_data();
 
     // M,N,K are dims of matrix A and B
     // Do GEMM (note: this is a bit confusing because gemm assumes column-major matrices)
     THGPUBlas_gemm_opt('n', 'n', n, m, k, 1,
-                       *avData_col, columns->storageOffset, n,
-                       *avData_weight, weight->storageOffset, k, 1,
-                       *avData_output, output->storageOffset + output->stride[0] * elt, n);
+                       avData_col, columns->storageOffset, n,
+                       avData_weight, weight->storageOffset, k, 1,
+                       avData_output, output->storageOffset + output->stride[0] * elt, n);
   }
   return 1;
 }

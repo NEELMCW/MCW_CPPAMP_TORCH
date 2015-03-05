@@ -924,11 +924,11 @@ static int gpunn_SpatialMaxPoolingGPU_updateOutput(lua_State *L)
   
   THGPUTensor_resize4d(output, nInputPlane, nOutputRows, nOutputCols, batchSize);
 
-  PREPARE_AV(input, pavInput);
-  PREPARE_AV(output, pavOutput);
+  auto avInput = input->get_array_view();
+  auto avOutput = output->get_array_view();
 
-  spatialMaxPooling_updateOutput<MaxPooler> (*pavInput, input->storageOffset,
-                                             *pavOutput, output->storageOffset,
+  spatialMaxPooling_updateOutput<MaxPooler> (avInput, input->storageOffset,
+                                             avOutput, output->storageOffset,
                                              nInputPlane, nInputRows, nInputCols,
                                              batchSize, nOutputRows, nOutputCols,
                                              kH, kW, 0, dW);
@@ -957,15 +957,15 @@ static int gpunn_SpatialMaxPoolingGPU_updateGradInput(lua_State *L)
   THGPUTensor_resizeAs(gradInput, input);
   THGPUTensor_zero(gradInput);
 
-  PREPARE_AV(input, pavInput);
-  PREPARE_AV(output, pavOutput);
-  PREPARE_AV(gradInput, pavGradInput);
-  PREPARE_AV(gradOutput, pavGradOutput);
+  auto avInput = input->get_array_view();
+  auto avOutput = output->get_array_view();
+  auto avGradInput = gradInput->get_array_view();
+  auto avGradOutput = gradOutput->get_array_view();
 
-  spatialMaxPooling_updateGradInput (*pavInput, input->storageOffset,
-                                     *pavGradOutput, gradOutput->storageOffset,
-                                     *pavOutput, output->storageOffset,
-                                     *pavGradInput, gradInput->storageOffset,
+  spatialMaxPooling_updateGradInput (avInput, input->storageOffset,
+                                     avGradOutput, gradOutput->storageOffset,
+                                     avOutput, output->storageOffset,
+                                     avGradInput, gradInput->storageOffset,
                                      nInputPlane, nInputRows, nInputCols, batchSize,
                                      nOutputRows, nOutputCols, kH, kW, 0, dW);
     return 1;
