@@ -3,38 +3,8 @@
 
 #include "THCTensor.h"
 #include "THCGeneral.h"
-#include "bolt/amp/functional.h"
-#include "bolt/amp/fill.h"
-#include "bolt/amp/device_vector.h"
-#include "bolt/amp/transform.h"
-#include "bolt/amp/transform_reduce.h"
-#include "bolt/amp/reduce.h"
-#include "bolt/amp/inner_product.h"
-#include "bolt/amp/copy.h"
 #include "amp_math.h"
 
-#ifdef DECLARE_BOLT_DEVICE_VECTOR
-#undef DECLARE_BOLT_DEVICE_VECTOR
-#endif
-#define DECLARE_BOLT_DEVICE_VECTOR(THGPUTensor_ptr, dv_a) \
-  Concurrency::array_view<float, 1> *pav_##THGPUTensor_ptr = \
-    static_cast<Concurrency::array_view<float, 1> *>(THGPUTensor_ptr->storage->allocatorContext);\
-  bolt::amp::device_vector<float> dv_a(*pav_##THGPUTensor_ptr, THGPUTensor_nElement(THGPUTensor_ptr), true);
-
-#ifdef DECLARE_BOLT_DEVICE_VECTOR_2
-#undef DECLARE_BOLT_DEVICE_VECTOR_2
-#endif
-#define DECLARE_BOLT_DEVICE_VECTOR_2(host_1, dv_1, host_2, dv_2) \
-DECLARE_BOLT_DEVICE_VECTOR(host_1, dv_1); \
-DECLARE_BOLT_DEVICE_VECTOR(host_2, dv_2);
-  
-#ifdef DECLARE_BOLT_DEVICE_VECTOR_3
-#undef DECLARE_BOLT_DEVICE_VECTOR_3
-#endif
-#define DECLARE_BOLT_DEVICE_VECTOR_3(host_1, dv_1, host_2, dv_2, host_3, dv_3) \
-DECLARE_BOLT_DEVICE_VECTOR(host_1, dv_1); \
-DECLARE_BOLT_DEVICE_VECTOR(host_2, dv_2); \
-DECLARE_BOLT_DEVICE_VECTOR(host_3, dv_3);
 
 struct addvalue_functor
 {
