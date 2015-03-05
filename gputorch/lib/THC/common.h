@@ -29,7 +29,3 @@
     static_cast<Concurrency::array_view<float, 1> *>(Storage->allocatorContext);\
   av_ptr->discard_data();
 
-#define PREPARE_AV(THGPUTensor_ptr, av_ptr) \
-  Concurrency::array_view<float, 1> *av_ptr = \
-    static_cast<Concurrency::array_view<float, 1> *>(THGPUTensor_ptr->storage->allocatorContext);\
-  av_ptr->discard_data();
