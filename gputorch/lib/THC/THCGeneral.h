@@ -2,12 +2,7 @@
 #define THC_GENERAL_INC
 
 #include "THGeneral.h"
-#include "clBLAS.h"
 #undef log1p
-
-extern cl_device_id mdevice;
-extern cl_context mcontext;
-extern cl_command_queue mqueue;
 
 #ifdef __cplusplus
 # define THC_EXTERNC extern "C"
