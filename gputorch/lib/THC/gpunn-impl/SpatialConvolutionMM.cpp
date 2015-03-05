@@ -2,12 +2,12 @@
 #include "THBlas.h"
 #include "THCBlas.h"
 #include "THCGeneral.h"
-#include "common.h"
 
+#define NUMTHREADS 256 
 // Kernel for fast unfold+copy
 // (borrowed from Caffe: https://github.com/BVLC/caffe/blob/master/src/caffe/layers/conv_layer.cu)
 
-void im2col(Concurrency::array_view<float,1> &avData_im, long imOffset, int inOffset,
+void im2col(Concurrency::array_view<float,1> &avData_im, long imOffset,
             int channels, int height, int width, int ksize_h,
             int ksize_w, int pad_h, int pad_w, int stride_h, int stride_w,
             Concurrency::array_view<float,1> &avData_col, long colOffset)
@@ -16,14 +16,14 @@ void im2col(Concurrency::array_view<float,1> &avData_im, long imOffset, int inOf
   int width_col = (width + 2 * pad_w - ksize_w) / stride_w + 1;
   int n = channels * height_col * width_col;
 
-  unsigned grdSz = (n + 255) & ~255;
+  unsigned grdSz = (n + (NUMTHREADS - 1)) & ~(NUMTHREADS - 1);
   Concurrency::extent<2> grdExt(grdSz, ksize_h);
-  Concurrency::tiled_extent<256, 1> t_ext(grdExt);
+  Concurrency::tiled_extent<NUMTHREADS, 1> t_ext(grdExt);
 
-  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<256, 1> tidx) restrict(amp)
+  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<NUMTHREADS, 1> tidx) restrict(amp)
   {
-    float dataCol = colOffset;
-    float dataIm = imOffset + inOffset;
+    long dataCol = colOffset;
+    long dataIm = imOffset;
     int i = tidx.global[0];
     int p = tidx.global[1];
 
@@ -38,37 +38,14 @@ void im2col(Concurrency::array_view<float,1> &avData_im, long imOffset, int inOf
       int w_in = w_out * stride_w - pad_w;
       dataCol += (channel_out * height_col + h_out) * width_col + w_out;
       dataIm += (channel_in * height + h_in) * width + w_in ;
-      float dataCol_orig = dataCol;
 
-      if(ksize_w == 11)
+      dataCol += height_col * width_col * ksize_w * p;
+      for (int j = 0; j < ksize_w; ++j)
       {
         int h = h_in + p;
-        int w = w_in;
-        int xxx = dataIm + p * width;
-        int STEP = 0;
-        dataCol = dataCol_orig + height_col * width_col * ksize_w * p;
-        avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0; 
-        avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0;
-        avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0;
-        avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0;
-        avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0;
-        avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0;
-        avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0;
-        avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0;
-        avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0;          
-        avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0;
-        avData_col[dataCol + height_col * width_col * STEP++] = (h >= 0 && w >= 0 && h < height && w++ < width) ? avData_im[ xxx++] : 0; 
-      }
-      else
-      {
-        dataCol = dataCol_orig + height_col * width_col * ksize_w * p;
-        for (int j = 0; j < ksize_w; ++j)
-        {
-          int h = h_in + p;
-          int w = w_in + j;
-          avData_col[dataCol] = (h >= 0 && w >= 0 && h < height && w < width) ? avData_im[ dataIm + p * width + j] : 0;
-          dataCol += height_col * width_col;
-        }
+        int w = w_in + j;
+        avData_col[dataCol] = (h >= 0 && w >= 0 && h < height && w < width) ? avData_im[ dataIm + p * width + j] : 0;
+        dataCol += height_col * width_col;
       }
     }
   });
@@ -81,11 +58,11 @@ void col2im_kernel(int n, Concurrency::array_view<float,1> &avData_col, long col
                    Concurrency::array_view<float,1> &avData_im, long imOffset,
                    int inp_stride, int elt)
 {
-  unsigned grdSz = (n + 256) -(n % 256);
+  unsigned grdSz = (n + NUMTHREADS) -(n % NUMTHREADS);
   Concurrency::extent<1> grdExt(grdSz);
-  Concurrency::tiled_extent<256> t_ext(grdExt);
+  Concurrency::tiled_extent<NUMTHREADS> t_ext(grdExt);
 
-  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<256> tidx) restrict(amp)
+  Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<NUMTHREADS> tidx) restrict(amp)
   {
     for (int i = tidx.global[0]; i < (n); i += t_ext[0])
     {
@@ -111,7 +88,6 @@ void col2im_kernel(int n, Concurrency::array_view<float,1> &avData_col, long col
       }
       avData_im[imOffset + i + elt * inp_stride] = val;
     }
-
   });
 }
 
@@ -191,12 +167,12 @@ static int gpunn_SpatialConvolutionMM_updateOutput(lua_State *L)
   }
 
   // Helpers
-  PREPARE_AV(columns, avData_col);
-  PREPARE_AV(input, avData_im);
-  PREPARE_AV(ones, avData_ones);
-  PREPARE_AV(bias, avData_bias);
-  PREPARE_AV(output, avData_output);
-  PREPARE_AV(weight, avData_weight);
+  auto avData_col = columns->get_array_view();
+  auto avData_im = input->get_array_view();
+  auto avData_ones = ones->get_array_view();
+  auto avData_bias = bias->get_array_view();
+  auto avData_output = output->get_array_view();
+  auto avData_weight = weight->get_array_view();
 
   long m_ = nOutputPlane;
   long n_ = outputHeight * outputWidth;
@@ -209,37 +185,28 @@ static int gpunn_SpatialConvolutionMM_updateOutput(lua_State *L)
   for (int elt = 0; elt < batchSize; elt ++)
   {
     // Matrix mulitply per output:
-    avData_ones->discard_data();
-    avData_bias->discard_data();
-    avData_output->discard_data();
-
     // Do Bias first:
     // M,N,K are dims of matrix A and B
     // Do GEMM (note: this is a bit confusing because gemm assumes column-major matrices)
     // Ugly codes but it is the way to deal with unnecessary copying from host
-    THGPUBlas_gemm_opt('t', 'n', n_, m_, k_, 1,
-                       *avData_ones, ones->storageOffset, k_,
-                       *avData_bias, bias->storageOffset, k_, 0,
-                       *avData_output, output->storageOffset + output->stride[0] * elt, n_);
+    THGPUBlas_gemm('t', 'n', n_, m_, k_, 1,
+                       avData_ones, ones->storageOffset, k_,
+                       avData_bias, bias->storageOffset, k_, 0,
+                       avData_output, output->storageOffset + output->stride[0] * elt, n_);
 
-    avData_im->discard_data();
-    avData_col->discard_data();
 
     // Extract columns:
-    im2col(*avData_im, input->storageOffset, input->stride[0] * elt,
+    im2col(avData_im, input->storageOffset + input->stride[0] * elt,
            nInputPlane, inputHeight, inputWidth, kH, kW, padding,
-           padding, dH, dW, *avData_col, columns->storageOffset);
+           padding, dH, dW, avData_col, columns->storageOffset);
 
-    avData_col->discard_data();
-    avData_weight->discard_data();
-    avData_output->discard_data();
 
     // M,N,K are dims of matrix A and B
     // Do GEMM (note: this is a bit confusing because gemm assumes column-major matrices)
-    THGPUBlas_gemm_opt('n', 'n', n, m, k, 1,
-                       *avData_col, columns->storageOffset, n,
-                       *avData_weight, weight->storageOffset, k, 1,
-                       *avData_output, output->storageOffset + output->stride[0] * elt, n);
+    THGPUBlas_gemm('n', 'n', n, m, k, 1,
+                       avData_col, columns->storageOffset, n,
+                       avData_weight, weight->storageOffset, k, 1,
+                       avData_output, output->storageOffset + output->stride[0] * elt, n);
   }
   // Resize output
   if (batch == 0)
@@ -294,11 +261,10 @@ static int gpunn_SpatialConvolutionMM_updateGradInput(lua_State *L)
   // Resize temporary columns
   THGPUTensor_resize2d(gradColumns, nInputPlane*kW*kH, outputHeight*outputWidth);
 
-  // Helpers
-  PREPARE_AV(gradColumns, avData_col);
-  PREPARE_AV(gradInput, avData_im);
-  PREPARE_AV(gradOutput, avData_gradOutput);
-  PREPARE_AV(weight, avData_weight);
+  auto avData_col = gradColumns->get_array_view();
+  auto avData_im = gradInput->get_array_view();
+  auto avData_gradOutput = gradOutput->get_array_view();
+  auto avData_weight = weight->get_array_view();
 
   long m = weight->size[1];
   long n = gradColumns->size[1];
@@ -308,25 +274,19 @@ static int gpunn_SpatialConvolutionMM_updateGradInput(lua_State *L)
   for (int elt = 0; elt < batchSize; elt ++)
   {
     // Matrix mulitply per sample:
-    avData_gradOutput->discard_data();
-    avData_weight->discard_data();
-    avData_col->discard_data();
-
     // M,N,K are dims of matrix A and B
     // Do GEMM (note: this is a bit confusing because gemm assumes column-major matrices)
     // Ugly codes but it is the way to deal with unnecessary copying from host
-    THGPUBlas_gemm_opt('n', 't', n, m, k, 1,
-                       *avData_gradOutput, gradOutput->storageOffset + gradOutput->stride[0] * elt, n,
-                       *avData_weight, weight->storageOffset, m, 0,
-                       *avData_col, gradColumns->storageOffset, n);
+    THGPUBlas_gemm('n', 't', n, m, k, 1,
+                       avData_gradOutput, gradOutput->storageOffset + gradOutput->stride[0] * elt, n,
+                       avData_weight, weight->storageOffset, m, 0,
+                       avData_col, gradColumns->storageOffset, n);
 
-    avData_col->discard_data();
-    avData_im->discard_data();
 
     // Unpack columns back into input:
-    col2im(*avData_col, gradColumns->storageOffset,  nInputPlane,
+    col2im(avData_col, gradColumns->storageOffset,  nInputPlane,
            inputHeight, inputWidth, kH, kW, padding, padding, dH, dW,
-           *avData_im, gradInput->storageOffset, gradInput->stride[0], elt);
+           avData_im, gradInput->storageOffset, gradInput->stride[0], elt);
   }
 
   // Resize output
@@ -389,63 +349,53 @@ static int gpunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
   // Resize temporary columns
   THGPUTensor_resize2d(columns, nInputPlane*kW*kH, outputHeight*outputWidth);
 
-  // Helpers
   long m = gradWeight->size[0];
   long n = gradWeight->size[1];
   long k = columns->size[1];
   long m_ = nOutputPlane;
   long k_ = outputHeight * outputWidth;
   
-  PREPARE_AV(columns, avData_col);
-  PREPARE_AV(input, avData_im);
-  PREPARE_AV(gradOutput, avData_gradOutput);
-  PREPARE_AV(gradWeight, avData_gradWeight);
-  PREPARE_AV(ones, avData_ones);
-  PREPARE_AV(gradBias, avData_gradBias);
+
+  auto avData_col = columns->get_array_view();
+  auto avData_im = input->get_array_view();
+  auto avData_gradOutput = gradOutput->get_array_view();
+  auto avData_gradWeight = gradWeight->get_array_view();
+  auto avData_ones = ones->get_array_view();
+  auto avData_gradBias = gradBias->get_array_view();
 
   int lenX = k_;
   int lenY = m_;
-  int len_X = (lenX + 255) & ~255;
-  int numBlocks = len_X / 256;
+  int len_X = (lenX + (NUMTHREADS - 1)) & ~(NUMTHREADS - 1);
+  int numBlocks = len_X / NUMTHREADS;
 
   float* tempBuf = (float*)malloc(numBlocks * lenY * sizeof(float));
   Concurrency::extent<1> ext(numBlocks * lenY);
   Concurrency::array_view<float,1> temp_buf(ext, tempBuf);
 
-  numBlocks = ((k + 255) & ~255) / 256;
+  numBlocks = ((k + (NUMTHREADS - 1)) & ~(NUMTHREADS - 1)) / NUMTHREADS;
 
   // For each elt in batch, do:
   for (int elt = 0; elt < batchSize; elt ++)
   {
-    avData_im->discard_data();
-    avData_col->discard_data();
-
     // Extract columns:
     // Ugly codes but it is the way to deal with unnecessary copying from host
-    im2col(*avData_im, input->storageOffset, input->stride[0] * elt,
+    im2col(avData_im, input->storageOffset + input->stride[0] * elt,
           nInputPlane, inputHeight, inputWidth, kH, kW, padding, padding,
-          dH, dW, *avData_col, columns->storageOffset);
-
-    avData_col->discard_data();
-    avData_gradOutput->discard_data();
-    avData_gradWeight->discard_data();
+          dH, dW, avData_col, columns->storageOffset);
 
     // M,N,K are dims of matrix A and B
     // Do GEMM (note: this is a bit confusing because gemm assumes column-major matrices)
-    THGPUBlas_gemm_opt('t', 'n', n, m, k, scale,
-                       *avData_col, columns->storageOffset, k,
-                       *avData_gradOutput, gradOutput->storageOffset + gradOutput->stride[0] * elt, k, 1,
-                       *avData_gradWeight, gradWeight->storageOffset, n);
+    THGPUBlas_gemm('t', 'n', n, m, k, scale,
+                       avData_col, columns->storageOffset, k,
+                       avData_gradOutput, gradOutput->storageOffset + gradOutput->stride[0] * elt, k, 1,
+                       avData_gradWeight, gradWeight->storageOffset, n);
 
-    avData_ones->discard_data();
-    avData_gradBias->discard_data();
-    temp_buf.discard_data();
 
-    THGPUBlas_gemv_opt('t', k_, m_, scale,
-                       *avData_gradOutput,
+    THGPUBlas_gemv('t', k_, m_, scale,
+                       avData_gradOutput,
                        gradOutput->storageOffset + gradOutput->stride[0] * elt,
-                       *avData_ones, ones->storageOffset, 1, 1,
-                       *avData_gradBias, gradBias->storageOffset, 1, temp_buf);
+                       avData_ones, ones->storageOffset, 1, 1,
+                       avData_gradBias, gradBias->storageOffset, 1, temp_buf);
   }
 
   // Resize

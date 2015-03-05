@@ -6,7 +6,7 @@ source = {
 }
 
 description = {
-   summary = "Torch CUDA Implementation",
+   summary = "Torch GPU Implementation",
    detailed = [[
    ]],
    homepage = "https://github.com/torch/clamptorch",

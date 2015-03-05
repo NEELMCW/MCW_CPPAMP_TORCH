@@ -1,5 +1,5 @@
-#ifndef TH_CUDA_TENSOR_RANDOM_INC
-#define TH_CUDA_TENSOR_RANDOM_INC
+#ifndef TH_GPU_TENSOR_RANDOM_INC
+#define TH_GPU_TENSOR_RANDOM_INC
 
 #include "THCTensor.h"
 #include <random>

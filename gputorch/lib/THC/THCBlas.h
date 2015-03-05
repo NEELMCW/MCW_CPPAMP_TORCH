@@ -2,7 +2,6 @@
 #define THC_BLAS_INC
 
 #include "THCGeneral.h"
-#include "THCAMPBlasImpl.h"
 
 #undef TH_API
 #define TH_API THC_API
@@ -27,23 +26,23 @@
 
 #include "amp.h"
 
-void THGPUBlas_gemv_opt(char trans, long m, long n, float alpha,
+void THGPUBlas_gemv(char trans, long m, long n, float alpha,
                         Concurrency::array_view<float> &a, long aOffset,
                         Concurrency::array_view<float> &x, long xOffset, long incx, float beta,
                         Concurrency::array_view<float> &y, long yOffset, long incy,
                         Concurrency::array_view<float> &temp_buf);
 
-void THGPUBlas_gemm_opt(char transa, char transb,
-                        long m, long n, long k, float alpha,
+void THGPUBlas_gemm(char transa, char transb,
+                        const long m, const long n, const long k, const float alpha,
                         Concurrency::array_view<float> &a, long aOffset, long lda,
-                        Concurrency::array_view<float> &b, long bOffset, long ldb, float beta,
+                        Concurrency::array_view<float> &b, long bOffset, long ldb, const float beta,
                         Concurrency::array_view<float> &c, long cOffset, long ldc);
 
-void THGPUBlas_axpy_opt(long n, float a,
+void THGPUBlas_axpy(long n, float a,
                         Concurrency::array_view<float> &x, long xOffset, long incx,
                         Concurrency::array_view<float> &y, long yOffset, long incy);
 
-void THGPUBlas_ger_opt(long m, long n, float alpha,
+void THGPUBlas_ger(long m, long n, float alpha,
                        Concurrency::array_view<float> &x, long xOffset, long incx,
                        Concurrency::array_view<float> &y, long yOffset, long incy,
                        Concurrency::array_view<float> &a, long aOffset, long lda);

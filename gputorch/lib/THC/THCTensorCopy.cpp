@@ -3,7 +3,6 @@
 #include "THGeneral.h"
 #include "THCTensor.h"
 #include <iostream>
-#include "common.h"
 #include "amp_math.h"
 #include "THCBolt.h"
 #include "copyHelpers.h"
@@ -188,13 +187,9 @@ void THGPUTensor_kernel_copy(Concurrency::array_view<float>& av_dst, long dstOff
     long y = t_ext.tile_dim1;
     #endif
     long k = (tidx.tile[0] * (t_ext[2] / t_ext.tile_dim2) * (t_ext[1] / t_ext.tile_dim1) + tidx.tile[1] * (t_ext[2] / t_ext.tile_dim2) + tidx.tile[2] ) * t_ext.tile_dim1 + tidx.local[1];
-    //long i_start = threadIdx.x * src_st[src_dim-1];
     long i_start = tidx.local[2] * av_src_st[Concurrency::index<1>(src_dim - 1)];
-    //long i_step = blockDim.x * src_st[src_dim-1];
     long i_step = t_ext.tile_dim2 * av_src_st[Concurrency::index<1>(src_dim - 1)]; 
-    //long o_start = threadIdx.x * dst_st[dst_dim-1];
     long o_start = tidx.local[2] * av_dst_st[Concurrency::index<1>(src_dim - 1)];
-    //long o_step = blockDim.x * dst_st[dst_dim-1];
     long o_step = t_ext.tile_dim2 * av_dst_st[Concurrency::index<1>(src_dim - 1)];
     long o_end = innerdim * av_dst_st[Concurrency::index<1>(src_dim - 1)];
 
@@ -274,15 +269,15 @@ THC_API void THGPUTensor_copy(THGPUTensor *self, THGPUTensor *src)
     int number_blocks_dim_y = DIVUP(nblocks, nblocks_x * nblocks_y);
     int nblocks_z = number_blocks_dim_y;
 
-    PREPARE_AV(self, avSelf);
-    PREPARE_AV(src, avSrc);
+    auto avSelf = self->get_array_view();
+    auto avSrc = src->get_array_view();
 
     d_self_sz->discard_data();
     d_self_st->discard_data();
     d_src_sz->discard_data();
     d_src_st->discard_data();
 
-    THGPUTensor_kernel_copy(*avSelf, self->storageOffset, *avSrc, src->storageOffset,
+    THGPUTensor_kernel_copy(avSelf, self->storageOffset, avSrc, src->storageOffset,
                            *d_self_sz, *d_self_st, self_dim,
                            *d_src_sz, *d_src_st, src_dim,
                            size, innermostdim, nblocks_x, nblocks_y, nblocks_z);

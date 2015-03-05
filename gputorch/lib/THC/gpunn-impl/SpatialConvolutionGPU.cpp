@@ -85,11 +85,11 @@ static int gpunn_SpatialConvolutionGPU_updateOutput(lua_State *L)
   luaL_argcheck(L, THGPUTensor_isContiguous(weight), 1, "weight must be contiguous");
   luaL_argcheck(L, THGPUTensor_isContiguous(output), 1, "output must be contiguous");
 
-  PREPARE_AV(input, pavInput);
-  PREPARE_AV(weight, pavWeight);
-  PREPARE_AV(output, pavOutput);
+  auto avInput = input->get_array_view();
+  auto avOutput = output->get_array_view();
+  auto avWeight = weight->get_array_view();
   // convolutions
-  spatialConv_updateOutput(*pavInput, *pavWeight, *pavOutput, nInputPlane, inputHeight, inputWidth,
+  spatialConv_updateOutput(avInput, avWeight, avOutput, nInputPlane, inputHeight, inputWidth,
                           batchSize, nOutputPlane, outputHeight, outputWidth, kH, kW,
                           -floor((double)padding/2), dW, 0, 1, true);
 
@@ -130,11 +130,11 @@ static int gpunn_SpatialConvolutionGPU_updateGradInput(lua_State *L)
   luaL_argcheck(L, THGPUTensor_isContiguous(weight), 1, "weight must be contiguous");
   luaL_argcheck(L, THGPUTensor_isContiguous(gradOutput), 1, "output must be contiguous");
 
-  PREPARE_AV(gradInput, pavGradInput);
-  PREPARE_AV(gradOutput, pavGradOutput);
-  PREPARE_AV(weight, pavWeight);
+  auto avGradInput = gradInput->get_array_view();
+  auto avGradOutput = gradOutput->get_array_view();
+  auto avWeight = weight->get_array_view();
   // convolutions
-  spatialConv_updateGradInput(*pavGradOutput, *pavWeight, *pavGradInput, nInputPlane, inputHeight,
+  spatialConv_updateGradInput(avGradOutput, avWeight, avGradInput, nInputPlane, inputHeight,
                              inputWidth, batchSize, nOutputPlane, outputHeight, outputWidth, kH, kW,
                              -floor((double)padding/2), dW, 0, 1, true);
 
@@ -182,11 +182,11 @@ static int gpunn_SpatialConvolutionGPU_accGradParameters(lua_State *L)
   luaL_argcheck(L, THGPUTensor_isContiguous(gradWeight), 1, "weight must be contiguous");
   luaL_argcheck(L, THGPUTensor_isContiguous(gradOutput), 1, "output must be contiguous");
 
-  PREPARE_AV(input, pavInput);
-  PREPARE_AV(gradOutput, pavGradOutput);
-  PREPARE_AV(gradWeight, pavGradWeight);
+  auto avInput = input->get_array_view();
+  auto avGradOutput = gradOutput->get_array_view();
+  auto avGradWeight = gradWeight->get_array_view();
   // convolutions
-  spatialConv_accGradParameters(*pavInput, *pavGradOutput, *pavGradWeight, nInputPlane, inputHeight,
+  spatialConv_accGradParameters(avInput, avGradOutput, avGradWeight, nInputPlane, inputHeight,
                                inputWidth, batchSize, nOutputPlane, outputHeight, outputWidth, kH, kW,
                                -floor((double)padding/2), dW, 0, scale, partialSum);
 

@@ -23,8 +23,8 @@
 
 /*
  * Each block computes weight gradients for B_Y * pixelsPerThread pixels and B_X filters
- * threadIdx.x determines filter
- * threadIdx.y determines pixel in filter
+ * tidx.local[1] determines filter
+ * tidx.local[0] determines pixel in filter
  *
  * blockIdx.x determines filter batch of B_X, module batch of partialSum
  * blockIdx.y determines pixel batch of B_Y * pixelsPerThread
@@ -226,8 +226,8 @@ void conv_weight_acts_c(Concurrency::array_view<float, 1> &avImages,
 
 /*
  * Each block computes weight gradients for B_Y pixels and B_X * filtersPerThread filters
- * threadIdx.x determines filter
- * threadIdx.y determines pixel in filter
+ * tidx.local[1] determines filter
+ * tidx.local[0] determines pixel in filter
  *
  * blockIdx.x determines filter batch of B_X * filtersPerThread, module batch of partialSum
  * blockIdx.y determines pixel, color batch of B_Y * colorsPerThread

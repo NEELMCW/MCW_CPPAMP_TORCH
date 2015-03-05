@@ -2,10 +2,9 @@
 #include "THCTensorCopy.h"
 #include "THCTensorMath.h"
 #include "THCGeneral.h"
-#include "common.h"
 #include <stdio.h>
 
-#define CUDA_SHARED_MEM_SIZE (8*1024-32)
+#define GPU_SHARED_MEM_SIZE (8*1024-32)
 
 #define FOR_KERNEL_SPECIALIZED_DIMENSION(ROWS, COLUMNS, KERNEL) \
   if ((ROWS) == (COLUMNS))                                      \
@@ -81,10 +80,10 @@ void THGPUTensor_kernel_conv2generic(Concurrency::array_view<float, 1> &input_da
     int oo, ii, xx, yy, kx, ky, kk;
 
     // do the kernels fit in shared mem ?
-    if (input_n * kernel_w * kernel_h <= CUDA_SHARED_MEM_SIZE)
+    if (input_n * kernel_w * kernel_h <= GPU_SHARED_MEM_SIZE)
     {
       // put the kernel in shared memory
-      tile_static float shared_kernel[CUDA_SHARED_MEM_SIZE];
+      tile_static float shared_kernel[GPU_SHARED_MEM_SIZE];
 
       // first thread of each block does the copy
       for (kk = tid; kk < kernel_w * kernel_h * input_n; kk += nthreads)
@@ -330,18 +329,18 @@ void THGPUTensor_conv2Dmv(THGPUTensor *output, float beta, THGPUTensor *t_,
   int yblocks = (int)(16L / nOutputPlane);
   yblocks = yblocks < 1 ? 1 : yblocks;
 
-  PREPARE_AV(input, pavInput);
-  PREPARE_AV(kernel, pavKernel);
-  PREPARE_AV(output, pavOutput);
+  auto avInput = input->get_array_view();
+  auto avKernel = kernel->get_array_view();
+  auto avOutput = output->get_array_view();
 
   // convolution: xcorr2 or conv2
   if (type[1] == 'X')
   {
 #define X_CONV_KERNEL(dim)                                              \
     THGPUTensor_kernel_conv2generic <false, (dim), (dim)>(              \
-        *pavInput, input->storageOffset,                                \
-        *pavKernel, kernel->storageOffset,                              \
-        *pavOutput, output->storageOffset,                              \
+        avInput, input->storageOffset,                                \
+        avKernel, kernel->storageOffset,                              \
+        avOutput, output->storageOffset,                              \
         nInputPlane, nInputRows, nInputCols,                            \
         nOutputPlane*nInputPlane, nKernelRows, nKernelCols,             \
         srow, scol, nOutputPlane, yblocks);                             \
@@ -353,9 +352,9 @@ void THGPUTensor_conv2Dmv(THGPUTensor *output, float beta, THGPUTensor *t_,
   { // 'c'
 #define C_CONV_KERNEL(dim)                                              \
     THGPUTensor_kernel_conv2generic <true, (dim), (dim)>(               \
-        *pavInput, input->storageOffset,                                \
-        *pavKernel, kernel->storageOffset,                              \
-        *pavOutput, output->storageOffset,                              \
+        avInput, input->storageOffset,                                \
+        avKernel, kernel->storageOffset,                              \
+        avOutput, output->storageOffset,                              \
         nInputPlane, nInputRows, nInputCols,                            \
         nOutputPlane*nInputPlane, nKernelRows, nKernelCols,             \
         srow, scol, nOutputPlane, yblocks);                             \
@@ -461,18 +460,18 @@ void THGPUTensor_conv2Dmm(THGPUTensor *output, float beta, THGPUTensor *t_,
   int yblocks = (int)(16L / nOutputPlane);
   yblocks = yblocks < 1 ? 1 : yblocks;
 
-  PREPARE_AV(input, pavInput);
-  PREPARE_AV(kernel, pavKernel);
-  PREPARE_AV(output, pavOutput);
+  auto avInput = input->get_array_view();
+  auto avKernel = kernel->get_array_view();
+  auto avOutput = output->get_array_view();
 
   // convolution: xcorr2 or conv2
   if (type[1] == 'X')
   {
 #define X_CONV_KERNEL(dim)                                              \
     THGPUTensor_kernel_conv2generic <false, (dim), (dim)>(              \
-        *pavInput, input->storageOffset,                                \
-        *pavKernel, kernel->storageOffset,                              \
-        *pavOutput, output->storageOffset,                              \
+        avInput, input->storageOffset,                                \
+        avKernel, kernel->storageOffset,                              \
+        avOutput, output->storageOffset,                              \
         nInputPlane, nInputRows, nInputCols,                            \
         nOutputPlane*nInputPlane, nKernelRows, nKernelCols,             \
         srow, scol, nOutputPlane, yblocks);
@@ -485,9 +484,9 @@ void THGPUTensor_conv2Dmm(THGPUTensor *output, float beta, THGPUTensor *t_,
   { // 'c'
 #define C_CONV_KERNEL(dim)                                              \
     THGPUTensor_kernel_conv2generic <true, (dim), (dim)>(               \
-        *pavInput, input->storageOffset,                                \
-        *pavKernel, kernel->storageOffset,                              \
-        *pavOutput, output->storageOffset,                              \
+        avInput, input->storageOffset,                                \
+        avKernel, kernel->storageOffset,                              \
+        avOutput, output->storageOffset,                              \
         nInputPlane, nInputRows, nInputCols,                            \
         nOutputPlane*nInputPlane, nKernelRows, nKernelCols,             \
         srow, scol, nOutputPlane, yblocks);                             \
@@ -515,12 +514,15 @@ void THGPUTensor_kernel_conv2genericrev(THGPUTensor *input, THGPUTensor *kernel,
   Concurrency::extent<3> copyExt(1, nInputPlane * 16, nKernelPlane * 16);
   Concurrency::tiled_extent<1, 16, 16> t_ext(copyExt);
   Concurrency::array_view<float, 1>input_data(Concurrency::extent<1>(input->storage->size), THGPUTensor_data(input));
+  // Device data is up to date and host data can be discarded
   input_data.discard_data();
   long inOffset = input->storageOffset;
   Concurrency::array_view<float, 1>kernel_data(Concurrency::extent<1>(kernel->storage->size), THGPUTensor_data(kernel));
+  // Device data is up to date and host data can be discarded
   kernel_data.discard_data();
   long kernelOffset = kernel->storageOffset;
   Concurrency::array_view<float, 1>output_o(Concurrency::extent<1>(output->storage->size), THGPUTensor_data(output));
+  // Device data is up to date and host data can be discarded
   output_o.discard_data();
   long outOffset = output->storageOffset;
 
@@ -550,7 +552,7 @@ void THGPUTensor_kernel_conv2genericrev(THGPUTensor *input, THGPUTensor *kernel,
     output_data += (kk * input_n + ii) * output_h * output_w;
 
     // put the output in shared memory
-    tile_static float shared_output[CUDA_SHARED_MEM_SIZE];
+    tile_static float shared_output[GPU_SHARED_MEM_SIZE];
 
     // generate tid outputs in shared memory
     float *output_s = shared_output + tid * output_w * output_h;
@@ -802,10 +804,10 @@ void THGPUTensor_kernel_conv2mapgeneric(Concurrency::array_view<float, 1> &input
     int oo, ii, xx, yy, kx, ky, kk;
     // do the kernels fit in shared mem ?
 
-    if (kernel_w*kernel_h*kernel_n <= CUDA_SHARED_MEM_SIZE)
+    if (kernel_w*kernel_h*kernel_n <= GPU_SHARED_MEM_SIZE)
     {
       // put the kernel in shared memory
-      tile_static float shared_kernel[CUDA_SHARED_MEM_SIZE];
+      tile_static float shared_kernel[GPU_SHARED_MEM_SIZE];
 
       // first thread of each block does the copy
       for (kk = tid; kk < kernel_w * kernel_h * kernel_n; kk += nthreads)
@@ -987,7 +989,6 @@ void THGPUTensor_conv2Dmap(THGPUTensor *output, THGPUTensor *input,
   nKernelRows  = kernel->size[1];
   nKernelCols  = kernel->size[2];
   nOutputPlane = kernel->size[0] / fanin;
-  // THArgCheck(kernel->size[1] == nInputPlane, 2, "invalid number of input planes");
 
   THArgCheck( (nInputRows >= nKernelRows && nInputCols >= nKernelCols), 2,
               "conv2Dmap : Input image is smaller than kernel");
@@ -996,7 +997,6 @@ void THGPUTensor_conv2Dmap(THGPUTensor *output, THGPUTensor *input,
   nOutputRows = (nInputRows - nKernelRows) / stride_y + 1;
   nOutputCols = (nInputCols - nKernelCols) / stride_x + 1;
 
-  // long nelem = THCudaTensor_nElement(state, output);
   THGPUTensor_resize3d(output, nOutputPlane, nOutputRows, nOutputCols);
 
   // set the number of blocks and threads
@@ -1008,20 +1008,20 @@ void THGPUTensor_conv2Dmap(THGPUTensor *output, THGPUTensor *input,
   if (block_height < 1)
     block_height = 1;
 
-  PREPARE_AV(input, pavInput);
-  PREPARE_AV(kernel, pavKernel);
-  PREPARE_AV(output, pavOutput);
-  PREPARE_AV(table, pavTable);
+  auto avInput = input->get_array_view();
+  auto avKernel = kernel->get_array_view();
+  auto avOutput = output->get_array_view();
+  auto avTable = table->get_array_view();
 
 #define GENERIC_MAP_KERNEL(dim)                                     \
   THGPUTensor_kernel_conv2mapgeneric <false, (dim), (dim)>(         \
-      *pavInput, input->storageOffset,                              \
-      *pavKernel, kernel->storageOffset,                            \
-      *pavOutput, output->storageOffset,                            \
+      avInput, input->storageOffset,                              \
+      avKernel, kernel->storageOffset,                            \
+      avOutput, output->storageOffset,                            \
       nInputPlane, nInputRows,                                      \
       nInputCols, nOutputPlane*fanin, nKernelRows, nKernelCols,     \
       stride_x, stride_y,                                           \
-      *pavTable, table->storageOffset, fanin, nOutputPlane, block_height);
+      avTable, table->storageOffset, fanin, nOutputPlane, block_height);
 
   FOR_KERNEL_SPECIALIZED_DIMENSION(nKernelCols, nKernelRows, GENERIC_MAP_KERNEL);
 #undef GENERIC_MAP_KERNEL

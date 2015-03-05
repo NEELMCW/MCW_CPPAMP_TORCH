@@ -235,13 +235,13 @@ static int gpunn_SpatialMaxPooling_updateOutput(lua_State *L)
     int xblocks = nInputPlane;
     
     // no need to sync from host for input & output & indices array_view
-    PREPARE_AV(input, pavInput);
-    PREPARE_AV(output, pavOutput);
-    PREPARE_AV(indices, pavIndices);
+    auto avInput = input->get_array_view();
+    auto avOutput = output->get_array_view();
+    auto avIndices = indices->get_array_view();
 
     // run maxpool kernel
-    maxpool(*pavInput, input->storageOffset, *pavOutput, output->storageOffset,
-            *pavIndices, indices->storageOffset, nOutputCols, nOutputRows, nInputPlane,
+    maxpool(avInput, input->storageOffset, avOutput, output->storageOffset,
+            avIndices, indices->storageOffset, nOutputCols, nOutputRows, nInputPlane,
             nInputRows, nInputCols, kH, kW, dH, dW, xblocks, yblocks);
   }
   else
@@ -265,13 +265,13 @@ static int gpunn_SpatialMaxPooling_updateOutput(lua_State *L)
     int xblocks = nInputPlane * nbatch;
 
     // no need to sync from host for input & output & indices array_view
-    PREPARE_AV(input, pavInput);
-    PREPARE_AV(output, pavOutput);
-    PREPARE_AV(indices, pavIndices);
+    auto avInput = input->get_array_view();
+    auto avOutput = output->get_array_view();
+    auto avIndices = indices->get_array_view();
     
     // run maxpool kernel
-    maxpool(*pavInput, input->storageOffset, *pavOutput, output->storageOffset,
-            *pavIndices, indices->storageOffset, nOutputCols, nOutputRows, nInputPlane,
+    maxpool(avInput, input->storageOffset, avOutput, output->storageOffset,
+            avIndices, indices->storageOffset, nOutputCols, nOutputRows, nInputPlane,
             nInputRows, nInputCols, kH, kW, dH, dW, xblocks, yblocks);
   }
 
@@ -313,15 +313,15 @@ static int gpunn_SpatialMaxPooling_updateGradInput(lua_State *L)
     yblocks = yblocks < 1 ? 1 : yblocks;
     int xblocks = nInputPlane;
 
-    PREPARE_AV(gradInput, pavGradInput);
-    PREPARE_AV(gradOutput, pavGradOutput);
-    PREPARE_AV(indices, pavIndices);
+    auto avGradInput = gradInput->get_array_view();
+    auto avGradOutput = gradOutput->get_array_view();
+    auto avIndices = indices->get_array_view();
 
     if(atomic)
     {
-      atomicmaxgradinput(*pavGradInput, gradInput->storageOffset,
-                         *pavGradOutput, gradOutput->storageOffset,
-                         *pavIndices, indices->storageOffset,
+      atomicmaxgradinput(avGradInput, gradInput->storageOffset,
+                         avGradOutput, gradOutput->storageOffset,
+                         avIndices, indices->storageOffset,
                          nOutputCols, nOutputRows, nInputPlane,
                          nInputRows, nInputCols,
                          kH, kW, dH, dW, xblocks, yblocks);
@@ -329,9 +329,9 @@ static int gpunn_SpatialMaxPooling_updateGradInput(lua_State *L)
     else
     {
       // run updateGradInput kernel
-      maxgradinput(*pavGradInput, gradInput->storageOffset,
-                   *pavGradOutput, gradOutput->storageOffset,
-                   *pavIndices, indices->storageOffset,
+      maxgradinput(avGradInput, gradInput->storageOffset,
+                   avGradOutput, gradOutput->storageOffset,
+                   avIndices, indices->storageOffset,
                    nOutputCols, nOutputRows, nInputPlane,
                    nInputRows, nInputCols,
                    kH, kW, dH, dW, xblocks, yblocks);
@@ -349,9 +349,9 @@ static int gpunn_SpatialMaxPooling_updateGradInput(lua_State *L)
     THGPUTensor_resizeAs(gradInput, input);
     THGPUTensor_zero(gradInput);
 
-    PREPARE_AV(gradInput, pavGradInput);
-    PREPARE_AV(gradOutput, pavGradOutput);
-    PREPARE_AV(indices, pavIndices);
+    auto avGradInput = gradInput->get_array_view();
+    auto avGradOutput = gradOutput->get_array_view();
+    auto avIndices = indices->get_array_view();
 
     // blocks & threads:
     int yblocks = (int)(16L / nInputPlane);
@@ -361,9 +361,9 @@ static int gpunn_SpatialMaxPooling_updateGradInput(lua_State *L)
     if(atomic)
     {
       // run updateGradInput kernel, accumulate gradients atomically
-      atomicmaxgradinput(*pavGradInput, gradInput->storageOffset,
-                         *pavGradOutput, gradOutput->storageOffset,
-                         *pavIndices, indices->storageOffset,
+      atomicmaxgradinput(avGradInput, gradInput->storageOffset,
+                         avGradOutput, gradOutput->storageOffset,
+                         avIndices, indices->storageOffset,
                          nOutputCols, nOutputRows, nInputPlane,
                          nInputRows, nInputCols,
                          kH, kW, dH, dW, xblocks, yblocks);
@@ -371,9 +371,9 @@ static int gpunn_SpatialMaxPooling_updateGradInput(lua_State *L)
     else
     {
       // run updateGradInput kernel, accumulate gradients atomically
-      maxgradinput(*pavGradInput, gradInput->storageOffset,
-                   *pavGradOutput, gradOutput->storageOffset,
-                   *pavIndices, indices->storageOffset,
+      maxgradinput(avGradInput, gradInput->storageOffset,
+                   avGradOutput, gradOutput->storageOffset,
+                   avIndices, indices->storageOffset,
                    nOutputCols, nOutputRows, nInputPlane,
                    nInputRows, nInputCols,
                    kH, kW, dH, dW, xblocks, yblocks);

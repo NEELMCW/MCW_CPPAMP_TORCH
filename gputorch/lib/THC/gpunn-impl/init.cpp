@@ -1,7 +1,6 @@
 #include "luaT.h"
 #include "THC.h"
 #include "THLogAdd.h" /* DEBUG: WTF */
-#include "common.h"
 
 #include "HardTanh.cpp"
 #include "L1Cost.cpp"

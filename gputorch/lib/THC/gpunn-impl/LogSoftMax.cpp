@@ -121,19 +121,19 @@ static int gpunn_LogSoftMax_updateOutput(lua_State *L)
   input = THGPUTensor_newContiguous(input);
   THGPUTensor_resizeAs(output, input);
 
-  PREPARE_AV(output, pavOutput);
-  PREPARE_AV(input, pavInput);
+  auto avOutput = output->get_array_view();
+  auto avInput = input->get_array_view();
 
   if (input->nDimension == 1)
   {
-    gpunn_LogSoftMax_updateOutput_kernel(*pavOutput, output->storageOffset,
-                                         *pavInput, input->storageOffset,
+    gpunn_LogSoftMax_updateOutput_kernel(avOutput, output->storageOffset,
+                                         avInput, input->storageOffset,
                                          1, input->size[0]);
   }
   else if (input->nDimension == 2)
   {
-    gpunn_LogSoftMax_updateOutput_kernel(*pavOutput, output->storageOffset,
-                                         *pavInput, input->storageOffset,
+    gpunn_LogSoftMax_updateOutput_kernel(avOutput, output->storageOffset,
+                                         avInput, input->storageOffset,
                                          input->size[0], input->size[1]);
   }
   else
@@ -153,22 +153,23 @@ static int gpunn_LogSoftMax_updateGradInput(lua_State *L)
   gradOutput = THGPUTensor_newContiguous(gradOutput);
 
   THGPUTensor_resizeAs(gradInput, output);
-  PREPARE_AV(gradInput, pavGradInput);
-  PREPARE_AV(gradOutput, pavGradOutput);
-  PREPARE_AV(output, pavOutput);
+
+  auto avGradInput = gradInput->get_array_view();
+  auto avGradOutput = gradOutput->get_array_view();
+  auto avOutput = output->get_array_view();
 
   if (gradInput->nDimension == 1)
   {
-    gpunn_LogSoftMax_updateGradInput_kernel(*pavGradInput, gradInput->storageOffset,
-                                            *pavOutput, output->storageOffset,
-                                            *pavGradOutput, gradOutput->storageOffset,
+    gpunn_LogSoftMax_updateGradInput_kernel(avGradInput, gradInput->storageOffset,
+                                            avOutput, output->storageOffset,
+                                            avGradOutput, gradOutput->storageOffset,
                                             1, gradInput->size[0]);
   }
   else if (gradInput->nDimension == 2)
   {
-    gpunn_LogSoftMax_updateGradInput_kernel (*pavGradInput, gradInput->storageOffset,
-                                             *pavOutput, output->storageOffset,
-                                             *pavGradOutput, gradOutput->storageOffset,
+    gpunn_LogSoftMax_updateGradInput_kernel (avGradInput, gradInput->storageOffset,
+                                             avOutput, output->storageOffset,
+                                             avGradOutput, gradOutput->storageOffset,
                                              gradInput->size[0], gradInput->size[1]);
   }
   else

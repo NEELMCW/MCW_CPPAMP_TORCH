@@ -60,13 +60,13 @@ local function compareFloatAndGPU(x, fn, ...)
    end
    local tolerance = 1e-5
    tester:assert(isEqual(res1_cpu, res1_gpu, tolerance),
-      string.format("Divergent results between CPU and CUDA for function '%s'", tostring(fn)))
+      string.format("Divergent results between CPU and GPU for function '%s'", tostring(fn)))
    tester:assert(isEqual(res2_cpu, res2_gpu, tolerance),
-                 string.format("Divergent results between CPU and CUDA for function '%s'", tostring(fn)))
+                 string.format("Divergent results between CPU and GPU for function '%s'", tostring(fn)))
    tester:assert(isEqual(res3_cpu, res3_gpu, tolerance),
-                 string.format("Divergent results between CPU and CUDA for function '%s'", tostring(fn)))
+                 string.format("Divergent results between CPU and GPU for function '%s'", tostring(fn)))
    tester:assert(isEqual(res4_cpu, res4_gpu, tolerance),
-                 string.format("Divergent results between CPU and CUDA for function '%s'", tostring(fn)))
+                 string.format("Divergent results between CPU and GPU for function '%s'", tostring(fn)))
 end
 
 local function compareFloatAndGPUTensorArgs(x, fn, ...)
@@ -99,13 +99,13 @@ local function compareFloatAndGPUTensorArgs(x, fn, ...)
    end
    local tolerance = 1e-5
    tester:assert(isEqual(res1_cpu, res1_gpu, tolerance),
-                 string.format("Divergent results between CPU and CUDA for function '%s'", fn))
+                 string.format("Divergent results between CPU and GPU for function '%s'", fn))
    tester:assert(isEqual(res2_cpu, res2_gpu, tolerance),
-                 string.format("Divergent results between CPU and CUDA for function '%s'", fn))
+                 string.format("Divergent results between CPU and GPU for function '%s'", fn))
    tester:assert(isEqual(res3_cpu, res3_gpu, tolerance),
-                 string.format("Divergent results between CPU and CUDA for function '%s'", fn))
+                 string.format("Divergent results between CPU and GPU for function '%s'", fn))
    tester:assert(isEqual(res4_cpu, res4_gpu, tolerance),
-                 string.format("Divergent results between CPU and CUDA for function '%s'", fn))
+                 string.format("Divergent results between CPU and GPU for function '%s'", fn))
 end
 
 function test.squeeze()

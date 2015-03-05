@@ -90,13 +90,14 @@ static int gpunn_Min_updateOutput(lua_State *L)
   long nthreads = 256;
   long nblocks = ceil((float)nrows / nthreads);
 
-  PREPARE_AV(input, pavInput);
-  PREPARE_AV(output, pavOutput);
-  PREPARE_AV(indices, pavIndices);
+  auto avInput = input->get_array_view();
+  auto avOutput = output->get_array_view();
+  auto avIndices = indices->get_array_view();
+
   // kernel:
-  min_output(*pavInput, input->storageOffset,
-             *pavOutput, output->storageOffset,
-             *pavIndices, indices->storageOffset,
+  min_output(avInput, input->storageOffset,
+             avOutput, output->storageOffset,
+             avIndices, indices->storageOffset,
              THGPUTensor_nElement(input), THGPUTensor_nElement(output),
              THGPUTensor_nElement(indices), nrows, ncols, nblocks);
 
@@ -125,13 +126,13 @@ static int gpunn_Min_updateGradInput(lua_State *L)
   long nthreads = 256;
   long nblocks = ceil((float)nrows / nthreads);
 
-  PREPARE_AV(gradInput, pavGradInput);
-  PREPARE_AV(gradOutput, pavGradOutput);
-  PREPARE_AV(indices, pavIndices);
+  auto avGradInput = gradInput->get_array_view();
+  auto avGradOutput = gradOutput->get_array_view();
+  auto avIndices = indices->get_array_view();
   // kernel:
-  min_gradInput(*pavGradInput, gradInput->storageOffset,
-                *pavGradOutput, gradOutput->storageOffset,
-                *pavIndices, indices->storageOffset,
+  min_gradInput(avGradInput, gradInput->storageOffset,
+                avGradOutput, gradOutput->storageOffset,
+                avIndices, indices->storageOffset,
                 THGPUTensor_nElement(gradInput),
                 THGPUTensor_nElement(gradOutput), THGPUTensor_nElement(indices),
                 nrows, ncols, nblocks);

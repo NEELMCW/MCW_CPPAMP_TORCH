@@ -90,10 +90,10 @@ static int gpunn_SpatialAveragePooling_updateOutput(lua_State *L)
 
     int xBlocks = nInputPlane;
 
-    PREPARE_AV(input, pavInput);
-    PREPARE_AV(output, pavOutput);
+    auto avInput = input->get_array_view();
+    auto avOutput = output->get_array_view();
     // run subsample kernel
-    subsample (*pavInput, input->storageOffset, *pavOutput, output->storageOffset,
+    subsample (avInput, input->storageOffset, avOutput, output->storageOffset,
                nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW, xBlocks);
   }
   else
@@ -111,10 +111,10 @@ static int gpunn_SpatialAveragePooling_updateOutput(lua_State *L)
 
     int xBlocks = nInputPlane * nbatch;
 
-    PREPARE_AV(input, pavInput);
-    PREPARE_AV(output, pavOutput);
+    auto avInput = input->get_array_view();
+    auto avOutput = output->get_array_view();
     // run subsample kernel
-    subsample (*pavInput, input->storageOffset, *pavOutput, output->storageOffset,
+    subsample (avInput, input->storageOffset, avOutput, output->storageOffset,
                nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW, xBlocks);
   }
 
@@ -206,11 +206,11 @@ static int gpunn_SpatialAveragePooling_updateGradInput(lua_State *L)
 
     int xBlocks = nInputPlane;
 
-    PREPARE_AV(gradInput, pavGradInput);
-    PREPARE_AV(gradOutput, pavGradOutput);
+    auto avGradInput = gradInput->get_array_view();
+    auto avGradOutput = gradOutput->get_array_view();
     // run updateGradInput kernel
-    subgradinput(*pavGradInput, gradInput->storageOffset,
-                 *pavGradOutput, gradOutput->storageOffset,
+    subgradinput(avGradInput, gradInput->storageOffset,
+                 avGradOutput, gradOutput->storageOffset,
                  nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW, xBlocks);
   }
   else
@@ -224,11 +224,11 @@ static int gpunn_SpatialAveragePooling_updateGradInput(lua_State *L)
     THGPUTensor_zero(gradInput);
 
     int xBlocks = nInputPlane * nbatch;
-    PREPARE_AV(gradInput, pavGradInput);
-    PREPARE_AV(gradOutput, pavGradOutput);
+    auto avGradInput = gradInput->get_array_view();
+    auto avGradOutput = gradOutput->get_array_view();
     // run updateGradInput kernel
-    subgradinput(*pavGradInput, gradInput->storageOffset,
-                 *pavGradOutput, gradOutput->storageOffset,
+    subgradinput(avGradInput, gradInput->storageOffset,
+                 avGradOutput, gradOutput->storageOffset,
                  nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW, xBlocks);
   }
   return 1;

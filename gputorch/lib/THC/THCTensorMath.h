@@ -1,5 +1,5 @@
-#ifndef TH_CUDA_TENSOR_MATH_INC
-#define TH_CUDA_TENSOR_MATH_INC
+#ifndef TH_GPU_TENSOR_MATH_INC
+#define TH_GPU_TENSOR_MATH_INC
 
 #include "THCTensor.h"
 #include "THCTensorRandom.h"
@@ -79,9 +79,7 @@ THC_API void THGPUTensor_neTensor(THGPUTensor *self_, THGPUTensor *src1, THGPUTe
 THC_API float THGPUTensor_meanall(THGPUTensor *self);
 THC_API void  THGPUTensor_mean(THGPUTensor *self, THGPUTensor *src, long dim);
 THC_API float THGPUTensor_varall(THGPUTensor *self);
-//THC_API void  THGPUTensor_var(THGPUTensor *self, THGPUTensor *src, long dim, int flag);
 THC_API float THGPUTensor_stdall(THGPUTensor *self);
-//THC_API void  THGPUTensor_std(THGPUTensor *self, THGPUTensor *src, long dim, int flag);
 THC_API float THGPUTensor_normall(THGPUTensor *self, float value);
 THC_API void  THGPUTensor_norm(THGPUTensor* self, THGPUTensor* src, float value, long dimension);
 THC_API void  THGPUTensor_renorm(THGPUTensor* self, THGPUTensor* src, float value, long dimension, float max_norm);

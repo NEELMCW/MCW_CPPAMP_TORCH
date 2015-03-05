@@ -104,8 +104,7 @@ static int gpunn_MultiMarginCriterion_updateOutput(lua_State *L)
   THGPUTensor *input = (THGPUTensor*)luaT_checkudata(L, 2, "torch.GPUTensor");
   int sizeaverage = luaT_getfieldcheckboolean(L, 1, "sizeAverage");
   input = THGPUTensor_newContiguous(input);
-
-  PREPARE_AV(input, pavInput);
+  auto avInput = input->get_array_view();
 
   if (input->nDimension == 1)
   {
@@ -114,11 +113,11 @@ static int gpunn_MultiMarginCriterion_updateOutput(lua_State *L)
     THGPUStorage *output = THGPUStorage_newWithSize(1);
     THGPUStorage_fill(target, target_);
 
-    PREPARE_AV_WITH_STORAGE(target, pavTarget);
-    PREPARE_AV_WITH_STORAGE(output, pavOutput);
+    Concurrency::array_view<float, 1> *pavTarget = static_cast<Concurrency::array_view<float, 1> *>(target->allocatorContext);
+    Concurrency::array_view<float, 1> *pavOutput = static_cast<Concurrency::array_view<float, 1> *>(output->allocatorContext);
 
     gpunn_MultiMarginCriterion_updateOutput_kernel(*pavOutput, 0,
-                                                   *pavInput, input->storageOffset,
+                                                   avInput, input->storageOffset,
                                                    *pavTarget, 0,
                                                    1, input->size[0],
                                                    sizeaverage);
@@ -132,12 +131,12 @@ static int gpunn_MultiMarginCriterion_updateOutput(lua_State *L)
     THGPUTensor *target = (THGPUTensor*)luaT_checkudata(L, 3, "torch.GPUTensor");
     THGPUTensor *output = THGPUTensor_newWithSize1d(input->size[0]);
 
-    PREPARE_AV(target, pavTarget);
-    PREPARE_AV(output, pavOutput);
+    auto avTarget = target->get_array_view();
+    auto avOutput = output->get_array_view();
 
-    gpunn_MultiMarginCriterion_updateOutput_kernel(*pavOutput, output->storageOffset,
-                                                   *pavInput, input->storageOffset,
-                                                   *pavTarget, target->storageOffset,
+    gpunn_MultiMarginCriterion_updateOutput_kernel(avOutput, output->storageOffset,
+                                                   avInput, input->storageOffset,
+                                                   avTarget, target->storageOffset,
                                                    input->size[0], input->size[1],
                                                    sizeaverage);
     lua_pushnumber(L, THGPUTensor_sumall(output));
@@ -161,8 +160,8 @@ static int gpunn_MultiMarginCriterion_updateGradInput(lua_State *L)
   THGPUTensor *gradInput = (THGPUTensor*)luaT_getfieldcheckudata(L, 1, "gradInput", "torch.GPUTensor");
   THGPUTensor_resizeAs(gradInput, input);
 
-  PREPARE_AV(gradInput, pavGradInput);
-  PREPARE_AV(input, pavInput);
+  auto avGradInput = gradInput->get_array_view();
+  auto avInput = input->get_array_view();
 
   if (gradInput->nDimension == 1)
   {
@@ -170,11 +169,11 @@ static int gpunn_MultiMarginCriterion_updateGradInput(lua_State *L)
     THGPUTensor *target = THGPUTensor_newWithSize1d(1);
     THGPUTensor_fill(target, target_);
 
-    PREPARE_AV(target, pavTarget);
+    auto avTarget = target->get_array_view();
 
-    gpunn_MultiMarginCriterion_updateGradInput_kernel(*pavGradInput, gradInput->storageOffset,
-                                                      *pavInput, input->storageOffset,
-                                                      *pavTarget, target->storageOffset,
+    gpunn_MultiMarginCriterion_updateGradInput_kernel(avGradInput, gradInput->storageOffset,
+                                                      avInput, input->storageOffset,
+                                                      avTarget, target->storageOffset,
                                                       1, gradInput->size[0], sizeaverage);
 
     THGPUTensor_free(target);
@@ -183,11 +182,11 @@ static int gpunn_MultiMarginCriterion_updateGradInput(lua_State *L)
   {
     THGPUTensor *target = (THGPUTensor*)luaT_checkudata(L, 3, "torch.GPUTensor");
 
-    PREPARE_AV(target, pavTarget);
+    auto avTarget = target->get_array_view();
 
-    gpunn_MultiMarginCriterion_updateGradInput_kernel(*pavGradInput, gradInput->storageOffset,
-                                                      *pavInput, input->storageOffset,
-                                                      *pavTarget, target->storageOffset,
+    gpunn_MultiMarginCriterion_updateGradInput_kernel(avGradInput, gradInput->storageOffset,
+                                                      avInput, input->storageOffset,
+                                                      avTarget, target->storageOffset,
                                                       gradInput->size[0], gradInput->size[1], sizeaverage);
   }
   else

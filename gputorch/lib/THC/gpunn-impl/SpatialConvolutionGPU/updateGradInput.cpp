@@ -9,8 +9,8 @@
  * blockIdx.x determines case in batches of 16*imgsPerThread.
  * blockIdx.y determines 4x4 image region in target image.
  *
- * threadIdx.x determines case.
- * threadIdx.y determines pixel.
+ * tidx.local[1] determines case.
+ * tidx.local[0] determines pixel.
  *
  * hidActs:     (numFilters, numModulesY, numModulesX, numImages)
  * filters:     (numColors, filterPixels, numFilters)                               if conv
@@ -367,8 +367,8 @@ void img_acts_color(Concurrency::array_view<float,1> &avhidActs,
  *              blockIdx.x.y = 1..numImgColors/colorsPerThread
  * blockIdx.y determines 4x4 image region in target image.
  *
- * threadIdx.x determines case.
- * threadIdx.y determines pixel.
+ * tidx.local[1] determines case.
+ * tidx.local[0] determines pixel.
  *
  * hidActs:     (numFilters, numModulesY, numModulesX, numImages)
  * filters:     (numFilterColors, filterPixels, numFilters)                             if conv
@@ -729,8 +729,8 @@ void img_acts_mediumcolor(Concurrency::array_view<float,1> &avhidActs,
  *              blockIdx.x.y = 1..numImgColors/(B_Y*colorsPerThread)
  * blockIdx.y determines image pixel in target image.
  *
- * threadIdx.x determines case.
- * threadIdx.y determines color.
+ * tidx.local[1] determines case.
+ * tidx.local[0] determines color.
  *
  * hidActs:     (numFilters, numModulesY, numModulesX, numImages)
  * filters:     (numFilterColors, filterPixels, numFilters)                             if conv

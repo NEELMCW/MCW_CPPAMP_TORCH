@@ -11,7 +11,7 @@
 #define TH_GENERIC_FILE "generic/Storage.c"
 
 #define torch_Storage_(NAME) TH_CONCAT_4(torch_,Real,Storage_,NAME)
-// FIXME: Note that 'data' is on host
+// Note that 'data' is on host and so we use the device_data to get the corresponding device mapping 
 #define THFile_readRealRaw(file, data, size)                                                      \
   {                                                                                               \
     float *fdata = (float*)THAlloc(sizeof(float) * size);                                         \
@@ -38,11 +38,11 @@
 #undef Real
 #undef TH_GENERIC_FILE
 
-/* now we overwrite some methods specific to CudaStorage */
+/* now we overwrite some methods specific to GPUStorage */
 
 static int gputorch_GPUStorage_copy(lua_State *L)
 {
-  THGPUStorage *storage = (THGPUStorage *)luaT_checkudata(L, 1, "torch.CudaStorage");
+  THGPUStorage *storage = (THGPUStorage *)luaT_checkudata(L, 1, "torch.GPUStorage");
   void *src;
   if ( (src = (THGPUStorage *)luaT_toudata(L, 2, "torch.GPUStorage")) )
     THGPUStorage_copy(storage, (THGPUStorage *)src);

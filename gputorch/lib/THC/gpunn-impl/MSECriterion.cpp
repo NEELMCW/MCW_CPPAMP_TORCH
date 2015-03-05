@@ -1,5 +1,4 @@
 #include<numeric>
-#include "common.h"
 #include "amp_math.h"
 #include "THCBolt.h"
 
@@ -141,14 +140,14 @@ static int gpunn_MSECriterion_updateOutput2(lua_State *L)
 
   THGPUStorage *output = THGPUStorage_newWithSize(1);
 
-  PREPARE_AV_WITH_STORAGE(output, pavOutput);
-  PREPARE_AV(input, pavInput);
-  PREPARE_AV(target, pavTarget);
+  Concurrency::array_view<float, 1> *pavOutput = static_cast<Concurrency::array_view<float, 1> *>(output->allocatorContext);
+  auto avInput = input->get_array_view();
+  auto avTarget = target->get_array_view();
 
   //Since there is no storageOffset for THGPUStorage the 2nd Argument is set to 0 
   gpunn_MSECriterion_updateOutput_kernel(*pavOutput, 0,
-                                         *pavInput, input->storageOffset,
-                                         *pavTarget, target->storageOffset,
+                                         avInput, input->storageOffset,
+                                         avTarget, target->storageOffset,
                                          1, size, sizeAverage);
 
   lua_pushnumber(L, THGPUStorage_get(output, 0));
@@ -178,13 +177,13 @@ static int gpunn_MSECriterion_updateGradInput2(lua_State *L)
 
   THGPUTensor_resizeAs(gradInput, input);
 
-  PREPARE_AV(gradInput, pavGradInput);
-  PREPARE_AV(input, pavInput);
-  PREPARE_AV(target, pavTarget);
+  auto avGradInput = gradInput->get_array_view();
+  auto avInput = input->get_array_view();
+  auto avTarget = target->get_array_view();
 
-  gpunn_MSECriterion_updateGradInput_kernel(*pavGradInput, gradInput->storageOffset,
-                                            *pavInput, input->storageOffset,
-                                            *pavTarget, target->storageOffset,
+  gpunn_MSECriterion_updateGradInput_kernel(avGradInput, gradInput->storageOffset,
+                                            avInput, input->storageOffset,
+                                            avTarget, target->storageOffset,
                                             norm, 1, size);
 
   THGPUTensor_free(input);

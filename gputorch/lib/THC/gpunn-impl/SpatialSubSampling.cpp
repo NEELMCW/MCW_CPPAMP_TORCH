@@ -258,8 +258,8 @@ static int gpunn_SpatialSubSampling_updateOutput(lua_State *L)
 
   luaL_argcheck(L, input->nDimension == 3 || input->nDimension == 4, 2, "3D or 4D (batch) tensor expected");
 
-  PREPARE_AV(weight, pavWeight);
-  PREPARE_AV(bias, pavBias);
+  auto avWeight = weight->get_array_view();
+  auto avBias = bias->get_array_view();
 
   if (input->nDimension == 3)
   {
@@ -276,13 +276,14 @@ static int gpunn_SpatialSubSampling_updateOutput(lua_State *L)
 
     int xBlocks = nInputPlane;
 
-    PREPARE_AV(input, pavInput);
-    PREPARE_AV(output, pavOutput);
+    auto avInput = input->get_array_view();
+    auto avOutput = output->get_array_view();
 
-    subsample (*pavInput, input->storageOffset,
-               *pavOutput, output->storageOffset,
-               *pavWeight, weight->storageOffset,
-               *pavBias, bias->storageOffset,
+
+    subsample (avInput, input->storageOffset,
+               avOutput, output->storageOffset,
+               avWeight, weight->storageOffset,
+               avBias, bias->storageOffset,
                nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW, xBlocks);
   }
   else
@@ -300,13 +301,13 @@ static int gpunn_SpatialSubSampling_updateOutput(lua_State *L)
     input = THGPUTensor_newContiguous(input);
     THGPUTensor_resize4d(output, nbatch, nInputPlane, nOutputRows, nOutputCols);
 
-    PREPARE_AV(input, pavInput);
-    PREPARE_AV(output, pavOutput);
+    auto avInput = input->get_array_view();
+    auto avOutput = output->get_array_view();
 
-    subsample(*pavInput, input->storageOffset,
-              *pavOutput, output->storageOffset,
-              *pavWeight, weight->storageOffset,
-              *pavBias, bias->storageOffset,
+    subsample(avInput, input->storageOffset,
+              avOutput, output->storageOffset,
+              avWeight, weight->storageOffset,
+              avBias, bias->storageOffset,
               nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW, xBlocks);
   }
 
@@ -331,8 +332,8 @@ static int gpunn_SpatialSubSampling_updateGradInput(lua_State *L)
   THGPUTensor *weight = (THGPUTensor *)luaT_getfieldcheckudata(L, 1, "weight", "torch.GPUTensor");
   THGPUTensor *gradInput = (THGPUTensor *)luaT_getfieldcheckudata(L, 1, "gradInput", "torch.GPUTensor");
 
-  PREPARE_AV(gradOutput, pavGradOutput);
-  PREPARE_AV(weight, pavWeight);
+  auto avGradOutput = gradOutput->get_array_view();
+  auto avWeight = weight->get_array_view();
 
   if (input->nDimension == 3)
   {
@@ -343,11 +344,11 @@ static int gpunn_SpatialSubSampling_updateGradInput(lua_State *L)
     THGPUTensor_resizeAs(gradInput, input);
     THGPUTensor_zero(gradInput);
 
-    PREPARE_AV(gradInput, pavGradInput);
+    auto avGradInput = gradInput->get_array_view();
 
-    subgradinput (*pavGradInput, gradInput->storageOffset,
-                  *pavGradOutput, gradOutput->storageOffset,
-                  *pavWeight, weight->storageOffset,
+    subgradinput (avGradInput, gradInput->storageOffset,
+                  avGradOutput, gradOutput->storageOffset,
+                  avWeight, weight->storageOffset,
                   nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW, xBlocks);
 
   }
@@ -361,11 +362,11 @@ static int gpunn_SpatialSubSampling_updateGradInput(lua_State *L)
     THGPUTensor_resizeAs(gradInput, input);
     THGPUTensor_zero(gradInput);
 
-    PREPARE_AV(gradInput, pavGradInput);
+    auto avGradInput = gradInput->get_array_view();
 
-    subgradinput (*pavGradInput, gradInput->storageOffset,
-                  *pavGradOutput, gradOutput->storageOffset,
-                  *pavWeight, weight->storageOffset,
+    subgradinput (avGradInput, gradInput->storageOffset,
+                  avGradOutput, gradOutput->storageOffset,
+                  avWeight, weight->storageOffset,
                   nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW, xBlocks);
   }
   return 1;
@@ -388,9 +389,9 @@ static int gpunn_SpatialSubSampling_accGradParameters(lua_State *L)
   THGPUTensor *gradWeight = (THGPUTensor *)luaT_getfieldcheckudata(L, 1, "gradWeight", "torch.GPUTensor");
   THGPUTensor *gradBias = (THGPUTensor *)luaT_getfieldcheckudata(L, 1, "gradBias", "torch.GPUTensor");
 
-  PREPARE_AV(gradWeight, pavGradWeight);
-  PREPARE_AV(gradBias, pavGradBias);
-  PREPARE_AV(gradOutput, pavGradOutput);
+  auto avGradWeight = gradWeight->get_array_view();
+  auto avGradBias = gradBias->get_array_view();
+  auto avGradOutput = gradOutput->get_array_view();
 
   if (input->nDimension == 3)
   {
@@ -399,12 +400,12 @@ static int gpunn_SpatialSubSampling_accGradParameters(lua_State *L)
     long sl = 0;
 
     input = THGPUTensor_newContiguous(input);
-    PREPARE_AV(input, pavInput);
+    auto avInput = input->get_array_view();
 
-    subgradweight (*pavInput, input->storageOffset,
-                   *pavGradOutput, gradOutput->storageOffset,
-                   *pavGradWeight, gradWeight->storageOffset,
-                   *pavGradBias, gradBias->storageOffset,
+    subgradweight (avInput, input->storageOffset,
+                   avGradOutput, gradOutput->storageOffset,
+                   avGradWeight, gradWeight->storageOffset,
+                   avGradBias, gradBias->storageOffset,
                    input->stride, gradOutput->stride, 
                    nInputPlane, nInputRows, nInputCols, kH, kW, dH, dW, scale, sl);
   }
@@ -415,16 +416,16 @@ static int gpunn_SpatialSubSampling_accGradParameters(lua_State *L)
     long nbatch = input->size[0];
 
     input = THGPUTensor_newContiguous(input);
-    PREPARE_AV(input, pavInput);
+    auto avInput = input->get_array_view();
 
     // run gradweight kernel
     long sl;
     for (sl = 0; sl < nbatch; sl++)
     {
-      subgradweight (*pavInput, input->storageOffset,
-                     *pavGradOutput, gradOutput->storageOffset,
-                     *pavGradWeight, gradWeight->storageOffset,
-                     *pavGradBias, gradBias->storageOffset,
+      subgradweight (avInput, input->storageOffset,
+                     avGradOutput, gradOutput->storageOffset,
+                     avGradWeight, gradWeight->storageOffset,
+                     avGradBias, gradBias->storageOffset,
                      input->stride, gradOutput->stride,
                      nInputPlane, nInputRows, nInputCols,
                      kH, kW, dH, dW, scale, sl);

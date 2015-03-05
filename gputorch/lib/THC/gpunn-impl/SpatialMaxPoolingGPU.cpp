@@ -62,13 +62,13 @@ class MaxAbsPooler
 
 /*
  * Block size B_YxB_X
- * blockIdx.x determines output.x, image idx in batches of B_X*imgsPerThread
- * blockIdx.y determines output.y, filter idx in batches of B_Y*filtersPerThread
+ * tidx.tile[1] determines output.x, image idx in batches of B_X*imgsPerThread
+ * tidx.tile[0] determines output.y, filter idx in batches of B_Y*filtersPerThread
  * 
  * So each block does one output for some number of images/filters.
  * 
- * threadIdx.x determines img idx
- * threadIdx.y determines filter idx
+ * tidx.local[1] determines img idx
+ * tidx.local[0] determines filter idx
  * 
  * imgs:        (numFilters, imgPixels, numImages)
  * target:      (numFilters, numOutputs, numImages)
@@ -158,13 +158,13 @@ void kLocalPool(Concurrency::array_view<float,1> &avImages, long imgOffset,
 
 /*
  * Block size 16xB_X
- * blockIdx.x determines 4x4 pixel.x region, image idx in batches of B_X*imgsPerThread
- * blockIdx.y determines 4x4 pixel.y region, filter idx in batches of filtersPerThread
+ * tidx.tile[1] determines 4x4 pixel.x region, image idx in batches of B_X*imgsPerThread
+ * tidx.tile[0] determines 4x4 pixel.y region, filter idx in batches of filtersPerThread
  * 
  * So each block does a 4x4 region for some number of images/filters.
  * 
- * threadIdx.x determines img idx
- * threadIdx.y determines pixel idx
+ * tidx.local[1] determines img idx
+ * tidx.local[0] determines pixel idx
  * 
  * imgs:        (numFilters, imgPixels, numImages)
  * target:      (numFilters, numOutputs, numImages)
@@ -924,11 +924,11 @@ static int gpunn_SpatialMaxPoolingGPU_updateOutput(lua_State *L)
   
   THGPUTensor_resize4d(output, nInputPlane, nOutputRows, nOutputCols, batchSize);
 
-  PREPARE_AV(input, pavInput);
-  PREPARE_AV(output, pavOutput);
+  auto avInput = input->get_array_view();
+  auto avOutput = output->get_array_view();
 
-  spatialMaxPooling_updateOutput<MaxPooler> (*pavInput, input->storageOffset,
-                                             *pavOutput, output->storageOffset,
+  spatialMaxPooling_updateOutput<MaxPooler> (avInput, input->storageOffset,
+                                             avOutput, output->storageOffset,
                                              nInputPlane, nInputRows, nInputCols,
                                              batchSize, nOutputRows, nOutputCols,
                                              kH, kW, 0, dW);
@@ -957,15 +957,15 @@ static int gpunn_SpatialMaxPoolingGPU_updateGradInput(lua_State *L)
   THGPUTensor_resizeAs(gradInput, input);
   THGPUTensor_zero(gradInput);
 
-  PREPARE_AV(input, pavInput);
-  PREPARE_AV(output, pavOutput);
-  PREPARE_AV(gradInput, pavGradInput);
-  PREPARE_AV(gradOutput, pavGradOutput);
+  auto avInput = input->get_array_view();
+  auto avOutput = output->get_array_view();
+  auto avGradInput = gradInput->get_array_view();
+  auto avGradOutput = gradOutput->get_array_view();
 
-  spatialMaxPooling_updateGradInput (*pavInput, input->storageOffset,
-                                     *pavGradOutput, gradOutput->storageOffset,
-                                     *pavOutput, output->storageOffset,
-                                     *pavGradInput, gradInput->storageOffset,
+  spatialMaxPooling_updateGradInput (avInput, input->storageOffset,
+                                     avGradOutput, gradOutput->storageOffset,
+                                     avOutput, output->storageOffset,
+                                     avGradInput, gradInput->storageOffset,
                                      nInputPlane, nInputRows, nInputCols, batchSize,
                                      nOutputRows, nOutputCols, kH, kW, 0, dW);
     return 1;

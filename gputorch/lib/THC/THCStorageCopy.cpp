@@ -1,7 +1,6 @@
 #include "THCStorageCopy.h"
 #include "THCGeneral.h"
 #include "copyHelpers.h"
-#include "common.h"
 
 void THGPUStorage_copyFloat(THGPUStorage *self, struct THFloatStorage *src)
 {

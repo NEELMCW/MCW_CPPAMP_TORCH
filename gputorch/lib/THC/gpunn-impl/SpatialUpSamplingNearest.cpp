@@ -108,12 +108,12 @@ static int gpunn_SpatialUpSamplingNearest_updateOutput(lua_State *L)
   unsigned int inpSz = THGPUTensor_nElement(input);
   unsigned int outSz = THGPUTensor_nElement(output);
 
-  PREPARE_AV(input, pavInput);
-  PREPARE_AV(output, pavOutput);
+  auto avInput = input->get_array_view();
+  auto avOutput = output->get_array_view();
 
   // kernel:
-  upscale(*pavInput, input->storageOffset,
-          *pavOutput, output->storageOffset,
+  upscale(avInput, input->storageOffset,
+          avOutput, output->storageOffset,
           inpSz, outSz, no_elements, scale_factor, d1, d2, d3, grdConf);
 
   THGPUTensor_free(input); 
@@ -191,11 +191,11 @@ static int gpunn_SpatialUpSamplingNearest_updateGradInput(lua_State *L)
   gradConf[0] = n_xblocks;
   gradConf[1] = n_yblocks;
 
-  PREPARE_AV(gradInput, pavGradInput);
-  PREPARE_AV(gradOutput, pavGradOutput);
+  auto avGradInput = gradInput->get_array_view();
+  auto avGradOutput = gradOutput->get_array_view();
   // kernel:
-  downscale(*pavGradInput, gradInput->storageOffset,
-            *pavGradOutput, gradOutput->storageOffset,
+  downscale(avGradInput, gradInput->storageOffset,
+            avGradOutput, gradOutput->storageOffset,
             THGPUTensor_nElement(gradInput), THGPUTensor_nElement(gradOutput),
             no_elements, scale_factor, d1, d2, d3, gradConf);
 

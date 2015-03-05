@@ -5,7 +5,7 @@ INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/gpunn-impl/SpatialPoolingGPU/)
 INCLUDE_DIRECTORIES($ENV{MCWCPPAMPROOT}/cppamp-driver-ng/include)
 
 SET(src
-   THCGeneral.cpp THCAMPBlasImpl.cpp THCBolt.cpp
+   THCGeneral.cpp THCBolt.cpp
    THCStorageCopy.cpp THCBlas.cpp THCStorage.cpp THCTensor.cpp THCTensorCopy.cpp
    THCTensorConv.cpp THCTensorMath.cpp THCTensorRandom.cpp copyHelpers.cpp)
 
@@ -14,8 +14,6 @@ SET(gpunnsrc gpunn-impl/SpatialConvolutionGPU/updateOutput.cpp gpunn-impl/Spatia
 
 SET(OPENCL_INC "$ENV{AMDAPPSDKROOT}/include")
 SET(OPENCL_LIB "$ENV{AMDAPPSDKROOT}/lib/x86_64")
-SET(CLBLAS_INC "$ENV{CLBLASROOT}/include")
-SET(CLBLAS_LIB "$ENV{CLBLASROOT}/lib64")
 SET(BOLT_SRC_INC "$ENV{MCWCPPAMPROOT}/src/Bolt/include/")
 SET(BOOST_SRC_INC "$ENV{MCWCPPAMPROOT}/gmac_exp_build_cache/Bolt/superbuild/external/boost/src/Boost/")
 SET(BOLT_VER_INC "$ENV{MCWCPPAMPROOT}/gmac_exp_build_cache/Bolt/superbuild/Bolt-build/include/")
@@ -29,8 +27,8 @@ SET(CLAMP_CXXFLAGS "${CLAMP_CXXFLAGS} -I${OPENCL_INC}")
 EXECUTE_PROCESS(COMMAND ${CLAMP_CONFIG} --build --ldflags --shared
     OUTPUT_VARIABLE CLAMP_LDFLAGS)
 STRING(STRIP ${CLAMP_LDFLAGS} CLAMP_LDFLAGS)
-SET(CLAMP_CXXFLAGS "${CLAMP_CXXFLAGS} -I${OPENCL_INC} -I${CLBLAS_INC} -I${BOLT_SRC_INC} -I${BOLT_VER_INC} -I${BOOST_SRC_INC} -Wall")
-SET(CLAMP_LDFLAGS "${CLAMP_LDFLAGS} -L${OPENCL_LIB} -L${CLBLAS_LIB} -lclBLAS")
+SET(CLAMP_CXXFLAGS "${CLAMP_CXXFLAGS} -I${OPENCL_INC} -I${BOLT_SRC_INC} -I${BOLT_VER_INC} -I${BOOST_SRC_INC} -Wall")
+SET(CLAMP_LDFLAGS "${CLAMP_LDFLAGS} -L${OPENCL_LIB}")
 
 FOREACH(src_file ${src})
   SET_PROPERTY(SOURCE ${src_file} APPEND_STRING PROPERTY COMPILE_FLAGS " ${CLAMP_CXXFLAGS}")

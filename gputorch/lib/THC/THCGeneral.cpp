@@ -3,33 +3,27 @@
 #include "THCTensorRandom.h"
 #include "cl_manage.h"
 
-cl_device_id mdevice=0;
-cl_context mcontext=0;
-cl_command_queue mqueue=0;
 
 void THGPUInit()
 {
-  int count = 0;
-  int device = 0;
-  mdevice = Concurrency::getAllocator().device;
-  mcontext = Concurrency::getAllocator().context;
-  mqueue = Concurrency::getAllocator().getQueue();
-  THGPUBlas_init(count, device);
+  // To Be implemented
 }
 
 void THGPUShutdown()
-{
-  THGPUBlas_shutdown();
+{ 
+   // To Be implemented
 }
 
 void __THGPUCheck(int err, const char *file, const int line)
 {
   if (err != 0)
   {
-    THError("%s(%i) : cuda runtime error : %s",
+    THError("%s(%i) : GPU runtime error : %s",
             file, line, "");
   }
 }
+
+
 void THGPUGetGridSize(int *nBlockPerColumn_, int *nBlockPerRow_, int *nThreadPerBlock_, long size)
 {
   const int nThreadPerBlock = 256;

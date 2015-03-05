@@ -1,4 +1,3 @@
-#include "common.h"
 #include "amp_math.h"
 
 struct squareupdateOutput_functor
@@ -18,12 +17,12 @@ static int gpunn_Square_updateOutput(lua_State *L)
   input = THGPUTensor_newContiguous(input);
   THGPUTensor_resizeAs(output, input);
 
-  DECLARE_BOLT_DEVICE_VECTOR(output, output_data);
-  DECLARE_BOLT_DEVICE_VECTOR(input, input_data);
+  auto dv_output_data = output->get_bolt_dev_vec();
+  auto dv_input_data = input->get_bolt_dev_vec();
 
-  bolt::amp::transform(input_data.begin() + input->storageOffset,
-                       input_data.begin() + input->storageOffset + size,
-                       output_data.begin() + output->storageOffset,
+  bolt::amp::transform(dv_input_data.begin() + input->storageOffset,
+                       dv_input_data.begin() + input->storageOffset + size,
+                       dv_output_data.begin() + output->storageOffset,
                        squareupdateOutput_functor());
 
   THGPUTensor_free(input);
@@ -49,14 +48,14 @@ static int gpunn_Square_updateGradInput(lua_State *L)
   input = THGPUTensor_newContiguous(input);
   THGPUTensor_resizeAs(gradInput, input);
 
-  DECLARE_BOLT_DEVICE_VECTOR(input, input_data);
-  DECLARE_BOLT_DEVICE_VECTOR(gradOutput, gradOutput_data);
-  DECLARE_BOLT_DEVICE_VECTOR(gradInput, gradInput_data);
+  auto dv_input_data = input->get_bolt_dev_vec();
+  auto dv_gradOutput_data = gradOutput->get_bolt_dev_vec();
+  auto dv_gradInput_data = gradInput->get_bolt_dev_vec();
 
-  bolt::amp::transform(input_data.begin() + input->storageOffset,
-                       input_data.begin() + input->storageOffset + size,
-                       gradOutput_data.begin() + gradOutput->storageOffset,
-                       gradInput_data.begin() + gradInput->storageOffset,
+  bolt::amp::transform(dv_input_data.begin() + input->storageOffset,
+                       dv_input_data.begin() + input->storageOffset + size,
+                       dv_gradOutput_data.begin() + gradOutput->storageOffset,
+                       dv_gradInput_data.begin() + gradInput->storageOffset,
                        squareupdateGradInput_functor());
 
   THGPUTensor_free(input);

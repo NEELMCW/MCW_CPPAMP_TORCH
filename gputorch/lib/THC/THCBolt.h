@@ -3,38 +3,8 @@
 
 #include "THCTensor.h"
 #include "THCGeneral.h"
-#include "bolt/amp/functional.h"
-#include "bolt/amp/fill.h"
-#include "bolt/amp/device_vector.h"
-#include "bolt/amp/transform.h"
-#include "bolt/amp/transform_reduce.h"
-#include "bolt/amp/reduce.h"
-#include "bolt/amp/inner_product.h"
-#include "bolt/amp/copy.h"
 #include "amp_math.h"
 
-#ifdef DECLARE_BOLT_DEVICE_VECTOR
-#undef DECLARE_BOLT_DEVICE_VECTOR
-#endif
-#define DECLARE_BOLT_DEVICE_VECTOR(THGPUTensor_ptr, dv_a) \
-  Concurrency::array_view<float, 1> *pav_##THGPUTensor_ptr = \
-    static_cast<Concurrency::array_view<float, 1> *>(THGPUTensor_ptr->storage->allocatorContext);\
-  bolt::amp::device_vector<float> dv_a(*pav_##THGPUTensor_ptr, THGPUTensor_nElement(THGPUTensor_ptr), true);
-
-#ifdef DECLARE_BOLT_DEVICE_VECTOR_2
-#undef DECLARE_BOLT_DEVICE_VECTOR_2
-#endif
-#define DECLARE_BOLT_DEVICE_VECTOR_2(host_1, dv_1, host_2, dv_2) \
-DECLARE_BOLT_DEVICE_VECTOR(host_1, dv_1); \
-DECLARE_BOLT_DEVICE_VECTOR(host_2, dv_2);
-  
-#ifdef DECLARE_BOLT_DEVICE_VECTOR_3
-#undef DECLARE_BOLT_DEVICE_VECTOR_3
-#endif
-#define DECLARE_BOLT_DEVICE_VECTOR_3(host_1, dv_1, host_2, dv_2, host_3, dv_3) \
-DECLARE_BOLT_DEVICE_VECTOR(host_1, dv_1); \
-DECLARE_BOLT_DEVICE_VECTOR(host_2, dv_2); \
-DECLARE_BOLT_DEVICE_VECTOR(host_3, dv_3);
 
 struct addvalue_functor
 {
@@ -197,7 +167,7 @@ struct kl_updateGradInput_functor
     return y > 0 ? norm * (-y) : 0;
   }
 };
-#define IMPLEMENT_CUDA_TENSOR_BASIC_FUNCTOR(NAME, CFUNC) \
+#define IMPLEMENT_GPU_TENSOR_BASIC_FUNCTOR(NAME, CFUNC) \
 struct NAME##_functor                                    \
 {                                                        \
   float operator()(const float& x) const                 \
@@ -206,23 +176,23 @@ struct NAME##_functor                                    \
   }                                                      \
 }; 
 
-IMPLEMENT_CUDA_TENSOR_BASIC_FUNCTOR(log, Concurrency::fast_math::log)
-IMPLEMENT_CUDA_TENSOR_BASIC_FUNCTOR(log1p, Concurrency::precise_math::log1p)
-IMPLEMENT_CUDA_TENSOR_BASIC_FUNCTOR(exp, Concurrency::fast_math::exp)
-IMPLEMENT_CUDA_TENSOR_BASIC_FUNCTOR(cos, Concurrency::fast_math::cos)
-IMPLEMENT_CUDA_TENSOR_BASIC_FUNCTOR(acos, Concurrency::fast_math::acos)
-IMPLEMENT_CUDA_TENSOR_BASIC_FUNCTOR(cosh, Concurrency::fast_math::cosh)
-IMPLEMENT_CUDA_TENSOR_BASIC_FUNCTOR(sin, Concurrency::fast_math::sin)
-IMPLEMENT_CUDA_TENSOR_BASIC_FUNCTOR(asin, Concurrency::fast_math::asin)
-IMPLEMENT_CUDA_TENSOR_BASIC_FUNCTOR(sinh, Concurrency::fast_math::sinh)
-IMPLEMENT_CUDA_TENSOR_BASIC_FUNCTOR(tan, Concurrency::fast_math::tan)
-IMPLEMENT_CUDA_TENSOR_BASIC_FUNCTOR(atan, Concurrency::fast_math::atan)
-IMPLEMENT_CUDA_TENSOR_BASIC_FUNCTOR(tanh, Concurrency::fast_math::tanh)
-IMPLEMENT_CUDA_TENSOR_BASIC_FUNCTOR(sqrt, Concurrency::fast_math::sqrt)
-IMPLEMENT_CUDA_TENSOR_BASIC_FUNCTOR(ceil, Concurrency::fast_math::ceil)
-IMPLEMENT_CUDA_TENSOR_BASIC_FUNCTOR(floor, Concurrency::fast_math::floor)
-IMPLEMENT_CUDA_TENSOR_BASIC_FUNCTOR(abs, Concurrency::fast_math::fabs)
-IMPLEMENT_CUDA_TENSOR_BASIC_FUNCTOR(round, Concurrency::fast_math::roundf)
+IMPLEMENT_GPU_TENSOR_BASIC_FUNCTOR(log, Concurrency::fast_math::log)
+IMPLEMENT_GPU_TENSOR_BASIC_FUNCTOR(log1p, Concurrency::precise_math::log1p)
+IMPLEMENT_GPU_TENSOR_BASIC_FUNCTOR(exp, Concurrency::fast_math::exp)
+IMPLEMENT_GPU_TENSOR_BASIC_FUNCTOR(cos, Concurrency::fast_math::cos)
+IMPLEMENT_GPU_TENSOR_BASIC_FUNCTOR(acos, Concurrency::fast_math::acos)
+IMPLEMENT_GPU_TENSOR_BASIC_FUNCTOR(cosh, Concurrency::fast_math::cosh)
+IMPLEMENT_GPU_TENSOR_BASIC_FUNCTOR(sin, Concurrency::fast_math::sin)
+IMPLEMENT_GPU_TENSOR_BASIC_FUNCTOR(asin, Concurrency::fast_math::asin)
+IMPLEMENT_GPU_TENSOR_BASIC_FUNCTOR(sinh, Concurrency::fast_math::sinh)
+IMPLEMENT_GPU_TENSOR_BASIC_FUNCTOR(tan, Concurrency::fast_math::tan)
+IMPLEMENT_GPU_TENSOR_BASIC_FUNCTOR(atan, Concurrency::fast_math::atan)
+IMPLEMENT_GPU_TENSOR_BASIC_FUNCTOR(tanh, Concurrency::fast_math::tanh)
+IMPLEMENT_GPU_TENSOR_BASIC_FUNCTOR(sqrt, Concurrency::fast_math::sqrt)
+IMPLEMENT_GPU_TENSOR_BASIC_FUNCTOR(ceil, Concurrency::fast_math::ceil)
+IMPLEMENT_GPU_TENSOR_BASIC_FUNCTOR(floor, Concurrency::fast_math::floor)
+IMPLEMENT_GPU_TENSOR_BASIC_FUNCTOR(abs, Concurrency::fast_math::fabs)
+IMPLEMENT_GPU_TENSOR_BASIC_FUNCTOR(round, Concurrency::fast_math::roundf)
 
 
 float boltInnerProduct_plus_mse(THGPUTensor *input, THGPUTensor *target);
@@ -266,4 +236,5 @@ float boltReduce_minimum(THGPUTensor *self);
 float boltReduce_maximum(THGPUTensor *self);
 float boltReduce_plus(THGPUTensor *self);
 float boltReduce_multiply(THGPUTensor *self);
+float boltInnerPdt(THGPUTensor *self, THGPUTensor *src);
 #endif
