@@ -7,7 +7,6 @@
 #include<algorithm>
 #include<utility>
 #include<numeric>
-#include "common.h"
 #include "THCBolt.h"
 
 #define NB_THREADS_PER_BLOCK 256

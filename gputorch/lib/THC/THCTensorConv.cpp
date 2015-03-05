@@ -2,7 +2,6 @@
 #include "THCTensorCopy.h"
 #include "THCTensorMath.h"
 #include "THCGeneral.h"
-#include "common.h"
 #include <stdio.h>
 
 #define GPU_SHARED_MEM_SIZE (8*1024-32)

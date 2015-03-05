@@ -1,4 +1,3 @@
-#include "common.h"
 #include "amp_math.h"
 
 struct l1cost_functor

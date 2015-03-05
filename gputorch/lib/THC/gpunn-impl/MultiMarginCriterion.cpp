@@ -113,8 +113,8 @@ static int gpunn_MultiMarginCriterion_updateOutput(lua_State *L)
     THGPUStorage *output = THGPUStorage_newWithSize(1);
     THGPUStorage_fill(target, target_);
 
-    PREPARE_AV_WITH_STORAGE(target, pavTarget);
-    PREPARE_AV_WITH_STORAGE(output, pavOutput);
+    Concurrency::array_view<float, 1> *pavTarget = static_cast<Concurrency::array_view<float, 1> *>(target->allocatorContext);
+    Concurrency::array_view<float, 1> *pavOutput = static_cast<Concurrency::array_view<float, 1> *>(output->allocatorContext);
 
     gpunn_MultiMarginCriterion_updateOutput_kernel(*pavOutput, 0,
                                                    avInput, input->storageOffset,

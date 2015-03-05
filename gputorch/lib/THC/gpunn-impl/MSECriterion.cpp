@@ -1,5 +1,4 @@
 #include<numeric>
-#include "common.h"
 #include "amp_math.h"
 #include "THCBolt.h"
 
@@ -141,7 +140,7 @@ static int gpunn_MSECriterion_updateOutput2(lua_State *L)
 
   THGPUStorage *output = THGPUStorage_newWithSize(1);
 
-  PREPARE_AV_WITH_STORAGE(output, pavOutput);
+  Concurrency::array_view<float, 1> *pavOutput = static_cast<Concurrency::array_view<float, 1> *>(output->allocatorContext);
   auto avInput = input->get_array_view();
   auto avTarget = target->get_array_view();
 

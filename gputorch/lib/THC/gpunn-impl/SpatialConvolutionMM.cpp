@@ -2,7 +2,6 @@
 #include "THBlas.h"
 #include "THCBlas.h"
 #include "THCGeneral.h"
-#include "common.h"
 
 // Kernel for fast unfold+copy
 // (borrowed from Caffe: https://github.com/BVLC/caffe/blob/master/src/caffe/layers/conv_layer.cu)

@@ -1,6 +1,5 @@
 #include <iostream>
 #include <vector>
-#include "common.h"
 #include "amp_math.h"
 
 struct absupdateOutput_functor

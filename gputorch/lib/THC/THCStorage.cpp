@@ -2,7 +2,6 @@
 #include "THCGeneral.h"
 #include "copyHelpers.h"
 #include "cl_manage.h"
-#include "common.h"
 #include "THCBolt.h"
 
 void THGPUStorage_set(THGPUStorage *self, long index, float value)
@@ -143,7 +142,8 @@ void THGPUStorage_free(THGPUStorage *self)
 void THGPUStorage_fill(THGPUStorage *self, float value)
 {
   // Make sure every changes need to be made to its array_view
-  PREPARE_AV_WITH_STORAGE(self, pavSelf);
+  Concurrency::array_view<float,1> *pavSelf = static_cast<Concurrency::array_view<float, 1> *>(self->allocatorContext);
+  
   // Discard host data
   bolt::amp::device_vector<float> avSelf(*pavSelf, self->size, true);
   // Data transfer: 0

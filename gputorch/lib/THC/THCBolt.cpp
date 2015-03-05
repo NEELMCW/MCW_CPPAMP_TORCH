@@ -408,4 +408,5 @@ float boltInnerPdt(THGPUTensor *self, THGPUTensor *src)
   auto dv_self_data = self->get_bolt_dev_vec();
   auto dv_src_data = src->get_bolt_dev_vec();
   float result = bolt::amp::inner_product(dv_self_data.begin(), dv_self_data.end(), dv_src_data.begin(), 0.0);
+  return result;
 }

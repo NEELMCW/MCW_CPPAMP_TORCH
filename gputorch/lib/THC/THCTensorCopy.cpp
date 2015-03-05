@@ -3,7 +3,6 @@
 #include "THGeneral.h"
 #include "THCTensor.h"
 #include <iostream>
-#include "common.h"
 #include "amp_math.h"
 #include "THCBolt.h"
 #include "copyHelpers.h"

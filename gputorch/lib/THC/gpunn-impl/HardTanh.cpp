@@ -1,5 +1,3 @@
-#include "common.h"
-
 struct hardtanhupdateOutput_functor
 {
   float operator()(const float& input) const restrict(amp,cpu)

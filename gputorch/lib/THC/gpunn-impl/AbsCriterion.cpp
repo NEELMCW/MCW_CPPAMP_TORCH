@@ -1,7 +1,6 @@
 #include <iostream>
 #include <vector>
 #include <numeric>
-#include "common.h"
 #include "amp_math.h"
 #include "THCBolt.h"
 
