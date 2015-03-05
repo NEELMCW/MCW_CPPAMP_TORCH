@@ -187,13 +187,9 @@ void THGPUTensor_kernel_copy(Concurrency::array_view<float>& av_dst, long dstOff
     long y = t_ext.tile_dim1;
     #endif
     long k = (tidx.tile[0] * (t_ext[2] / t_ext.tile_dim2) * (t_ext[1] / t_ext.tile_dim1) + tidx.tile[1] * (t_ext[2] / t_ext.tile_dim2) + tidx.tile[2] ) * t_ext.tile_dim1 + tidx.local[1];
-    //long i_start = threadIdx.x * src_st[src_dim-1];
     long i_start = tidx.local[2] * av_src_st[Concurrency::index<1>(src_dim - 1)];
-    //long i_step = blockDim.x * src_st[src_dim-1];
     long i_step = t_ext.tile_dim2 * av_src_st[Concurrency::index<1>(src_dim - 1)]; 
-    //long o_start = threadIdx.x * dst_st[dst_dim-1];
     long o_start = tidx.local[2] * av_dst_st[Concurrency::index<1>(src_dim - 1)];
-    //long o_step = blockDim.x * dst_st[dst_dim-1];
     long o_step = t_ext.tile_dim2 * av_dst_st[Concurrency::index<1>(src_dim - 1)];
     long o_end = innerdim * av_dst_st[Concurrency::index<1>(src_dim - 1)];
 

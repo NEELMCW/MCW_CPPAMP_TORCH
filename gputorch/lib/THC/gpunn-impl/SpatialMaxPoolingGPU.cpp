@@ -62,13 +62,13 @@ class MaxAbsPooler
 
 /*
  * Block size B_YxB_X
- * blockIdx.x determines output.x, image idx in batches of B_X*imgsPerThread
- * blockIdx.y determines output.y, filter idx in batches of B_Y*filtersPerThread
+ * tidx.tile[1] determines output.x, image idx in batches of B_X*imgsPerThread
+ * tidx.tile[0] determines output.y, filter idx in batches of B_Y*filtersPerThread
  * 
  * So each block does one output for some number of images/filters.
  * 
- * threadIdx.x determines img idx
- * threadIdx.y determines filter idx
+ * tidx.local[1] determines img idx
+ * tidx.local[0] determines filter idx
  * 
  * imgs:        (numFilters, imgPixels, numImages)
  * target:      (numFilters, numOutputs, numImages)
@@ -158,13 +158,13 @@ void kLocalPool(Concurrency::array_view<float,1> &avImages, long imgOffset,
 
 /*
  * Block size 16xB_X
- * blockIdx.x determines 4x4 pixel.x region, image idx in batches of B_X*imgsPerThread
- * blockIdx.y determines 4x4 pixel.y region, filter idx in batches of filtersPerThread
+ * tidx.tile[1] determines 4x4 pixel.x region, image idx in batches of B_X*imgsPerThread
+ * tidx.tile[0] determines 4x4 pixel.y region, filter idx in batches of filtersPerThread
  * 
  * So each block does a 4x4 region for some number of images/filters.
  * 
- * threadIdx.x determines img idx
- * threadIdx.y determines pixel idx
+ * tidx.local[1] determines img idx
+ * tidx.local[0] determines pixel idx
  * 
  * imgs:        (numFilters, imgPixels, numImages)
  * target:      (numFilters, numOutputs, numImages)

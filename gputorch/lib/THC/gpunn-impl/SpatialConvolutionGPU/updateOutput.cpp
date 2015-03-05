@@ -6,8 +6,8 @@
 
 /*
  * Block size B_YxB_X. Each block applies B_Y * filtersPerThread filters to B_X * imgsPerThread images.
- * threadIdx.x determines image
- * threadIdx.y determines filter
+ * tidx.local[1] determines image
+ * tidx.local[0] determines filter
  *
  * blockIdx.x determines image batch of B_X * imgsPerThread
  * blockIdx.y determines filter batch of module and B_Y * filtersPerThread
@@ -197,8 +197,8 @@ void filterActs_YxX_color( Concurrency::array_view<float,1>&avImages,
 
 /*
  * Block size B_YxB_X. Each block applies B_Y * filtersPerThread filters to B_X * imgsPerThread images.
- * threadIdx.x determines image
- * threadIdx.y determines filter
+ * tidx.local[1] determines image
+ * tidx.local[0] determines filter
  *
  * blockIdx.x determines image batch of B_X * imgsPerThread
  * blockIdx.y determines filter batch of B_Y * filtersPerThread

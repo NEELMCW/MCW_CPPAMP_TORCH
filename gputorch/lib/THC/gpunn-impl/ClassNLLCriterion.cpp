@@ -16,8 +16,6 @@ void gpunn_ClassNLLCriterion_updateOutput_kernel1(Concurrency::array_view<float,
 
   Concurrency::parallel_for_each(t_ext, [=] (Concurrency::tiled_index<1> tidx) restrict(amp)
   {
-    //assert(threadIdx.x == 0 && threadIdx.y == 0 && threadIdx.z == 0);
-
     // TODO: T4951791 Reuse code between updateOutput_kernel1 and
     // updateOutput_kernel.
     // Verify whether `register` does anything here.
