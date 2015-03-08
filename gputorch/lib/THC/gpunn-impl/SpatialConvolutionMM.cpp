@@ -191,7 +191,6 @@ static int gpunn_SpatialConvolutionMM_updateOutput(lua_State *L)
     // Do Bias first:
     // M,N,K are dims of matrix A and B
     // Do GEMM (note: this is a bit confusing because gemm assumes column-major matrices)
-    // Ugly codes but it is the way to deal with unnecessary copying from host
     THGPUBlas_gemm('t', 'n', n_, m_, k_, 1,
                        avData_ones, ones->storageOffset, k_,
                        avData_bias, bias->storageOffset, k_, 0,
@@ -287,7 +286,6 @@ static int gpunn_SpatialConvolutionMM_updateGradInput(lua_State *L)
     avData_col.discard_data();
     // M,N,K are dims of matrix A and B
     // Do GEMM (note: this is a bit confusing because gemm assumes column-major matrices)
-    // Ugly codes but it is the way to deal with unnecessary copying from host
     THGPUBlas_gemm('n', 't', n, m, k, 1,
                        avData_gradOutput, gradOutput->storageOffset + gradOutput->stride[0] * elt, n,
                        avData_weight, weight->storageOffset, m, 0,
@@ -391,8 +389,8 @@ static int gpunn_SpatialConvolutionMM_accGradParameters(lua_State *L) {
   {
     avData_im.discard_data();
     avData_col.discard_data();
+
     // Extract columns:
-    // Ugly codes but it is the way to deal with unnecessary copying from host
     im2col(avData_im, input->storageOffset + input->stride[0] * elt,
           nInputPlane, inputHeight, inputWidth, kH, kW, padding, padding,
           dH, dW, avData_col, columns->storageOffset);
