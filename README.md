@@ -1,12 +1,9 @@
-# ** C++ AMP backend Implementation for Torch7 ** #
+# C++ AMP backend Implementation for Torch7 #
 
 ##Introduction: ##
 
 This repository hosts the C++ AMP backend implementation project for  [torch7](http://torch.ch/). Torch7 framework currently has a CUDA backend support in the form of [cutorch](https://github.com/torch/cutorch) and [cunn](https://github.com/torch/cunn) packages. The goal of this project is to develop  gputorch and gpunn packages that would functionally behave as  C++ AMP counterparts for existing cutorch and cunn packages. This project mainly targets the linux platform and makes use of the linux-based C++ AMP compiler implementation hosted [here](https://bitbucket.org/multicoreware/cppamp-driver-ng/overview)
 
-
-
-##Repository Structure: ##
 
 ##Prerequisites: ##
 * **dGPU**:  AMD firepro S9150
@@ -19,7 +16,7 @@ This repository hosts the C++ AMP backend implementation project for  [torch7](h
 ##Building and set up:    
 ######Need to be a super user
 
-(i) **Torch7 install**:
+(i) Torch7 install: 
 
       *  curl -sk https://raw.githubusercontent.com/torch/ezinstall/master/install-deps | bash
   
@@ -27,7 +24,7 @@ This repository hosts the C++ AMP backend implementation project for  [torch7](h
       
 
 
-(ii)  ** C++ AMP Compiler installation**: Indepth details can be found [here](https://bitbucket.org/multicoreware/cppamp-driver-ng/overview)
+(ii)  C++ AMP Compiler installation: Indepth details can be found [here](https://bitbucket.org/multicoreware/cppamp-driver-ng/overview)
 
 Prepare a directory for work space.
 
@@ -60,7 +57,7 @@ Note that you might need to manually check updates from C++ AMP Compiler.
 Please do the following and rebuild the Compiler if any update is available
 
 ```
-#!python
+ #
  # check updates from C++AMP Compiler
  cd mcw_cppamp/src
  git fetch --all
@@ -72,14 +69,14 @@ Please do the following and rebuild the Compiler if any update is available
  git checkout origin/master
 ```
 
-(iii) ** Bolt Set up:**
+(iii) Bolt Set up:
 
 Bolt binaries are automatically built in (ii)
 
   * git checkout gmac-exp-cache-kernel (Need to get back to this)
 
 
-(iV) **Building gputorch and gpunn:**
+(iV) Building gputorch and gpunn:
 
 Prior to building these packages the following environment variables need to be set using export command
 
@@ -123,7 +120,7 @@ Testing gputorch:
 If fails, run the following to get detailed messages if any,
  
 ```
-#!python
+
  th
  require ('gputorch')
 ```
