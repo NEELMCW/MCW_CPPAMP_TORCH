@@ -15,6 +15,7 @@ This repository hosts the C++ AMP backend implementation project for  [torch7](h
 
 ##Building and set up:    
 ######Need to be a super user
+AMDAPPSDK on path /opt/AMDAPP (Might require to perform a rename)
 
 (i) Torch7 install: 
 
@@ -80,8 +81,8 @@ Bolt binaries are automatically built in (ii)
 
 Prior to building these packages the following environment variables need to be set using export command
 
-* AMDAPPSDKROOT=<path to AMD APP SDK>
-* MCWCPPAMPROOT=<path to mcw_cppamp dir>
+* AMDAPPSDKROOT=path to AMD APP SDK (Ideally /opt/AMDAPP)
+* MCWCPPAMPROOT=path to mcw_cppamp dir
 * CXXAMP_NV=1 (Need to make sure this is set to use DMA)
 
 After this the following are the steps to build gputorch and gpunn
