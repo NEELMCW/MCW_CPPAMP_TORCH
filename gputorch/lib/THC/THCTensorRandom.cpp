@@ -138,7 +138,7 @@ void NAME(int size, THGPUTensor *result, ARG1)                                  
     x = TRANSFORM;                                                                                         \
     vec[i] = x;                                                                                            \
   }                                                                                                        \
-  float* device_ptr = static_cast<float*>(Concurrency::getAllocator().device_data(result->storage->data)); \
+  float* device_ptr = static_cast<float*>(Concurrency::getDevicePointer(result->storage->data));           \
   THGPUCheck(gpuMemcpy(device_ptr, result->storageOffset * sizeof(float), vec, 0, size * sizeof(float), gpuMemcpyHostToDevice));\
 }
 
@@ -155,7 +155,7 @@ void NAME(int size, THGPUTensor *result, ARG1, ARG2)                            
     x = TRANSFORM;                                                                                         \
     vec[i] = x;                                                                                            \
   }                                                                                                        \
-  float* device_ptr = static_cast<float*>(Concurrency::getAllocator().device_data(result->storage->data)); \
+  float* device_ptr = static_cast<float*>(Concurrency::getDevicePointer(result->storage->data));           \
   THGPUCheck(gpuMemcpy(device_ptr, result->storageOffset * sizeof(float), vec, 0, size * sizeof(float), gpuMemcpyHostToDevice));\
 }
 
@@ -180,7 +180,7 @@ void generate_log_normal(int size, THGPUTensor *self_, float mean, float stddev)
     float x = rand(gen);
     vec[i] = x;
   }
-  float* device_ptr = static_cast<float*>(Concurrency::getAllocator().device_data(self_->storage->data));
+  float* device_ptr = static_cast<float*>(Concurrency::getDevicePointer(self_->storage->data));
   THGPUCheck(gpuMemcpy(device_ptr, self_->storageOffset * sizeof(float), vec, 0, size * sizeof(float), gpuMemcpyHostToDevice));
 }
 

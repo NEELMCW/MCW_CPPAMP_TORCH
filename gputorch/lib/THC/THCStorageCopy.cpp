@@ -5,7 +5,7 @@
 void THGPUStorage_copyFloat(THGPUStorage *self, struct THFloatStorage *src)
 {
   THArgCheck(self->size == src->size, 2, "size does not match");
-  float* device_ptr = static_cast<float*>(Concurrency::getAllocator().device_data(self->data));
+  float* device_ptr = static_cast<float*>(Concurrency::getDevicePointer(self->data));
   THGPUCheck(gpuMemcpy(device_ptr, 0, src->data, 0, self->size * sizeof(float), gpuMemcpyHostToDevice));
 }
 
@@ -30,7 +30,7 @@ TH_GPU_STORAGE_IMPLEMENT_COPY(Double)
 void THFloatStorage_copyGPU(THFloatStorage *self, struct THGPUStorage *src)
 {
   THArgCheck(self->size == src->size, 2, "size does not match");
-  float* device_ptr = static_cast<float*>(Concurrency::getAllocator().device_data(src->data));
+  float* device_ptr = static_cast<float*>(Concurrency::getDevicePointer(src->data));
   THGPUCheck(gpuMemcpy(self->data, 0, device_ptr, 0, self->size * sizeof(float), gpuMemcpyDeviceToHost));
 }
 
@@ -55,7 +55,7 @@ TH_GPU_STORAGE_IMPLEMENT_COPYTO(Double)
 // FIXME: device2device. 'src' is on device
 void THGPUStorage_rawCopy(THGPUStorage *self, float *src)
 {
-  float* device_ptr = static_cast<float*>(Concurrency::getAllocator().device_data(self->data));
+  float* device_ptr = static_cast<float*>(Concurrency::getDevicePointer(self->data));
   // TODO: Async copy
   THGPUCheck(gpuMemcpy(device_ptr, 0, src, 0, self->size * sizeof(float), gpuMemcpyDeviceToDevice));
 }
@@ -63,8 +63,8 @@ void THGPUStorage_rawCopy(THGPUStorage *self, float *src)
 void THGPUStorage_copy(THGPUStorage *self, THGPUStorage *src)
 {
   THArgCheck(self->size == src->size, 2, "size does not match");
-  float* self_ptr = static_cast<float*>(Concurrency::getAllocator().device_data(self->data));
-  float* src_ptr = static_cast<float*>(Concurrency::getAllocator().device_data(src->data));
+  float* self_ptr = static_cast<float*>(Concurrency::getDevicePointer(self->data));
+  float* src_ptr = static_cast<float*>(Concurrency::getDevicePointer(src->data));
   // TODO: Async copy
   THGPUCheck(gpuMemcpy(self_ptr, 0, src_ptr, 0, self->size * sizeof(float), gpuMemcpyDeviceToDevice));
 }

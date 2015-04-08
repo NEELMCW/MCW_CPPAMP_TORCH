@@ -23,7 +23,7 @@ void THGPUTensor_copyFloat(THGPUTensor *self, struct THFloatTensor *src)
   {
     THGPUTensor *selfc = THGPUTensor_newContiguous(self);
     src = THFloatTensor_newContiguous(src);
-    float* selfc_ptr = static_cast<float*>(Concurrency::getAllocator().device_data(selfc->storage->data));
+    float* selfc_ptr = static_cast<float*>(Concurrency::getDevicePointer(selfc->storage->data));
 
     THGPUCheck(gpuMemcpy(selfc_ptr, selfc->storageOffset * sizeof(float),
                          src->storage->data + src->storageOffset, 0,
@@ -67,7 +67,7 @@ void THFloatTensor_copyGPU(THFloatTensor *self, struct THGPUTensor *src)
   {
     THFloatTensor *selfc = THFloatTensor_newContiguous(self);
     src = THGPUTensor_newContiguous(src);
-    float* src_ptr = static_cast<float*>(Concurrency::getAllocator().device_data(src->storage->data));
+    float* src_ptr = static_cast<float*>(Concurrency::getDevicePointer(src->storage->data));
 
     THGPUCheck(gpuMemcpy(selfc->storage->data + selfc->storageOffset, 0,
                        src_ptr, src->storageOffset * sizeof(float),
@@ -156,9 +156,9 @@ static void THGPUTensor_computesz(THGPUTensor *self, Concurrency::array_view<lon
     }
   }
 
-  long* sz_ptr = static_cast<long*>(Concurrency::getAllocator().device_data((*sz_)->data()));
+  long* sz_ptr = static_cast<long*>(Concurrency::getDevicePointer((*sz_)->data()));
   THGPUCheck(gpuMemcpy(sz_ptr, 0, szh, 0, dim * sizeof(long), gpuMemcpyHostToDevice));
-  long* st_ptr = static_cast<long*>(Concurrency::getAllocator().device_data((*st_)->data()));
+  long* st_ptr = static_cast<long*>(Concurrency::getDevicePointer((*st_)->data()));
   THGPUCheck(gpuMemcpy(st_ptr, 0, sth, 0, dim * sizeof(long), gpuMemcpyHostToDevice));
 
   THFree(szh);
@@ -237,8 +237,8 @@ THC_API void THGPUTensor_copy(THGPUTensor *self, THGPUTensor *src)
 
   if ((THGPUTensor_isContiguous(self) && THGPUTensor_isContiguous(src)) || (totalElements == 1))
   {
-    float* self_ptr = static_cast<float*>(Concurrency::getAllocator().device_data(self->storage->data));
-    float* src_ptr = static_cast<float*>(Concurrency::getAllocator().device_data(src->storage->data));
+    float* self_ptr = static_cast<float*>(Concurrency::getDevicePointer(self->storage->data));
+    float* src_ptr = static_cast<float*>(Concurrency::getDevicePointer(src->storage->data));
     // TODO: Async copy
     THGPUCheck(gpuMemcpy(self_ptr, self->storageOffset * sizeof(float),
                src_ptr, src->storageOffset * sizeof(float),
