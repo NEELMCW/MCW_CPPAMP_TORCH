@@ -16,7 +16,7 @@
   {                                                                                               \
     float *fdata = (float*)THAlloc(sizeof(float) * size);                                         \
     THFile_readFloatRaw(file, fdata, size);                                                       \
-    float* device_ptr = static_cast<float *>(Concurrency::getAllocator().device_data(data));      \
+    float* device_ptr = static_cast<float *>(Concurrency::getDevicePointer(data));                \
     THGPUCheck(gpuMemcpy(device_ptr, 0, fdata, 0, size * sizeof(float), gpuMemcpyHostToDevice));  \
     THFree(fdata);                                                                                \
   }
@@ -24,7 +24,7 @@
 #define THFile_writeRealRaw(file, data, size)                                                      \
   {                                                                                                \
     float *fdata = (float *)THAlloc(sizeof(float) * size);                                         \
-    float* device_ptr = static_cast<float *>(Concurrency::getAllocator().device_data(data));       \
+    float* device_ptr = static_cast<float *>(Concurrency::getDevicePointer(data));                \
     THGPUCheck(gpuMemcpy(fdata, 0, device_ptr, 0, size * sizeof(float), gpuMemcpyDeviceToHost));   \
     THFile_writeFloatRaw(file, fdata, size);                                                       \
     THFree(fdata);                                                                                 \

@@ -21,7 +21,7 @@ int gpuMemcpy(void* dst, size_t dst_offset, void* src, size_t src_offset,
       break;
 
     case gpuMemcpyDeviceToHost: {
-      cl_int err = clEnqueueReadBuffer(Concurrency::getAllocator().getQueue(),
+      cl_int err = clEnqueueReadBuffer(Concurrency::getOCLQueue(src),
                                        static_cast<cl_mem>(src), CL_TRUE, src_offset,
                                        count, dst, 0, NULL, NULL);
 
@@ -35,7 +35,7 @@ int gpuMemcpy(void* dst, size_t dst_offset, void* src, size_t src_offset,
     }
 
     case gpuMemcpyHostToDevice: {
-      cl_int err = clEnqueueWriteBuffer(Concurrency::getAllocator().getQueue(),
+      cl_int err = clEnqueueWriteBuffer(Concurrency::getOCLQueue(dst),
                                         static_cast<cl_mem>(dst), CL_TRUE, dst_offset,
                                         count, src, 0, NULL, NULL);
 
@@ -49,19 +49,33 @@ int gpuMemcpy(void* dst, size_t dst_offset, void* src, size_t src_offset,
     }
 
     case gpuMemcpyDeviceToDevice: {
-      cl_event event;
-      cl_int err = clEnqueueCopyBuffer (Concurrency::getAllocator().getQueue(),
+      cl_command_queue srcq = Concurrency::getOCLQueue(src);
+      cl_command_queue dstq = Concurrency::getOCLQueue(dst);
+      // TODO: since there is only one queue on one device now
+      if (srcq == dstq) {
+        cl_event event;
+        cl_int err = clEnqueueCopyBuffer (Concurrency::getOCLQueue(src),
                                         static_cast<cl_mem>(src), static_cast<cl_mem>(dst),
                                         src_offset, dst_offset, count, 0, NULL, &event);
 
-      if (err != CL_SUCCESS)
-      {
-        printf("Copy error = %d\n", err);
-        exit(1);
-      }
+        if (err != CL_SUCCESS)
+        {
+          printf("Copy error = %d\n", err);
+          exit(1);
+        }
 
-      clWaitForEvents(1, &event);
-      break;
+        clWaitForEvents(1, &event);
+        break;
+      } else {
+        // peer to peer with host as bridge
+        // TODO: replace with peer2peer copying
+        float *host = (float *) malloc(count);
+        assert (host);
+        gpuMemcpy(host, 0, src, src_offset, count, gpuMemcpyDeviceToHost);
+        gpuMemcpy(dst, dst_offset, host, 0, count, gpuMemcpyHostToDevice);
+        free (host);
+        host = 0;
+      }
     }
 
     case gpuMemcpyDefault:
@@ -82,7 +96,7 @@ int gpuMemcpyAsync(void* dst, size_t dst_offset, void* src, size_t src_offset,
 
     case gpuMemcpyDeviceToHost: {
       cl_event event;
-      cl_int err = clEnqueueWriteBuffer(Concurrency::getAllocator().getQueue(),
+      cl_int err = clEnqueueWriteBuffer(Concurrency::getOCLQueue(src),
                                         static_cast<cl_mem>(src), CL_FALSE, src_offset,
                                         count, dst, 0, NULL, &event);
 
@@ -104,7 +118,7 @@ int gpuMemcpyAsync(void* dst, size_t dst_offset, void* src, size_t src_offset,
 
     case gpuMemcpyHostToDevice: {
       cl_event event;
-      cl_int err = clEnqueueReadBuffer(Concurrency::getAllocator().getQueue(),
+      cl_int err = clEnqueueReadBuffer(Concurrency::getOCLQueue(dst),
                                        static_cast<cl_mem>(dst), CL_FALSE, dst_offset,
                                        count, src, 0, NULL, &event);
 
@@ -125,25 +139,39 @@ int gpuMemcpyAsync(void* dst, size_t dst_offset, void* src, size_t src_offset,
     }
 
     case gpuMemcpyDeviceToDevice: {
-      cl_event event;
-      cl_int err = clEnqueueCopyBuffer (Concurrency::getAllocator().getQueue(),
+      cl_command_queue srcq = Concurrency::getOCLQueue(src);
+      cl_command_queue dstq = Concurrency::getOCLQueue(dst);
+      // TODO: since there is only one queue on one device now
+      if (srcq == dstq) {
+        cl_event event;
+        cl_int err = clEnqueueCopyBuffer (Concurrency::getOCLQueue(src),
                                         static_cast<cl_mem>(src), static_cast<cl_mem>(dst),
                                         src_offset, dst_offset, count, 0, NULL, &event);
 
-      if (err != CL_SUCCESS)
-      {
-        printf("CopyAsync error = %d\n", err);
-        exit(1);
-      }
+        if (err != CL_SUCCESS)
+        {
+          printf("CopyAsync error = %d\n", err);
+          exit(1);
+        }
 
-      cl_int status = CL_QUEUED;
-      while(status != CL_COMPLETE)
-      {
-        clGetEventInfo(event, CL_EVENT_COMMAND_EXECUTION_STATUS,
+        cl_int status = CL_QUEUED;
+        while(status != CL_COMPLETE)
+        {
+          clGetEventInfo(event, CL_EVENT_COMMAND_EXECUTION_STATUS,
                              sizeof(cl_int), &status, NULL);
-      }
+        }
 
-      break;
+        break;
+      }else {
+        // peer to peer with host as bridge
+        // TODO: replace with peer2peer copying
+        float *host = (float *) malloc(count);
+        assert (host);
+        gpuMemcpyAsync(host, 0, src, src_offset, count, gpuMemcpyDeviceToHost);
+        gpuMemcpyAsync(dst, dst_offset, host, 0, count, gpuMemcpyHostToDevice);
+        free (host);
+        host = 0;
+      }
     }
 
     case gpuMemcpyDefault:
